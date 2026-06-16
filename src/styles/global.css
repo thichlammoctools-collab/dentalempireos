@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Class-based dark mode: toggled via .dark class on <html> */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* === Material Design 3 Color System === */
+  --color-background: #121317;
+  --color-surface: #121317;
+  --color-surface-dim: #121317;
+  --color-surface-container: #1e1f23;
+  --color-surface-container-low: #1a1b1f;
+  --color-surface-container-lowest: #0d0e12;
+  --color-surface-container-high: #292a2e;
+  --color-surface-container-highest: #343539;
+  --color-surface-bright: #38393d;
+  --color-surface-variant: #343539;
+
+  --color-primary: #92ccff;
+  --color-primary-container: #2b98dd;
+  --color-on-primary: #003351;
+  --color-on-primary-container: #002c47;
+  --color-on-primary-fixed: #001d31;
+  --color-on-primary-fixed-variant: #004b73;
+  --color-primary-fixed: #cce5ff;
+  --color-primary-fixed-dim: #92ccff;
+
+  --color-secondary: #c6c6c6;
+  --color-secondary-container: #484949;
+  --color-on-secondary: #2f3131;
+  --color-on-secondary-container: #b8b8b8;
+  --color-on-secondary-fixed: #1a1c1c;
+  --color-on-secondary-fixed-variant: #464747;
+  --color-secondary-fixed: #e3e2e2;
+  --color-secondary-fixed-dim: #c6c6c6;
+
+  --color-tertiary: #ffb77a;
+  --color-tertiary-container: #d37b1e;
+  --color-on-tertiary: #4c2700;
+  --color-on-tertiary-container: #432100;
+  --color-on-tertiary-fixed: #2e1500;
+  --color-on-tertiary-fixed-variant: #6d3a00;
+  --color-tertiary-fixed: #ffdcc2;
+  --color-tertiary-fixed-dim: #ffb77a;
+
+  --color-on-surface: #e3e2e7;
+  --color-on-surface-variant: #bfc7d2;
+  --color-on-background: #e3e2e7;
+  --color-inverse-surface: #e3e2e7;
+  --color-inverse-on-surface: #2f3034;
+  --color-inverse-primary: #006497;
+
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
+
+  --color-outline: #89929b;
+  --color-outline-variant: #3f4850;
+
+  --color-metallic-blue: #2b98dd;
+
+  /* === Font Family === */
+  --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+}
+
+/* === Base layer === */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: var(--color-primary-container);
+    color: white;
+  }
+}
+
+/* === Utility Classes === */
+@layer utilities {
+  /* Metallic gradient button */
+  .btn-primary-metallic {
+    background: linear-gradient(135deg, #2b98dd 0%, #004b73 100%);
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(43, 152, 221, 0.3);
+  }
+  .btn-primary-metallic:hover {
+    opacity: 0.9;
+  }
+  .btn-primary-metallic:active {
+    transform: scale(0.95);
+  }
+
+  /* Glass morphism */
+  .glass-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* === Material Symbols === */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

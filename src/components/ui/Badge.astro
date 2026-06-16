@@ -1,0 +1,23 @@
+---
+interface Props {
+  variant?: 'free' | 'tier' | 'new' | 'accent';
+  class?: string;
+}
+
+const { variant = 'free', class: className = '' } = Astro.props;
+
+const variants = {
+  free: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  tier: 'bg-navy-100 text-navy-700 dark:bg-navy-800 dark:text-navy-300',
+  new: 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400',
+  accent: 'bg-accent-500 text-white',
+};
+---
+
+<span class:list={[
+  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
+  variants[variant],
+  className,
+]}>
+  <slot />
+</span>

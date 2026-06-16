@@ -1,0 +1,73 @@
+---
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="w-full py-20 bg-surface-container-lowest text-on-surface border-t border-outline-variant">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 w-full px-6 max-w-[1200px] mx-auto">
+    <!-- Brand -->
+    <div class="space-y-6">
+      <div class="text-headline-md font-bold text-white">Dental Empire</div>
+      <p class="text-on-surface-variant">
+        Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.
+      </p>
+      <div class="flex gap-4">
+        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+          <span class="material-symbols-outlined">face_nod</span>
+        </a>
+        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+          <span class="material-symbols-outlined">play_circle</span>
+        </a>
+        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+          <span class="material-symbols-outlined">mail</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Nội Dung -->
+    <div>
+      <h4 class="font-bold text-lg mb-6 text-primary">Nội Dung</h4>
+      <ul class="space-y-4">
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="/book">Thư viện E-book</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="#">Khóa học Academy</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="#">Blog Quản Trị</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="/resources">Tài liệu miễn phí</a></li>
+      </ul>
+    </div>
+
+    <!-- Về Chúng Tôi -->
+    <div>
+      <h4 class="font-bold text-lg mb-6 text-primary">Về Chúng Tôi</h4>
+      <ul class="space-y-4">
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="/about">Dr. Vinh &amp; Đội ngũ</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="/about">Câu chuyện thương hiệu</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="#">Điều khoản dịch vụ</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-all" href="#">Chính sách bảo mật</a></li>
+      </ul>
+    </div>
+
+    <!-- Newsletter -->
+    <div>
+      <h4 class="font-bold text-lg mb-6 text-primary">Newsletter</h4>
+      <p class="mb-4 text-on-surface-variant">Nhận kiến thức quản trị mới nhất hàng tuần.</p>
+      <div class="flex flex-col gap-2">
+        <input
+          type="email"
+          placeholder="Email của bác sĩ..."
+          class="px-4 py-3 bg-white/5 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 text-white"
+        />
+        <button class="w-full py-3 btn-primary-metallic font-bold rounded-xl active:scale-95 transition-all">
+          Đăng Ký
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="w-full px-6 max-w-[1200px] mx-auto mt-20 pt-8 border-t border-outline-variant flex flex-col md:flex-row justify-between items-center gap-4 text-on-surface-variant">
+    <div>&copy; {currentYear} Dental Empire Knowledge Hub. All rights reserved.</div>
+    <div class="flex gap-8">
+      <a href="#" class="hover:text-primary transition-colors">Privacy Policy</a>
+      <a href="#" class="hover:text-primary transition-colors">Terms of Service</a>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,99 @@
+---
+const navLinks = [
+  { href: '/', label: 'Home' },
+  { href: '/book', label: 'E-book Library' },
+  { href: '/resources', label: 'Resources' },
+  { href: '/about', label: 'About' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<nav class="fixed top-0 w-full z-50 bg-surface-container-lowest/80 glass-nav border-b border-outline-variant h-20">
+  <div class="flex justify-between items-center w-full px-6 max-w-[1200px] mx-auto h-full">
+    <!-- Logo -->
+    <div class="flex items-center gap-2">
+      <span class="text-headline-md font-bold text-primary">Dental Empire</span>
+    </div>
+
+    <!-- Desktop Nav -->
+    <div class="hidden md:flex items-center gap-8">
+      {navLinks.map((link) => {
+        const isActive = link.href === '/'
+          ? currentPath === '/'
+          : currentPath.startsWith(link.href);
+        return (
+          <a
+            href={link.href}
+            class:list={[
+              'label-md font-semibold transition-colors',
+              isActive
+                ? 'text-primary border-b-2 border-primary pb-1'
+                : 'text-on-surface-variant hover:text-primary',
+            ]}
+          >
+            {link.label}
+          </a>
+        );
+      })}
+    </div>
+
+    <!-- Right side -->
+    <div class="flex items-center gap-4">
+      <a
+        href="/book"
+        class="hidden lg:flex items-center gap-2 px-6 py-2.5 btn-primary-metallic font-bold rounded-lg active:scale-95 transition-all"
+      >
+        <span class="material-symbols-outlined text-[20px]">menu_book</span>
+        Read Free E-book
+      </a>
+      <button
+        id="mobile-menu-toggle"
+        class="md:hidden text-primary"
+        aria-label="Mở menu"
+      >
+        <span class="material-symbols-outlined text-[32px]">menu</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu panel -->
+  <div id="mobile-menu" class="md:hidden hidden border-t border-outline-variant bg-surface-container-lowest">
+    <div class="px-6 py-4 space-y-2">
+      {navLinks.map((link) => {
+        const isActive = link.href === '/'
+          ? currentPath === '/'
+          : currentPath.startsWith(link.href);
+        return (
+          <a
+            href={link.href}
+            class:list={[
+              'block px-4 py-3 rounded-xl font-semibold transition-colors',
+              isActive
+                ? 'bg-primary/10 text-primary'
+                : 'text-on-surface-variant hover:text-primary hover:bg-surface-container',
+            ]}
+          >
+            {link.label}
+          </a>
+        );
+      })}
+      <a
+        href="/book"
+        class="flex items-center gap-2 px-4 py-3 btn-primary-metallic font-bold rounded-xl mt-4"
+      >
+        <span class="material-symbols-outlined text-[20px]">menu_book</span>
+        Read Free E-book
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const toggle = document.getElementById('mobile-menu-toggle');
+  const menu = document.getElementById('mobile-menu');
+
+  toggle?.addEventListener('click', () => {
+    menu?.classList.toggle('hidden');
+  });
+</script>
