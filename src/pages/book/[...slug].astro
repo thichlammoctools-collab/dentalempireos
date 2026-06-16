@@ -1,0 +1,51 @@
+---
+import { render, type GetStaticPaths } from 'astro:content';
+import { getAllChapters, getAdjacentChapters, getTierLabel } from '../../lib/collection-helpers';
+import BookLayout from '../../layouts/BookLayout.astro';
+import ChapterNav from '../../components/book/ChapterNav.astro';
+import DonateWidget from '../../components/book/DonateWidget.astro';
+import Badge from '../../components/ui/Badge.astro';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const chapters = await getAllChapters();
+  return chapters.map((chapter) => ({
+    params: { slug: chapter.id },
+    props: { chapter },
+  }));
+}
+
+const { chapter } = Astro.props;
+const { Content, headings } = await render(chapter);
+const { prev, next } = await getAdjacentChapters(chapter.id);
+const tierLabel = getTierLabel(chapter.data.tier);
+---
+
+<BookLayout
+  title={chapter.data.title}
+  description={chapter.data.description}
+  headings={headings}
+  currentSlug={chapter.id}
+>
+  <!-- Chapter Header -->
+  <div class="mb-8 pb-8 border-b border-outline-variant">
+    <div class="flex items-center gap-3 mb-4">
+      <Badge variant="accent">Tầng {chapter.data.tier}</Badge>
+      <span class="text-on-surface-variant text-sm">{tierLabel}</span>
+    </div>
+    <h1 class="text-headline-lg text-white mb-3">{chapter.data.title}</h1>
+    <p class="text-on-surface-variant">{chapter.data.description}</p>
+  </div>
+
+  <!-- Chapter Content -->
+  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant max-w-none">
+    <Content />
+  </div>
+
+  <!-- Donate Widget -->
+  <DonateWidget tier={chapter.data.tier} />
+
+  <!-- Chapter Navigation -->
+  <ChapterNav prev={prev} next={next} />
+</BookLayout>

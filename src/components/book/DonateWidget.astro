@@ -1,0 +1,36 @@
+---
+interface Props {
+  tier: number;
+}
+
+const { tier } = Astro.props;
+---
+
+<div class="mt-12 p-8 bg-surface-container rounded-2xl border border-outline-variant text-center">
+  <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 text-primary mb-4">
+    <span class="material-symbols-outlined text-3xl">volunteer_activism</span>
+  </div>
+  <h3 class="text-headline-md text-white mb-2">Ủng Hộ Tác Giả</h3>
+  <p class="text-on-surface-variant text-sm mb-6 max-w-md mx-auto">
+    Nếu cuốn sách đã mang lại giá trị cho bạn, hãy ủng hộ để tác giả có thể tiếp tục viết và chia sẻ kiến thức.
+  </p>
+
+  <!-- QR Code placeholder -->
+  <div class="inline-block p-4 bg-white rounded-2xl mb-4">
+    <img
+      src="/images/qr/donation-qr.svg"
+      alt="QR Code ủng hộ"
+      class="w-48 h-48"
+      loading="lazy"
+    />
+  </div>
+
+  <p class="text-on-surface-variant text-xs mt-4">
+    Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
+  </p>
+
+  <div class="flex items-center justify-center gap-2 mt-3 text-xs text-on-surface-variant">
+    <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
+    <span>Supports: Vietcombank, Techcombank, Momo, ZaloPay</span>
+  </div>
+</div>

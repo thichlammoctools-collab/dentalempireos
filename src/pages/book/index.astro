@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllChapters, getTierLabel } from '../../lib/collection-helpers';
+import Badge from '../../components/ui/Badge.astro';
+
+export const prerender = true;
+
+const chapters = await getAllChapters();
+const tiers = [1, 2, 3, 4, 5, 6];
+---
+
+<BaseLayout title="Thư Viện Sách - Dental Empire OS" description="Đọc miễn phí toàn bộ nội dung Dental Empire OS — 6 tầng quản trị nha khoa toàn diện.">
+
+  <!-- Hero -->
+  <section class="py-16 bg-surface-container-low">
+    <div class="px-6 max-w-[1200px] mx-auto text-center">
+      <h1 class="text-headline-lg text-white mb-4">Thư Viện Sách</h1>
+      <p class="text-on-surface-variant max-w-2xl mx-auto">
+        Đọc miễn phí toàn bộ nội dung Dental Empire OS. Lộ trình từ nền tảng đến hệ điều hành quản trị toàn diện.
+      </p>
+    </div>
+  </section>
+
+  <!-- Chapters by Tier -->
+  <section class="py-16">
+    <div class="px-6 max-w-[1200px] mx-auto space-y-16">
+      {tiers.map((tier) => {
+        const tierChapters = chapters.filter((c) => c.data.tier === tier);
+        if (tierChapters.length === 0) return null;
+        const label = getTierLabel(tier);
+        return (
+          <div>
+            <div class="flex items-center gap-3 mb-6">
+              <Badge variant="accent">Tầng {tier}</Badge>
+              <h2 class="text-headline-md text-white">{label}</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tierChapters.map((ch) => (
+                <a
+                  href={`/book/${ch.id}`}
+                  class="group p-6 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300"
+                >
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-xs text-on-surface-variant mb-1">Chương {ch.data.chapter}</p>
+                      <h3 class="font-bold text-white group-hover:text-primary transition-colors">{ch.data.title}</h3>
+                      <p class="text-sm text-on-surface-variant mt-2 line-clamp-2">{ch.data.description}</p>
+                    </div>
+                    <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors mt-1">arrow_forward</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </section>
+
+</BaseLayout>

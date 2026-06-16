@@ -1,0 +1,122 @@
+---
+interface Props {
+  headings: { depth: number; slug: string; text: string }[];
+  currentSlug: string;
+}
+
+const { headings, currentSlug } = Astro.props;
+const filteredHeadings = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+---
+
+<!-- Desktop TOC -->
+<aside class="hidden lg:block sticky top-24 w-64 shrink-0 self-start">
+  <nav class="space-y-1" aria-label="Mục lục chương">
+    <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">Mục lục</p>
+    {filteredHeadings.map((h) => (
+      <a
+        href={`#${h.slug}`}
+        class:list={[
+          'block text-sm py-1.5 transition-colors border-l-2',
+          h.depth === 3 ? 'pl-6' : 'pl-3',
+          'border-transparent text-on-surface-variant hover:text-primary hover:border-primary/50',
+        ]}
+        data-heading-link={h.slug}
+      >
+        {h.text}
+      </a>
+    ))}
+  </nav>
+</aside>
+
+<!-- Mobile TOC toggle -->
+<div class="lg:hidden fixed bottom-6 right-6 z-40">
+  <button
+    id="mobile-toc-toggle"
+    class="w-12 h-12 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg active:scale-95 transition-all"
+    aria-label="Mở mục lục"
+  >
+    <span class="material-symbols-outlined">format_list_bulleted</span>
+  </button>
+</div>
+
+<!-- Mobile TOC drawer -->
+<div id="mobile-toc-drawer" class="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-surface-container-low rounded-t-2xl border-t border-outline-variant p-6 transform translate-y-full transition-transform duration-300 max-h-[60vh] overflow-y-auto">
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Mục lục</p>
+    <button id="mobile-toc-close" class="text-on-surface-variant hover:text-primary">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="space-y-1">
+    {filteredHeadings.map((h) => (
+      <a
+        href={`#${h.slug}`}
+        class:list={[
+          'block text-sm py-2 transition-colors border-l-2',
+          h.depth === 3 ? 'pl-6' : 'pl-3',
+          'border-transparent text-on-surface-variant hover:text-primary hover:border-primary/50',
+        ]}
+        data-heading-link={h.slug}
+      >
+        {h.text}
+      </a>
+    ))}
+  </nav>
+</div>
+
+<!-- Overlay -->
+<div id="mobile-toc-overlay" class="lg:hidden fixed inset-0 z-40 bg-black/50 hidden"></div>
+
+<script>
+  function initTOC() {
+    const headings = document.querySelectorAll('article h2, article h3');
+    const tocLinks = document.querySelectorAll('[data-heading-link]');
+
+    // Intersection Observer for active heading
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            tocLinks.forEach((link) => {
+              link.classList.toggle('text-primary', link.getAttribute('data-heading-link') === id);
+              link.classList.toggle('border-primary', link.getAttribute('data-heading-link') === id);
+              link.classList.toggle('font-semibold', link.getAttribute('data-heading-link') === id);
+            });
+          }
+        });
+      },
+      { rootMargin: '-20% 0px -70% 0px' }
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+
+    // Mobile TOC toggle
+    const toggle = document.getElementById('mobile-toc-toggle');
+    const drawer = document.getElementById('mobile-toc-drawer');
+    const close = document.getElementById('mobile-toc-close');
+    const overlay = document.getElementById('mobile-toc-overlay');
+
+    toggle?.addEventListener('click', () => {
+      drawer?.classList.remove('translate-y-full');
+      overlay?.classList.remove('hidden');
+    });
+
+    const closeDrawer = () => {
+      drawer?.classList.add('translate-y-full');
+      overlay?.classList.add('hidden');
+    };
+
+    close?.addEventListener('click', closeDrawer);
+    overlay?.addEventListener('click', closeDrawer);
+
+    // Close drawer when clicking a link
+    drawer?.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', closeDrawer);
+    });
+  }
+
+  // Run on initial load and after View Transitions
+  document.addEventListener('astro:page-load', initTOC);
+  document.addEventListener('DOMContentLoaded', initTOC);
+</script>

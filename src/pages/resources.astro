@@ -1,0 +1,136 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DownloadForm from '../components/sections/DownloadForm.astro';
+
+const resources = [
+  {
+    id: 'kpi-dashboard',
+    title: 'KPI Dashboard Template',
+    description: 'Bảng đo lường hiệu suất phòng khám — theo dõi doanh thu, số lượng khách hàng mới, tỷ lệ giữ chân và lợi nhuận ròng.',
+    icon: 'monitoring',
+    fileExt: 'xlsx',
+    category: 'Tài chính',
+  },
+  {
+    id: 'crm-tracker',
+    title: 'CRM Khách Hàng Tracker',
+    description: 'Theo dõi hành trình khách hàng từ lần đầu liên hệ đến điều trị duy trì. Tích hợp nhắc lịch tái khám tự động.',
+    icon: 'contacts',
+    fileExt: 'xlsx',
+    category: 'Khách hàng',
+  },
+  {
+    id: 'sop-checklist',
+    title: 'SOP Quy Trình Chăm Sóc',
+    description: 'Bộ quy trình chuẩn hóa từ tiếp đón, tư vấn, điều trị đến tái khám. Áp dụng cho mọi phòng khám.',
+    icon: 'checklist',
+    fileExt: 'pdf',
+    category: 'Vận hành',
+  },
+  {
+    id: 'tuyen-dung-template',
+    title: 'Mẫu Tuyển Dụng Nhân Sự',
+    description: 'Bộ mẫu tin tuyển dụng, bảng đánh giá phỏng vấn và phiếu thử việc cho vị trí bác sĩ, phụ tá, lễ tân.',
+    icon: 'person_add',
+    fileExt: 'pdf',
+    category: 'Nhân sự',
+  },
+  {
+    id: 'marketing-plan',
+    title: 'Kế Hoạch Marketing 90 Ngày',
+    description: 'Bản kế hoạch marketing chi tiết cho 90 ngày đầu — từ social media, Google Ads đến chương trình khuyến mãi.',
+    icon: 'campaign',
+    fileExt: 'pdf',
+    category: 'Marketing',
+  },
+  {
+    id: 'financial-report',
+    title: 'Báo Cáo Tài Chính Tháng',
+    description: 'Mẫu báo cáo tài chính hàng tháng — dòng tiền, chi phí cố định, biến động và dự báo 3 tháng tới.',
+    icon: 'account_balance',
+    fileExt: 'xlsx',
+    category: 'Tài chính',
+  },
+];
+---
+
+<BaseLayout title="Tài Nguyên Miễn Phí - Dental Empire OS" description="Tải miễn phí bộ công cụ quản trị nha khoa: KPI Dashboard, CRM Tracker, SOP, mẫu tuyển dụng và kế hoạch marketing.">
+
+  <!-- Hero -->
+  <section class="py-16 bg-surface-container-low">
+    <div class="px-6 max-w-[1200px] mx-auto text-center">
+      <h1 class="text-headline-lg text-white mb-4">Tài Nguyên Miễn Phí</h1>
+      <p class="text-on-surface-variant max-w-2xl mx-auto">
+        Bộ công cụ thực chiến giúp bạn quản trị phòng khám hiệu quả. Nhập email để tải miễn phí bất kỳ tài nguyên nào.
+      </p>
+    </div>
+  </section>
+
+  <!-- Resources Grid -->
+  <section class="py-16">
+    <div class="px-6 max-w-[1200px] mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {resources.map((r) => (
+          <div class="group bg-surface-container hover:bg-surface-container-high p-6 rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300">
+            <div class="flex items-start justify-between mb-4">
+              <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-primary">
+                <span class="material-symbols-outlined text-2xl">{r.icon}</span>
+              </div>
+              <span class="text-xs font-bold uppercase tracking-wider text-on-surface-variant bg-white/5 px-2 py-1 rounded">
+                {r.fileExt.toUpperCase()}
+              </span>
+            </div>
+            <span class="text-xs font-semibold text-primary/70 uppercase tracking-wider">{r.category}</span>
+            <h3 class="text-lg font-bold text-white mt-1 mb-2 group-hover:text-primary transition-colors">{r.title}</h3>
+            <p class="text-sm text-on-surface-variant leading-relaxed mb-4">{r.description}</p>
+
+            <!-- Download trigger button -->
+            <button
+              data-download={r.id}
+              class="inline-flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-semibold hover:border-primary hover:text-primary transition-all active:scale-95"
+            >
+              <span class="material-symbols-outlined text-[18px]">download</span>
+              Tải miễn phí
+            </button>
+
+            <!-- Email gate form -->
+            <DownloadForm resourceId={r.id} fileName={`${r.id}.${r.fileExt}`} fileLabel={r.title} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Donation Section -->
+  <section class="py-16 bg-surface-container-low">
+    <div class="px-6 max-w-[1200px] mx-auto">
+      <div class="bg-surface-container border border-outline-variant rounded-[2rem] p-12 text-center max-w-2xl mx-auto">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-6">
+          <span class="material-symbols-outlined text-4xl">volunteer_activism</span>
+        </div>
+        <h2 class="text-headline-md text-white mb-3">Ủng Hộ Dental Empire OS</h2>
+        <p class="text-on-surface-variant mb-8 max-w-md mx-auto">
+          Nếu các tài nguyên này đã giúp ích cho phòng khám của bạn, hãy ủng hộ để chúng tôi tiếp tục tạo ra nhiều công cụ chất lượng hơn.
+        </p>
+
+        <div class="inline-block p-4 bg-white rounded-2xl mb-4">
+          <img
+            src="/images/qr/donation-qr.svg"
+            alt="QR Code ủng hộ Dental Empire OS"
+            class="w-56 h-56"
+            loading="lazy"
+          />
+        </div>
+
+        <p class="text-on-surface-variant text-sm mt-4">
+          Quét mã QR với ứng dụng ngân hàng để ủng hộ
+        </p>
+        <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
+          <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
+          <span> Vietcombank · Techcombank · Momo · ZaloPay</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</BaseLayout>

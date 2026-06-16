@@ -1,0 +1,27 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import TableOfContents from '../components/book/TableOfContents.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  headings: { depth: number; slug: string; text: string }[];
+  currentSlug: string;
+}
+
+const { title, description, headings, currentSlug } = Astro.props;
+---
+
+<BaseLayout title={`${title} - Dental Empire OS`} description={description}>
+  <div class="px-6 max-w-[1200px] mx-auto">
+    <div class="flex gap-12 py-12">
+      <!-- Sidebar TOC -->
+      <TableOfContents headings={headings} currentSlug={currentSlug} />
+
+      <!-- Main content area -->
+      <article class="flex-1 min-w-0 max-w-[72ch]">
+        <slot />
+      </article>
+    </div>
+  </div>
+</BaseLayout>

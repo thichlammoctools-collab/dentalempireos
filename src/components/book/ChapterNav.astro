@@ -1,0 +1,46 @@
+---
+interface Chapter {
+  id: string;
+  data: {
+    title: string;
+    tier: number;
+  };
+}
+
+interface Props {
+  prev: Chapter | null;
+  next: Chapter | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+<div class="mt-12 pt-8 border-t border-outline-variant">
+  <div class="flex flex-col sm:flex-row gap-4">
+    {prev ? (
+      <a
+        href={`/book/${prev.id}`}
+        class="flex-1 group p-4 bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all"
+      >
+        <div class="flex items-center gap-2 text-xs text-on-surface-variant mb-1">
+          <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+          Chương trước
+        </div>
+        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">{prev.data.title}</p>
+      </a>
+    ) : <div class="flex-1" />}
+
+    {next ? (
+      <a
+        href={`/book/${next.id}`}
+        class="flex-1 group p-4 bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all text-right"
+      >
+        <div class="flex items-center justify-end gap-2 text-xs text-on-surface-variant mb-1">
+          Chương tiếp
+          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </div>
+        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">{next.data.title}</p>
+      </a>
+    ) : <div class="flex-1" />}
+  </div>
+</div>
