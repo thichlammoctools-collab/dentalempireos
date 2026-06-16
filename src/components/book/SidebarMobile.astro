@@ -1,0 +1,175 @@
+---
+// Mobile full-screen drawer sidebar
+interface ChapterItem {
+  id: string;
+  data: {
+    title: string;
+    tier: number;
+    chapter: number;
+  };
+}
+
+interface ModuleItem {
+  title: string;
+  slug: string;
+}
+
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: ChapterItem[];
+}
+
+interface Props {
+  groupedChapters: TierGroup[];
+  currentSlug: string;
+  currentModules: ModuleItem[];
+}
+
+const { groupedChapters, currentSlug, currentModules } = Astro.props;
+const currentTier = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.tier ?? 3;
+---
+
+<!-- Mobile FAB trigger -->
+<div class="lg:hidden fixed bottom-6 right-6 z-40">
+  <button
+    id="sidebar-mobile-toggle"
+    class="w-14 h-14 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg active:scale-95 transition-all"
+    aria-label="Mở mục lục sách"
+  >
+    <span class="material-symbols-outlined text-2xl">menu_book</span>
+  </button>
+</div>
+
+<!-- Overlay -->
+<div id="sidebar-mobile-overlay" class="lg:hidden fixed inset-0 z-50 bg-black/60 hidden backdrop-blur-sm"></div>
+
+<!-- Drawer -->
+<div id="sidebar-mobile-drawer" class="lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[360px] bg-surface-container-low border-r border-outline-variant transform -translate-x-full transition-transform duration-300 overflow-y-auto">
+  <!-- Header -->
+  <div class="sticky top-0 z-10 bg-surface-container-low border-b border-outline-variant px-6 py-4 flex items-center justify-between">
+    <span class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Mục lục sách</span>
+    <button id="sidebar-mobile-close" class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <!-- Nav content -->
+  <nav class="px-4 py-4 space-y-1">
+    {groupedChapters.map((group) => {
+      const isCurrentTier = group.tier === currentTier;
+      return (
+        <div class="sidebar-mobile-tier" data-mobile-tier={group.tier}>
+          <button
+            class="sidebar-mobile-tier-toggle w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container-high text-on-surface-variant hover:text-white"
+            data-mobile-toggle={group.tier}
+          >
+            <span class="material-symbols-outlined text-[20px] text-primary shrink-0">folder</span>
+            <span class="flex-1 text-left">{group.label}</span>
+            <span class="text-xs text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{group.chapters.length}</span>
+            <span class="material-symbols-outlined text-[18px] chevron transition-transform duration-200">expand_more</span>
+          </button>
+          <div class="mobile-chapter-list overflow-hidden transition-all duration-300" style={isCurrentTier ? 'max-height: 3000px' : 'max-height: 0'}>
+            {group.chapters.map((ch) => {
+              const isCurrent = ch.id === currentSlug;
+              return (
+                <div>
+                  <a
+                    href={`/book/${ch.id}`}
+                    class:list={[
+                      'flex items-center gap-3 pl-10 pr-3 py-2.5 text-sm transition-colors border-l-2',
+                      isCurrent
+                        ? 'text-primary border-primary font-semibold bg-primary/5'
+                        : 'text-on-surface-variant border-transparent hover:text-white hover:border-primary/30',
+                    ]}
+                    data-mobile-link
+                  >
+                    <span class="text-xs text-on-surface-variant shrink-0 w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                    <span class="truncate">{ch.data.title}</span>
+                  </a>
+                  {isCurrent && currentModules.length > 0 && (
+                    <div class="mobile-module-list">
+                      {currentModules.map((mod) => (
+                        <a
+                          href={`#${mod.slug}`}
+                          class="flex items-center gap-2 pl-16 pr-3 py-2 text-xs transition-colors text-on-surface-variant hover:text-primary"
+                          data-mobile-link
+                        >
+                          <span class="material-symbols-outlined text-[12px]">radio_button_unchecked</span>
+                          <span class="truncate">{mod.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    })}
+  </nav>
+</div>
+
+<script>
+  function initMobileSidebar() {
+    const toggle = document.getElementById('sidebar-mobile-toggle');
+    const drawer = document.getElementById('sidebar-mobile-drawer');
+    const overlay = document.getElementById('sidebar-mobile-overlay');
+    const close = document.getElementById('sidebar-mobile-close');
+
+    if (!toggle || !drawer || !overlay) return;
+
+    const openDrawer = () => {
+      drawer.classList.remove('-translate-x-full');
+      overlay.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeDrawer = () => {
+      drawer.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
+      document.body.style.overflow = '';
+    };
+
+    toggle.addEventListener('click', openDrawer);
+    close?.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+
+    // Close on link click
+    drawer.querySelectorAll('[data-mobile-link]').forEach((link) => {
+      link.addEventListener('click', closeDrawer);
+    });
+
+    // Toggle tiers
+    drawer.querySelectorAll('[data-mobile-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tier = (btn as HTMLElement).dataset.mobileToggle;
+        const section = drawer.querySelector(`[data-mobile-tier="${tier}"]`);
+        const chevron = btn.querySelector('.chevron');
+        if (!section) return;
+
+        const chapterList = section.querySelector('.mobile-chapter-list') as HTMLElement;
+        if (!chapterList) return;
+
+        const isExpanded = chapterList.style.maxHeight !== '0px';
+        chapterList.style.maxHeight = isExpanded ? '0' : `${chapterList.scrollHeight + 500}px`;
+        chevron?.classList.toggle('rotate-180');
+      });
+    });
+
+    // Auto-expand current tier
+    drawer.querySelectorAll('[data-mobile-tier]').forEach((section) => {
+      const chapterList = section.querySelector('.mobile-chapter-list') as HTMLElement;
+      const chevron = section.querySelector('.chevron');
+      if (chapterList && chapterList.style.maxHeight !== '0px') {
+        chapterList.style.maxHeight = `${chapterList.scrollHeight + 500}px`;
+        chevron?.classList.add('rotate-180');
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initMobileSidebar);
+</script>

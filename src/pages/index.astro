@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { modules, testimonials } from '../data/modules';
+import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules';
 ---
 
 <BaseLayout title="Dental Empire OS - Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện">
@@ -37,13 +37,12 @@ import { modules, testimonials } from '../data/modules';
       </div>
       <div class="hidden md:block relative">
         <div class="absolute inset-0 bg-primary-container/10 rounded-[2rem] -rotate-3 blur-2xl"></div>
-        <div class="relative z-10 w-full aspect-[3/4] rounded-[2rem] shadow-2xl border-4 border-surface-container-high bg-gradient-to-br from-primary-container/20 to-surface-container flex items-center justify-center">
-          <div class="text-center space-y-4 p-8">
-            <span class="material-symbols-outlined text-8xl text-primary/40">menu_book</span>
-            <div class="text-headline-md font-bold text-primary">Dental Empire OS</div>
-            <div class="text-on-surface-variant text-sm">Hệ Điều Hành Quản Trị Nha Khoa</div>
-          </div>
-        </div>
+        <img
+          src="/images/book/cover.jpg"
+          alt="Dental Empire OS - Bìa sách"
+          class="relative z-10 w-full rounded-[2rem] shadow-2xl border-4 border-surface-container-high object-cover"
+          loading="eager"
+        />
       </div>
     </div>
   </section>
@@ -58,7 +57,7 @@ import { modules, testimonials } from '../data/modules';
         </p>
       </div>
       <div class="flex flex-col gap-8 max-w-4xl mx-auto">
-        {modules.map((mod, index) => (
+        {tiers.map((mod, index) => (
           <div class:list={[
             'group relative p-8 rounded-[2rem] border transition-all duration-500',
             index === 0
@@ -78,9 +77,9 @@ import { modules, testimonials } from '../data/modules';
               ]}>
                 TẦNG {mod.tier}
               </div>
-              <h3 class="text-headline-md text-white mb-4">{mod.title}</h3>
+              <h3 class="text-headline-md text-white mb-4">{mod.name}</h3>
               <p class="text-on-surface-variant leading-relaxed max-w-2xl">
-                {mod.description}
+                {mod.subtitle}
               </p>
             </div>
           </div>

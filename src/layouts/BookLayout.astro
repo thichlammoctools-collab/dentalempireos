@@ -1,27 +1,46 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import TableOfContents from '../components/book/TableOfContents.astro';
+import SidebarNav from '../components/book/SidebarNav.astro';
+import SidebarMobile from '../components/book/SidebarMobile.astro';
+
+interface ChapterItem {
+  id: string;
+  data: { title: string; tier: number; chapter: number };
+}
+
+interface ModuleItem {
+  title: string;
+  slug: string;
+}
+
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: ChapterItem[];
+}
 
 interface Props {
   title: string;
   description?: string;
-  headings: { depth: number; slug: string; text: string }[];
+  groupedChapters: TierGroup[];
   currentSlug: string;
+  currentModules: ModuleItem[];
 }
 
-const { title, description, headings, currentSlug } = Astro.props;
+const { title, description, groupedChapters, currentSlug, currentModules } = Astro.props;
 ---
 
 <BaseLayout title={`${title} - Dental Empire OS`} description={description}>
+  <!-- Desktop Sidebar -->
   <div class="px-6 max-w-[1200px] mx-auto">
-    <div class="flex gap-12 py-12">
-      <!-- Sidebar TOC -->
-      <TableOfContents headings={headings} currentSlug={currentSlug} />
-
-      <!-- Main content area -->
+    <div class="flex gap-8 py-12">
+      <SidebarNav groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
       <article class="flex-1 min-w-0 max-w-[72ch]">
         <slot />
       </article>
     </div>
   </div>
+
+  <!-- Mobile Sidebar -->
+  <SidebarMobile groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
 </BaseLayout>

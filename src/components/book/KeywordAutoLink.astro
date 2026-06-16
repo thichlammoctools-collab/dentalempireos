@@ -1,0 +1,105 @@
+---
+// Keyword auto-linking — scans article text and wraps keywords in <a> links
+// Keywords are defined in src/data/keywords.ts and serialized as JSON for client-side use
+import { keywords, keywordAliases } from '../../data/keywords';
+
+// Build search map for client
+const searchMap: Array<{ pattern: string; target: string; label: string; desc: string }> = [];
+
+for (const [key, def] of Object.entries(keywords)) {
+  searchMap.push({ pattern: key, target: def.target, label: def.label, desc: def.description || '' });
+}
+for (const [alias, mainKey] of Object.entries(keywordAliases)) {
+  const main = keywords[mainKey as keyof typeof keywords];
+  if (main) {
+    searchMap.push({ pattern: alias, target: main.target, label: main.label, desc: main.description || '' });
+  }
+}
+
+// Sort by length descending (match longest first)
+searchMap.sort((a, b) => b.pattern.length - a.pattern.length);
+
+const serializedMap = JSON.stringify(searchMap);
+---
+
+<script is:inline define:vars={{ serializedMap }}>
+  function initKeywordLinks() {
+    const keywordMap = JSON.parse(serializedMap);
+    const article = document.querySelector('article');
+    if (!article || keywordMap.length === 0) return;
+
+    // Build combined regex — match all keywords, case-insensitive
+    const escaped = keywordMap.map(k => k.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const combinedRegex = new RegExp(`(?<![\\p{L}])(${escaped.join('|')})(?![\\p{L}])`, 'giu');
+
+    // Elements to skip
+    const skipTags = new Set(['A', 'CODE', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SCRIPT', 'STYLE']);
+
+    function processNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent;
+        if (!text || !combinedRegex.test(text)) return;
+
+        // Check parent element
+        const parent = node.parentElement;
+        if (parent && skipTags.has(parent.tagName)) return;
+        if (parent && parent.closest('a, code, pre, h1, h2, h3, h4, h5, h6')) return;
+
+        // Reset regex
+        combinedRegex.lastIndex = 0;
+
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+
+        while ((match = combinedRegex.exec(text)) !== null) {
+          const matchText = match[0];
+          const matchStart = match.index;
+
+          // Add text before match
+          if (matchStart > lastIndex) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex, matchStart)));
+          }
+
+          // Find keyword def (case-insensitive lookup)
+          const keywordDef = keywordMap.find(
+            k => k.pattern.toLowerCase() === matchText.toLowerCase()
+          );
+
+          if (keywordDef) {
+            const link = document.createElement('a');
+            link.href = keywordDef.target;
+            link.className = 'keyword-link';
+            link.title = keywordDef.desc;
+            link.textContent = matchText;
+            fragment.appendChild(link);
+          } else {
+            fragment.appendChild(document.createTextNode(matchText));
+          }
+
+          lastIndex = matchStart + matchText.length;
+        }
+
+        // Remaining text
+        if (lastIndex < text.length) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+
+        node.parentNode.replaceChild(fragment, node);
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (skipTags.has(node.tagName)) return;
+        // Clone childNodes to avoid live mutation issues
+        const children = Array.from(node.childNodes);
+        children.forEach(child => processNode(child));
+      }
+    }
+
+    // Process article content
+    const contentDiv = article.querySelector('.prose');
+    if (contentDiv) {
+      processNode(contentDiv);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', initKeywordLinks);
+</script>

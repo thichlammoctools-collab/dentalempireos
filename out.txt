@@ -1,0 +1,32 @@
+[2m21:06:13[22m [34m[@astrojs/cloudflare][39m Enabling image processing with Cloudflare Images for production with the "IMAGES" Images binding.
+[2m21:06:13[22m [34m[@astrojs/cloudflare][39m Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+[33m[1m21:06:14[22m [WARN] [vite][39m [2mDefault inspector port 9229 not available, using 9230 instead
+[22m
+[2m21:06:26[22m [34m[content][39m Syncing content
+[2m21:06:26[22m [34m[content][39m Synced content
+[2m21:06:26[22m [34m[types][39m Generated [2m12.85s[22m
+[2m21:06:26[22m [34m[build][39m output: [34m"static"[39m
+[2m21:06:26[22m [34m[build][39m mode: [34m"static"[39m
+[2m21:06:26[22m [34m[build][39m directory: [34mC:\Users\nguye\OneDrive\Documents\GitHub\dentalempireos\dist\[39m
+[2m21:06:26[22m [34m[build][39m adapter: [32m@astrojs/cloudflare[39m
+[2m21:06:26[22m [34m[build][39m Collecting build info...
+[2m21:06:26[22m [34m[build][39m [32m✓ Completed in 13.01s.[39m
+[2m21:06:26[22m [34m[build][39m Building static entrypoints...
+[31m[1m21:06:31[22m [ERROR] [vite][39m [31m✗[39m Build failed in 4.85s
+src/pages/index.astro (3:26): "testimonials" is not exported by "src/data/modules.ts", imported by "src/pages/index.astro".
+file: C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/src/pages/index.astro:3:26
+
+1: ---
+2: import BaseLayout from '../layouts/BaseLayout.astro';
+3: import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules';
+                             ^
+4: ---
+
+  [1mLocation:[22m
+    [4mC:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/src/pages/index.astro:3:26[24m
+  [1mStack trace:[22m
+[2m    at getRollupError (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/parseAst.js:317:41)
+    at Module.error (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/node-entry.js:17391:16)
+    at ModuleScope.findVariable (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/node-entry.js:15414:39)
+    at FunctionBodyScope.findVariable (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)[22m

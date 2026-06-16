@@ -1,10 +1,13 @@
 ---
 import { render, type GetStaticPaths } from 'astro:content';
-import { getAllChapters, getAdjacentChapters, getTierLabel } from '../../lib/collection-helpers';
+import { getAllChapters, getAdjacentChapters, getAllChaptersGroupedByTier, getModulesFromHeadings } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import ChapterNav from '../../components/book/ChapterNav.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
+import ModuleNav from '../../components/book/ModuleNav.astro';
 import Badge from '../../components/ui/Badge.astro';
+import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
+import { getTierLabel } from '../../lib/collection-helpers';
 
 export const prerender = true;
 
@@ -19,24 +22,32 @@ export async function getStaticPaths() {
 const { chapter } = Astro.props;
 const { Content, headings } = await render(chapter);
 const { prev, next } = await getAdjacentChapters(chapter.id);
+const groupedChapters = await getAllChaptersGroupedByTier();
 const tierLabel = getTierLabel(chapter.data.tier);
+const modules = getModulesFromHeadings(headings, chapter.data.modules);
 ---
 
 <BookLayout
   title={chapter.data.title}
   description={chapter.data.description}
-  headings={headings}
+  groupedChapters={groupedChapters}
   currentSlug={chapter.id}
+  currentModules={modules}
 >
   <!-- Chapter Header -->
-  <div class="mb-8 pb-8 border-b border-outline-variant">
+  <div class="mb-4 pb-6 border-b border-outline-variant">
     <div class="flex items-center gap-3 mb-4">
       <Badge variant="accent">Tầng {chapter.data.tier}</Badge>
       <span class="text-on-surface-variant text-sm">{tierLabel}</span>
+      <span class="text-on-surface-variant text-sm">·</span>
+      <span class="text-on-surface-variant text-sm">Chương {chapter.data.chapter}</span>
     </div>
     <h1 class="text-headline-lg text-white mb-3">{chapter.data.title}</h1>
     <p class="text-on-surface-variant">{chapter.data.description}</p>
   </div>
+
+  <!-- Module Nav (horizontal chips) -->
+  <ModuleNav modules={modules} />
 
   <!-- Chapter Content -->
   <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant max-w-none">
@@ -48,4 +59,7 @@ const tierLabel = getTierLabel(chapter.data.tier);
 
   <!-- Chapter Navigation -->
   <ChapterNav prev={prev} next={next} />
+
+  <!-- Keyword Auto-Linking -->
+  <KeywordAutoLink />
 </BookLayout>

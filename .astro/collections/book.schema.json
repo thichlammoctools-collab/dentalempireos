@@ -6,9 +6,7 @@
       "type": "string"
     },
     "tier": {
-      "type": "number",
-      "minimum": 1,
-      "maximum": 6
+      "type": "number"
     },
     "chapter": {
       "type": "number"
@@ -22,6 +20,24 @@
     "draft": {
       "default": false,
       "type": "boolean"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slug"
+        ]
+      }
     },
     "$schema": {
       "type": "string"

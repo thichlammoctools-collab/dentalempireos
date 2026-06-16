@@ -29,3 +29,40 @@ export function getTierLabel(tier: number): string {
   };
   return labels[tier] || `Tầng ${tier}`;
 }
+
+// Group chapters by tier for sidebar navigation
+export interface ChaptersByTier {
+  tier: number;
+  label: string;
+  chapters: BookEntry[];
+}
+
+export async function getAllChaptersGroupedByTier(): Promise<ChaptersByTier[]> {
+  const all = await getAllChapters();
+  const tiers = [1, 2, 3];
+  return tiers.map((tier) => ({
+    tier,
+    label: getTierLabel(tier),
+    chapters: all.filter((c) => c.data.tier === tier),
+  }));
+}
+
+// Get module headings for a chapter (from frontmatter modules or headings from render)
+export interface ModuleInfo {
+  title: string;
+  slug: string;
+}
+
+export function getModulesFromHeadings(
+  headings: { depth: number; slug: string; text: string }[],
+  frontmatterModules?: { title: string; slug: string }[]
+): ModuleInfo[] {
+  // If frontmatter has explicit modules, use those
+  if (frontmatterModules && frontmatterModules.length > 0) {
+    return frontmatterModules;
+  }
+  // Otherwise, extract from h2 headings
+  return headings
+    .filter((h) => h.depth === 2)
+    .map((h) => ({ title: h.text, slug: h.slug }));
+}

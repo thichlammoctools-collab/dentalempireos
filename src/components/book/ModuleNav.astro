@@ -1,0 +1,73 @@
+---
+// Horizontal scrollable module chips for quick in-page navigation
+interface ModuleItem {
+  title: string;
+  slug: string;
+}
+
+interface Props {
+  modules: ModuleItem[];
+}
+
+const { modules } = Astro.props;
+---
+
+{modules.length > 0 && (
+  <div class="mb-8 overflow-x-auto -mx-6 px-6 scrollbar-hide">
+    <div class="flex gap-2 min-w-max pb-2">
+      {modules.map((mod, i) => (
+        <a
+          href={`#${mod.slug}`}
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-primary/5 module-chip"
+          data-module-chip={mod.slug}
+        >
+          <span class="material-symbols-outlined text-[14px]">{i === 0 ? 'bookmark' : 'label'}</span>
+          {mod.title}
+        </a>
+      ))}
+    </div>
+  </div>
+)}
+
+<style>
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+</style>
+
+<script>
+  function initModuleNav() {
+    const chips = document.querySelectorAll('[data-module-chip]');
+    const headings = document.querySelectorAll('article h2');
+    if (chips.length === 0 || headings.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            chips.forEach((chip) => {
+              const match = chip.getAttribute('data-module-chip') === id;
+              chip.classList.toggle('text-primary', match);
+              chip.classList.toggle('border-primary', match);
+              chip.classList.toggle('bg-primary/10', match);
+              chip.classList.toggle('text-on-surface-variant', !match);
+            });
+            // Auto-scroll chip into view
+            const activeChip = document.querySelector(`[data-module-chip="${id}"]`);
+            activeChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        });
+      },
+      { rootMargin: '-30% 0px -60% 0px' }
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+  }
+
+  document.addEventListener('DOMContentLoaded', initModuleNav);
+</script>

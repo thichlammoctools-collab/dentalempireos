@@ -1,0 +1,2 @@
+[31m[1m21:13:13[22m [ERROR] [vite][39m [31m✗[39m Build failed in 5.51s
+    at Module.error (file:///C:/Users/nguye/OneDrive/Documents/GitHub/dentalempireos/node_modules/rollup/dist/es/shared/node-entry.js:17391:16)

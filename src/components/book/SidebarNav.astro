@@ -1,0 +1,170 @@
+---
+// Desktop hierarchical sidebar: Tier > Chapter > Module
+interface ChapterItem {
+  id: string;
+  data: {
+    title: string;
+    tier: number;
+    chapter: number;
+  };
+}
+
+interface ModuleItem {
+  title: string;
+  slug: string;
+}
+
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: ChapterItem[];
+}
+
+interface Props {
+  groupedChapters: TierGroup[];
+  currentSlug: string;
+  currentModules: ModuleItem[];
+}
+
+const { groupedChapters, currentSlug, currentModules } = Astro.props;
+
+// Find which tier the current chapter belongs to
+const currentTier = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.tier ?? 3;
+---
+
+<aside class="hidden lg:block sticky top-24 w-72 shrink-0 self-start max-h-[calc(100vh-7rem)] overflow-y-auto" data-sidebar="desktop">
+  <nav aria-label="Mục lục sách" class="space-y-1">
+    <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-4 px-3">Mục lục sách</p>
+
+    {groupedChapters.map((group) => {
+      const isCurrentTier = group.tier === currentTier;
+      return (
+        <div class="sidebar-tier" data-tier={group.tier} data-expanded={isCurrentTier ? 'true' : 'false'}>
+          <!-- Tier Header -->
+          <button
+            class="sidebar-tier-toggle w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container-high text-on-surface-variant hover:text-white"
+            data-toggle-tier={group.tier}
+          >
+            <span class="material-symbols-outlined text-[18px] text-primary shrink-0">folder</span>
+            <span class="truncate flex-1 text-left">{group.label}</span>
+            <span class="text-xs text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded shrink-0">{group.chapters.length}</span>
+            <span class="material-symbols-outlined text-[16px] chevron transition-transform duration-200">expand_more</span>
+          </button>
+
+          <!-- Chapter List (collapsible) -->
+          <div class="chapter-list overflow-hidden transition-all duration-300" style={isCurrentTier ? 'max-height: 2000px' : 'max-height: 0'}>
+            {group.chapters.map((ch) => {
+              const isCurrent = ch.id === currentSlug;
+              const hasModules = isCurrent && currentModules.length > 0;
+              return (
+                <div class="sidebar-chapter" data-chapter-id={ch.id}>
+                  <a
+                    href={`/book/${ch.id}`}
+                    class:list={[
+                      'flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm transition-colors border-l-2',
+                      isCurrent
+                        ? 'text-primary border-primary font-semibold bg-primary/5'
+                        : 'text-on-surface-variant border-transparent hover:text-white hover:border-primary/30',
+                    ]}
+                  >
+                    <span class="text-xs text-on-surface-variant shrink-0 w-5">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                    <span class="truncate">{ch.data.title}</span>
+                    {hasModules && (
+                      <span class="material-symbols-outlined text-[14px] ml-auto shrink-0 chevron transition-transform duration-200">expand_more</span>
+                    )}
+                  </a>
+
+                  <!-- Module list (only for current chapter) -->
+                  {hasModules && (
+                    <div class="module-list overflow-hidden transition-all duration-300" style="max-height: 500px">
+                      {currentModules.map((mod) => (
+                        <a
+                          href={`#${mod.slug}`}
+                          class="flex items-center gap-2 pl-14 pr-3 py-1 text-xs transition-colors text-on-surface-variant hover:text-primary border-l-2 border-transparent hover:border-primary/30"
+                          data-heading-link={mod.slug}
+                        >
+                          <span class="material-symbols-outlined text-[12px] text-on-surface-variant shrink-0">radio_button_unchecked</span>
+                          <span class="truncate">{mod.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    })}
+  </nav>
+</aside>
+
+<script>
+  function initDesktopSidebar() {
+    const sidebar = document.querySelector('[data-sidebar="desktop"]');
+    if (!sidebar) return;
+
+    // Toggle tier expand/collapse
+    sidebar.querySelectorAll('[data-toggle-tier]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tier = (btn as HTMLElement).dataset.toggleTier;
+        const section = sidebar.querySelector(`[data-tier="${tier}"]`);
+        const chevron = btn.querySelector('.chevron');
+        if (!section) return;
+
+        const expanded = section.getAttribute('data-expanded') === 'true';
+        section.setAttribute('data-expanded', String(!expanded));
+        chevron?.classList.toggle('rotate-180');
+
+        const chapterList = section.querySelector('.chapter-list') as HTMLElement;
+        if (chapterList) {
+          chapterList.style.maxHeight = !expanded ? `${chapterList.scrollHeight}px` : '0';
+        }
+      });
+    });
+
+    // Expand current tier on load
+    sidebar.querySelectorAll('[data-expanded="true"]').forEach((section) => {
+      const chevron = section.querySelector('.sidebar-tier-toggle .chevron');
+      chevron?.classList.add('rotate-180');
+      const chapterList = section.querySelector('.chapter-list') as HTMLElement;
+      if (chapterList) {
+        chapterList.style.maxHeight = `${chapterList.scrollHeight}px`;
+      }
+    });
+
+    // Scroll-spy for active module
+    const headings = document.querySelectorAll('article h2');
+    const tocLinks = sidebar.querySelectorAll('[data-heading-link]');
+    if (headings.length === 0 || tocLinks.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            tocLinks.forEach((link) => {
+              const match = link.getAttribute('data-heading-link') === id;
+              link.classList.toggle('text-primary', match);
+              link.classList.toggle('border-primary', match);
+              link.classList.toggle('font-semibold', match);
+              link.classList.toggle('text-on-surface-variant', !match);
+              // Swap icon
+              const icon = link.querySelector('.material-symbols-outlined');
+              if (icon) {
+                icon.textContent = match ? 'radio_button_checked' : 'radio_button_unchecked';
+              }
+            });
+          }
+        });
+      },
+      { rootMargin: '-20% 0px -70% 0px' }
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+  }
+
+  document.addEventListener('DOMContentLoaded', initDesktopSidebar);
+</script>
