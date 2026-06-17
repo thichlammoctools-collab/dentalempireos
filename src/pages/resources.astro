@@ -2,14 +2,65 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import DownloadForm from '../components/sections/DownloadForm.astro';
 
-const resources = [
+type Tier = 'free' | 'premium';
+type FileExt = 'pdf' | 'xlsx' | 'docx' | 'mp4';
+
+interface Resource {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  fileExt: FileExt;
+  category: string;
+  tier: Tier;
+  updated: string;
+  tag: string;
+}
+
+const resources: Resource[] = [
+  {
+    id: 'sop-checklist',
+    title: 'Quy trình đón tiếp bệnh nhân',
+    description: 'Bộ quy trình chuẩn hóa từ tiếp đón, tư vấn, điều trị đến tái khám. Áp dụng cho mọi phòng khám.',
+    icon: 'description',
+    fileExt: 'pdf',
+    category: 'sops',
+    tier: 'free',
+    updated: '2 ngày trước',
+    tag: 'Vận hành',
+  },
   {
     id: 'kpi-dashboard',
-    title: 'KPI Dashboard Template',
-    description: 'Bảng đo lường hiệu suất phòng khám — theo dõi doanh thu, số lượng khách hàng mới, tỷ lệ giữ chân và lợi nhuận ròng.',
-    icon: 'monitoring',
+    title: 'Bảng tính lương & KPI bác sĩ',
+    description: 'Bảng đo lường hiệu suất phòng khám — theo dõi doanh thu, khách hàng mới, tỷ lệ giữ chân và lợi nhuận ròng.',
+    icon: 'table_chart',
     fileExt: 'xlsx',
-    category: 'Tài chính',
+    category: 'excel',
+    tier: 'premium',
+    updated: '1 tuần trước',
+    tag: 'Tài chính',
+  },
+  {
+    id: 'video-lay-dau',
+    title: 'Video hướng dẫn lấy dấu mẫu',
+    description: 'Hướng dẫn chi tiết quy trình lấy dấu mẫu chuẩn cho phụ tá nha khoa, kèm checklist kiểm tra chất lượng.',
+    icon: 'video_library',
+    fileExt: 'mp4',
+    category: 'sops',
+    tier: 'free',
+    updated: '2 tuần trước',
+    tag: 'Đào tạo',
+  },
+  {
+    id: 'hop-dong-template',
+    title: 'Mẫu hợp đồng nha khoa',
+    description: 'Bộ mẫu hợp đồng dịch vụ, cam kết bảo hành và biên bản nghiệm thu chuẩn pháp lý cho phòng khám.',
+    icon: 'article',
+    fileExt: 'docx',
+    category: 'checklists',
+    tier: 'free',
+    updated: '1 tháng trước',
+    tag: 'Pháp lý',
   },
   {
     id: 'crm-tracker',
@@ -17,15 +68,21 @@ const resources = [
     description: 'Theo dõi hành trình khách hàng từ lần đầu liên hệ đến điều trị duy trì. Tích hợp nhắc lịch tái khám tự động.',
     icon: 'contacts',
     fileExt: 'xlsx',
-    category: 'Khách hàng',
+    category: 'excel',
+    tier: 'free',
+    updated: '3 ngày trước',
+    tag: 'Khách hàng',
   },
   {
-    id: 'sop-checklist',
-    title: 'SOP Quy Trình Chăm Sóc',
-    description: 'Bộ quy trình chuẩn hóa từ tiếp đón, tư vấn, điều trị đến tái khám. Áp dụng cho mọi phòng khám.',
-    icon: 'checklist',
+    id: 'marketing-plan',
+    title: 'Kế hoạch Marketing 90 ngày',
+    description: 'Bản kế hoạch marketing chi tiết cho 90 ngày đầu — từ social media, Google Ads đến chương trình khuyến mãi.',
+    icon: 'campaign',
     fileExt: 'pdf',
-    category: 'Vận hành',
+    category: 'marketing',
+    tier: 'premium',
+    updated: '5 ngày trước',
+    tag: 'Marketing',
   },
   {
     id: 'tuyen-dung-template',
@@ -33,98 +90,284 @@ const resources = [
     description: 'Bộ mẫu tin tuyển dụng, bảng đánh giá phỏng vấn và phiếu thử việc cho vị trí bác sĩ, phụ tá, lễ tân.',
     icon: 'person_add',
     fileExt: 'pdf',
-    category: 'Nhân sự',
-  },
-  {
-    id: 'marketing-plan',
-    title: 'Kế Hoạch Marketing 90 Ngày',
-    description: 'Bản kế hoạch marketing chi tiết cho 90 ngày đầu — từ social media, Google Ads đến chương trình khuyến mãi.',
-    icon: 'campaign',
-    fileExt: 'pdf',
-    category: 'Marketing',
+    category: 'checklists',
+    tier: 'free',
+    updated: '2 tuần trước',
+    tag: 'Nhân sự',
   },
   {
     id: 'financial-report',
-    title: 'Báo Cáo Tài Chính Tháng',
+    title: 'Báo cáo tài chính tháng',
     description: 'Mẫu báo cáo tài chính hàng tháng — dòng tiền, chi phí cố định, biến động và dự báo 3 tháng tới.',
     icon: 'account_balance',
     fileExt: 'xlsx',
-    category: 'Tài chính',
+    category: 'excel',
+    tier: 'premium',
+    updated: '1 tuần trước',
+    tag: 'Tài chính',
   },
 ];
+
+const categories = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'sops', label: 'SOPs' },
+  { id: 'checklists', label: 'Checklists' },
+  { id: 'excel', label: 'Excel' },
+  { id: 'marketing', label: 'Marketing' },
+];
+
+const extColors: Record<FileExt, string> = {
+  pdf: 'text-rose-300 bg-rose-500/10',
+  xlsx: 'text-emerald-300 bg-emerald-500/10',
+  docx: 'text-sky-300 bg-sky-500/10',
+  mp4: 'text-amber-300 bg-amber-500/10',
+};
+
+const iconColors: Record<FileExt, string> = {
+  pdf: 'text-primary',
+  xlsx: 'text-tertiary',
+  docx: 'text-primary',
+  mp4: 'text-tertiary',
+};
 ---
 
-<BaseLayout title="Tài Nguyên Miễn Phí - Dental Empire OS" description="Tải miễn phí bộ công cụ quản trị nha khoa: KPI Dashboard, CRM Tracker, SOP, mẫu tuyển dụng và kế hoạch marketing.">
-
-  <!-- Hero -->
-  <section class="py-16 bg-surface-container-low">
-    <div class="px-6 max-w-[1200px] mx-auto text-center">
-      <h1 class="text-headline-lg text-white mb-4">Tài Nguyên Miễn Phí</h1>
-      <p class="text-on-surface-variant max-w-2xl mx-auto">
-        Bộ công cụ thực chiến giúp bạn quản trị phòng khám hiệu quả. Nhập email để tải miễn phí bất kỳ tài nguyên nào.
+<BaseLayout
+  title="DentalLibrary - Thư viện tài nguyên quản trị nha khoa"
+  description="Thư viện tài nguyên thực chiến: SOPs, checklists, Excel KPI/CRM, kế hoạch marketing, video đào tạo cho phòng khám nha khoa."
+>
+  <!-- Hero / Title -->
+  <section class="pt-12 pb-6 bg-surface-container-low border-b border-outline-variant">
+    <div class="px-6 max-w-[1200px] mx-auto">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold uppercase tracking-[0.2em] text-primary/70">Library</span>
+        <div class="flex items-center gap-2 text-xs text-on-surface-variant">
+          <span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#2b98dd]"></span>
+          <span>{resources.length} tài nguyên</span>
+        </div>
+      </div>
+      <h1 class="text-headline-lg text-white mb-2">DentalLibrary</h1>
+      <p class="text-on-surface-variant max-w-2xl">
+        Bộ công cụ thực chiến giúp bạn quản trị phòng khám hiệu quả. Tải miễn phí hoặc nâng cấp Premium để mở khóa toàn bộ.
       </p>
     </div>
   </section>
 
-  <!-- Resources Grid -->
-  <section class="py-16">
-    <div class="px-6 max-w-[1200px] mx-auto">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {resources.map((r) => (
-          <div class="group bg-surface-container hover:bg-surface-container-high p-6 rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300">
-            <div class="flex items-start justify-between mb-4">
-              <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-primary">
-                <span class="material-symbols-outlined text-2xl">{r.icon}</span>
-              </div>
-              <span class="text-xs font-bold uppercase tracking-wider text-on-surface-variant bg-white/5 px-2 py-1 rounded">
-                {r.fileExt.toUpperCase()}
-              </span>
-            </div>
-            <span class="text-xs font-semibold text-primary/70 uppercase tracking-wider">{r.category}</span>
-            <h3 class="text-lg font-bold text-white mt-1 mb-2 group-hover:text-primary transition-colors">{r.title}</h3>
-            <p class="text-sm text-on-surface-variant leading-relaxed mb-4">{r.description}</p>
+  <!-- Search & Filters -->
+  <section class="sticky top-20 z-40 bg-surface/90 backdrop-blur border-b border-outline-variant">
+    <div class="px-6 max-w-[1200px] mx-auto py-4">
+      <div class="relative group mb-4">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">search</span>
+        <input
+          id="library-search"
+          type="text"
+          placeholder="Tìm kiếm tài nguyên..."
+          class="w-full pl-11 pr-10 py-3 bg-surface-container border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+        />
+        <button
+          id="library-search-clear"
+          type="button"
+          class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-surface-container-high text-on-surface-variant items-center justify-center hover:text-primary"
+          aria-label="Xóa tìm kiếm"
+        >
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
 
-            <!-- Download trigger button -->
-            <button
-              data-download={r.id}
-              class="inline-flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-semibold hover:border-primary hover:text-primary transition-all active:scale-95"
-            >
-              <span class="material-symbols-outlined text-[18px]">download</span>
-              Tải miễn phí
-            </button>
-
-            <!-- Email gate form -->
-            <DownloadForm resourceId={r.id} fileName={`${r.id}.${r.fileExt}`} fileLabel={r.title} />
-          </div>
+      <div class="flex overflow-x-auto gap-2 pb-1 -mx-6 px-6 no-scrollbar" id="library-filters">
+        {categories.map((c, i) => (
+          <button
+            type="button"
+            data-filter={c.id}
+            class:list={[
+              'filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition-all active:scale-95',
+              i === 0
+                ? 'bg-primary text-on-primary border-primary'
+                : 'bg-surface-container-high text-on-surface-variant border-outline-variant',
+            ]}
+          >
+            {c.label}
+          </button>
         ))}
       </div>
     </div>
   </section>
 
-  <!-- Donation Section -->
-  <section class="py-16 bg-surface-container-low">
+  <!-- Featured Bestseller -->
+  <section class="px-6 max-w-[1200px] mx-auto mt-8">
+    <div class="relative bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl overflow-hidden p-6 md:p-8 border-l-4 border-l-primary">
+      <div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <span class="inline-block bg-tertiary-container/30 text-tertiary text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-3">Bestseller</span>
+            <h2 class="text-2xl md:text-3xl font-bold text-white">Bộ công cụ CRM &amp; KPI trọn gói</h2>
+            <p class="text-on-surface-variant mt-2 max-w-xl">
+              Toàn bộ tài nguyên Premium gộp vào một bundle — tiết kiệm 60% so với mua lẻ.
+            </p>
+          </div>
+          <div class="hidden md:flex items-center gap-2 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#2b98dd]"></span>
+            <span class="text-xs text-on-surface-variant">Đang khả dụng</span>
+          </div>
+        </div>
+
+        <ul class="grid sm:grid-cols-2 gap-3 mb-6">
+          <li class="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            <span>45+ File Excel quản lý chuyên sâu</span>
+          </li>
+          <li class="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            <span>Sơ đồ vận hành Clinic chuẩn 5 sao</span>
+          </li>
+          <li class="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            <span>Kịch bản tư vấn chốt Sale đỉnh cao</span>
+          </li>
+          <li class="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+            <span>Cập nhật trọn đời, hỗ trợ qua email</span>
+          </li>
+        </ul>
+
+        <a
+          href="#bundle"
+          class="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 btn-primary-metallic font-bold rounded-xl transition-all"
+        >
+          <span class="material-symbols-outlined">lock_open</span>
+          Mở khóa toàn bộ
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Asset List -->
+  <section class="px-6 max-w-[1200px] mx-auto mt-12">
+    <div class="flex items-end justify-between mb-5">
+      <div>
+        <h3 class="text-xl md:text-2xl font-bold text-primary">Tài nguyên mới nhất</h3>
+        <p class="text-sm text-on-surface-variant mt-1">Sắp xếp theo thời gian cập nhật</p>
+      </div>
+      <span class="text-sm text-on-surface-variant" id="library-count">{resources.length} tài nguyên</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="library-list">
+      {resources.map((r) => (
+        <article
+          class="library-card group bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 hover:border-primary/50 transition-all"
+          data-category={r.category}
+          data-tier={r.tier}
+          data-search={`${r.title} ${r.description} ${r.tag}`.toLowerCase()}
+        >
+          <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-xl bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0">
+              <span class={`material-symbols-outlined text-[32px] ${iconColors[r.fileExt]}`}>{r.icon}</span>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <span class={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${extColors[r.fileExt]}`}>
+                  {r.fileExt}
+                </span>
+                {r.tier === 'free' ? (
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Free</span>
+                ) : (
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-tertiary bg-tertiary/10">Premium</span>
+                )}
+                <span class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider ml-auto">{r.tag}</span>
+              </div>
+
+              <h4 class="text-base font-bold text-white truncate group-hover:text-primary transition-colors">{r.title}</h4>
+              <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{r.description}</p>
+
+              <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/60">
+                <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">schedule</span>
+                  Cập nhật: {r.updated}
+                </span>
+
+                {r.tier === 'free' ? (
+                  r.fileExt === 'mp4' ? (
+                    <button
+                      data-download={r.id}
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/30 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 active:scale-95 transition-all"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                      Xem
+                    </button>
+                  ) : (
+                    <button
+                      data-download={r.id}
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/30 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 active:scale-95 transition-all"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">download</span>
+                      Tải
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-tertiary/10 border border-tertiary/30 text-tertiary rounded-lg text-xs font-bold hover:bg-tertiary/20 active:scale-95 transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">lock</span>
+                    Premium
+                  </button>
+                )}
+              </div>
+
+              <DownloadForm resourceId={r.id} fileName={`${r.id}.${r.fileExt}`} fileLabel={r.title} />
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <!-- Empty state -->
+    <div id="library-empty" class="hidden text-center py-16">
+      <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">search_off</span>
+      <p class="text-on-surface-variant mt-3">Không tìm thấy tài nguyên phù hợp</p>
+    </div>
+  </section>
+
+  <!-- Stats / Social Proof -->
+  <section class="px-6 max-w-[1200px] mx-auto mt-12">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 text-center">
+        <p class="text-2xl md:text-3xl font-bold text-primary">1.2k+</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">Lượt tải</p>
+      </div>
+      <div class="bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 text-center">
+        <p class="text-2xl md:text-3xl font-bold text-primary">850+</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">Clinic tin dùng</p>
+      </div>
+      <div class="bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 text-center">
+        <p class="text-2xl md:text-3xl font-bold text-primary">{resources.length}</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">Tài nguyên</p>
+      </div>
+      <div class="bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 text-center">
+        <p class="text-2xl md:text-3xl font-bold text-primary">4.9★</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">Đánh giá</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Donation -->
+  <section id="bundle" class="py-16 mt-12 bg-surface-container-low">
     <div class="px-6 max-w-[1200px] mx-auto">
-      <div class="bg-surface-container border border-outline-variant rounded-[2rem] p-12 text-center max-w-2xl mx-auto">
+      <div class="bg-surface-container border border-outline-variant rounded-[2rem] p-8 md:p-12 text-center max-w-2xl mx-auto">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-6">
           <span class="material-symbols-outlined text-4xl">volunteer_activism</span>
         </div>
-        <h2 class="text-headline-md text-white mb-3">Ủng Hộ Dental Empire OS</h2>
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">Ủng Hộ Dental Empire OS</h2>
         <p class="text-on-surface-variant mb-8 max-w-md mx-auto">
           Nếu các tài nguyên này đã giúp ích cho phòng khám của bạn, hãy ủng hộ để chúng tôi tiếp tục tạo ra nhiều công cụ chất lượng hơn.
         </p>
 
         <div class="inline-block p-4 bg-white rounded-2xl mb-4">
-          <img
-            src="/images/qr/donation-qr.svg"
-            alt="QR Code ủng hộ Dental Empire OS"
-            class="w-56 h-56"
-            loading="lazy"
-          />
+          <img src="/images/qr/donation-qr.svg" alt="QR Code ủng hộ Dental Empire OS" class="w-56 h-56" loading="lazy" />
         </div>
 
-        <p class="text-on-surface-variant text-sm mt-4">
-          Quét mã QR với ứng dụng ngân hàng để ủng hộ
-        </p>
+        <p class="text-on-surface-variant text-sm mt-4">Quét mã QR với ứng dụng ngân hàng để ủng hộ</p>
         <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
           <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
           <span> Vietcombank · Techcombank · Momo · ZaloPay</span>
@@ -132,5 +375,82 @@ const resources = [
       </div>
     </div>
   </section>
-
 </BaseLayout>
+
+<style>
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  const search = document.getElementById('library-search') as HTMLInputElement | null;
+  const clearBtn = document.getElementById('library-search-clear');
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.library-card'));
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
+  const empty = document.getElementById('library-empty');
+  const list = document.getElementById('library-list');
+  const count = document.getElementById('library-count');
+
+  let activeFilter = 'all';
+  let activeQuery = '';
+
+  function applyChipStyles() {
+    chips.forEach((chip) => {
+      const isActive = chip.dataset.filter === activeFilter;
+      chip.classList.toggle('bg-primary', isActive);
+      chip.classList.toggle('text-on-primary', isActive);
+      chip.classList.toggle('border-primary', isActive);
+      chip.classList.toggle('bg-surface-container-high', !isActive);
+      chip.classList.toggle('text-on-surface-variant', !isActive);
+      chip.classList.toggle('border-outline-variant', !isActive);
+    });
+  }
+
+  function render() {
+    let visible = 0;
+    cards.forEach((card) => {
+      const cat = card.dataset.category ?? '';
+      const haystack = card.dataset.search ?? '';
+      const matchesFilter = activeFilter === 'all' || cat === activeFilter;
+      const matchesQuery = !activeQuery || haystack.includes(activeQuery);
+      const show = matchesFilter && matchesQuery;
+      card.classList.toggle('hidden', !show);
+      if (show) visible += 1;
+    });
+
+    if (count) count.textContent = `${visible} tài nguyên`;
+    empty?.classList.toggle('hidden', visible !== 0);
+    list?.classList.toggle('hidden', visible === 0);
+  }
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeFilter = chip.dataset.filter ?? 'all';
+      applyChipStyles();
+      render();
+    });
+  });
+
+  search?.addEventListener('input', () => {
+    activeQuery = search.value.trim().toLowerCase();
+    clearBtn?.classList.toggle('hidden', !activeQuery);
+    clearBtn?.classList.toggle('flex', !!activeQuery);
+    render();
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    if (!search) return;
+    search.value = '';
+    activeQuery = '';
+    clearBtn.classList.add('hidden');
+    clearBtn.classList.remove('flex');
+    render();
+    search.focus();
+  });
+</script>
