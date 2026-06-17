@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dentalempireos",
-  "account_id": "4d4c5fc50aea6754a60f6ddaaa4cab56",
+  "account_id": "6c99b69a2ef00c1754fae70793262cd3",
   "compatibility_date": "2025-06-17",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -10,14 +10,20 @@
   "kv_namespaces": [
     {
       "binding": "SESSION",
-      "id": "b413653daae54f559428fb4d74dbab17"
+      "id": "ea368ffff09f407eae2c9b595fe86d9a"
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "dentalempireos-auth",
-      "database_id": "92b199df-2f38-4603-ade7-2200f12ade16"
+      "database_name": "dentalempireos-db",
+      "database_id": "dc3b8890-c22f-4ebb-8172-1db5f4317241"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "dentalempireos"
     }
   ]
 }

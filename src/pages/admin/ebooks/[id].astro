@@ -326,6 +326,12 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       dirty = false;
       updateSaveStatus('✓ Đã lưu');
+
+      // Re-render modal so uploaded images/files show immediately
+      const tree = await loadTree();
+      const section = findSection(tree.sections, modalSectionId);
+      if (section) renderModalBlocks(section);
+
       setTimeout(() => { if (!dirty) updateSaveStatus(''); }, 2500);
     }
 

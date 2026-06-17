@@ -50,7 +50,29 @@ const modules = sections.map((s) => ({
 marked.use({ breaks: true });
 
 function renderMarkdown(text: string): string {
-  return marked.parse(text) as string;
+  let html = marked.parse(text) as string;
+  // Rewrite <img> src: if it's an R2 key (no protocol), prepend /media/
+  // Also add onerror to hide broken images gracefully
+  html = html.replace(
+    /<img\b([^>]*)>/gi,
+    (match, attrs: string) => {
+      // Fix src: bare keys like "book/xxx/file.jpg" → "/media/book/xxx/file.jpg"
+      let fixed = attrs.replace(
+        /\bsrc="([^"]*)"/i,
+        (_: string, src: string) => {
+          if (/^https?:\/\//.test(src)) return `src="${src}"`;
+          if (src.startsWith('/media/')) return `src="${src}"`;
+          return `src="/media/${src}"`;
+        }
+      );
+      // Add onerror fallback
+      if (!/onerror/i.test(fixed)) {
+        fixed += ' onerror="this.style.display=\'none\'"';
+      }
+      return `<img${fixed}>`;
+    }
+  );
+  return html;
 }
 
 function renderSection(s: SectionNode): string {

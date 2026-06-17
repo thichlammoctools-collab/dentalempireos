@@ -283,6 +283,19 @@
   transition: background-color 0.3s, color 0.3s;
 }
 
+/* Scroll containment — prevent scroll chaining on reader pages.
+   When the reader-app is present, html/body must NOT scroll at all;
+   only #reader-scroll (the reader-main) is allowed to scroll. */
+html:has(.reader-app),
+html:has(.reader-app) body {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+.reader-main {
+  overscroll-behavior-y: contain;
+}
+
 /* Light mode */
 body.light-mode {
   --reader-bg: #faf9f7;
@@ -316,13 +329,35 @@ body.focus-mode:hover .toc-sidebar {
   pointer-events: auto;
 }
 
-/* Mobile bottom bar padding */
+/* Mobile bottom bar padding + reader layout fixes */
 @media (max-width: 1023px) {
   .reader-app {
+    /* toolbar (h-12=48px) + bottom-bar (~60px with safe area) */
     height: calc(100vh - 5rem);
+    padding-bottom: 0;
+  }
+  .mobile-bottom-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  /* Ensure bottom bar buttons have adequate touch targets (min 44px) */
+  .mobile-bottom-bar button {
+    min-height: 44px;
+    min-width: 44px;
   }
   .mobile-bottom-bar ~ .mobile-bottom-pad {
     display: block;
+  }
+  /* Better search overlay on mobile */
+  #search-overlay {
+    padding: 0 1rem;
+    padding-top: 5rem;
+    align-items: flex-start;
+  }
+  #search-overlay .glass-panel-dark {
+    border-radius: 1rem;
+  }
+  #search-overlay input {
+    font-size: 16px; /* prevent iOS zoom */
   }
 }
 @media (min-width: 1024px) {
@@ -349,15 +384,57 @@ body.focus-mode:hover .toc-sidebar {
   --fs: 1rem;
   font-size: clamp(0.875rem, var(--fs), 1.4rem);
   line-height: 1.8;
+  /* Mobile: tighter spacing for better reading */
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .reader-content p {
   color: var(--reader-text-muted, var(--color-on-surface-variant));
+  margin-bottom: 1em;
 }
 .reader-content h1,
 .reader-content h2,
 .reader-content h3 {
   color: var(--reader-text, var(--color-on-surface));
 }
+/* Scale down headings from pasted markdown to match reader typography */
+.reader-content h1 { font-size: 1.35em; margin: 1.2em 0 0.6em; }
+.reader-content h2 { font-size: 1.2em; margin: 1.1em 0 0.5em; }
+.reader-content h3 { font-size: 1.05em; margin: 1em 0 0.4em; }
+.reader-content h4,
+.reader-content h5,
+.reader-content h6 { font-size: 1em; margin: 0.8em 0 0.4em; }
+
+/* Lists: better spacing on mobile */
+.reader-content ul,
+.reader-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+.reader-content li {
+  margin-bottom: 0.3em;
+}
+
+/* Images: constrain + hide broken */
+.reader-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+.reader-content img[src=""] { display: none; }
+
+/* Mobile content improvements */
+@media (max-width: 639px) {
+  .reader-content {
+    line-height: 1.75;
+  }
+  .reader-content p {
+    margin-bottom: 0.8em;
+  }
+  .reader-content h1 { font-size: 1.2em; }
+  .reader-content h2 { font-size: 1.1em; }
+}
+
 .reader-content strong {
   color: var(--reader-accent, var(--color-primary));
 }
@@ -382,6 +459,20 @@ body.focus-mode:hover .toc-sidebar {
 body.focus-mode .reader-main {
   max-width: 800px !important;
   margin: 0 auto;
+}
+/* Mobile: focus mode also hides bottom bar and FAB */
+@media (max-width: 1023px) {
+  body.focus-mode .mobile-bottom-bar,
+  body.focus-mode #sidebar-mobile-toggle {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  body.focus-mode:hover .mobile-bottom-bar,
+  body.focus-mode:hover #sidebar-mobile-toggle {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* Pipeline line gradient */
