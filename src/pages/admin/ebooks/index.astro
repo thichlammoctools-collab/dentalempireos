@@ -1,0 +1,177 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { chapters, tiers } from '../../../data/modules';
+
+export const prerender = true;
+
+const total = chapters.length;
+const published = chapters.filter((c) => !c.draft).length;
+const drafts = total - published;
+---
+
+<AdminLayout title="E-books | Dental Empire Admin">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-1">Quản lý E-books</h2>
+      <p class="text-on-surface-variant">
+        {total} chương · {published} đã xuất bản · {drafts} bản nháp
+      </p>
+    </div>
+    <a
+      href="/admin/ebooks/new"
+      class="bg-primary-container text-white px-6 py-3 rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 self-start md:self-auto"
+    >
+      <span class="material-symbols-outlined text-[20px]">add</span>
+      <span class="text-sm">Thêm chương mới</span>
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-center gap-2" id="ebook-filters">
+    <button type="button" data-filter="all" class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-primary text-on-primary border-primary transition-all active:scale-95">
+      Tất cả ({total})
+    </button>
+    {tiers.map((t) => (
+      <button
+        type="button"
+        data-filter={`tier-${t.tier}`}
+        class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-surface-container-high text-on-surface-variant border-outline-variant transition-all active:scale-95"
+      >
+        Tầng {t.tier}
+      </button>
+    ))}
+    <button type="button" data-filter="published" class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-surface-container-high text-on-surface-variant border-outline-variant transition-all active:scale-95">
+      Đã xuất bản
+    </button>
+    <button type="button" data-filter="draft" class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-surface-container-high text-on-surface-variant border-outline-variant transition-all active:scale-95">
+      Bản nháp
+    </button>
+  </div>
+
+  <!-- Chapter list grouped by tier -->
+  <div class="flex flex-col gap-8">
+    {tiers.map((tier) => {
+      const tierChapters = chapters.filter((c) => c.tier === tier.tier);
+      return (
+        <section class="ebook-tier-group flex flex-col gap-3" data-tier={`tier-${tier.tier}`}>
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">{tier.icon}</span>
+            <div>
+              <h3 class="text-lg font-bold text-white">Tầng {tier.tier}: {tier.name}</h3>
+              <p class="text-xs text-on-surface-variant">{tier.subtitle}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {tierChapters.map((ch) => (
+              <article
+                class="ebook-card glass-card rounded-xl p-4 flex items-start gap-4"
+                data-tier={`tier-${ch.tier}`}
+                data-status={ch.draft ? 'draft' : 'published'}
+              >
+                <div class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/15 flex items-center justify-center shrink-0 text-on-surface-variant">
+                  <span class="text-sm font-bold">{String(ch.chapter).padStart(2, '0')}</span>
+                </div>
+
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    {ch.draft ? (
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-on-surface-variant bg-surface-variant">Draft</span>
+                    ) : (
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
+                    )}
+                    {ch.modules.length > 0 && (
+                      <span class="text-[10px] text-on-surface-variant">{ch.modules.length} module</span>
+                    )}
+                  </div>
+                  <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
+                  <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
+
+                  <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
+                    {ch.draft ? (
+                      <a href="/admin/ebooks/new" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">edit</span> Thêm nội dung
+                      </a>
+                    ) : (
+                      <a href={`/book/${ch.slug}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">visibility</span> Xem
+                      </a>
+                    )}
+                    <span class="text-[11px] text-on-surface-variant ml-auto font-mono">{ch.slug}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      );
+    })}
+  </div>
+
+  <!-- Empty state -->
+  <div id="ebook-empty" class="hidden text-center py-16">
+    <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">search_off</span>
+    <p class="text-on-surface-variant mt-3">Không có chương nào khớp bộ lọc</p>
+  </div>
+</AdminLayout>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.ebook-card'));
+  const groups = Array.from(document.querySelectorAll<HTMLElement>('.ebook-tier-group'));
+  const empty = document.getElementById('ebook-empty');
+
+  let active = 'all';
+
+  function applyChipStyles() {
+    chips.forEach((chip) => {
+      const isActive = chip.dataset.filter === active;
+      chip.classList.toggle('bg-primary', isActive);
+      chip.classList.toggle('text-on-primary', isActive);
+      chip.classList.toggle('border-primary', isActive);
+      chip.classList.toggle('bg-surface-container-high', !isActive);
+      chip.classList.toggle('text-on-surface-variant', !isActive);
+      chip.classList.toggle('border-outline-variant', !isActive);
+    });
+  }
+
+  function render() {
+    let visible = 0;
+    cards.forEach((card) => {
+      const tier = card.dataset.tier ?? '';
+      const status = card.dataset.status ?? '';
+      let show = true;
+      if (active === 'all') show = true;
+      else if (active === 'published' || active === 'draft') show = status === active;
+      else show = tier === active;
+      card.classList.toggle('hidden', !show);
+      if (show) visible += 1;
+    });
+
+    // Hide tier group headers with no visible cards
+    groups.forEach((group) => {
+      const anyVisible = group.querySelectorAll('.ebook-card:not(.hidden)').length > 0;
+      group.classList.toggle('hidden', !anyVisible);
+    });
+
+    empty?.classList.toggle('hidden', visible !== 0);
+  }
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      active = chip.dataset.filter ?? 'all';
+      applyChipStyles();
+      render();
+    });
+  });
+</script>

@@ -140,25 +140,29 @@ const currentTier = groupedChapters.find((g) =>
     const tocLinks = sidebar.querySelectorAll('[data-heading-link]');
     if (headings.length === 0 || tocLinks.length === 0) return;
 
+    let activeId: string | null = null;
+    const setActive = (id: string) => {
+      if (id === activeId) return;
+      activeId = id;
+      tocLinks.forEach((link) => {
+        const match = link.getAttribute('data-heading-link') === id;
+        link.classList.toggle('text-primary', match);
+        link.classList.toggle('border-primary', match);
+        link.classList.toggle('font-semibold', match);
+        link.classList.toggle('text-on-surface-variant', !match);
+        const icon = link.querySelector('.material-symbols-outlined');
+        if (icon) {
+          const want = match ? 'radio_button_checked' : 'radio_button_unchecked';
+          if (icon.textContent !== want) icon.textContent = want;
+        }
+      });
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-            tocLinks.forEach((link) => {
-              const match = link.getAttribute('data-heading-link') === id;
-              link.classList.toggle('text-primary', match);
-              link.classList.toggle('border-primary', match);
-              link.classList.toggle('font-semibold', match);
-              link.classList.toggle('text-on-surface-variant', !match);
-              // Swap icon
-              const icon = link.querySelector('.material-symbols-outlined');
-              if (icon) {
-                icon.textContent = match ? 'radio_button_checked' : 'radio_button_unchecked';
-              }
-            });
-          }
-        });
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(entry.target.id);
+        }
       },
       { rootMargin: '-20% 0px -70% 0px' }
     );
