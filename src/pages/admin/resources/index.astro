@@ -1,10 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { resources, resourceCategories } from '../../../data/resources';
-
-const total = resources.length;
-const freeCount = resources.filter((r) => r.tier === 'free').length;
-const premiumCount = total - freeCount;
+import { resourceCategories } from '../../../data/resources';
 
 const extColors: Record<string, string> = {
   pdf: 'text-rose-300 bg-rose-500/10',
@@ -19,9 +15,7 @@ const extColors: Record<string, string> = {
   <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
     <div>
       <h2 class="text-3xl font-bold text-white mb-1">Quản lý Resources</h2>
-      <p class="text-on-surface-variant">
-        {total} tài nguyên · {freeCount} miễn phí · {premiumCount} premium
-      </p>
+      <p class="text-on-surface-variant" id="resource-stats">Đang tải...</p>
     </div>
     <div class="flex items-center gap-3 self-start md:self-auto">
       <a
@@ -33,6 +27,7 @@ const extColors: Record<string, string> = {
       </a>
       <button
         type="button"
+        id="btn-add-resource"
         class="bg-primary-container text-white px-6 py-3 rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
       >
         <span class="material-symbols-outlined text-[20px]">upload_file</span>
@@ -59,71 +54,338 @@ const extColors: Record<string, string> = {
     ))}
   </div>
 
-  <!-- Resource table/grid -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="resource-list">
-    {resources.map((r) => (
-      <article
-        class="resource-card glass-card rounded-xl p-5 flex items-start gap-4"
-        data-category={r.category}
-      >
-        <div class="w-14 h-14 rounded-xl bg-surface-container-highest border border-outline-variant/15 flex items-center justify-center shrink-0 text-primary">
-          <span class="material-symbols-outlined text-[30px]">{r.icon}</span>
-        </div>
-
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <span class:list={['text-[10px] font-bold px-1.5 py-0.5 rounded uppercase', extColors[r.fileExt]]}>
-              {r.fileExt}
-            </span>
-            {r.tier === 'free' ? (
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Free</span>
-            ) : (
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-tertiary bg-tertiary/10">Premium</span>
-            )}
-            <span class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider ml-auto">{r.tag}</span>
-          </div>
-
-          <h4 class="text-base font-bold text-white truncate">{r.title}</h4>
-          <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{r.description}</p>
-
-          <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
-            <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">schedule</span>
-              {r.updated}
-            </span>
-            <div class="flex items-center gap-2 ml-auto">
-              <button type="button" class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Chỉnh sửa">
-                <span class="material-symbols-outlined text-[18px]">edit</span>
-              </button>
-              <button type="button" class="text-on-surface-variant hover:text-error transition-colors" aria-label="Xóa">
-                <span class="material-symbols-outlined text-[18px]">delete</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
-    ))}
-  </div>
+  <!-- Resource grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="resource-list"></div>
 
   <!-- Empty state -->
   <div id="resource-empty" class="hidden text-center py-16">
     <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">search_off</span>
     <p class="text-on-surface-variant mt-3">Không có tài nguyên nào khớp bộ lọc</p>
   </div>
+
+  <!-- Modal: Create / Edit Resource -->
+  <div
+    id="resource-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+  >
+    <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-surface-container border border-outline-variant rounded-2xl shadow-2xl animate-scale-in scrollbar-hide">
+      <!-- Modal Header -->
+      <div class="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-surface-container border-b border-outline-variant/60 rounded-t-2xl">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px] text-primary" id="modal-icon">add_circle</span>
+          </div>
+          <h3 class="text-lg font-bold text-white" id="modal-title">Thêm tài nguyên mới</h3>
+        </div>
+        <button
+          type="button"
+          id="modal-close"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-white hover:bg-surface-container-high transition-all"
+        >
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <form id="resource-form" class="p-6 space-y-6">
+        <input type="hidden" id="f-id" value="" />
+
+        <!-- Section: Thông tin cơ bản -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-[16px] text-primary">info</span>
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Thông tin cơ bản</span>
+          </div>
+
+          <!-- Title -->
+          <div>
+            <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Tiêu đề <span class="text-error">*</span></label>
+            <input
+              id="f-title"
+              type="text"
+              required
+              class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+              placeholder="VD: Quy trình đón tiếp bệnh nhân"
+            />
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Mô tả</label>
+            <textarea
+              id="f-description"
+              rows={2}
+              class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none resize-none transition-all"
+              placeholder="Mô tả ngắn gọn nội dung tài nguyên..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="h-px bg-outline-variant/30"></div>
+
+        <!-- Section: Phân loại -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-[16px] text-tertiary">label</span>
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phân loại</span>
+          </div>
+
+          <!-- Row: Category + Tier -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Danh mục</label>
+              <div class="relative">
+                <select id="f-category" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm appearance-none focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all cursor-pointer">
+                  <option value="sops">📋 SOPs</option>
+                  <option value="checklists">✅ Checklists</option>
+                  <option value="excel">📊 Excel</option>
+                  <option value="marketing">📣 Marketing</option>
+                </select>
+                <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Loại</label>
+              <div class="relative">
+                <select id="f-tier" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm appearance-none focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all cursor-pointer">
+                  <option value="free">🆓 Miễn phí</option>
+                  <option value="premium">⭐ Premium</option>
+                </select>
+                <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row: File ext + Tag -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Định dạng</label>
+              <div class="relative">
+                <select id="f-file_ext" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm appearance-none focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all cursor-pointer">
+                  <option value="pdf">📄 PDF</option>
+                  <option value="xlsx">📊 Excel (XLSX)</option>
+                  <option value="docx">📝 Word (DOCX)</option>
+                  <option value="mp4">🎬 Video (MP4)</option>
+                </select>
+                <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Tag hiển thị</label>
+              <input
+                id="f-tag"
+                type="text"
+                class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                placeholder="VD: Vận hành, KPI, Marketing..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="h-px bg-outline-variant/30"></div>
+
+        <!-- Section: File & Icon -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-[16px] text-primary">attach_file</span>
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Tệp tin</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Icon (Material)</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-primary pointer-events-none" id="icon-preview">description</span>
+                <input
+                  id="f-icon"
+                  type="text"
+                  class="w-full pl-11 pr-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                  placeholder="description"
+                  value="description"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">URL tải file</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">link</span>
+                <input
+                  id="f-file_url"
+                  type="url"
+                  class="w-full pl-11 pr-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                  placeholder="https://drive.google.com/..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="h-px bg-outline-variant/30"></div>
+
+        <!-- Section: Cài đặt -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-[16px] text-tertiary">tune</span>
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Cài đặt</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Thứ tự sắp xếp</label>
+            <div class="relative max-w-[140px]">
+              <input
+                id="f-sort_order"
+                type="number"
+                class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                value="0"
+                min="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-3 pt-2">
+          <button
+            type="submit"
+            id="modal-submit"
+            class="flex-1 btn-primary-metallic py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <span class="material-symbols-outlined text-[18px]">save</span>
+            Lưu tài nguyên
+          </button>
+          <button
+            type="button"
+            id="modal-cancel"
+            class="px-5 py-3 rounded-xl font-bold text-sm border border-outline-variant text-on-surface-variant hover:border-white hover:text-white hover:bg-surface-container-high transition-all"
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Dialog -->
+  <div
+    id="delete-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  >
+    <div class="glass-card-elevated rounded-2xl w-full max-w-sm mx-4 p-6 animate-scale-in text-center">
+      <span class="material-symbols-outlined text-5xl text-error mb-3">warning</span>
+      <h3 class="text-lg font-bold text-white mb-1">Xóa tài nguyên?</h3>
+      <p class="text-on-surface-variant text-sm mb-6" id="delete-name"></p>
+      <div class="flex items-center gap-3">
+        <button type="button" id="delete-cancel" class="flex-1 px-4 py-3 rounded-xl font-bold border-2 border-outline text-on-surface-variant hover:border-white hover:text-white transition-all">
+          Hủy
+        </button>
+        <button type="button" id="delete-confirm" class="flex-1 bg-error text-white py-3 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all">
+          Xóa
+        </button>
+      </div>
+    </div>
+  </div>
 </AdminLayout>
 
-
 <script>
-  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
-  const cards = Array.from(document.querySelectorAll<HTMLElement>('.resource-card'));
-  const empty = document.getElementById('resource-empty');
-  const list = document.getElementById('resource-list');
+  // ── State ─────────────────────────────────────────────────
+  let allResources = [];
+  let activeFilter = 'all';
+  let editingId = null;
+  let deletingId = null;
 
-  let active = 'all';
+  // ── DOM refs ──────────────────────────────────────────────
+  const listEl = document.getElementById('resource-list');
+  const emptyEl = document.getElementById('resource-empty');
+  const statsEl = document.getElementById('resource-stats');
+  const chips = Array.from(document.querySelectorAll('.filter-chip'));
 
+  const modal = document.getElementById('resource-modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalClose = document.getElementById('modal-close');
+  const modalCancel = document.getElementById('modal-cancel');
+  const modalSubmit = document.getElementById('modal-submit');
+  const form = document.getElementById('resource-form');
+
+  const deleteModal = document.getElementById('delete-modal');
+  const deleteName = document.getElementById('delete-name');
+  const deleteCancel = document.getElementById('delete-cancel');
+  const deleteConfirm = document.getElementById('delete-confirm');
+
+  // ── Fetch & Render ────────────────────────────────────────
+  async function loadResources() {
+    const res = await fetch('/api/admin/resources');
+    if (!res.ok) return;
+    allResources = await res.json();
+    render();
+  }
+
+  function render() {
+    const visible = allResources.filter(
+      (r) => activeFilter === 'all' || r.category === activeFilter
+    );
+
+    // Stats
+    const total = allResources.length;
+    const freeCount = allResources.filter((r) => r.tier === 'free').length;
+    statsEl.textContent = `${total} tài nguyên · ${freeCount} miễn phí · ${total - freeCount} premium`;
+
+    // Cards
+    listEl.innerHTML = visible
+      .map((r) => {
+        const colors = extColors[r.file_ext] ?? 'text-gray-300 bg-gray-500/10';
+        const tierBadge =
+          r.tier === 'free'
+            ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Free</span>'
+            : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-tertiary bg-tertiary/10">Premium</span>';
+
+        return `
+          <article class="resource-card glass-card rounded-xl p-5 flex items-start gap-4" data-category="${r.category}">
+            <div class="w-14 h-14 rounded-xl bg-surface-container-highest border border-outline-variant/15 flex items-center justify-center shrink-0 text-primary">
+              <span class="material-symbols-outlined text-[30px]">${r.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${colors}">${r.file_ext}</span>
+                ${tierBadge}
+                <span class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider ml-auto">${r.tag}</span>
+              </div>
+              <h4 class="text-base font-bold text-white truncate">${r.title}</h4>
+              <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">${r.description}</p>
+              <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
+                <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">schedule</span>
+                  ${new Date(r.updated_at).toLocaleDateString('vi-VN')}
+                </span>
+                <div class="flex items-center gap-2 ml-auto">
+                  <button type="button" data-edit="${r.id}" class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Chỉnh sửa">
+                    <span class="material-symbols-outlined text-[18px]">edit</span>
+                  </button>
+                  <button type="button" data-delete="${r.id}" class="text-on-surface-variant hover:text-error transition-colors" aria-label="Xóa">
+                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>`;
+      })
+      .join('');
+
+    // Empty state
+    emptyEl.classList.toggle('hidden', visible.length !== 0);
+    listEl.classList.toggle('hidden', visible.length === 0);
+
+    // Rebind card action buttons
+    listEl.querySelectorAll('[data-edit]').forEach((btn) =>
+      btn.addEventListener('click', () => openEdit(btn.dataset.edit))
+    );
+    listEl.querySelectorAll('[data-delete]').forEach((btn) =>
+      btn.addEventListener('click', () => openDelete(btn.dataset.delete))
+    );
+  }
+
+  // ── Filter chips ──────────────────────────────────────────
   function applyChipStyles() {
     chips.forEach((chip) => {
-      const isActive = chip.dataset.filter === active;
+      const isActive = chip.dataset.filter === activeFilter;
       chip.classList.toggle('bg-primary', isActive);
       chip.classList.toggle('text-on-primary', isActive);
       chip.classList.toggle('border-primary', isActive);
@@ -133,23 +395,183 @@ const extColors: Record<string, string> = {
     });
   }
 
-  function render() {
-    let visible = 0;
-    cards.forEach((card) => {
-      const cat = card.dataset.category ?? '';
-      const show = active === 'all' || cat === active;
-      card.classList.toggle('hidden', !show);
-      if (show) visible += 1;
-    });
-    empty?.classList.toggle('hidden', visible !== 0);
-    list?.classList.toggle('hidden', visible === 0);
-  }
-
-  chips.forEach((chip) => {
+  chips.forEach((chip) =>
     chip.addEventListener('click', () => {
-      active = chip.dataset.filter ?? 'all';
+      activeFilter = chip.dataset.filter ?? 'all';
       applyChipStyles();
       render();
-    });
+    })
+  );
+
+  // ── Modal helpers ─────────────────────────────────────────
+  const fields = ['id', 'title', 'description', 'category', 'tier', 'file_ext', 'tag', 'icon', 'file_url', 'sort_order'];
+  const modalIcon = document.getElementById('modal-icon');
+  const iconPreview = document.getElementById('icon-preview');
+  const iconInput = document.getElementById('f-icon');
+
+  // Live icon preview
+  iconInput?.addEventListener('input', () => {
+    const val = iconInput.value.trim() || 'description';
+    if (iconPreview) iconPreview.textContent = val;
   });
+
+  function resetForm() {
+    editingId = null;
+    modalTitle.textContent = 'Thêm tài nguyên mới';
+    modalSubmit.querySelector('span:last-child')?.textContent; // keep inner structure
+    // Update button text
+    modalSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu tài nguyên';
+    if (modalIcon) modalIcon.textContent = 'add_circle';
+    document.getElementById('f-id').value = '';
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-description').value = '';
+    document.getElementById('f-category').value = 'sops';
+    document.getElementById('f-tier').value = 'free';
+    document.getElementById('f-file_ext').value = 'pdf';
+    document.getElementById('f-tag').value = '';
+    document.getElementById('f-icon').value = 'description';
+    document.getElementById('f-file_url').value = '';
+    document.getElementById('f-sort_order').value = '0';
+    if (iconPreview) iconPreview.textContent = 'description';
+  }
+
+  function openModal() {
+    modal.classList.remove('hidden');
+    // Trigger animation
+    const panel = modal.querySelector('div');
+    if (panel) {
+      panel.style.opacity = '0';
+      panel.style.transform = 'scale(0.95) translateY(12px)';
+      requestAnimationFrame(() => {
+        panel.style.transition = 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+        panel.style.opacity = '1';
+        panel.style.transform = 'scale(1) translateY(0)';
+      });
+    }
+    // Focus first input
+    setTimeout(() => document.getElementById('f-title')?.focus(), 150);
+  }
+
+  function closeModal() {
+    const panel = modal.querySelector('div');
+    if (panel) {
+      panel.style.transition = 'opacity 0.15s ease-in, transform 0.15s ease-in';
+      panel.style.opacity = '0';
+      panel.style.transform = 'scale(0.97) translateY(8px)';
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        panel.style.transition = '';
+        panel.style.opacity = '';
+        panel.style.transform = '';
+        resetForm();
+      }, 150);
+    } else {
+      modal.classList.add('hidden');
+      resetForm();
+    }
+  }
+
+  function openEdit(id) {
+    const r = allResources.find((x) => x.id === id);
+    if (!r) return;
+    editingId = id;
+    modalTitle.textContent = 'Chỉnh sửa tài nguyên';
+    if (modalIcon) modalIcon.textContent = 'edit';
+    modalSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">update</span> Cập nhật';
+    document.getElementById('f-id').value = r.id;
+    document.getElementById('f-title').value = r.title;
+    document.getElementById('f-description').value = r.description;
+    document.getElementById('f-category').value = r.category;
+    document.getElementById('f-tier').value = r.tier;
+    document.getElementById('f-file_ext').value = r.file_ext;
+    document.getElementById('f-tag').value = r.tag;
+    document.getElementById('f-icon').value = r.icon;
+    document.getElementById('f-file_url').value = r.file_url;
+    document.getElementById('f-sort_order').value = r.sort_order;
+    if (iconPreview) iconPreview.textContent = r.icon;
+    openModal();
+  }
+
+  // Add button
+  document.getElementById('btn-add-resource').addEventListener('click', () => {
+    resetForm();
+    openModal();
+  });
+  modalClose.addEventListener('click', closeModal);
+  modalCancel.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // ── Form submit (create / update) ─────────────────────────
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      title: document.getElementById('f-title').value.trim(),
+      description: document.getElementById('f-description').value.trim(),
+      category: document.getElementById('f-category').value,
+      tier: document.getElementById('f-tier').value,
+      file_ext: document.getElementById('f-file_ext').value,
+      tag: document.getElementById('f-tag').value.trim(),
+      icon: document.getElementById('f-icon').value.trim() || 'description',
+      file_url: document.getElementById('f-file_url').value.trim(),
+      sort_order: parseInt(document.getElementById('f-sort_order').value, 10) || 0,
+    };
+
+    if (!payload.title) return;
+
+    let res;
+    if (editingId) {
+      res = await fetch(`/api/admin/resources/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch('/api/admin/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    if (res.ok) {
+      closeModal();
+      await loadResources();
+    }
+  });
+
+  // ── Delete confirm dialog ─────────────────────────────────
+  function openDelete(id) {
+    const r = allResources.find((x) => x.id === id);
+    if (!r) return;
+    deletingId = id;
+    deleteName.textContent = `"${r.title}" sẽ bị xóa vĩnh viễn.`;
+    deleteModal.classList.remove('hidden');
+  }
+
+  deleteCancel.addEventListener('click', () => {
+    deletingId = null;
+    deleteModal.classList.add('hidden');
+  });
+  deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) {
+      deletingId = null;
+      deleteModal.classList.add('hidden');
+    }
+  });
+
+  deleteConfirm.addEventListener('click', async () => {
+    if (!deletingId) return;
+    const res = await fetch(`/api/admin/resources/${deletingId}`, { method: 'DELETE' });
+    if (res.ok) {
+      deletingId = null;
+      deleteModal.classList.add('hidden');
+      await loadResources();
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────────────
+  loadResources();
 </script>

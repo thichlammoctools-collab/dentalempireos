@@ -87,5 +87,23 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalem
       <slot />
     </main>
     <Footer />
+    <!-- Ripple effect: spawns expanding circle at click point -->
+    <script is:inline>
+      document.addEventListener('click', function (e) {
+        var el = e.target.closest('button, .btn-primary-metallic, .btn-ghost, .btn-solid, .btn-chip, .btn-fab, [role="button"]');
+        if (!el || el.closest('.ripple-span')) return;
+        el.style.position = el.style.position || 'relative';
+        el.style.overflow = 'hidden';
+        var rect = el.getBoundingClientRect();
+        var size = Math.max(rect.width, rect.height) * 2;
+        var span = document.createElement('span');
+        span.className = 'ripple-span';
+        span.style.width = span.style.height = size + 'px';
+        span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+        span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+        el.appendChild(span);
+        span.addEventListener('animationend', function () { span.remove(); });
+      });
+    </script>
   </body>
 </html>

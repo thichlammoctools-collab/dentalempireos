@@ -61,3 +61,31 @@
 /* Hide scrollbar (kept content scrollable) */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Modal overlay backdrop ── */
+#resource-modal {
+  transition: opacity 0.2s ease;
+}
+
+/* ── Select dropdown custom chevron color ── */
+select {
+  background-image: none;
+}
+select option {
+  background-color: #1e1f23;
+  color: #e3e2e7;
+  padding: 8px;
+}
+
+/* ── Input focus ring glow ── */
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow: 0 0 0 2px rgba(146, 204, 255, 0.15);
+}
+
+/* ── Section divider line inside modal ── */
+#resource-form hr,
+#resource-form .h-px {
+  border-color: rgba(63, 72, 80, 0.3);
+}

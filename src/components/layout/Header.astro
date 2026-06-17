@@ -50,7 +50,7 @@ const currentPath = Astro.url.pathname;
         </a>
         <a
           href="/register"
-          class="px-5 py-2.5 btn-primary-metallic font-bold rounded-lg active:scale-95 transition-all label-md"
+          class="px-5 py-2.5 btn-primary-metallic font-bold rounded-lg label-md"
         >
           Đăng ký
         </a>
@@ -61,7 +61,7 @@ const currentPath = Astro.url.pathname;
         <span id="auth-user-email" class="hidden lg:inline text-sm text-on-surface-variant max-w-[180px] truncate"></span>
         <button
           id="auth-logout"
-          class="flex items-center gap-2 px-4 py-2 label-md font-semibold text-on-surface-variant hover:text-primary transition-colors"
+          class="flex items-center gap-2 px-4 py-2 label-md font-semibold btn-icon text-on-surface-variant hover:text-primary"
         >
           <span class="material-symbols-outlined text-[20px]">logout</span>
           Đăng xuất
@@ -70,7 +70,7 @@ const currentPath = Astro.url.pathname;
 
       <button
         id="mobile-menu-toggle"
-        class="md:hidden text-primary"
+        class="md:hidden btn-icon text-primary"
         aria-label="Mở menu"
       >
         <span class="material-symbols-outlined text-[32px]">menu</span>
@@ -120,7 +120,7 @@ const currentPath = Astro.url.pathname;
       <!-- Mobile auth: logged-in -->
       <div id="auth-mobile-logged-in" class="hidden flex-col gap-1 mt-2 pt-2 border-t border-outline-variant">
         <span id="auth-mobile-email" class="block px-4 py-2 text-sm text-on-surface-variant truncate"></span>
-        <button id="auth-mobile-logout" class="flex items-center gap-2 w-full text-left px-4 py-3 rounded-xl font-semibold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+        <button id="auth-mobile-logout" class="flex items-center gap-2 w-full text-left px-4 py-3 rounded-xl font-semibold btn-icon text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
           <span class="material-symbols-outlined text-[20px]">logout</span>
           Đăng xuất
         </button>

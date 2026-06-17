@@ -46,7 +46,7 @@ const { title, description, groupedChapters, currentSlug, currentModules } = Ast
   <!-- Smooth-scroll fix for anchor links with sticky header offset -->
   <script>
     (function () {
-      const HEADER_HEIGHT = 96; // h-20 = 5rem = 80px + 16px breathing room
+      const HEADER_HEIGHT = 80;
 
       function scrollToSlug(slug: string) {
         const target = document.getElementById(slug);
@@ -55,7 +55,6 @@ const { title, description, groupedChapters, currentSlug, currentModules } = Ast
         window.scrollTo({ top, behavior: 'smooth' });
       }
 
-      // Intercept all hash-link clicks
       document.addEventListener('click', (e) => {
         const link = (e.target as HTMLElement).closest('a[href^="#"]');
         if (!link) return;
@@ -63,13 +62,10 @@ const { title, description, groupedChapters, currentSlug, currentModules } = Ast
         if (!hash || hash.length < 2) return;
         e.preventDefault();
         scrollToSlug(hash.slice(1));
-        // Update URL without triggering native scroll
-        history.pushState(null, '', hash);
+        history.replaceState(null, '', hash);
       });
 
-      // Scroll on initial load if URL has a hash
       if (location.hash) {
-        // Small delay so DOM is fully laid out
         requestAnimationFrame(() => scrollToSlug(location.hash.slice(1)));
       }
     })();

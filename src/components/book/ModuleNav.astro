@@ -37,33 +37,38 @@ const { modules } = Astro.props;
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  article h2[id] {
+    scroll-margin-top: 6rem;
+  }
 </style>
 
 <script>
   function initModuleNav() {
     const chips = document.querySelectorAll('[data-module-chip]');
-    const headings = document.querySelectorAll('article h2');
+    const headings = document.querySelectorAll('article h2[id]');
     if (chips.length === 0 || headings.length === 0) return;
+
+    let activeId: string | null = null;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-            chips.forEach((chip) => {
-              const match = chip.getAttribute('data-module-chip') === id;
-              chip.classList.toggle('text-primary', match);
-              chip.classList.toggle('border-primary', match);
-              chip.classList.toggle('bg-primary/10', match);
-              chip.classList.toggle('text-on-surface-variant', !match);
-            });
-            // Auto-scroll chip into view
-            const activeChip = document.querySelector(`[data-module-chip="${id}"]`);
-            activeChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length === 0) return;
+        const id = visible[0].target.id;
+        if (id === activeId) return;
+        activeId = id;
+
+        chips.forEach((chip) => {
+          const match = chip.getAttribute('data-module-chip') === id;
+          chip.classList.toggle('text-primary', match);
+          chip.classList.toggle('border-primary', match);
+          chip.classList.toggle('bg-primary/10', match);
+          chip.classList.toggle('text-on-surface-variant', !match);
         });
+        const activeChip = document.querySelector(`[data-module-chip="${id}"]`);
+        activeChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       },
-      { rootMargin: '-30% 0px -60% 0px' }
+      { rootMargin: '-80px 0px -60% 0px' }
     );
 
     headings.forEach((heading) => observer.observe(heading));

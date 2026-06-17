@@ -27,7 +27,6 @@ function walk(sections: typeof tree.sections, prefix = '') {
 }
 walk(tree.sections);
 
-// Compute selected section for the editor (first main section, or any section)
 const selectedSectionId = flatSections[0]?.id ?? '';
 ---
 
@@ -115,38 +114,50 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         </ul>
       )}
     </section>
+  </div>
 
-    <!-- Block editor for selected section -->
-    <section class="glass-card rounded-xl p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-bold text-white">Nội dung đề mục</h3>
-        <select id="section-select" class="bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-sm">
-          {flatSections.map((s) => (
-            <option value={s.id} selected={s.id === selectedSectionId}>{s.label}</option>
-          ))}
-        </select>
+  <!-- ═══════════════ Block editor modal ═══════════════ -->
+  <div id="section-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <!-- Backdrop -->
+    <div id="modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Modal panel -->
+    <div class="relative bg-surface-container rounded-2xl shadow-2xl border border-outline-variant/30 w-full max-w-3xl max-h-[85vh] flex flex-col mx-4 my-4">
+      <!-- Header -->
+      <div class="flex items-center justify-between p-5 border-b border-outline-variant/30 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-primary text-[20px]">menu_book</span>
+          <h3 id="modal-section-title" class="text-base font-bold text-white truncate"></h3>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span id="modal-save-status" class="text-xs text-on-surface-variant"></span>
+          <button id="modal-close-btn" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white hover:bg-surface-container-high transition-all" title="Đóng (tự lưu)">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
       </div>
 
-      <div id="blocks-container" data-section-id={selectedSectionId}>
-        <!-- Populated by client script per-section -->
+      <!-- Body (scrollable) -->
+      <div id="modal-blocks-body" class="flex-1 overflow-y-auto min-h-0 p-5">
         <p class="text-sm text-on-surface-variant py-6 text-center">Đang tải...</p>
       </div>
 
-      <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-outline-variant/40">
-        <button data-add-block="text" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
+      <!-- Footer: add block buttons -->
+      <div class="flex flex-wrap gap-2 p-4 border-t border-outline-variant/30 shrink-0">
+        <button data-modal-add-block="text" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">notes</span>
           Thêm text
         </button>
-        <button data-add-block="image" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
+        <button data-modal-add-block="image" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">image</span>
           Thêm ảnh
         </button>
-        <button data-add-block="file" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
+        <button data-modal-add-block="file" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">attach_file</span>
           Thêm biểu mẫu
         </button>
       </div>
-    </section>
+    </div>
   </div>
 
 </AdminLayout>
@@ -154,301 +165,393 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 <script>
   import type { ChapterTree, SectionNode, BlockRow } from '../../../lib/book-db';
 
-  const chapterId = window.location.pathname.split('/').pop()!;
-  let currentTree: ChapterTree | null = null;
-  let activeSectionId = '';
+  document.addEventListener('DOMContentLoaded', () => {
+    const chapterId = window.location.pathname.split('/').pop()!;
+    let currentTree: ChapterTree | null = null;
 
-  // ── Chapter metadata save ─────────────────────────────
-  const chapterForm = document.getElementById('chapter-meta-form') as HTMLFormElement;
-  chapterForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(chapterForm);
-    const res = await fetch(`/api/admin/chapters/${chapterId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: fd.get('title'),
-        description: fd.get('description'),
-        status: fd.get('status'),
-      }),
-    });
-    if (res.ok) {
-      alert('Đã lưu');
-    } else {
-      alert('Lỗi khi lưu');
-    }
-  });
+    // ── Modal state ──────────────────────────────────────
+    const modal = document.getElementById('section-modal')!;
+    const modalBackdrop = document.getElementById('modal-backdrop')!;
+    const modalTitle = document.getElementById('modal-section-title')!;
+    const modalBody = document.getElementById('modal-blocks-body')!;
+    const modalSaveStatus = document.getElementById('modal-save-status')!;
+    const modalCloseBtn = document.getElementById('modal-close-btn')!;
+    let modalSectionId = '';
+    let dirty = false;
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // ── Add main section ──────────────────────────────────
-  document.getElementById('btn-add-section')?.addEventListener('click', async () => {
-    const title = prompt('Tên đề mục chính:');
-    if (!title) return;
-    const res = await fetch('/api/admin/sections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chapter_id: chapterId,
-        level: 2,
-        title,
-        order: Date.now(),
-      }),
-    });
-    if (res.ok) location.reload();
-  });
-
-  // ── Section select ────────────────────────────────────
-  const sectionSelect = document.getElementById('section-select') as HTMLSelectElement;
-  sectionSelect?.addEventListener('change', () => {
-    activeSectionId = sectionSelect.value;
-    renderBlocks();
-  });
-
-  // ── Initial load: fetch tree ──────────────────────────
-  async function loadTree() {
-    const res = await fetch(`/api/admin/chapters/${chapterId}`);
-    currentTree = await res.json() as ChapterTree;
-    activeSectionId = sectionSelect?.value || currentTree.sections[0]?.id || '';
-    renderBlocks();
-  }
-
-  // ── Render blocks of active section ───────────────────
-  function renderBlocks() {
-    const container = document.getElementById('blocks-container');
-    if (!container || !currentTree) return;
-
-    const section = findSection(currentTree.sections, activeSectionId);
-    if (!section) {
-      container!.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chọn đề mục để xem nội dung.</p>';
-      return;
+    // ── Helpers ──────────────────────────────────────────
+    function findSection(sections: SectionNode[], id: string): SectionNode | null {
+      for (const s of sections) {
+        if (s.id === id) return s;
+        const c = findSection(s.children, id);
+        if (c) return c;
+      }
+      return null;
     }
 
-    container!.dataset.sectionId = section.id;
-
-    if (section.blocks.length === 0) {
-      container!.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Đề mục này chưa có nội dung. Bấm nút bên dưới để thêm.</p>';
-      return;
+    function escapeHtml(s: string): string {
+      return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
-    container!.innerHTML = section.blocks
-      .sort((a, b) => a.order - b.order)
-      .map((b) => renderBlock(b))
-      .join('');
-    bindBlockEvents();
-  }
-
-  function findSection(sections: SectionNode[], id: string): SectionNode | null {
-    for (const s of sections) {
-      if (s.id === id) return s;
-      const c = findSection(s.children, id);
-      if (c) return c;
+    // ── Fetch tree ────────────────────────────────────────
+    async function loadTree(): Promise<ChapterTree> {
+      const res = await fetch(`/api/admin/chapters/${chapterId}`);
+      const tree = await res.json() as ChapterTree;
+      currentTree = tree;
+      return tree;
     }
-    return null;
-  }
 
-  function renderBlock(b: BlockRow): string {
-    if (b.type === 'text') {
-      return `
-        <div class="block-item group flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-on-surface-variant">Text block</span>
-            <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
-            </button>
-          </div>
-          <textarea data-field="text_md" rows="4" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-white text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
-          <div class="flex justify-end">
-            <button data-action="save" class="px-3 py-1.5 bg-primary text-on-primary rounded-md text-xs font-bold hover:opacity-90">Lưu block</button>
-          </div>
-        </div>`;
-    }
-    if (b.type === 'image') {
-      const url = b.r2_key ? `/media/${b.r2_key}` : '';
-      return `
-        <div class="block-item group flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-on-surface-variant">Image block</span>
-            <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
-            </button>
-          </div>
-          ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-48 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs text-on-surface-variant mb-1">Thay ảnh</label>
-              <input data-field="file" type="file" accept="image/*" class="w-full text-xs text-on-surface-variant" />
-            </div>
-            <div>
-              <label class="block text-xs text-on-surface-variant mb-1">Alt text (cho AI)</label>
-              <input data-field="alt" value="${escapeHtml(b.alt ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
-            <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs" />
-          </div>
-          <div class="flex justify-end">
-            <button data-action="save" class="px-3 py-1.5 bg-primary text-on-primary rounded-md text-xs font-bold hover:opacity-90">Lưu block</button>
-          </div>
-        </div>`;
-    }
-    // file
-    return `
-      <div class="block-item group flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-on-surface-variant">File block</span>
-          <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors">
-            <span class="material-symbols-outlined text-[18px]">delete</span>
-          </button>
-        </div>
-        ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs text-on-surface-variant mb-1">Thay file</label>
-            <input data-field="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" class="w-full text-xs text-on-surface-variant" />
-          </div>
-          <div>
-            <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
-            <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs" />
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <button data-action="save" class="px-3 py-1.5 bg-primary text-on-primary rounded-md text-xs font-bold hover:opacity-90">Lưu block</button>
-        </div>
-      </div>`;
-  }
-
-  function escapeHtml(s: string): string {
-    return s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function bindBlockEvents() {
-    document.querySelectorAll<HTMLElement>('.block-item').forEach((item) => {
-      const blockId = item.dataset.blockId!;
-
-      item.querySelector<HTMLButtonElement>('[data-action="delete"]')?.addEventListener('click', async () => {
-        if (!confirm('Xoá block này?')) return;
-        await fetch(`/api/admin/blocks/${blockId}`, { method: 'DELETE' });
-        await loadTree();
+    // ── Chapter metadata save ─────────────────────────────
+    const chapterForm = document.getElementById('chapter-meta-form') as HTMLFormElement;
+    chapterForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(chapterForm);
+      const res = await fetch(`/api/admin/chapters/${chapterId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: fd.get('title'),
+          description: fd.get('description'),
+          status: fd.get('status'),
+        }),
       });
+      if (res.ok) {
+        alert('Đã lưu');
+      } else {
+        alert('Lỗi khi lưu');
+      }
+    });
 
-      item.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', async () => {
+    // ── Add main section ──────────────────────────────────
+    document.getElementById('btn-add-section')?.addEventListener('click', async () => {
+      const title = prompt('Tên đề mục chính:');
+      if (!title) return;
+      const res = await fetch('/api/admin/sections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chapter_id: chapterId,
+          level: 2,
+          title,
+          order: Date.now(),
+        }),
+      });
+      if (res.ok) location.reload();
+    });
+
+    // ── Modal helpers ─────────────────────────────────────
+    function updateSaveStatus(text: string) {
+      modalSaveStatus.textContent = text;
+    }
+
+    function markDirty() {
+      dirty = true;
+      updateSaveStatus('Có thay đổi...');
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => saveAllDirtyBlocks(), 1500);
+    }
+
+    async function openModal(sectionId: string) {
+      // Always fetch fresh tree to get latest blocks
+      const tree = await loadTree();
+      const section = findSection(tree.sections, sectionId);
+      if (!section) return;
+
+      modalSectionId = sectionId;
+      modalTitle.textContent = section.title;
+      dirty = false;
+      updateSaveStatus('');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      renderModalBlocks(section);
+    }
+
+    async function closeModal() {
+      await saveAllDirtyBlocks();
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+      modalSectionId = '';
+    }
+
+    // ── Save all dirty blocks ─────────────────────────────
+    async function saveAllDirtyBlocks() {
+      if (!dirty) return;
+      updateSaveStatus('Đang lưu...');
+
+      const items = modalBody.querySelectorAll<HTMLElement>('.block-item[data-dirty]');
+      for (const item of items) {
+        const blockId = item.dataset.blockId;
+        if (!blockId) continue;
+
+        const body: Record<string, unknown> = {};
+
+        const textEl = item.querySelector<HTMLTextAreaElement>('[data-field="text_md"]');
+        if (textEl) body.text_md = textEl.value;
+
+        const altEl = item.querySelector<HTMLInputElement>('[data-field="alt"]');
+        if (altEl) body.alt = altEl.value;
+
+        const captionEl = item.querySelector<HTMLInputElement>('[data-field="caption"]');
+        if (captionEl) body.caption = captionEl.value;
+
         const fileInput = item.querySelector<HTMLInputElement>('[data-field="file"]');
         const file = fileInput?.files?.[0];
 
-        let body: Record<string, unknown> = {};
-
         if (file) {
-          // Upload first
           const fd = new FormData();
           fd.append('file', file);
           fd.append('chapterId', chapterId);
           const upRes = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-          if (!upRes.ok) {
-            alert('Upload thất bại');
-            return;
+          if (upRes.ok) {
+            const up = await upRes.json() as { r2_key: string; mime: string; filename: string };
+            body.r2_key = up.r2_key;
+            body.mime = up.mime;
+            body.filename = up.filename;
           }
-          const up = await upRes.json() as { r2_key: string; mime: string; filename: string };
-          body.r2_key = up.r2_key;
-          body.mime = up.mime;
-          body.filename = up.filename;
         }
 
-        const alt = item.querySelector<HTMLInputElement>('[data-field="alt"]')?.value;
-        const caption = item.querySelector<HTMLInputElement>('[data-field="caption"]')?.value;
-        const text = item.querySelector<HTMLTextAreaElement>('[data-field="text_md"]')?.value;
-
-        if (alt !== undefined) body.alt = alt;
-        if (caption !== undefined) body.caption = caption;
-        if (text !== undefined) body.text_md = text;
-
-        const res = await fetch(`/api/admin/blocks/${blockId}`, {
+        await fetch(`/api/admin/blocks/${blockId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        if (res.ok) {
-          await loadTree();
-        } else {
-          alert('Lỗi khi lưu block');
+
+        item.removeAttribute('data-dirty');
+      }
+
+      dirty = false;
+      updateSaveStatus('✓ Đã lưu');
+      setTimeout(() => { if (!dirty) updateSaveStatus(''); }, 2500);
+    }
+
+    // ── Render blocks inside modal ────────────────────────
+    function renderModalBlocks(section: SectionNode) {
+      if (section.blocks.length === 0) {
+        modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
+        return;
+      }
+
+      modalBody.innerHTML = section.blocks
+        .sort((a, b) => a.order - b.order)
+        .map((b) => renderBlock(b))
+        .join('');
+    }
+
+    function renderBlock(b: BlockRow): string {
+      if (b.type === 'text') {
+        return `
+          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant">Text block</span>
+              <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+              </button>
+            </div>
+            <textarea data-field="text_md" rows="5" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-white text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none resize-y" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
+          </div>`;
+      }
+      if (b.type === 'image') {
+        const url = b.r2_key ? `/media/${b.r2_key}` : '';
+        return `
+          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant">Image block</span>
+              <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+              </button>
+            </div>
+            ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-on-surface-variant mb-1">Thay ảnh</label>
+                <input data-field="file" type="file" accept="image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+              </div>
+              <div>
+                <label class="block text-xs text-on-surface-variant mb-1">Alt text (cho AI)</label>
+                <input data-field="alt" value="${escapeHtml(b.alt ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
+              <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+            </div>
+          </div>`;
+      }
+      // file
+      return `
+        <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-on-surface-variant">File block</span>
+            <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+          ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-on-surface-variant mb-1">Thay file</label>
+              <input data-field="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+            </div>
+            <div>
+              <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
+              <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── Modal body: event delegation for inputs & delete ──
+    modalBody.addEventListener('input', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.matches('input[data-field], textarea[data-field]')) {
+        target.closest<HTMLElement>('.block-item')?.setAttribute('data-dirty', '1');
+        markDirty();
+      }
+    });
+    modalBody.addEventListener('change', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.matches('input[data-field="file"]')) {
+        target.closest<HTMLElement>('.block-item')?.setAttribute('data-dirty', '1');
+        markDirty();
+      }
+    });
+    modalBody.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const deleteBtn = target.closest<HTMLElement>('[data-action="delete"]');
+      if (!deleteBtn) return;
+      const item = deleteBtn.closest<HTMLElement>('.block-item');
+      const blockId = item?.dataset.blockId;
+      if (!blockId) return;
+      if (!confirm('Xoá block này?')) return;
+      fetch(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }).then(() => {
+        item?.remove();
+        dirty = true;
+        updateSaveStatus('Đã xoá');
+        // Check if empty now
+        if (!modalBody.querySelector('.block-item')) {
+          modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
         }
       });
     });
-  }
 
-  // ── Add block buttons ─────────────────────────────────
-  document.querySelectorAll<HTMLButtonElement>('[data-add-block]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const type = btn.dataset.addBlock as 'text' | 'image' | 'file';
-      const sectionId = (document.getElementById('blocks-container') as HTMLElement).dataset.sectionId;
-      if (!sectionId) {
-        alert('Chọn đề mục trước');
+    // ── Modal add block buttons ───────────────────────────
+    document.querySelectorAll<HTMLButtonElement>('[data-modal-add-block]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!modalSectionId) return;
+        const type = btn.dataset.modalAddBlock as 'text' | 'image' | 'file';
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/admin/blocks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              section_id: modalSectionId,
+              type,
+              order: Date.now(),
+            }),
+          });
+          if (res.ok) {
+            // Re-fetch tree and re-render modal
+            const tree = await loadTree();
+            const section = findSection(tree.sections, modalSectionId);
+            if (section) {
+              modalTitle.textContent = section.title;
+              renderModalBlocks(section);
+            }
+          } else {
+            alert('Lỗi khi tạo block');
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // ── Modal close handlers ──────────────────────────────
+    modalCloseBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+
+    // ── Section tree: event delegation ────────────────────
+    document.getElementById('section-tree')?.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      // Click title → open modal
+      const titleEl = target.closest<HTMLElement>('[data-section-title]');
+      if (titleEl) {
+        const sectionItem = target.closest<HTMLElement>('[data-section-item]');
+        if (sectionItem && currentTree) {
+          openModal(sectionItem.dataset.sectionId!);
+        }
         return;
       }
-      const res = await fetch('/api/admin/blocks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          section_id: sectionId,
-          type,
-          order: Date.now(),
-        }),
-      });
-      if (res.ok) {
-        await loadTree();
+
+      // Edit button → rename
+      const editBtn = target.closest<HTMLElement>('[data-section-edit]');
+      if (editBtn) {
+        const sectionItem = target.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem || !currentTree) return;
+        const id = sectionItem.dataset.sectionId!;
+        const section = findSection(currentTree.sections, id);
+        const title = prompt('Tên đề mục:', sectionItem.querySelector('[data-section-title]')?.textContent || '');
+        if (!title) return;
+        fetch(`/api/admin/sections/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            level: section?.level ?? 2,
+            title,
+            order: section?.order ?? 0,
+          }),
+        }).then(() => location.reload());
+        return;
+      }
+
+      // Delete button
+      const deleteBtn = target.closest<HTMLElement>('[data-section-delete]');
+      if (deleteBtn) {
+        const sectionItem = target.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem) return;
+        if (!confirm('Xoá đề mục (kèm blocks bên trong)?')) return;
+        fetch(`/api/admin/sections/${sectionItem.dataset.sectionId!}`, { method: 'DELETE' })
+          .then(() => location.reload());
+        return;
+      }
+
+      // Add sub-section
+      const addSubBtn = target.closest<HTMLElement>('[data-section-add-sub]');
+      if (addSubBtn) {
+        const sectionItem = target.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem || !currentTree) return;
+        const id = sectionItem.dataset.sectionId!;
+        const title = prompt('Tên đề mục phụ:');
+        if (!title) return;
+        fetch('/api/admin/sections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: id,
+            level: 3,
+            title,
+            order: Date.now(),
+          }),
+        }).then(() => location.reload());
+        return;
       }
     });
+
+    // ── Init ──────────────────────────────────────────────
+    loadTree();
   });
-
-  // ── Section tree interactions ─────────────────────────
-  document.querySelectorAll<HTMLElement>('[data-section-item]').forEach((el) => {
-    const id = el.dataset.sectionId!;
-
-    el.querySelector<HTMLButtonElement>('[data-section-edit]')?.addEventListener('click', async () => {
-      const title = prompt('Tên đề mục:', el.querySelector('[data-section-title]')?.textContent || '');
-      if (!title) return;
-      const section = findSection(currentTree!.sections, id);
-      await fetch(`/api/admin/sections/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chapter_id: chapterId,
-          level: section?.level ?? 2,
-          title,
-          order: section?.order ?? 0,
-        }),
-      });
-      location.reload();
-    });
-
-    el.querySelector<HTMLButtonElement>('[data-section-delete]')?.addEventListener('click', async () => {
-      if (!confirm('Xoá đề mục (kèm blocks bên trong)?')) return;
-      await fetch(`/api/admin/sections/${id}`, { method: 'DELETE' });
-      location.reload();
-    });
-
-    el.querySelector<HTMLButtonElement>('[data-section-add-sub]')?.addEventListener('click', async () => {
-      const title = prompt('Tên đề mục phụ:');
-      if (!title) return;
-      const section = findSection(currentTree!.sections, id);
-      await fetch('/api/admin/sections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chapter_id: chapterId,
-          parent_id: id,
-          level: 3,
-          title,
-          order: Date.now(),
-        }),
-      });
-      location.reload();
-    });
-  });
-
-  loadTree();
 </script>
-</AdminLayout>

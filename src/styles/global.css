@@ -95,17 +95,134 @@
 
 /* === Utility Classes === */
 @layer utilities {
-  /* Metallic gradient button */
+  /* Metallic gradient button — enhanced with hover lift + ripple */
   .btn-primary-metallic {
     background: linear-gradient(135deg, #2b98dd 0%, #004b73 100%);
     color: white;
     box-shadow: 0 4px 14px 0 rgba(43, 152, 221, 0.3);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
   }
   .btn-primary-metallic:hover {
-    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px 0 rgba(43, 152, 221, 0.45);
   }
   .btn-primary-metallic:active {
-    transform: scale(0.95);
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 2px 8px 0 rgba(43, 152, 221, 0.25);
+    transition-duration: 0.1s;
+  }
+  .btn-primary-metallic:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Ripple effect span — injected via JS */
+  .ripple-span {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(0);
+    animation: ripple-expand 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes ripple-expand {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  /* Ghost/outline button — hover glow + lift */
+  .btn-ghost {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-ghost:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(146, 204, 255, 0.15);
+  }
+  .btn-ghost:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 0.1s;
+  }
+  .btn-ghost:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Solid admin button (bg-primary text-on-primary) — enhanced */
+  .btn-solid {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-solid:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(146, 204, 255, 0.2);
+    filter: brightness(1.08);
+  }
+  .btn-solid:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 0.1s;
+  }
+  .btn-solid:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Chip/filter button — subtle glow on hover */
+  .btn-chip {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 12px rgba(146, 204, 255, 0.2);
+  }
+  .btn-chip:active {
+    transform: translateY(0) scale(0.96);
+    transition-duration: 0.1s;
+  }
+  .btn-chip:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Icon action button — scale + color shift */
+  .btn-icon {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-icon:hover {
+    transform: scale(1.15);
+  }
+  .btn-icon:active {
+    transform: scale(0.9);
+    transition-duration: 0.1s;
+  }
+
+  /* FAB (Floating Action Button) */
+  .btn-fab {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-fab:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 28px rgba(43, 152, 221, 0.5);
+  }
+  .btn-fab:active {
+    transform: translateY(0) scale(0.95);
+    box-shadow: 0 2px 8px rgba(43, 152, 221, 0.3);
+    transition-duration: 0.1s;
+  }
+  .btn-fab:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 3px;
   }
 
   /* Glass morphism */

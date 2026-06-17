@@ -1,16 +1,27 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import DownloadForm from '../components/sections/DownloadForm.astro';
-import { resources, resourceCategories as categories, type ResourceFileExt as FileExt } from '../data/resources';
+import { resourceCategories as categories } from '../data/resources';
+import { listResources } from '../lib/resource-db';
+import type { ResourceRow } from '../lib/resource-db';
 
-const extColors: Record<FileExt, string> = {
+// Fetch from D1 — falls back to empty array if DB unavailable (e.g. local dev)
+let resources: ResourceRow[] = [];
+try {
+  const { env } = await import('cloudflare:workers');
+  resources = await listResources(env.DB);
+} catch {
+  resources = [];
+}
+
+const extColors: Record<string, string> = {
   pdf: 'text-rose-300 bg-rose-500/10',
   xlsx: 'text-emerald-300 bg-emerald-500/10',
   docx: 'text-sky-300 bg-sky-500/10',
   mp4: 'text-amber-300 bg-amber-500/10',
 };
 
-const iconColors: Record<FileExt, string> = {
+const iconColors: Record<string, string> = {
   pdf: 'text-primary',
   xlsx: 'text-tertiary',
   docx: 'text-primary',
@@ -148,13 +159,13 @@ const iconColors: Record<FileExt, string> = {
         >
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-xl bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0">
-              <span class={`material-symbols-outlined text-[32px] ${iconColors[r.fileExt]}`}>{r.icon}</span>
+              <span class={`material-symbols-outlined text-[32px] ${iconColors[r.file_ext]}`}>{r.icon}</span>
             </div>
 
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 mb-1.5">
-                <span class={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${extColors[r.fileExt]}`}>
-                  {r.fileExt}
+                <span class={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${extColors[r.file_ext]}`}>
+                  {r.file_ext}
                 </span>
                 {r.tier === 'free' ? (
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Free</span>
@@ -170,11 +181,11 @@ const iconColors: Record<FileExt, string> = {
               <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/60">
                 <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
                   <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  Cập nhật: {r.updated}
+                  Cập nhật: {new Date(r.updated_at).toLocaleDateString('vi-VN')}
                 </span>
 
                 {r.tier === 'free' ? (
-                  r.fileExt === 'mp4' ? (
+                  r.file_ext === 'mp4' ? (
                     <button
                       data-download={r.id}
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/30 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 active:scale-95 transition-all"
@@ -202,7 +213,7 @@ const iconColors: Record<FileExt, string> = {
                 )}
               </div>
 
-              <DownloadForm resourceId={r.id} fileName={`${r.id}.${r.fileExt}`} fileLabel={r.title} />
+              <DownloadForm resourceId={r.id} fileName={`${r.id}.${r.file_ext}`} fileLabel={r.title} />
             </div>
           </div>
         </article>
