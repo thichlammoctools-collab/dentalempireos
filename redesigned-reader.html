@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html class="dark" lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Empire Reader | Dental Empire OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100;300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --color-surface-dim: #121317;
+    --color-surface-container: #1e1f23;
+    --color-surface-container-low: #1a1b1f;
+    --color-surface-container-high: #292a2e;
+    --color-surface-container-highest: #343539;
+    --color-primary: #92ccff;
+    --color-primary-container: #2b98dd;
+    --color-on-primary: #003351;
+    --color-on-surface: #e3e2e7;
+    --color-on-surface-variant: #bfc7d2;
+    --color-outline-variant: #3f4850;
+    --color-tertiary: #ffb77a;
+    --color-tertiary-container: #d37b1e;
+    --color-on-tertiary: #4c2700;
+    --color-error: #ffb4ab;
+    --color-error-container: #93000a;
+    --color-on-error: #690005;
+    --color-background: #121317;
+    --color-surface: #121317;
+    --color-surface-bright: #38393d;
+
+    /* Reader theme backgrounds */
+    --reader-bg: #121317;
+    --reader-surface: #1a1b1f;
+    --reader-text: #e3e2e7;
+    --reader-text-muted: #bfc7d2;
+    --reader-accent: #92ccff;
+  }
+
+  body {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background-color: var(--reader-bg);
+    color: var(--reader-text);
+    overflow: hidden;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
+
+  /* Status dot animation */
+  @keyframes pulse-dot {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    background: radial-gradient(circle, #92ccff 0%, #006497 100%);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 8px #92ccff;
+    animation: pulse-dot 2s infinite ease-in-out;
+  }
+
+  /* Reader content: light mode */
+  body.light-mode { --reader-bg: #faf9f7; --reader-surface: #f0eee9; --reader-text: #2d2d2d; --reader-text-muted: #5a5a5a; --reader-accent: #006497; }
+  body.light-mode .glass-panel { background: rgba(240, 238, 233, 0.85); border-color: rgba(0,0,0,0.08); }
+  body.light-mode .glass-panel-dark { background: rgba(30, 31, 35, 0.85); border-color: rgba(255,255,255,0.1); }
+  body.light-mode { background-color: var(--reader-bg); color: var(--reader-text); }
+
+  /* Sepia mode */
+  body.sepia-mode { --reader-bg: #f4ecd8; --reader-surface: #ede5d0; --reader-text: #433422; --reader-text-muted: #6b5a40; --reader-accent: #8b5e3c; }
+  body.sepia-mode { background-color: var(--reader-bg); color: var(--reader-text); }
+  body.sepia-mode .glass-panel { background: rgba(237, 229, 208, 0.9); border-color: rgba(139, 94, 60, 0.15); }
+  body.sepia-mode .glass-panel-dark { background: rgba(45, 35, 22, 0.9); border-color: rgba(255,255,255,0.1); }
+
+  /* Font size scale */
+  body.fs-sm { --fs-multiplier: 0.875; }
+  body.fs-md { --fs-multiplier: 1; }
+  body.fs-lg { --fs-multiplier: 1.125; }
+  body.fs-xl { --fs-multiplier: 1.25; }
+  body.fs-2xl { --fs-multiplier: 1.4; }
+
+  /* Glass panel */
+  .glass-panel {
+    background: rgba(26, 27, 31, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-panel-dark {
+    background: rgba(26, 27, 31, 0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Glow effects */
+  .cyan-box-glow {
+    box-shadow: 0 4px 20px rgba(0, 136, 204, 0.3);
+  }
+  .cyan-glow {
+    text-shadow: 0 0 15px rgba(146, 204, 255, 0.5);
+  }
+
+  /* Pipeline visualization */
+  .pipeline-line {
+    background: linear-gradient(to bottom, var(--color-primary) 0%, rgba(146, 204, 255, 0.2) 100%);
+  }
+
+  /* Mobile progress gradient */
+  .progress-gradient {
+    background: linear-gradient(90deg, #2b98dd 0%, #92ccff 100%);
+  }
+
+  /* Mobile-specific: book cover shadow */
+  .book-cover-shadow {
+    box-shadow: 0 4px 20px rgba(0, 136, 204, 0.3);
+  }
+
+  /* Bottom sheet animation */
+  .bottom-sheet {
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+  .bottom-sheet-handle {
+    width: 40px; height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+  }
+
+  /* Floating action controls */
+  .fab-control {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .fab-control:hover {
+    transform: scale(1.05);
+  }
+  .fab-control:active {
+    transform: scale(0.95);
+  }
+
+  /* Progress bar */
+  .read-progress {
+    background: linear-gradient(90deg, var(--color-primary), rgba(146, 204, 255, 0.4));
+    transition: width 0.3s ease;
+  }
+
+  /* Focus mode */
+  body.focus-mode .sidebar-desktop,
+  body.focus-mode .header-bar {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  body.focus-mode:hover .sidebar-desktop,
+  body.focus-mode:hover .header-bar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* TOC active item */
+  .toc-item-active {
+    background: rgba(146, 204, 255, 0.1);
+    border-left-color: var(--color-primary);
+    color: var(--color-primary) !important;
+  }
+
+  /* Chapter transition */
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .animate-slide-right { animation: slideInRight 0.3s ease-out; }
+  .animate-slide-left { animation: slideInLeft 0.3s ease-out; }
+</style>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface-dim": "#121317",
+          "surface-container": "#1e1f23",
+          "surface-container-low": "#1a1b1f",
+          "surface-container-high": "#292a2e",
+          "surface-container-highest": "#343539",
+          "surface-bright": "#38393d",
+          "primary": "#92ccff",
+          "primary-container": "#2b98dd",
+          "on-primary": "#003351",
+          "on-surface": "#e3e2e7",
+          "on-surface-variant": "#bfc7d2",
+          "outline-variant": "#3f4850",
+          "tertiary": "#ffb77a",
+          "tertiary-container": "#d37b1e",
+          "on-tertiary": "#4c2700",
+          "background": "#121317",
+          "surface": "#121317",
+        }
+      }
+    }
+  }
+</script>
+</head>
+<body class="dark fs-md flex flex-col h-screen w-screen overflow-hidden">
+
+<!-- ==========================================
+     HEADER TOOLBAR
+     ========================================== -->
+<header class="header-bar flex items-center justify-between px-4 lg:px-6 h-12 lg:h-14 flex-shrink-0 glass-panel-dark border-b border-white/[0.06] z-50">
+  <!-- Mobile: Logo + back -->
+  <div class="flex items-center gap-2 min-w-0 lg:hidden">
+    <a href="/book" class="text-on-surface-variant hover:text-primary transition-colors active:scale-95 transition-transform">
+      <span class="material-symbols-outlined text-2xl">menu</span>
+    </a>
+    <h1 class="text-sm font-bold text-primary tracking-tight truncate max-w-[160px]">Dental Empire OS</h1>
+  </div>
+
+  <!-- Desktop: Back + breadcrumb -->
+  <div class="hidden lg:flex items-center gap-3 min-w-0">
+    <a href="/book" class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors flex-shrink-0">
+      <span class="material-symbols-outlined text-xl">arrow_back</span>
+      <span class="text-sm font-semibold">Thư Viện</span>
+    </a>
+    <div class="w-px h-5 bg-outline-variant"></div>
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="text-sm font-bold text-on-surface truncate max-w-[180px]">Chương I</span>
+      <span class="text-on-surface-variant text-sm hidden xl:inline">—</span>
+      <span class="text-on-surface-variant text-sm hidden xl:inline truncate max-w-[200px]">Tự Vận Hành</span>
+    </div>
+  </div>
+
+  <!-- Desktop: Progress -->
+  <div class="hidden lg:flex items-center gap-3 flex-shrink-0">
+    <span class="text-[10px] text-on-surface-variant font-semibold">25%</span>
+    <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+      <div class="read-progress h-full rounded-full" style="width: 25%"></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="flex items-center gap-1 lg:gap-2">
+    <!-- Desktop: Font size -->
+    <button onclick="toggleFontMenu(event)" class="fab-control hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+      <span class="material-symbols-outlined text-base">text_fields</span>
+      <span class="text-[11px] font-semibold">A</span>
+    </button>
+
+    <!-- Theme toggle -->
+    <button onclick="cycleTheme()" id="theme-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all">
+      <span class="material-symbols-outlined text-base" id="theme-icon">dark_mode</span>
+      <span class="hidden lg:inline text-[11px] font-semibold">Nền</span>
+    </button>
+
+    <!-- Desktop: Focus mode -->
+    <button onclick="toggleFocusMode()" id="focus-btn" class="fab-control hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+      <span class="material-symbols-outlined text-base">visibility</span>
+      <span class="text-[11px] font-semibold">Focus</span>
+    </button>
+
+    <!-- Desktop: Search -->
+    <button onclick="toggleSearch()" class="fab-control hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+      <span class="material-symbols-outlined text-base">search</span>
+      <span class="text-[11px] font-semibold">Tìm</span>
+    </button>
+
+    <!-- Bookmark -->
+    <button onclick="toggleBookmark()" id="bookmark-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+      <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
+    </button>
+
+    <!-- Desktop: TOC -->
+    <button onclick="toggleToc()" id="toc-desktop-btn" class="fab-control hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+      <span class="material-symbols-outlined text-base">list</span>
+      <span class="text-[11px] font-semibold">Mục lục</span>
+    </button>
+  </div>
+</header>
+
+<!-- ==========================================
+     FONT SIZE POPUP
+     ========================================== -->
+<div id="font-menu" class="hidden absolute top-14 right-4 lg:right-6 z-[60] glass-panel rounded-xl p-3 w-56">
+  <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-3">Kích thước chữ</p>
+  <div class="flex items-center gap-2">
+    <button onclick="setFontSize('sm')" class="flex-1 py-2 rounded-lg text-center text-xs font-bold bg-surface-container-high hover:bg-primary hover:text-on-primary transition-all" style="font-size: 14px">A</button>
+    <button onclick="setFontSize('md')" class="flex-1 py-2 rounded-lg text-center text-sm font-bold bg-primary text-on-primary" id="fs-md">A</button>
+    <button onclick="setFontSize('lg')" class="flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary hover:text-on-primary transition-all" style="font-size: 18px">A</button>
+    <button onclick="setFontSize('xl')" class="flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary hover:text-on-primary transition-all" style="font-size: 20px">A</button>
+    <button onclick="setFontSize('2xl')" class="flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary hover:text-on-primary transition-all" style="font-size: 22px">A</button>
+  </div>
+  <div class="mt-3 pt-3 border-t border-white/[0.06]">
+    <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">Font chính</p>
+    <div class="flex gap-2">
+      <button onclick="setFont('be-vietnam')" class="flex-1 py-1.5 rounded-lg text-center text-[11px] font-semibold bg-primary/20 text-primary border border-primary/30" id="font-be-vietnam">Be Vietnam Pro</button>
+      <button onclick="setFont('merriweather')" class="flex-1 py-1.5 rounded-lg text-center text-[11px] font-semibold bg-surface-container-high text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all" id="font-merriweather">Merriweather</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     SEARCH OVERLAY
+     ========================================== -->
+<div id="search-overlay" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 px-4">
+  <div class="glass-panel-dark rounded-2xl w-full max-w-xl overflow-hidden">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+      <span class="material-symbols-outlined text-on-surface-variant">search</span>
+      <input id="search-input" type="text" placeholder="Tìm kiếm trong chương..." class="flex-1 bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/50 text-sm" autofocus/>
+      <button onclick="toggleSearch()" class="text-on-surface-variant hover:text-on-surface">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="p-4 text-center text-sm text-on-surface-variant">
+      <span class="material-symbols-outlined text-3xl block mb-2">manage_search</span>
+      Nhập từ khóa để tìm kiếm trong nội dung
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     MAIN LAYOUT
+     ========================================== -->
+<div class="flex flex-1 overflow-hidden relative">
+
+  <!-- ==========================================
+       DESKTOP SIDEBAR: Table of Contents
+       ========================================== -->
+  <aside id="toc-sidebar" class="sidebar-desktop hidden lg:flex flex-col w-72 flex-shrink-0 h-full border-r border-white/[0.06] bg-surface-container-low/50 overflow-y-auto">
+    <!-- TOC Header -->
+    <div class="px-4 py-4 border-b border-white/[0.06] sticky top-0 bg-surface-container-low z-10">
+      <h3 class="text-sm font-bold text-on-surface mb-1">Mục lục</h3>
+      <p class="text-xs text-on-surface-variant">Quản trị Lâm sàng Cao cấp</p>
+      <!-- Progress -->
+      <div class="mt-3">
+        <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+          <div class="read-progress h-full rounded-full" style="width: 25%"></div>
+        </div>
+        <p class="text-[10px] text-tertiary mt-1 font-bold">25% Hoàn thành</p>
+      </div>
+    </div>
+
+    <!-- Chapter list -->
+    <nav class="flex-1 px-3 py-3 space-y-1">
+      <!-- Current chapter -->
+      <a href="#" class="toc-item-active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all border-l-2 border-primary bg-primary/10">
+        <span class="material-symbols-outlined text-primary text-lg">menu_book</span>
+        <div class="min-w-0">
+          <p class="font-bold text-primary text-xs uppercase tracking-wider">Chapter 1: Operations</p>
+          <p class="text-xs text-on-surface-variant truncate mt-0.5">Tự Vận Hành</p>
+        </div>
+      </a>
+      <!-- Other chapters -->
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 hover:bg-surface-container">
+        <span class="material-symbols-outlined text-lg">gavel</span>
+        <div class="min-w-0">
+          <p class="font-bold text-xs uppercase tracking-wider">Chapter 2</p>
+          <p class="text-xs text-on-surface-variant truncate mt-0.5">Compliance</p>
+        </div>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 hover:bg-surface-container">
+        <span class="material-symbols-outlined text-lg">local_shipping</span>
+        <div class="min-w-0">
+          <p class="font-bold text-xs uppercase tracking-wider">Chapter 3</p>
+          <p class="text-xs text-on-surface-variant truncate mt-0.5">Logistics</p>
+        </div>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 hover:bg-surface-container">
+        <span class="material-symbols-outlined text-lg">trending_up</span>
+        <div class="min-w-0">
+          <p class="font-bold text-xs uppercase tracking-wider">Chapter 4</p>
+          <p class="text-xs text-on-surface-variant truncate mt-0.5">Scaling</p>
+        </div>
+      </a>
+
+      <div class="h-px bg-white/[0.06] my-3"></div>
+
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 hover:bg-surface-container">
+        <span class="material-symbols-outlined text-lg">attachment</span>
+        <p class="font-bold text-xs uppercase tracking-wider">Appendix</p>
+      </a>
+    </nav>
+
+    <!-- Current section info -->
+    <div class="px-4 py-4 border-t border-white/[0.06] sticky bottom-0 bg-surface-container-low">
+      <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Phần hiện tại</p>
+      <p class="text-sm font-bold text-on-surface leading-tight">1.2 Logic of Automation</p>
+      <div class="flex gap-2 mt-3">
+        <button class="flex-1 py-1.5 bg-primary/10 border border-primary/30 text-primary text-[10px] font-bold rounded-lg hover:bg-primary/20 transition-all">
+          Đánh dấu xong
+        </button>
+        <button class="py-1.5 px-3 bg-surface-container-high text-on-surface-variant text-[10px] font-bold rounded-lg hover:bg-surface-container-highest transition-all">
+          <span class="material-symbols-outlined text-sm">share</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       READER AREA
+       ========================================== -->
+  <main class="flex-1 overflow-y-auto relative" id="reader-scroll">
+    <!-- Mobile progress bar (top) -->
+    <div class="lg:hidden fixed left-0 right-0 z-40 h-0.5" style="top: 5rem;">
+      <div class="h-full progress-gradient rounded-r-full" style="width: 25%"></div>
+    </div>
+
+    <!-- Reader Content -->
+    <div class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-6 lg:py-12" id="reader-content">
+      <!-- Mobile Book Header -->
+      <header class="lg:hidden mb-6 pb-6 border-b border-white/[0.06]">
+        <div class="flex items-start gap-4 mb-4">
+          <!-- Book Cover -->
+          <div class="w-14 h-20 rounded-lg overflow-hidden flex-shrink-0 book-cover-shadow border border-white/[0.08] bg-surface-container">
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuptnnfSIYvtORRKzxMqAxpcegH2DnsfviSC8U2P4USWi6rJZqewyHlajQDiP4yXel_ocJp-AtvA3g744jDkvCZe5YFFaCfaJEpMiT2YpytBaqOG7bLI6tP8BgW2IG7CE8gIN6Bz_765g8nC9Epo8O-KZTG1K3cO092yBhzbVAYhbqgTSm8w4c021dq18BGF-A8MyI3KX_JaUVU00I66_48hdbgNQ_EjRYjA0wa4ZPAOWHhYQPy1YaiSdR5Z2fVh-d4P6B-Jqgez8" alt="Dental Empire OS Book Cover" class="w-full h-full object-cover" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/30">Chương 1</span>
+              <span class="text-on-surface-variant text-xs">Quản trị Lâm sàng Cao cấp</span>
+            </div>
+            <h1 class="text-xl font-bold text-on-surface leading-tight tracking-tight">Chương I: Tự Vận Hành</h1>
+            <div class="flex items-center gap-1.5 text-on-surface-variant text-xs mt-1.5">
+              <span class="material-symbols-outlined text-[14px]">schedule</span>
+              <span>12 phút đọc</span>
+            </div>
+          </div>
+        </div>
+        <!-- Key Insight (mobile) -->
+        <div class="relative rounded-xl p-4 overflow-hidden border border-primary/20 bg-primary/[0.04]">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-primary"></div>
+          <div class="flex items-center gap-1.5 mb-2">
+            <span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-primary">Key Insight</span>
+          </div>
+          <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Trong kỷ nguyên nha khoa hiện đại, việc chuyển đổi sang hệ thống Tự Vận Hành là điều kiện tiên quyết để tồn tại.</p>
+        </div>
+      </header>
+
+      <!-- Desktop Chapter Header -->
+      <header class="hidden lg:block mb-8 lg:mb-12 animate-slide-right">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/30">Tầng 3</span>
+          <span class="text-on-surface-variant text-xs">·</span>
+          <span class="text-on-surface-variant text-xs">Chương 1</span>
+          <span class="text-on-surface-variant text-xs">·</span>
+          <span class="text-tertiary text-xs font-semibold">Quản trị Lâm sàng Cao cấp</span>
+        </div>
+        <h1 class="text-3xl lg:text-4xl xl:text-5xl font-extrabold leading-tight text-on-surface tracking-tight mb-4" style="color: var(--reader-text)">
+          Chương I: Tự Vận Hành
+        </h1>
+        <div class="w-12 h-1 rounded-full mb-4" style="background: var(--reader-accent)"></div>
+        <p class="text-base text-on-surface-variant leading-relaxed" style="color: var(--reader-text-muted)">
+          Trong kỷ nguyên nha khoa hiện đại, việc chuyển đổi từ mô hình quản trị truyền thống sang hệ thống Tự Vận Hành là điều kiện tiên quyết để tồn tại.
+        </p>
+      </header>
+
+      <!-- Module Navigation Pills (Desktop) -->
+      <div class="hidden lg:flex flex-wrap gap-2 mb-8 animate-slide-right">
+        <a href="#section-1" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all">
+          <span class="material-symbols-outlined text-[14px]">bookmark</span> Mục 1.1
+        </a>
+        <a href="#section-2" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant border border-transparent hover:text-primary hover:border-primary/30 transition-all">
+          <span class="material-symbols-outlined text-[14px]">label</span> Mục 1.2
+        </a>
+        <a href="#section-3" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant border border-transparent hover:text-primary hover:border-primary/30 transition-all">
+          <span class="material-symbols-outlined text-[14px]">label</span> Mục 1.3
+        </a>
+        <a href="#section-4" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant border border-transparent hover:text-primary hover:border-primary/30 transition-all">
+          <span class="material-symbols-outlined text-[14px]">label</span> Mục 1.4
+        </a>
+      </div>
+
+      <!-- Section 1 -->
+      <section id="section-1" class="mb-10 lg:mb-14 animate-slide-right">
+        <h2 class="text-xl lg:text-2xl font-bold text-on-surface mb-4 pb-2 border-b border-white/[0.06]" style="color: var(--reader-text)">
+          1.1 Bản chất của Tự động hóa
+        </h2>
+        <div class="space-y-4 leading-relaxed text-base" style="font-size: calc(1rem * var(--fs-multiplier, 1))">
+          <p style="color: var(--reader-text-muted)">
+            Trong kỷ nguyên nha khoa hiện đại, việc chuyển đổi từ mô hình quản trị truyền thống sang hệ thống <strong style="color: var(--reader-accent)">Tự Vận Hành (Automated Operations)</strong> không còn là lựa chọn, mà là điều kiện tiên quyết để tồn tại. Một hệ thống tự vận hành đúng nghĩa phải đảm bảo tính nhất quán trong quy trình lâm sàng và trải nghiệm khách hàng mà không cần sự hiện diện trực tiếp của chủ đầu tư.
+          </p>
+          <p style="color: var(--reader-text-muted)">
+            Bản chất của tự động hóa trong nha khoa bắt đầu từ việc chuẩn hóa dữ liệu. Mỗi thao tác từ tiếp đón đến điều trị đều phải được mã hóa thành các bước logic trên hệ thống Empire OS. Điều này giúp loại bỏ sự phụ thuộc vào các cá nhân đơn lẻ và tạo ra một cỗ máy có khả năng tự kiểm lỗi và tối ưu hóa năng suất.
+          </p>
+        </div>
+
+        <!-- Key Insight Card -->
+        <div class="glass-panel rounded-xl p-5 my-6 border-l-4 border-l-primary relative overflow-hidden" style="background: var(--reader-surface)">
+          <div class="absolute top-0 right-0 p-4 opacity-20">
+            <span class="material-symbols-outlined text-primary text-5xl" style="color: var(--reader-accent)">lightbulb</span>
+          </div>
+          <h3 class="font-bold mb-3 flex items-center gap-2 text-sm" style="color: var(--reader-accent)">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            Key Insight: Hiệu ứng Bánh đà
+          </h3>
+          <blockquote class="italic leading-relaxed text-sm" style="color: var(--reader-text-muted)">
+            "Tự động hóa không phải là thay thế con người bằng máy móc, mà là giải phóng con người khỏi những công việc lặp lại để họ tập trung vào giá trị cốt lõi: <strong style="color: var(--reader-text)">Sự thấu cảm và Chăm sóc chuyên sâu.</strong>"
+          </blockquote>
+        </div>
+      </section>
+
+      <!-- Section 2 -->
+      <section id="section-2" class="mb-10 lg:mb-14">
+        <h2 class="text-xl lg:text-2xl font-bold text-on-surface mb-4 pb-2 border-b border-white/[0.06]" style="color: var(--reader-text)">
+          1.2 Mô hình vòng lặp 4S
+        </h2>
+        <div class="space-y-4 leading-relaxed text-base" style="font-size: calc(1rem * var(--fs-multiplier, 1))">
+          <p style="color: var(--reader-text-muted)">
+            Quy trình vận hành tự động tại Empire OS được thiết kế dựa trên mô hình vòng lặp <strong style="color: var(--reader-accent)">4S: Standardize (Chuẩn hóa), Simplify (Đơn giản hóa), Systematize (Hệ thống hóa)</strong> và <strong style="color: var(--reader-accent)">Scale (Mở rộng)</strong>. Khi một phòng khám đạt đến ngưỡng S thứ tư, khả năng mở rộng chuỗi trở nên dễ dàng và rủi ro vận hành được giảm thiểu xuống mức thấp nhất.
+          </p>
+        </div>
+
+        <!-- Pipeline Card (Mobile-first, Interactive) -->
+        <div class="glass-panel rounded-xl p-4 my-6 overflow-hidden" style="background: var(--reader-surface)">
+          <!-- Header -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-lg">account_tree</span>
+              <h4 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Patient Pipeline</h4>
+            </div>
+            <button onclick="this.querySelector('span').style.transform='rotate(360deg)'" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+              <span class="material-symbols-outlined text-base" style="transition: transform 0.5s;">refresh</span>
+            </button>
+          </div>
+          <!-- Pipeline steps: Mobile-first stacked cards with colored accent bars -->
+          <div class="space-y-2">
+            <!-- Step 1: Leads (Primary/Cyan) -->
+            <div class="relative flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] bg-surface-container hover:bg-surface-container-high transition-all cursor-pointer active:scale-[0.98] group">
+              <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-primary"></div>
+              <div class="w-11 h-11 flex items-center justify-center rounded-full border flex-shrink-0 bg-primary/10 border-primary/30 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-xl text-primary">group_add</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-end">
+                  <span class="text-[10px] font-bold uppercase tracking-widest text-primary">LEADS</span>
+                  <span class="text-sm font-bold text-primary">85%</span>
+                </div>
+                <div class="w-full h-1.5 bg-surface-container-highest rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full bg-primary rounded-full transition-all" style="width: 85%"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 2: Booking (Secondary/Gray) -->
+            <div class="relative flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] bg-surface-container hover:bg-surface-container-high transition-all cursor-pointer active:scale-[0.98] group">
+              <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-secondary"></div>
+              <div class="w-11 h-11 flex items-center justify-center rounded-full border flex-shrink-0 bg-secondary/10 border-secondary/30 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-xl text-secondary">event_available</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-end">
+                  <span class="text-[10px] font-bold uppercase tracking-widest text-secondary">BOOKING</span>
+                  <span class="text-sm font-bold text-secondary">62%</span>
+                </div>
+                <div class="w-full h-1.5 bg-surface-container-highest rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full bg-secondary rounded-full transition-all" style="width: 62%"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 3: Treatment (Tertiary/Orange) -->
+            <div class="relative flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] bg-surface-container hover:bg-surface-container-high transition-all cursor-pointer active:scale-[0.98] group">
+              <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-tertiary"></div>
+              <div class="w-11 h-11 flex items-center justify-center rounded-full border flex-shrink-0 bg-tertiary/10 border-tertiary/30 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-xl text-tertiary">medical_services</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-end">
+                  <span class="text-[10px] font-bold uppercase tracking-widest text-tertiary">TREATMENT</span>
+                  <span class="text-sm font-bold text-tertiary">94%</span>
+                </div>
+                <div class="w-full h-1.5 bg-surface-container-highest rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full bg-tertiary rounded-full transition-all" style="width: 94%"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 4: Aftercare (Cyan-light) -->
+            <div class="relative flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] bg-surface-container hover:bg-surface-container-high transition-all cursor-pointer active:scale-[0.98] group">
+              <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl" style="background: #cce5ff;"></div>
+              <div class="w-11 h-11 flex items-center justify-center rounded-full border flex-shrink-0 bg-[rgba(204,229,255,0.1)] border-[rgba(204,229,255,0.3)] group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-xl" style="color: #cce5ff;">favorite</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-end">
+                  <span class="text-[10px] font-bold uppercase tracking-widest" style="color: #cce5ff;">AFTERCARE</span>
+                  <span class="text-sm font-bold" style="color: #cce5ff;">78%</span>
+                </div>
+                <div class="w-full h-1.5 bg-surface-container-highest rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full rounded-full transition-all" style="width: 78%; background: #cce5ff;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Auto-optimization notice -->
+          <div class="mt-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
+            <div class="flex items-start gap-2">
+              <span class="material-symbols-outlined text-primary text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+              <p class="text-[11px] text-on-surface-variant leading-relaxed">Hệ thống đang tự động tối ưu tỷ lệ tại <strong class="text-on-surface">bước Booking</strong> dựa trên dữ liệu 7 ngày qua.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3 -->
+      <section id="section-3" class="mb-10 lg:mb-14">
+        <h2 class="text-xl lg:text-2xl font-bold text-on-surface mb-4 pb-2 border-b border-white/[0.06]" style="color: var(--reader-text)">
+          1.3 Dữ liệu là Nền tảng
+        </h2>
+        <div class="space-y-4 leading-relaxed text-base" style="font-size: calc(1rem * var(--fs-multiplier, 1))">
+          <p style="color: var(--reader-text-muted)">
+            Không có dữ liệu, không có tự động hóa. Mọi quyết định vận hành phải dựa trên dữ liệu thực tế, không phải trực giác. Điều này đòi hỏi phòng khám phải đầu tư vào hệ thống thu thập dữ liệu từ đầu đến cuối: từ khâu tiếp nhận bệnh nhân, qua quá trình điều trị, cho đến dịch vụ sau bán hàng.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 4 -->
+      <section id="section-4" class="mb-16 lg:mb-20">
+        <h2 class="text-xl lg:text-2xl font-bold text-on-surface mb-4 pb-2 border-b border-white/[0.06]" style="color: var(--reader-text)">
+          1.4 Đo lường và Cải tiến Liên tục
+        </h2>
+        <div class="space-y-4 leading-relaxed text-base" style="font-size: calc(1rem * var(--fs-multiplier, 1))">
+          <p style="color: var(--reader-text-muted)">
+            Sau khi hệ thống được triển khai, công việc không dừng lại. Quy trình vận hành cần được đo lường liên tục qua các chỉ số KPI: thời gian chờ trung bình, tỷ lệ hủy lịch, doanh thu trên bác sĩ, và mức độ hài lòng khách hàng. Mỗi chỉ số là một tín hiệu để cải tiến.
+          </p>
+        </div>
+      </section>
+
+      <!-- Chapter End CTA -->
+      <div class="text-center py-8 border-t border-white/[0.06]">
+        <p class="text-sm text-on-surface-variant mb-4">Bạn đã đọc hết Chương 1</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-primary text-on-primary hover:opacity-90 transition-all shadow-lg shadow-primary/20">
+            <span class="material-symbols-outlined text-lg">arrow_forward</span>
+            Tiếp tục Chương 2
+          </button>
+          <a href="/book" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-all border border-white/[0.06]">
+            <span class="material-symbols-outlined text-lg">home</span>
+            Về Thư Viện
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ==========================================
+     MOBILE BOTTOM BAR
+     ========================================== -->
+<div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl border-t border-white/[0.06] glass-panel-dark backdrop-blur-lg px-2 py-2" style="padding-bottom: env(safe-area-inset-bottom, 0); box-shadow: 0 -4px 20px rgba(0,136,204,0.15);">
+  <div class="flex items-center justify-around gap-1">
+    <button onclick="openToc()" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform duration-200">
+      <span class="material-symbols-outlined text-xl">list</span>
+      <span class="text-[9px] font-bold uppercase tracking-tighter">Mục lục</span>
+    </button>
+    <button onclick="cycleTheme()" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform duration-200">
+      <span class="material-symbols-outlined text-xl">dark_mode</span>
+      <span class="text-[9px] font-bold uppercase tracking-tighter">Nền</span>
+    </button>
+    <button onclick="toggleFocusMode()" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform duration-200">
+      <span class="material-symbols-outlined text-xl">visibility</span>
+      <span class="text-[9px] font-bold uppercase tracking-tighter">Focus</span>
+    </button>
+    <button onclick="toggleBookmark()" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform duration-200">
+      <span class="material-symbols-outlined text-xl" id="mobile-bookmark-icon">bookmark_border</span>
+      <span class="text-[9px] font-bold uppercase tracking-tighter">Đánh dấu</span>
+    </button>
+  </div>
+</div>
+
+<!-- Mobile padding for bottom bar -->
+<div class="lg:hidden h-16"></div>
+
+<!-- ==========================================
+     MOBILE BOTTOM SHEET: Table of Contents
+     ========================================== -->
+<div id="toc-mobile-overlay" class="lg:hidden hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onclick="closeToc()"></div>
+<div id="toc-mobile-sheet" class="bottom-sheet lg:hidden fixed inset-x-0 bottom-0 z-[70] max-h-[80vh] glass-panel-dark rounded-t-3xl overflow-hidden flex flex-col">
+  <div class="flex items-center justify-center pt-3 pb-2" onclick="closeToc()">
+    <div class="bottom-sheet-handle"></div>
+  </div>
+  <div class="px-4 pb-2 flex items-center justify-between border-b border-white/[0.06]">
+    <div>
+      <h3 class="text-sm font-bold text-on-surface">Mục lục</h3>
+      <p class="text-xs text-on-surface-variant">Quản trị Lâm sàng Cao cấp</p>
+    </div>
+    <button onclick="closeToc()" class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <!-- Progress in sheet -->
+  <div class="px-4 pt-3">
+    <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+      <div class="read-progress h-full rounded-full" style="width: 25%"></div>
+    </div>
+    <p class="text-[10px] text-tertiary font-bold mt-1">25% Hoàn thành</p>
+  </div>
+  <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+    <a href="#" class="toc-item-active flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all border-l-2 border-primary bg-primary/10">
+      <span class="material-symbols-outlined text-primary text-lg">menu_book</span>
+      <div>
+        <p class="font-bold text-primary text-xs uppercase tracking-wider">Chapter 1</p>
+        <p class="text-xs text-on-surface-variant">Tự Vận Hành</p>
+      </div>
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+      <span class="material-symbols-outlined text-lg">gavel</span>
+      <div>
+        <p class="font-bold text-xs uppercase tracking-wider">Chapter 2</p>
+        <p class="text-xs text-on-surface-variant">Compliance</p>
+      </div>
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+      <span class="material-symbols-outlined text-lg">local_shipping</span>
+      <div>
+        <p class="font-bold text-xs uppercase tracking-wider">Chapter 3</p>
+        <p class="text-xs text-on-surface-variant">Logistics</p>
+      </div>
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+      <span class="material-symbols-outlined text-lg">trending_up</span>
+      <div>
+        <p class="font-bold text-xs uppercase tracking-wider">Chapter 4</p>
+        <p class="text-xs text-on-surface-variant">Scaling</p>
+      </div>
+    </a>
+  </nav>
+  <div class="p-4 border-t border-white/[0.06]">
+    <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Phần hiện tại</p>
+    <p class="text-sm font-bold text-on-surface">1.2 Logic of Automation</p>
+    <button class="w-full mt-3 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/20 transition-all">
+      Đánh dấu hoàn thành
+    </button>
+  </div>
+</div>
+
+<!-- ==========================================
+     STATUS BAR (Desktop only)
+     ========================================== -->
+<footer class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-panel-dark border-t border-white/[0.06] z-40">
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2">
+      <span class="status-dot"></span>
+      <span class="text-[10px] text-on-surface-variant font-semibold">Online</span>
+    </div>
+    <div class="h-4 w-px bg-outline-variant"></div>
+    <span class="text-[10px] text-on-surface-variant">1,420 từ</span>
+    <span class="text-[10px] text-on-surface-variant">·</span>
+    <span class="text-[10px] text-on-surface-variant">12 phút đọc</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-[10px] text-primary font-bold">Dental Empire OS v4.2.0</span>
+    <button onclick="toggleFullscreen()" class="text-on-surface-variant hover:text-primary transition-colors">
+      <span class="material-symbols-outlined text-sm">fullscreen</span>
+    </button>
+  </div>
+</footer>
+
+<script>
+// =====================
+// Theme cycling: Dark → Light → Sepia → Dark
+// =====================
+const themes = ['dark', 'light', 'sepia'];
+let currentTheme = 0;
+
+function cycleTheme() {
+  document.body.classList.remove('dark-mode', 'sepia-mode');
+  const t = themes[currentTheme];
+  if (t === 'light') document.body.classList.add('light-mode');
+  if (t === 'sepia') document.body.classList.add('sepia-mode');
+  currentTheme = (currentTheme + 1) % themes.length;
+
+  const btn = document.getElementById('theme-btn');
+  const icons = { 'dark': 'dark_mode', 'light': 'light_mode', 'sepia': 'coffee' };
+  const labels = { 'dark': 'Chế độ', 'light': 'Chế độ', 'sepia': 'Chế độ' };
+  btn.querySelector('.material-symbols-outlined').textContent = icons[themes[(currentTheme + themes.length - 1) % themes.length]];
+}
+
+// =====================
+// Font size
+// =====================
+function setFontSize(size) {
+  document.body.classList.remove('fs-sm', 'fs-md', 'fs-lg', 'fs-xl', 'fs-2xl');
+  document.body.classList.add('fs-' + size);
+  // Update active button
+  document.querySelectorAll('[id^="fs-"]').forEach(el => {
+    if (el.id === 'fs-' + size) {
+      el.classList.add('bg-primary', 'text-on-primary');
+      el.classList.remove('bg-surface-container-high', 'hover:bg-primary', 'hover:text-on-primary');
+    } else {
+      el.classList.remove('bg-primary', 'text-on-primary');
+      el.classList.add('bg-surface-container-high', 'hover:bg-primary', 'hover:text-on-primary');
+    }
+  });
+}
+
+// =====================
+// Font family
+// =====================
+function setFont(font) {
+  document.querySelectorAll('[id^="font-"]').forEach(el => {
+    el.classList.remove('bg-primary/20', 'text-primary', 'border-primary/30');
+    el.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+  });
+  const active = document.getElementById('font-' + font);
+  active.classList.add('bg-primary/20', 'text-primary', 'border-primary/30');
+  active.classList.remove('bg-surface-container-high', 'text-on-surface-variant');
+}
+
+// =====================
+// Focus mode
+// =====================
+function toggleFocusMode() {
+  document.body.classList.toggle('focus-mode');
+  const btn = document.getElementById('focus-btn');
+  const icon = btn.querySelector('.material-symbols-outlined');
+  if (document.body.classList.contains('focus-mode')) {
+    icon.textContent = 'visibility_off';
+    btn.classList.add('bg-primary/10', 'text-primary', 'border', 'border-primary/30');
+  } else {
+    icon.textContent = 'visibility';
+    btn.classList.remove('bg-primary/10', 'text-primary', 'border', 'border-primary/30');
+  }
+}
+
+// =====================
+// Search
+// =====================
+function toggleSearch() {
+  const overlay = document.getElementById('search-overlay');
+  overlay.classList.toggle('hidden');
+  if (!overlay.classList.contains('hidden')) {
+    document.getElementById('search-input').focus();
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('search-overlay')?.classList.add('hidden');
+    document.getElementById('font-menu')?.classList.add('hidden');
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    toggleSearch();
+  }
+});
+
+// =====================
+// Font menu toggle
+// =====================
+function toggleFontMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('font-menu');
+  menu.classList.toggle('hidden');
+}
+document.addEventListener('click', () => {
+  document.getElementById('font-menu')?.classList.add('hidden');
+});
+document.getElementById('font-menu')?.addEventListener('click', e => e.stopPropagation());
+
+// =====================
+// Bookmark toggle
+// =====================
+let bookmarked = false;
+function toggleBookmark() {
+  bookmarked = !bookmarked;
+  const icons = { 'desktop': document.querySelectorAll('#bookmark-btn .material-symbols-outlined')[0], 'mobile': document.getElementById('mobile-bookmark-icon') };
+  const labels = { 'desktop': document.querySelectorAll('#bookmark-btn span')[1], 'mobile': null };
+  const btn = document.getElementById('bookmark-btn');
+
+  if (bookmarked) {
+    icons.desktop.textContent = 'bookmark';
+    icons.mobile.textContent = 'bookmark';
+    btn?.classList.add('text-primary', 'bg-primary/10', 'border', 'border-primary/30');
+  } else {
+    icons.desktop.textContent = 'bookmark_border';
+    icons.mobile.textContent = 'bookmark_border';
+    btn?.classList.remove('text-primary', 'bg-primary/10', 'border', 'border-primary/30');
+  }
+}
+
+// =====================
+// Desktop TOC toggle
+// =====================
+let tocOpen = true;
+function toggleToc() {
+  tocOpen = !tocOpen;
+  const sidebar = document.getElementById('toc-sidebar');
+  const btn = document.getElementById('toc-desktop-btn');
+  if (tocOpen) {
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('animate-slide-left');
+    btn?.classList.add('bg-primary/10', 'text-primary', 'border', 'border-primary/30');
+  } else {
+    sidebar.classList.add('hidden');
+    btn?.classList.remove('bg-primary/10', 'text-primary', 'border', 'border-primary/30');
+  }
+}
+
+// =====================
+// Fullscreen
+// =====================
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+// =====================
+// Mobile TOC
+// =====================
+function openToc() {
+  document.getElementById('toc-mobile-overlay')?.classList.remove('hidden');
+  document.getElementById('toc-mobile-sheet')?.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeToc() {
+  document.getElementById('toc-mobile-overlay')?.classList.add('hidden');
+  document.getElementById('toc-mobile-sheet')?.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// =====================
+// Reading progress
+// =====================
+const readerScroll = document.getElementById('reader-scroll');
+if (readerScroll) {
+  readerScroll.addEventListener('scroll', () => {
+    const scrollTop = readerScroll.scrollTop;
+    const scrollHeight = readerScroll.scrollHeight - readerScroll.clientHeight;
+    const progress = Math.min(100, Math.round((scrollTop / scrollHeight) * 100));
+    document.querySelectorAll('.read-progress').forEach(el => {
+      el.style.width = progress + '%';
+    });
+  });
+}
+
+// =====================
+// Init
+// =====================
+document.addEventListener('DOMContentLoaded', () => {
+  // Set initial active states
+  const tocBtn = document.getElementById('toc-desktop-btn');
+  if (tocBtn) {
+    tocBtn.classList.add('bg-primary/10', 'text-primary', 'border', 'border-primary/30');
+  }
+});
+</script>
+</body>
+</html>

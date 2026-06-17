@@ -1,5 +1,6 @@
 ---
-// Mobile full-screen drawer sidebar
+// Mobile bottom sheet: Table of Contents
+// Integrated with reader layout via JS events from BookLayout.astro
 interface ChapterItem {
   id: string;
   data: {
@@ -32,144 +33,194 @@ const currentTier = groupedChapters.find((g) =>
 )?.tier ?? 3;
 ---
 
-<!-- Mobile FAB trigger -->
-<div class="lg:hidden fixed bottom-6 right-6 z-40">
-  <button
-    id="sidebar-mobile-toggle"
-    class="w-14 h-14 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg active:scale-95 transition-all"
-    aria-label="Mở mục lục sách"
-  >
-    <span class="material-symbols-outlined text-2xl">menu_book</span>
-  </button>
-</div>
-
 <!-- Overlay -->
-<div id="sidebar-mobile-overlay" class="lg:hidden fixed inset-0 z-50 bg-black/60 hidden backdrop-blur-sm"></div>
+<div id="sidebar-mobile-overlay" class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300" aria-hidden="true"></div>
 
-<!-- Drawer -->
-<div id="sidebar-mobile-drawer" class="lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[360px] bg-surface-container-low border-r border-outline-variant transform -translate-x-full transition-transform duration-300 overflow-y-auto">
-  <!-- Header -->
-  <div class="sticky top-0 z-10 bg-surface-container-low border-b border-outline-variant px-6 py-4 flex items-center justify-between">
-    <span class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Mục lục sách</span>
-    <button id="sidebar-mobile-close" class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
-      <span class="material-symbols-outlined">close</span>
-    </button>
+<!-- Bottom Sheet -->
+<div
+  id="sidebar-mobile-sheet"
+  class="bottom-sheet fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl transition-transform duration-350"
+  style="background: var(--color-surface-container-low); border-top: 1px solid var(--color-outline-variant);"
+>
+  <!-- Handle -->
+  <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="sheet-handle" aria-label="Kéo xuống để đóng">
+    <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant);"></div>
   </div>
 
-  <!-- Nav content -->
-  <nav class="px-4 py-4 space-y-1">
+  <!-- Header -->
+  <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+    <div>
+      <h3 class="text-sm font-bold" style="color: var(--color-on-surface);">Mục lục</h3>
+      <p class="text-xs mt-0.5" style="color: var(--color-on-surface-variant);">Dental Empire OS</p>
+    </div>
+    <!-- Progress -->
+    <div class="text-right">
+      <div class="w-24 h-1 rounded-full overflow-hidden" style="background: var(--color-surface-container-high);">
+        <div id="mobile-sheet-progress" class="h-full rounded-full" style="width: 0%; background: var(--color-tertiary); transition: width 0.3s;"></div>
+      </div>
+      <p id="mobile-sheet-pct" class="text-[10px] font-bold mt-1" style="color: var(--color-tertiary);">0%</p>
+    </div>
+  </div>
+
+  <!-- Scrollable nav -->
+  <nav id="mobile-sheet-nav" class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
     {groupedChapters.map((group) => {
       const isCurrentTier = group.tier === currentTier;
       return (
-        <div class="sidebar-mobile-tier" data-mobile-tier={group.tier}>
-          <button
-            class="sidebar-mobile-tier-toggle w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container-high text-on-surface-variant hover:text-white"
-            data-mobile-toggle={group.tier}
-          >
-            <span class="material-symbols-outlined text-[20px] text-primary shrink-0">folder</span>
-            <span class="flex-1 text-left">{group.label}</span>
-            <span class="text-xs text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{group.chapters.length}</span>
-            <span class="material-symbols-outlined text-[18px] chevron transition-transform duration-200">expand_more</span>
-          </button>
-          <div class="mobile-chapter-list overflow-hidden transition-all duration-300" style={isCurrentTier ? 'max-height: 3000px' : 'max-height: 0'}>
-            {group.chapters.map((ch) => {
-              const isCurrent = ch.id === currentSlug;
-              return (
-                <div>
-                  <a
-                    href={`/book/${ch.id}`}
-                    class:list={[
-                      'flex items-center gap-3 pl-10 pr-3 py-2.5 text-sm transition-colors border-l-2',
-                      isCurrent
-                        ? 'text-primary border-primary font-semibold bg-primary/5'
-                        : 'text-on-surface-variant border-transparent hover:text-white hover:border-primary/30',
-                    ]}
-                    data-mobile-link
-                  >
-                    <span class="text-xs text-on-surface-variant shrink-0 w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
-                    <span class="truncate">{ch.data.title}</span>
-                  </a>
-                  {isCurrent && currentModules.length > 0 && (
-                    <div class="mobile-module-list">
-                      {currentModules.map((mod) => (
-                        <a
-                          href={`#${mod.slug}`}
-                          class="flex items-center gap-2 pl-16 pr-3 py-2 text-xs transition-colors text-on-surface-variant hover:text-primary"
-                          data-mobile-link
-                        >
-                          <span class="material-symbols-outlined text-[12px]">radio_button_unchecked</span>
-                          <span class="truncate">{mod.title}</span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        <div>
+          <!-- Tier label -->
+          <div class="flex items-center gap-2 px-3 py-2">
+            <span class="material-symbols-outlined text-primary text-[16px]">folder</span>
+            <span class="text-xs font-bold" style="color: var(--color-on-surface-variant);">{group.label}</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">{group.chapters.length}</span>
           </div>
+
+          <!-- Chapters -->
+          {group.chapters.map((ch) => {
+            const isCurrent = ch.id === currentSlug;
+            return (
+              <a
+                href={`/book/${ch.id}`}
+                class:list={[
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
+                  isCurrent
+                    ? 'toc-item-active border-primary bg-primary/10'
+                    : 'border-transparent',
+                ]}
+                style={isCurrent ? '' : 'color: var(--color-on-surface-variant);'}
+                data-mobile-link
+              >
+                <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                <span class="truncate text-xs">{ch.data.title}</span>
+                {isCurrent && (
+                  <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
+                )}
+              </a>
+            );
+          })}
         </div>
       );
     })}
   </nav>
+
+  <!-- Footer: current chapter -->
+  <div class="px-5 py-4 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
+    <p class="text-[10px] font-bold uppercase tracking-wider mb-1" style="color: var(--color-on-surface-variant);">Đang đọc</p>
+    <p class="text-sm font-bold leading-tight line-clamp-2" style="color: var(--color-on-surface);">
+      {groupedChapters.flatMap(g => g.chapters).find(c => c.id === currentSlug)?.data.title ?? '...'}
+    </p>
+    <div class="flex gap-2 mt-3">
+      <button class="flex-1 py-2 rounded-xl text-xs font-bold text-primary transition-all" style="background: rgba(146,204,255,0.1); border: 1px solid rgba(146,204,255,0.3);" id="mark-complete-btn">
+        Đánh dấu xong
+      </button>
+      <button class="py-2 px-3 rounded-xl text-xs font-bold transition-all" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);" id="share-btn">
+        <span class="material-symbols-outlined text-base">share</span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
-  function initMobileSidebar() {
-    const toggle = document.getElementById('sidebar-mobile-toggle');
-    const drawer = document.getElementById('sidebar-mobile-drawer');
+  (function () {
+    const sheet = document.getElementById('sidebar-mobile-sheet');
     const overlay = document.getElementById('sidebar-mobile-overlay');
-    const close = document.getElementById('sidebar-mobile-close');
+    const handle = document.getElementById('sheet-handle');
+    const progressBar = document.getElementById('mobile-sheet-progress');
+    const progressPct = document.getElementById('mobile-sheet-pct');
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
 
-    if (!toggle || !drawer || !overlay) return;
-
-    const openDrawer = () => {
-      drawer.classList.remove('-translate-x-full');
-      overlay.classList.remove('hidden');
+    function open() {
+      sheet?.classList.add('open');
+      overlay?.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
-    };
+    }
 
-    const closeDrawer = () => {
-      drawer.classList.add('-translate-x-full');
-      overlay.classList.add('hidden');
+    function close() {
+      sheet?.classList.remove('open');
+      overlay?.classList.add('hidden');
       document.body.style.overflow = '';
-    };
+    }
 
-    toggle.addEventListener('click', openDrawer);
-    close?.addEventListener('click', closeDrawer);
-    overlay.addEventListener('click', closeDrawer);
+    // FAB trigger (wired from BookLayout via event)
+    document.addEventListener('open-mobile-toc', open);
 
-    // Close on link click
-    drawer.querySelectorAll('[data-mobile-link]').forEach((link) => {
-      link.addEventListener('click', closeDrawer);
+    // Expose open/close for BookLayout
+    (window as any).__openMobileToc = open;
+    (window as any).__closeMobileToc = close;
+
+    overlay?.addEventListener('click', close);
+
+    // Touch drag to close
+    handle?.addEventListener('touchstart', (e: Event) => {
+      const t = e as TouchEvent;
+      startY = t.touches[0].clientY;
+      isDragging = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e: Event) => {
+      if (!isDragging) return;
+      const t = e as TouchEvent;
+      currentY = t.touches[0].clientY - startY;
+      if (currentY > 0 && sheet) {
+        sheet.style.transform = `translateY(${currentY}px)`;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      if (currentY > 80) {
+        close();
+      }
+      if (sheet) sheet.style.transform = '';
+      currentY = 0;
     });
 
-    // Toggle tiers
-    drawer.querySelectorAll('[data-mobile-toggle]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tier = (btn as HTMLElement).dataset.mobileToggle;
-        const section = drawer.querySelector(`[data-mobile-tier="${tier}"]`);
-        const chevron = btn.querySelector('.chevron');
-        if (!section) return;
+    // Sync progress
+    function syncProgress() {
+      const progress = document.querySelector('.read-progress') as HTMLElement | null;
+      if (!progress) return;
+      const pct = progress.style.width || '0%';
+      if (progressBar) progressBar.style.width = pct;
+      if (progressPct) progressPct.textContent = pct;
+    }
 
-        const chapterList = section.querySelector('.mobile-chapter-list') as HTMLElement;
-        if (!chapterList) return;
+    // Observe progress bar changes
+    const progressEl = document.querySelector('.read-progress');
+    if (progressEl) {
+      syncProgress();
+      new MutationObserver(syncProgress).observe(progressEl, { attributes: true, attributeFilter: ['style'] });
+    }
 
-        const isExpanded = chapterList.style.maxHeight !== '0px';
-        chapterList.style.maxHeight = isExpanded ? '0' : `${chapterList.scrollHeight + 500}px`;
-        chevron?.classList.toggle('rotate-180');
-      });
+    // Close on chapter link click
+    sheet?.querySelectorAll('[data-mobile-link]').forEach((link) => {
+      link.addEventListener('click', close);
     });
 
-    // Auto-expand current tier
-    drawer.querySelectorAll('[data-mobile-tier]').forEach((section) => {
-      const chapterList = section.querySelector('.mobile-chapter-list') as HTMLElement;
-      const chevron = section.querySelector('.chevron');
-      if (chapterList && chapterList.style.maxHeight !== '0px') {
-        chapterList.style.maxHeight = `${chapterList.scrollHeight + 500}px`;
-        chevron?.classList.add('rotate-180');
+    // Also close when sidebar-mobile-toggle is clicked (from FAB in BookLayout)
+    document.getElementById('sidebar-mobile-toggle')?.addEventListener('click', () => {
+      if (sheet?.classList.contains('open')) {
+        close();
+      } else {
+        open();
       }
     });
-  }
 
-  document.addEventListener('DOMContentLoaded', initMobileSidebar);
+    // Keyboard close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sheet?.classList.contains('open')) close();
+    });
+  })();
 </script>
+
+<style>
+  .bottom-sheet {
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+</style>

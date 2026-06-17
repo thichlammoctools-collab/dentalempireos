@@ -13,13 +13,14 @@ const { modules } = Astro.props;
 ---
 
 {modules.length > 0 && (
-  <div class="mb-8 overflow-x-auto -mx-6 px-6 scrollbar-hide">
-    <div class="flex gap-2 min-w-max pb-2">
+  <div class="mb-8 overflow-x-auto scrollbar-hide -mx-4 px-4">
+    <div class="flex gap-2 min-w-max pb-1">
       {modules.map((mod, i) => (
         <a
           href={`#${mod.slug}`}
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-primary/5 module-chip"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border module-chip"
           data-module-chip={mod.slug}
+          style="background: var(--color-surface-container-high); border-color: var(--color-outline-variant); color: var(--color-on-surface-variant);"
         >
           <span class="material-symbols-outlined text-[14px]">{i === 0 ? 'bookmark' : 'label'}</span>
           {mod.title}
@@ -40,12 +41,17 @@ const { modules } = Astro.props;
   article h2[id] {
     scroll-margin-top: 6rem;
   }
+  .module-chip:hover {
+    border-color: rgba(146, 204, 255, 0.5) !important;
+    color: var(--color-primary) !important;
+    background: rgba(146, 204, 255, 0.05) !important;
+  }
 </style>
 
 <script>
   function initModuleNav() {
     const chips = document.querySelectorAll('[data-module-chip]');
-    const headings = document.querySelectorAll('article h2[id]');
+    const headings = document.querySelectorAll('article h2[id], .reader-content h2[id]');
     if (chips.length === 0 || headings.length === 0) return;
 
     let activeId: string | null = null;
@@ -60,15 +66,16 @@ const { modules } = Astro.props;
 
         chips.forEach((chip) => {
           const match = chip.getAttribute('data-module-chip') === id;
-          chip.classList.toggle('text-primary', match);
-          chip.classList.toggle('border-primary', match);
-          chip.classList.toggle('bg-primary/10', match);
-          chip.classList.toggle('text-on-surface-variant', !match);
+          if (match) {
+            chip.classList.add('active-module-chip');
+          } else {
+            chip.classList.remove('active-module-chip');
+          }
         });
         const activeChip = document.querySelector(`[data-module-chip="${id}"]`);
         activeChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       },
-      { rootMargin: '-80px 0px -60% 0px' }
+      { rootMargin: '-60px 0px -60% 0px' }
     );
 
     headings.forEach((heading) => observer.observe(heading));
@@ -76,3 +83,11 @@ const { modules } = Astro.props;
 
   document.addEventListener('DOMContentLoaded', initModuleNav);
 </script>
+
+<style is:global>
+  .active-module-chip {
+    background: rgba(146, 204, 255, 0.1) !important;
+    border-color: rgba(146, 204, 255, 0.5) !important;
+    color: var(--color-primary) !important;
+  }
+</style>

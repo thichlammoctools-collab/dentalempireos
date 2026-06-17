@@ -1,6 +1,5 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import SidebarNav from '../components/book/SidebarNav.astro';
 import SidebarMobile from '../components/book/SidebarMobile.astro';
 
 interface ChapterItem {
@@ -25,49 +24,489 @@ interface Props {
   groupedChapters: TierGroup[];
   currentSlug: string;
   currentModules: ModuleItem[];
+  tier?: number;
+  tierLabel?: string;
+  chapterNo?: number;
 }
 
-const { title, description, groupedChapters, currentSlug, currentModules } = Astro.props;
+const {
+  title,
+  description,
+  groupedChapters,
+  currentSlug,
+  currentModules,
+  tier = 3,
+  tierLabel = 'Tier 3',
+  chapterNo = 1,
+} = Astro.props;
+
+const currentTierLabel = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.label ?? 'Tier 3';
+const currentTier = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.tier ?? 3;
 ---
 
 <BaseLayout title={`${title} - Dental Empire OS`} description={description}>
-  <!-- Desktop Sidebar -->
-  <div class="px-6 max-w-[1200px] mx-auto">
-    <div class="flex gap-8 py-12">
-      <SidebarNav groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
-      <article class="flex-1 min-w-0 max-w-[72ch]">
-        <slot />
-      </article>
+  <!-- ==========================================
+       READER LAYOUT WRAPPER
+       ========================================== -->
+  <div id="reader-app" class="reader-app flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
+
+    <!-- ==========================================
+         READER TOOLBAR (top bar)
+         ========================================== -->
+    <header id="reader-toolbar" class="reader-toolbar flex items-center justify-between px-4 lg:px-6 h-12 lg:h-14 flex-shrink-0 glass-nav border-b border-white/[0.06] z-50">
+      <!-- Left: Back + breadcrumb -->
+      <div class="flex items-center gap-2 lg:gap-3 min-w-0">
+        <a href="/book" class="flex items-center gap-1 lg:gap-2 text-on-surface-variant hover:text-primary transition-colors flex-shrink-0">
+          <span class="material-symbols-outlined text-lg lg:text-xl">arrow_back</span>
+          <span class="hidden sm:inline text-xs lg:text-sm font-semibold">Thư Viện</span>
+        </a>
+        <div class="w-px h-5 bg-outline-variant hidden sm:block"></div>
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-xs lg:text-sm font-bold text-on-surface truncate max-w-[80px] sm:max-w-[160px] lg:max-w-[200px]">{title}</span>
+        </div>
+      </div>
+
+      <!-- Center: Progress (desktop) -->
+      <div class="hidden lg:flex items-center gap-3 flex-shrink-0">
+        <span id="progress-pct" class="text-[10px] text-on-surface-variant font-semibold">0%</span>
+        <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+          <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div class="flex items-center gap-1 lg:gap-2">
+        <!-- Font size -->
+        <div class="relative">
+          <button id="font-menu-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Kích thước chữ">
+            <span class="material-symbols-outlined text-base">text_fields</span>
+            <span class="hidden lg:inline text-[11px] font-semibold">A</span>
+          </button>
+          <!-- Font popup -->
+          <div id="font-popup" class="hidden absolute top-full right-0 mt-2 z-[60] glass-panel rounded-xl p-3 w-56 shadow-xl">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-3">Kích thước chữ</p>
+            <div class="flex gap-2">
+              <button data-fs="sm" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 14px">A</button>
+              <button data-fs="md" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-primary text-on-primary active" id="fs-md-active" style="font-size: 16px">A</button>
+              <button data-fs="lg" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 18px">A</button>
+              <button data-fs="xl" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 20px">A</button>
+              <button data-fs="2xl" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 22px">A</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theme toggle -->
+        <button id="theme-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all" title="Chế độ đọc">
+          <span class="material-symbols-outlined text-base" id="theme-icon">dark_mode</span>
+          <span class="hidden lg:inline text-[11px] font-semibold">Nền</span>
+        </button>
+
+        <!-- Focus mode -->
+        <button id="focus-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Chế độ tập trung">
+          <span class="material-symbols-outlined text-base">visibility</span>
+          <span class="hidden lg:inline text-[11px] font-semibold">Focus</span>
+        </button>
+
+        <!-- Search -->
+        <button id="search-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Tìm kiếm (Ctrl+K)">
+          <span class="material-symbols-outlined text-base">search</span>
+          <span class="hidden lg:inline text-[11px] font-semibold">Tìm</span>
+        </button>
+
+        <!-- Bookmark -->
+        <button id="bookmark-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Đánh dấu">
+          <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
+        </button>
+
+        <!-- TOC toggle (desktop) -->
+        <button id="toc-toggle-btn" class="hidden lg:flex fab-control items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active-toc-btn" title="Mục lục">
+          <span class="material-symbols-outlined text-base">list</span>
+          <span class="text-[11px] font-semibold">Mục lục</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Search overlay -->
+    <div id="search-overlay" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
+      <div class="glass-panel-dark rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+          <span class="material-symbols-outlined text-on-surface-variant">search</span>
+          <input id="search-input" type="text" placeholder="Tìm kiếm trong chương..." class="flex-1 bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/50 text-sm" autofocus/>
+          <kbd class="hidden sm:inline px-2 py-1 rounded bg-surface-container-high text-[10px] text-on-surface-variant font-mono">ESC</kbd>
+        </div>
+        <div class="p-8 text-center text-sm text-on-surface-variant">
+          <span class="material-symbols-outlined text-4xl block mb-3 opacity-50">manage_search</span>
+          <p>Nhập từ khóa để tìm kiếm trong nội dung</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         MAIN BODY: Sidebar + Reader
+         ========================================== -->
+    <div class="flex flex-1 overflow-hidden relative">
+
+      <!-- Desktop Sidebar TOC -->
+      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-72 flex-shrink-0 h-full border-r border-white/[0.06] bg-surface-container-low/50 overflow-y-auto toc-sidebar">
+        <!-- TOC Header -->
+        <div class="px-4 py-4 border-b border-white/[0.06] sticky top-0 bg-surface-container-low z-10">
+          <h3 class="text-sm font-bold text-on-surface mb-1">Mục lục</h3>
+          <p class="text-xs text-on-surface-variant">{currentTierLabel}</p>
+          <div class="mt-3">
+            <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+              <div id="progress-bar-sidebar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="progress-pct-sidebar" class="text-[10px] text-tertiary mt-1 font-bold">0% Hoàn thành</p>
+          </div>
+        </div>
+
+        <!-- Chapter navigation -->
+        <nav class="flex-1 px-3 py-3 space-y-1">
+          {groupedChapters.map((group) => {
+            const isCurrentTier = group.tier === currentTier;
+            return (
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 px-3 py-2">
+                  <span class="material-symbols-outlined text-primary text-[16px]">folder</span>
+                  <span class="text-xs font-bold text-on-surface-variant">{group.label}</span>
+                  <span class="ml-auto text-[10px] text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded">{group.chapters.length}</span>
+                </div>
+                {group.chapters.map((ch) => {
+                  const isCurrent = ch.id === currentSlug;
+                  return (
+                    <a
+                      href={`/book/${ch.id}`}
+                      class:list={[
+                        'flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border-l-2',
+                        isCurrent
+                          ? 'toc-item-active border-primary bg-primary/10 text-primary'
+                          : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container hover:border-white/20',
+                      ]}
+                    >
+                      <span class="shrink-0 text-[10px] text-on-surface-variant w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                      <span class="truncate">{ch.data.title}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+
+        <!-- Current section -->
+        <div class="px-4 py-4 border-t border-white/[0.06] sticky bottom-0 bg-surface-container-low">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Đang đọc</p>
+          <p class="text-sm font-bold text-on-surface leading-tight line-clamp-2">{title}</p>
+        </div>
+      </aside>
+
+      <!-- Reader Scroll Area -->
+      <main id="reader-scroll" class="flex-1 overflow-y-auto relative reader-main" tabindex="-1">
+        <!-- Content -->
+        <div
+          class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-12 reader-content"
+          data-chapter-title={title}
+          data-chapter-tier={tier}
+          data-chapter-tier-label={tierLabel}
+          data-chapter-no={chapterNo}
+          data-chapter-desc={description}
+        >
+          <slot />
+        </div>
+      </main>
+
+      <!-- ==========================================
+           STATUS BAR (Desktop)
+           ========================================== -->
+      <footer id="reader-status" class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-nav border-t border-white/[0.06] z-40">
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <span class="status-dot"></span>
+            <span class="text-[10px] text-on-surface-variant font-semibold">Online</span>
+          </div>
+          <div class="h-4 w-px bg-outline-variant"></div>
+          <span id="word-count" class="text-[10px] text-on-surface-variant">—</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-[10px] text-primary font-bold">Dental Empire OS</span>
+          <button id="fullscreen-btn" class="text-on-surface-variant hover:text-primary transition-colors">
+            <span class="material-symbols-outlined text-sm">fullscreen</span>
+          </button>
+        </div>
+      </footer>
+
+      <!-- ==========================================
+           MOBILE BOTTOM BAR
+           ========================================== -->
+      <div class="lg:hidden flex items-center justify-around gap-1 px-2 py-2 glass-nav border-t border-white/[0.06] z-50 mobile-bottom-bar" style="padding-bottom: env(safe-area-inset-bottom, 0);">
+        <button id="mobile-toc-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+          <span class="material-symbols-outlined text-xl">list</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Mục lục</span>
+        </button>
+        <button id="mobile-font-decrease" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
+          <span class="material-symbols-outlined text-lg">text_decrease</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Nhỏ</span>
+        </button>
+        <button id="mobile-font-display" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-primary transition-all">
+          <span class="text-lg font-bold leading-none" id="mobile-font-label">Aa</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Cỡ chữ</span>
+        </button>
+        <button id="mobile-font-increase" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
+          <span class="material-symbols-outlined text-lg">text_increase</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Lớn</span>
+        </button>
+        <button id="mobile-theme-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
+          <span class="material-symbols-outlined text-xl" id="mobile-theme-icon">dark_mode</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Nền</span>
+        </button>
+      </div>
+
+      <!-- Mobile bottom padding -->
+      <div class="lg:hidden h-14" style="padding-bottom: env(safe-area-inset-bottom, 0);"></div>
+    </div>
+
+    <!-- Mobile progress bar (fixed, outside flex container) -->
+    <div class="lg:hidden fixed left-0 right-0 z-40 h-0.5 bg-surface-container-high pointer-events-none" style="top: 5rem;">
+      <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
     </div>
   </div>
 
-  <!-- Mobile Sidebar -->
+  <!-- Mobile TOC FAB -->
+  <button
+    id="sidebar-mobile-toggle"
+    class="lg:hidden fixed bottom-[4.5rem] right-4 z-[60] w-12 h-12 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg"
+    aria-label="Mở mục lục"
+  >
+    <span class="material-symbols-outlined text-2xl">menu_book</span>
+  </button>
+
+  <!-- Mobile Sidebar (drawer) -->
   <SidebarMobile groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
-  <!-- Smooth-scroll fix for anchor links with sticky header offset -->
+
+  <!-- Reader init script -->
   <script>
     (function () {
-      const HEADER_HEIGHT = 80;
+      // ---- Reader state ----
+      const themes = ['dark', 'light', 'sepia'];
+      let currentThemeIdx = 0;
+      let bookmarked = false;
+      let tocOpen = true;
+      let focusMode = false;
 
-      function scrollToSlug(slug: string) {
-        const target = document.getElementById(slug);
-        if (!target) return;
-        const top = target.getBoundingClientRect().top + window.scrollY - HEADER_HEIGHT;
-        window.scrollTo({ top, behavior: 'smooth' });
+      const doc = document;
+      const body = doc.body;
+      const readerApp = doc.getElementById('reader-app');
+      const readerScroll = doc.getElementById('reader-scroll');
+      const tocSidebar = doc.getElementById('toc-sidebar');
+      const searchOverlay = doc.getElementById('search-overlay');
+      const searchInput = doc.getElementById('search-input');
+      const fontPopup = doc.getElementById('font-popup');
+
+      // ---- Theme cycling ----
+      function applyTheme(idx) {
+        body.classList.remove('light-mode', 'sepia-mode');
+        if (idx === 1) body.classList.add('light-mode');
+        if (idx === 2) body.classList.add('sepia-mode');
+        const icons = ['dark_mode', 'light_mode', 'coffee'];
+        doc.getElementById('theme-icon')!.textContent = icons[idx];
+        doc.getElementById('mobile-theme-btn')!.querySelector('.material-symbols-outlined')!.textContent = icons[idx];
+        currentThemeIdx = idx;
       }
 
-      document.addEventListener('click', (e) => {
-        const link = (e.target as HTMLElement).closest('a[href^="#"]');
-        if (!link) return;
-        const hash = (link as HTMLAnchorElement).getAttribute('href');
-        if (!hash || hash.length < 2) return;
-        e.preventDefault();
-        scrollToSlug(hash.slice(1));
-        history.replaceState(null, '', hash);
+      doc.getElementById('theme-btn')?.addEventListener('click', () => {
+        applyTheme((currentThemeIdx + 1) % themes.length);
+      });
+      doc.getElementById('mobile-theme-btn')?.addEventListener('click', () => {
+        applyTheme((currentThemeIdx + 1) % themes.length);
+      });
+
+      // ---- Font size ----
+      function setFontSize(size: string) {
+        const sizes = { sm: '0.875', md: '1', lg: '1.125', xl: '1.25', '2xl': '1.4' };
+        const el = doc.getElementById('reader-content') as HTMLElement | null;
+        if (el) el.style.fontSize = sizes[size as keyof typeof sizes] + 'rem';
+        fontSize = size;
+        doc.querySelectorAll('.fs-btn').forEach((btn) => {
+          const isActive = btn.getAttribute('data-fs') === size;
+          btn.classList.toggle('bg-primary', isActive);
+          btn.classList.toggle('text-on-primary', isActive);
+          btn.classList.toggle('bg-surface-container-high', !isActive);
+        });
+      }
+
+      doc.querySelectorAll('.fs-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setFontSize(btn.getAttribute('data-fs') || 'md'));
+      });
+
+      // ---- Focus mode ----
+      function toggleFocus() {
+        focusMode = !focusMode;
+        readerApp?.classList.toggle('focus-mode', focusMode);
+        const btn = doc.getElementById('focus-btn');
+        const mobileBtn = doc.getElementById('mobile-focus-btn');
+        const icon = focusMode ? 'visibility_off' : 'visibility';
+        btn?.querySelector('.material-symbols-outlined')!.setAttribute('data-icon', icon);
+        btn!.querySelector('.material-symbols-outlined')!.textContent = icon;
+        mobileBtn?.querySelector('.material-symbols-outlined')!.setAttribute('data-icon', icon);
+        mobileBtn!.querySelector('.material-symbols-outlined')!.textContent = icon;
+        btn?.classList.toggle('bg-primary/10', focusMode);
+        btn?.classList.toggle('text-primary', focusMode);
+        btn?.classList.toggle('border', focusMode);
+        btn?.classList.toggle('border-primary/30', focusMode);
+        mobileBtn?.classList.toggle('text-primary', focusMode);
+      }
+
+      doc.getElementById('focus-btn')?.addEventListener('click', toggleFocus);
+      doc.getElementById('mobile-focus-btn')?.addEventListener('click', toggleFocus);
+
+      // ---- Bookmark ----
+      function toggleBookmark() {
+        bookmarked = !bookmarked;
+        const icon = bookmarked ? 'bookmark' : 'bookmark_border';
+        doc.getElementById('bookmark-icon')!.textContent = icon;
+        doc.getElementById('mobile-bookmark-icon')!.textContent = icon;
+        doc.getElementById('bookmark-btn')?.classList.toggle('text-primary', bookmarked);
+        doc.getElementById('bookmark-btn')?.classList.toggle('bg-primary/10', bookmarked);
+        doc.getElementById('bookmark-btn')?.classList.toggle('border', bookmarked);
+        doc.getElementById('bookmark-btn')?.classList.toggle('border-primary/30', bookmarked);
+      }
+
+      doc.getElementById('bookmark-btn')?.addEventListener('click', toggleBookmark);
+      doc.getElementById('mobile-bookmark-btn')?.addEventListener('click', toggleBookmark);
+
+      // ---- TOC toggle (desktop) ----
+      function toggleToc() {
+        tocOpen = !tocOpen;
+        if (tocSidebar) {
+          tocSidebar.classList.toggle('hidden', !tocOpen);
+          tocSidebar.classList.toggle('lg:flex', tocOpen);
+        }
+        const btn = doc.getElementById('toc-toggle-btn');
+        btn?.classList.toggle('bg-primary/10', tocOpen);
+        btn?.classList.toggle('text-primary', tocOpen);
+        btn?.classList.toggle('border', tocOpen);
+        btn?.classList.toggle('border-primary/30', tocOpen);
+      }
+
+      doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);
+
+      // ---- Search ----
+      function openSearch() {
+        searchOverlay?.classList.remove('hidden');
+        searchInput?.focus();
+      }
+      function closeSearch() {
+        searchOverlay?.classList.add('hidden');
+        if (searchInput) searchInput.value = '';
+      }
+
+      doc.getElementById('search-btn')?.addEventListener('click', openSearch);
+      doc.getElementById('search-overlay')?.addEventListener('click', (e) => {
+        if (e.target === searchOverlay) closeSearch();
+      });
+
+      // Ctrl+K shortcut
+      doc.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          openSearch();
+        }
+        if (e.key === 'Escape') {
+          closeSearch();
+          fontPopup?.classList.add('hidden');
+        }
+      });
+
+      // ---- Font popup ----
+      doc.getElementById('font-menu-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fontPopup?.classList.toggle('hidden');
+      });
+      doc.addEventListener('click', () => fontPopup?.classList.add('hidden'));
+
+      // ---- Fullscreen ----
+      doc.getElementById('fullscreen-btn')?.addEventListener('click', () => {
+        if (!doc.fullscreenElement) {
+          doc.documentElement.requestFullscreen();
+        } else {
+          doc.exitFullscreen();
+        }
+      });
+
+      // ---- Reading progress ----
+      function updateProgress() {
+        if (!readerScroll) return;
+        const scrollTop = readerScroll.scrollTop;
+        const scrollHeight = readerScroll.scrollHeight - readerScroll.clientHeight;
+        const pct = scrollHeight > 0 ? Math.min(100, Math.round((scrollTop / scrollHeight) * 100)) : 0;
+        doc.querySelectorAll('.read-progress').forEach((el) => {
+          (el as HTMLElement).style.width = pct + '%';
+        });
+        doc.querySelectorAll('[id^="progress-pct"]').forEach((el) => {
+          el.textContent = pct + '%';
+        });
+        doc.querySelectorAll('[id$="-pct-sidebar"]').forEach((el) => {
+          el.textContent = pct + '% Hoàn thành';
+        });
+      }
+
+      readerScroll?.addEventListener('scroll', updateProgress);
+
+      // ---- Word count ----
+      const article = doc.querySelector('article, .reader-content');
+      if (article) {
+        const text = article.textContent || '';
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        doc.getElementById('word-count')!.textContent = words.toLocaleString('vi') + ' từ';
+      }
+
+      // ---- Mobile TOC (open/close drawer) ----
+      doc.getElementById('mobile-toc-btn')?.addEventListener('click', () => {
+        (window as any).__openMobileToc?.();
+      });
+
+      // Mobile font size quick cycle
+      const fontSizes = ['sm', 'md', 'lg', 'xl'];
+      let fontIdx = 1;
+      doc.getElementById('mobile-font-btn')?.addEventListener('click', () => {
+        fontIdx = (fontIdx + 1) % fontSizes.length;
+        setFontSize(fontSizes[fontIdx]);
+      });
+
+      // ---- Scroll to heading (smooth) ----
+      const HEADER_OFFSET = 80;
+      doc.querySelectorAll('a[href^="#"]').forEach((link) => {
+        link.addEventListener('click', (e) => {
+          const hash = link.getAttribute('href');
+          if (!hash || hash === '#') return;
+          e.preventDefault();
+          const target = doc.getElementById(hash.slice(1));
+          if (target && readerScroll) {
+            const top = target.getBoundingClientRect().top + readerScroll.scrollTop - HEADER_OFFSET;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          }
+          history.replaceState(null, '', hash);
+          // Close mobile TOC if open
+          doc.getElementById('sidebar-mobile-close')?.click();
+        });
       });
 
       if (location.hash) {
-        requestAnimationFrame(() => scrollToSlug(location.hash.slice(1)));
+        requestAnimationFrame(() => {
+          const target = doc.getElementById(location.hash.slice(1));
+          if (target && readerScroll) {
+            const top = target.getBoundingClientRect().top + readerScroll.scrollTop - HEADER_OFFSET;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          }
+        });
       }
+
+      // ---- Init ----
+      setFontSize('md');
     })();
   </script>
 </BaseLayout>

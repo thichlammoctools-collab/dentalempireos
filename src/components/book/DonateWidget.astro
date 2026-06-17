@@ -1,36 +1,112 @@
 ---
 interface Props {
-  tier: number;
+  settings: {
+    enabled: number;
+    title: string;
+    message: string;
+    qr_url: string;
+    payment_methods: string;
+  };
 }
 
-const { tier } = Astro.props;
+const { settings } = Astro.props;
+
+if (!settings || settings.enabled === 0) {
+  // Widget is disabled — render nothing
+  return;
+}
 ---
 
-<div class="mt-12 p-8 bg-surface-container rounded-2xl border border-outline-variant text-center">
-  <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 text-primary mb-4">
-    <span class="material-symbols-outlined text-3xl">volunteer_activism</span>
-  </div>
-  <h3 class="text-headline-md text-white mb-2">Ủng Hộ Tác Giả</h3>
-  <p class="text-on-surface-variant text-sm mb-6 max-w-md mx-auto">
-    Nếu cuốn sách đã mang lại giá trị cho bạn, hãy ủng hộ để tác giả có thể tiếp tục viết và chia sẻ kiến thức.
-  </p>
+<!-- Collapsible Support Widget -->
+<div id="support-widget" class="mt-12 transition-all duration-300">
+  <!-- Collapsed: subtle heart button -->
+  <button
+    id="support-trigger"
+    class="group flex items-center gap-2 mx-auto px-5 py-2.5 rounded-full border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-all duration-200 cursor-pointer select-none"
+    aria-expanded="false"
+    aria-controls="support-panel"
+  >
+    <span class="material-symbols-outlined text-[18px] text-primary group-hover:scale-110 transition-transform duration-200">favorite</span>
+    <span class="text-sm font-medium">{settings.title}</span>
+    <span id="support-chevron" class="material-symbols-outlined text-[16px] transition-transform duration-300">expand_more</span>
+  </button>
 
-  <!-- QR Code placeholder -->
-  <div class="inline-block p-4 bg-white rounded-2xl mb-4">
-    <img
-      src="/images/qr/donation-qr.svg"
-      alt="QR Code ủng hộ"
-      class="w-48 h-48"
-      loading="lazy"
-    />
-  </div>
+  <!-- Expanded panel (hidden by default) -->
+  <div
+    id="support-panel"
+    class="hidden mt-3 p-6 bg-surface-container rounded-2xl border border-outline-variant/30 text-center"
+    role="region"
+    aria-labelledby="support-trigger"
+  >
+    <!-- Icon -->
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-3">
+      <span class="material-symbols-outlined text-2xl">volunteer_activism</span>
+    </div>
 
-  <p class="text-on-surface-variant text-xs mt-4">
-    Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
-  </p>
+    <!-- Title -->
+    <h3 class="text-title-md text-white mb-2">{settings.title}</h3>
 
-  <div class="flex items-center justify-center gap-2 mt-3 text-xs text-on-surface-variant">
-    <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
-    <span>Supports: Vietcombank, Techcombank, Momo, ZaloPay</span>
+    <!-- Message -->
+    <p class="text-sm text-on-surface-variant mb-5 max-w-md mx-auto">
+      {settings.message}
+    </p>
+
+    <!-- QR Code -->
+    <div class="inline-block p-4 bg-white rounded-2xl mb-4">
+      <img
+        src={settings.qr_url}
+        alt="QR Code ủng hộ"
+        class="w-44 h-44"
+        loading="lazy"
+      />
+    </div>
+
+    <!-- Instruction -->
+    <p class="text-xs text-on-surface-variant mt-3">
+      Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
+    </p>
+
+    <!-- Payment methods -->
+    {settings.payment_methods && (
+      <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">qr_code_2</span>
+        <span>Supports: {settings.payment_methods}</span>
+      </div>
+    )}
   </div>
 </div>
+
+<script>
+  const trigger = document.getElementById('support-trigger');
+  const panel = document.getElementById('support-panel');
+  const chevron = document.getElementById('support-chevron');
+
+  if (trigger && panel && chevron) {
+    trigger.addEventListener('click', () => {
+      const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+
+      if (isExpanded) {
+        // Collapse
+        panel.classList.add('hidden');
+        trigger.setAttribute('aria-expanded', 'false');
+        chevron.style.transform = '';
+      } else {
+        // Expand
+        panel.classList.remove('hidden');
+        trigger.setAttribute('aria-expanded', 'true');
+        chevron.style.transform = 'rotate(180deg)';
+        // Smooth scroll widget into view if partially off screen
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && trigger.getAttribute('aria-expanded') === 'true') {
+        panel.classList.add('hidden');
+        trigger.setAttribute('aria-expanded', 'false');
+        chevron.style.transform = '';
+      }
+    });
+  }
+</script>

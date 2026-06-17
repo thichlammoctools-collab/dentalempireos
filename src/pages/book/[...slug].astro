@@ -1,14 +1,14 @@
 ---
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
-import { getChapterTree, listPublishedChapters, type SectionNode } from '../../lib/book-db';
+import { getChapterTree, listPublishedChapters, getSupportSettings, type SectionNode } from '../../lib/book-db';
 import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
+import BookHeader from '../../components/book/BookHeader.astro';
 import ChapterNav from '../../components/book/ChapterNav.astro';
 import ModuleNav from '../../components/book/ModuleNav.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
-import Badge from '../../components/ui/Badge.astro';
 
 export const prerender = false;
 
@@ -23,7 +23,6 @@ if (!tree) {
 
 const { chapter: ch, sections } = tree;
 
-// Published chapters list for sidebar + nav (same shape SidebarNav/ChapterNav expect)
 const allPublished = await listPublishedChapters(db);
 const groupedByTier = [1, 2, 3].map((tier) => ({
   tier,
@@ -36,7 +35,6 @@ const groupedByTier = [1, 2, 3].map((tier) => ({
     })),
 }));
 
-// Adjacent chapters
 const flatIds = allPublished.map((c) => c.id);
 const currentIdx = flatIds.indexOf(slug);
 const prevCh = currentIdx > 0 ? allPublished[currentIdx - 1] : null;
@@ -44,13 +42,11 @@ const nextCh = currentIdx < flatIds.length - 1 ? allPublished[currentIdx + 1] : 
 const prev = prevCh ? { id: prevCh.id, data: { title: prevCh.title, tier: prevCh.tier } } : null;
 const next = nextCh ? { id: nextCh.id, data: { title: nextCh.title, tier: nextCh.tier } } : null;
 
-// Modules = top-level sections (h2) for sidebar + ModuleNav
 const modules = sections.map((s) => ({
   title: s.title,
   slug: s.slug,
 }));
 
-// Configure marked
 marked.use({ breaks: true });
 
 function renderMarkdown(text: string): string {
@@ -59,7 +55,7 @@ function renderMarkdown(text: string): string {
 
 function renderSection(s: SectionNode): string {
   const tag = s.level === 2 ? 'h2' : 'h3';
-  let html = `<${tag} id="${s.slug}">${s.title}</${tag}>`;
+  let html = `<${tag} id="${s.slug}" class="section-heading">${s.title}</${tag}>`;
 
   for (const block of s.blocks) {
     if (block.type === 'text' && block.text_md) {
@@ -84,7 +80,6 @@ function renderSection(s: SectionNode): string {
     }
   }
 
-  // Render sub-sections
   for (const child of s.children) {
     html += renderSection(child);
   }
@@ -101,7 +96,19 @@ function getFileIcon(mime: string | null): string {
   return 'description';
 }
 
-const contentHtml = sections.map(renderSection).join('');
+// Render sections, stripping first h2 (chapter title is shown by BookHeader)
+const sectionsHtml = sections.map(renderSection).join('');
+// Strip the first h2/h3 since BookHeader shows the chapter title
+const strippedContent = sectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+
+// Support widget settings
+const supportSettings = (await getSupportSettings(db)) ?? {
+  enabled: 0,
+  title: 'Ủng Hộ Tác Giả',
+  message: '',
+  qr_url: '',
+  payment_methods: '',
+};
 ---
 
 <BookLayout
@@ -110,27 +117,29 @@ const contentHtml = sections.map(renderSection).join('');
   groupedChapters={groupedByTier}
   currentSlug={slug}
   currentModules={modules}
+  tier={ch.tier}
+  tierLabel={getTierLabel(ch.tier)}
+  chapterNo={ch.chapter_no}
 >
-  <!-- Chapter Header -->
-  <div class="mb-4 pb-6 border-b border-outline-variant">
-    <div class="flex items-center gap-3 mb-4">
-      <Badge variant="accent">Tầng {ch.tier}</Badge>
-      <span class="text-on-surface-variant text-sm">{getTierLabel(ch.tier)}</span>
-      <span class="text-on-surface-variant text-sm">·</span>
-      <span class="text-on-surface-variant text-sm">Chương {ch.chapter_no}</span>
-    </div>
-    <h1 class="text-headline-lg text-white mb-3">{ch.title}</h1>
-    <p class="text-on-surface-variant">{ch.description}</p>
+  <!-- Mobile-optimized Book Header -->
+  <BookHeader
+    title={ch.title}
+    description={ch.description ?? ''}
+    tier={ch.tier}
+    tierLabel={getTierLabel(ch.tier)}
+    chapterNo={ch.chapter_no}
+  />
+
+  <!-- Module Navigation Pills (desktop) -->
+  <div class="hidden lg:block">
+    <ModuleNav modules={modules} />
   </div>
 
-  <!-- Module Nav -->
-  <ModuleNav modules={modules} />
-
   <!-- Chapter Content -->
-  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none" set:html={contentHtml} />
+  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
 
   <!-- Donate Widget -->
-  <DonateWidget tier={ch.tier} />
+  <DonateWidget settings={supportSettings} />
 
   <!-- Chapter Navigation -->
   <ChapterNav prev={prev} next={next} />

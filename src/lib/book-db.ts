@@ -210,6 +210,57 @@ export async function deleteBlock(db: D1Database, id: string): Promise<void> {
   await db.prepare('DELETE FROM "block" WHERE "id" = ?').bind(id).run();
 }
 
+// ── Support settings ────────────────────────────────────────
+
+export interface SupportSettings {
+  id: number;
+  enabled: number;
+  title: string;
+  message: string;
+  qr_url: string;
+  payment_methods: string;
+  updatedAt: string;
+}
+
+export async function getSupportSettings(db: D1Database): Promise<SupportSettings | null> {
+  return db.prepare('SELECT * FROM "support_settings" WHERE "id" = 1').first<SupportSettings>();
+}
+
+export async function upsertSupportSettings(
+  db: D1Database,
+  input: Partial<Omit<SupportSettings, 'id' | 'updatedAt'>>,
+): Promise<void> {
+  const ts = new Date().toISOString();
+  const fields: string[] = ['"updatedAt" = ?'];
+  const values: unknown[] = [ts];
+
+  if ('enabled' in input && input.enabled !== undefined) {
+    fields.push('"enabled" = ?');
+    values.push(input.enabled);
+  }
+  if ('title' in input && input.title !== undefined) {
+    fields.push('"title" = ?');
+    values.push(input.title);
+  }
+  if ('message' in input && input.message !== undefined) {
+    fields.push('"message" = ?');
+    values.push(input.message);
+  }
+  if ('qr_url' in input && input.qr_url !== undefined) {
+    fields.push('"qr_url" = ?');
+    values.push(input.qr_url);
+  }
+  if ('payment_methods' in input && input.payment_methods !== undefined) {
+    fields.push('"payment_methods" = ?');
+    values.push(input.payment_methods);
+  }
+
+  await db
+    .prepare(`UPDATE "support_settings" SET ${fields.join(', ')} WHERE "id" = 1`)
+    .bind(...values)
+    .run();
+}
+
 // ── Tree assembly ───────────────────────────────────────────
 
 // Builds the full chapter -> sections -> blocks tree in 3 queries,
