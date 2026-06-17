@@ -17,9 +17,14 @@ const ALLOWED_MIME: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'application/vnd.ms-excel': 'xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  // Video
+  'video/mp4': 'mp4',
+  // Presentation
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
 };
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_SIZE_DEFAULT = 10 * 1024 * 1024; // 10 MB
+const MAX_SIZE_RESOURCE = 100 * 1024 * 1024; // 100 MB for resource uploads (videos etc.)
 
 // POST /api/admin/upload — multipart file upload to R2
 export const POST: APIRoute = async ({ request }) => {
@@ -30,14 +35,16 @@ export const POST: APIRoute = async ({ request }) => {
 
   const formData = await request.formData();
   const file = formData.get('file');
+  const purpose = (formData.get('purpose') as string) || 'book';
   const chapterId = (formData.get('chapterId') as string) || 'unsorted';
 
   if (!file || !(file instanceof File)) {
     return badRequest('No file provided');
   }
 
-  if (file.size > MAX_SIZE) {
-    return badRequest(`File too large (max ${MAX_SIZE / 1024 / 1024}MB)`);
+  const maxSize = purpose === 'resource' ? MAX_SIZE_RESOURCE : MAX_SIZE_DEFAULT;
+  if (file.size > maxSize) {
+    return badRequest(`File too large (max ${maxSize / 1024 / 1024}MB)`);
   }
 
   const mime = file.type;
@@ -45,10 +52,11 @@ export const POST: APIRoute = async ({ request }) => {
     return badRequest(`File type "${mime}" is not allowed`);
   }
 
-  // R2 key: book/{chapterId}/{uuid}-{sanitised-filename}
+  // R2 key: purpose/{subfolder}/{uuid}-{sanitised-filename}
   const ext = ALLOWED_MIME[mime];
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
-  const key = `book/${chapterId}/${crypto.randomUUID()}-${safeName}.${ext}`;
+  const folder = purpose === 'resource' ? 'resources' : `book/${chapterId}`;
+  const key = `${folder}/${crypto.randomUUID()}-${safeName}.${ext}`;
 
   // Sanitise filename for Content-Disposition header (RFC 6266)
   const safeDispositionName = safeName.replace(/["\\]/g, '_');

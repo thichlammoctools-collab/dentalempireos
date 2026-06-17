@@ -9,7 +9,7 @@ const navLinks = [
 const currentPath = Astro.url.pathname;
 ---
 
-<nav class="fixed top-0 w-full z-50 bg-surface-container-lowest/80 glass-nav border-b border-outline-variant h-20">
+<header class="fixed top-0 w-full z-50 bg-surface-container-lowest/80 glass-nav border-b border-outline-variant h-20">
   <div class="flex justify-between items-center w-full px-6 max-w-[1200px] mx-auto h-full">
     <!-- Logo -->
     <div class="flex items-center gap-2">
@@ -127,7 +127,7 @@ const currentPath = Astro.url.pathname;
       </div>
     </div>
   </div>
-</nav>
+</header>
 
 <script>
   import { getSession, signOut } from '../../lib/auth-client';

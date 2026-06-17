@@ -205,16 +205,67 @@ const extColors: Record<string, string> = {
               </div>
             </div>
             <div>
-              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">URL tải file</label>
+              <label class="block text-xs font-bold text-on-surface-variant mb-1.5">File tải xuống</label>
+              <input type="hidden" id="f-file_url" value="" />
               <div class="relative">
-                <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">link</span>
                 <input
-                  id="f-file_url"
+                  id="f-file_url_text"
                   type="url"
                   class="w-full pl-11 pr-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
-                  placeholder="https://drive.google.com/..."
+                  placeholder="Hoặc dán URL: https://drive.google.com/..."
                 />
+                <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">link</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Upload zone -->
+          <div
+            id="upload-zone"
+            class="relative border-2 border-dashed border-outline-variant/60 rounded-xl p-4 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all group"
+          >
+            <input type="file" id="f-file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.xlsx,.docx,.mp4,.pptx" />
+            <div class="flex flex-col items-center gap-1.5 pointer-events-none">
+              <span class="material-symbols-outlined text-[28px] text-on-surface-variant/50 group-hover:text-primary transition-colors">cloud_upload</span>
+              <p class="text-xs text-on-surface-variant">
+                <span class="font-bold text-primary group-hover:underline">Chọn file</span> hoặc kéo thả vào đây
+              </p>
+              <p class="text-[10px] text-on-surface-variant/50">PDF, Excel, Word, MP4, PPTX — tối đa 100MB</p>
+            </div>
+          </div>
+
+          <!-- Upload progress -->
+          <div id="upload-progress" class="hidden">
+            <div class="flex items-center gap-3 bg-surface-container-high rounded-xl p-3 border border-outline-variant/30">
+              <div class="relative w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-[20px] text-primary" id="upload-file-icon">description</span>
+                <div class="absolute inset-0 rounded-lg border-2 border-primary/30 border-t-primary animate-spin" id="upload-spinner"></div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold text-white truncate" id="upload-file-name">Đang tải lên...</p>
+                <div class="w-full h-1 bg-surface-container-highest rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full bg-primary rounded-full transition-all duration-300" id="upload-bar" style="width:0%"></div>
+                </div>
+              </div>
+              <button type="button" id="upload-cancel-btn" class="text-on-surface-variant hover:text-error transition-colors pointer-events-auto">
+                <span class="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Upload success -->
+          <div id="upload-success" class="hidden">
+            <div class="flex items-center gap-3 bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
+              <div class="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-[20px] text-emerald-400">check_circle</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold text-emerald-300 truncate" id="upload-success-name">File đã tải lên</p>
+                <p class="text-[10px] text-on-surface-variant mt-0.5">Lưu vào R2 thành công</p>
+              </div>
+              <button type="button" id="upload-remove-btn" class="text-on-surface-variant hover:text-error transition-colors">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+              </button>
             </div>
           </div>
         </div>
@@ -403,6 +454,106 @@ const extColors: Record<string, string> = {
     })
   );
 
+  // ── File upload to R2 ────────────────────────────────────
+  let uploadedFileUrl = null;
+  const fileInput = document.getElementById('f-file-input');
+  const uploadZone = document.getElementById('upload-zone');
+  const uploadProgress = document.getElementById('upload-progress');
+  const uploadSuccess = document.getElementById('upload-success');
+  const urlTextInput = document.getElementById('f-file_url_text');
+  const fileUrlHidden = document.getElementById('f-file_url');
+
+  const fileIconMap = { pdf: 'picture_as_pdf', xlsx: 'table_chart', docx: 'article', mp4: 'movie', pptx: 'slideshow' };
+
+  fileInput?.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+  });
+
+  // Drag & drop
+  uploadZone?.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('border-primary', 'bg-primary/5'); });
+  uploadZone?.addEventListener('dragleave', () => { uploadZone.classList.remove('border-primary', 'bg-primary/5'); });
+  uploadZone?.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('border-primary', 'bg-primary/5');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) await uploadFile(file);
+  });
+
+  async function uploadFile(file) {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (fileIconMap[ext]) {
+      document.getElementById('f-file_ext').value = ext;
+    }
+
+    uploadZone.classList.add('hidden');
+    uploadProgress.classList.remove('hidden');
+    uploadSuccess.classList.add('hidden');
+    if (urlTextInput) urlTextInput.disabled = true;
+
+    document.getElementById('upload-file-name').textContent = file.name;
+    document.getElementById('upload-file-icon').textContent = fileIconMap[ext] || 'description';
+    const bar = document.getElementById('upload-bar');
+    const spinner = document.getElementById('upload-spinner');
+
+    // Fake progress
+    let pct = 0;
+    const iv = setInterval(() => { pct = Math.min(pct + Math.random() * 15, 90); bar.style.width = pct + '%'; }, 80);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('purpose', 'resource');
+
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await res.json();
+      clearInterval(iv);
+      bar.style.width = '100%';
+      spinner.classList.add('hidden');
+
+      uploadedFileUrl = data.r2_key;
+      if (fileUrlHidden) fileUrlHidden.value = data.r2_key;
+
+      setTimeout(() => {
+        uploadProgress.classList.add('hidden');
+        uploadSuccess.classList.remove('hidden');
+        document.getElementById('upload-success-name').textContent = file.name;
+      }, 300);
+    } catch (err) {
+      clearInterval(iv);
+      bar.style.width = '0%';
+      spinner.classList.add('hidden');
+      alert('Lỗi tải lên: ' + err.message);
+      hideUploadUI();
+    }
+  }
+
+  function hideUploadUI() {
+    uploadZone?.classList.remove('hidden');
+    uploadProgress?.classList.add('hidden');
+    uploadSuccess?.classList.add('hidden');
+    if (urlTextInput) urlTextInput.disabled = false;
+    uploadedFileUrl = null;
+    if (fileUrlHidden) fileUrlHidden.value = '';
+    if (fileInput) fileInput.value = '';
+  }
+
+  document.getElementById('upload-cancel-btn')?.addEventListener('click', () => { hideUploadUI(); });
+  document.getElementById('upload-remove-btn')?.addEventListener('click', () => { hideUploadUI(); });
+
+  // Sync URL text input to hidden field
+  urlTextInput?.addEventListener('input', () => {
+    if (!uploadedFileUrl) {
+      fileUrlHidden.value = urlTextInput.value.trim();
+    }
+  });
+
   // ── Modal helpers ─────────────────────────────────────────
   const fields = ['id', 'title', 'description', 'category', 'tier', 'file_ext', 'tag', 'icon', 'file_url', 'sort_order'];
   const modalIcon = document.getElementById('modal-icon');
@@ -433,6 +584,7 @@ const extColors: Record<string, string> = {
     document.getElementById('f-file_url').value = '';
     document.getElementById('f-sort_order').value = '0';
     if (iconPreview) iconPreview.textContent = 'description';
+    hideUploadUI();
   }
 
   function openModal() {
@@ -487,7 +639,18 @@ const extColors: Record<string, string> = {
     document.getElementById('f-tag').value = r.tag;
     document.getElementById('f-icon').value = r.icon;
     document.getElementById('f-file_url').value = r.file_url;
+    if (urlTextInput) urlTextInput.value = r.file_url;
     document.getElementById('f-sort_order').value = r.sort_order;
+    // If existing resource has an R2 file_url (not external URL), show success state
+    if (r.file_url && !r.file_url.startsWith('http')) {
+      uploadedFileUrl = r.file_url;
+      uploadZone?.classList.add('hidden');
+      uploadProgress?.classList.add('hidden');
+      uploadSuccess?.classList.remove('hidden');
+      const name = r.file_url.split('/').pop() || r.file_url;
+      document.getElementById('upload-success-name').textContent = name;
+      urlTextInput.disabled = true;
+    }
     if (iconPreview) iconPreview.textContent = r.icon;
     openModal();
   }
@@ -515,7 +678,7 @@ const extColors: Record<string, string> = {
       file_ext: document.getElementById('f-file_ext').value,
       tag: document.getElementById('f-tag').value.trim(),
       icon: document.getElementById('f-icon').value.trim() || 'description',
-      file_url: document.getElementById('f-file_url').value.trim(),
+      file_url: document.getElementById('f-file_url').value.trim() || (urlTextInput?.value.trim() || ''),
       sort_order: parseInt(document.getElementById('f-sort_order').value, 10) || 0,
     };
 

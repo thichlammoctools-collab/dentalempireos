@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import SidebarMobile from '../components/book/SidebarMobile.astro';
+import SectionNav from '../components/book/SectionNav.astro';
 
 interface ChapterItem {
   id: string;
@@ -10,6 +11,12 @@ interface ChapterItem {
 interface ModuleItem {
   title: string;
   slug: string;
+}
+
+interface SectionItem {
+  title: string;
+  slug: string;
+  level: number;
 }
 
 interface TierGroup {
@@ -24,6 +31,7 @@ interface Props {
   groupedChapters: TierGroup[];
   currentSlug: string;
   currentModules: ModuleItem[];
+  sections?: SectionItem[];
   tier?: number;
   tierLabel?: string;
   chapterNo?: number;
@@ -35,6 +43,7 @@ const {
   groupedChapters,
   currentSlug,
   currentModules,
+  sections = [],
   tier = 3,
   tierLabel = 'Tier 3',
   chapterNo = 1,
@@ -52,7 +61,7 @@ const currentTier = groupedChapters.find((g) =>
   <!-- ==========================================
        READER LAYOUT WRAPPER
        ========================================== -->
-  <div id="reader-app" class="reader-app flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
+  <div id="reader-app" class="reader-app flex flex-col overflow-hidden">
 
     <!-- ==========================================
          READER TOOLBAR (top bar)
@@ -148,7 +157,9 @@ const currentTier = groupedChapters.find((g) =>
     <!-- ==========================================
          MAIN BODY: Sidebar + Reader
          ========================================== -->
-    <div class="flex flex-1 overflow-hidden relative">
+    <div class="flex flex-col flex-1 overflow-hidden relative">
+      <!-- Horizontal content row (sidebar + reader + section nav) -->
+      <div class="flex flex-1 overflow-hidden">
 
       <!-- Desktop Sidebar TOC -->
       <aside id="toc-sidebar" class="hidden lg:flex flex-col w-72 flex-shrink-0 h-full border-r border-white/[0.06] bg-surface-container-low/50 overflow-y-auto toc-sidebar">
@@ -220,6 +231,13 @@ const currentTier = groupedChapters.find((g) =>
       </main>
 
       <!-- ==========================================
+           SECTION NAV (Desktop right sidebar + Mobile drawer)
+           ========================================== -->
+      <SectionNav sections={sections} />
+
+      </div><!-- end horizontal content row -->
+
+      <!-- ==========================================
            STATUS BAR (Desktop)
            ========================================== -->
       <footer id="reader-status" class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-nav border-t border-white/[0.06] z-40">
@@ -261,7 +279,7 @@ const currentTier = groupedChapters.find((g) =>
         </button>
         <button id="mobile-theme-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
           <span class="material-symbols-outlined text-xl" id="mobile-theme-icon">dark_mode</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Tối</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-theme-label">Tối</span>
         </button>
       </div>
 
@@ -278,7 +296,8 @@ const currentTier = groupedChapters.find((g) =>
   <!-- Mobile TOC FAB -->
   <button
     id="sidebar-mobile-toggle"
-    class="lg:hidden fixed bottom-[4.5rem] right-4 z-[60] w-12 h-12 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg"
+    class="lg:hidden fixed right-4 z-[60] w-12 h-12 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg"
+    style="bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));"
     aria-label="Mở mục lục"
   >
     <span class="material-symbols-outlined text-2xl">menu_book</span>
@@ -286,6 +305,31 @@ const currentTier = groupedChapters.find((g) =>
 
   <!-- Mobile Sidebar (drawer) -->
   <SidebarMobile groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
+
+  <!-- ═══════════════ File Preview Modal ═══════════════ -->
+  <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">
+    <div class="file-preview-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" id="preview-backdrop"></div>
+    <div class="file-preview-panel relative z-10 bg-surface-container rounded-2xl border border-outline-variant/30 shadow-2xl mx-4 my-4 flex flex-col w-full h-[90vh] sm:max-w-4xl sm:max-h-[85vh]">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-primary text-lg">visibility</span>
+          <p id="preview-filename" class="text-sm font-bold text-on-surface truncate"></p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button id="preview-open-external" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Mở tab mới">
+            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+          </button>
+          <button id="preview-download" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Tải file">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+          </button>
+          <button id="preview-close" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white hover:bg-error/20 transition-all" title="Đóng">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      </div>
+      <div id="preview-body" class="flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center"></div>
+    </div>
+  </div>
 
   <!-- Reader init script -->
   <script>
@@ -316,7 +360,7 @@ const currentTier = groupedChapters.find((g) =>
         doc.getElementById('theme-icon')!.textContent = icons[idx];
         const mobileIcon = doc.getElementById('mobile-theme-icon');
         if (mobileIcon) mobileIcon.textContent = icons[idx];
-        const mobileLabel = doc.querySelector('#mobile-theme-btn .text-\\[9px\\]');
+        const mobileLabel = doc.getElementById('mobile-theme-label');
         if (mobileLabel) mobileLabel.textContent = labels[idx];
         currentThemeIdx = idx;
       }
@@ -517,4 +561,273 @@ const currentTier = groupedChapters.find((g) =>
       setFontSize('md');
     })();
   </script>
+
+  <!-- ═══════════════ File Download / Preview Script ═══════════════ -->
+  <script>
+    (function () {
+      const MAX_FETCH_SIZE = 50 * 1024 * 1024; // 50 MB — above this, fallback to direct link
+
+      // ── Helpers ──
+      function formatBytes(bytes: number): string {
+        if (bytes === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+      }
+
+      function escapeAttr(s: string): string {
+        return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      }
+
+      // ── File size cache ──
+      const sizeCache = new Map<string, string>();
+
+      async function fetchFileSize(card: HTMLElement): Promise<void> {
+        const url = card.dataset.fileUrl;
+        if (!url) return;
+        if (sizeCache.has(url)) {
+          showSize(card, sizeCache.get(url)!);
+          return;
+        }
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          const total = Number(res.headers.get('Content-Length'));
+          if (total > 0) {
+            const formatted = formatBytes(total);
+            sizeCache.set(url, formatted);
+            showSize(card, formatted);
+          }
+        } catch { /* silent — size display is non-critical */ }
+      }
+
+      function showSize(card: HTMLElement, text: string): void {
+        const sizeEl = card.querySelector('.file-size-display') as HTMLElement | null;
+        const mimeEl = card.querySelector('.file-mime-label') as HTMLElement | null;
+        if (sizeEl && mimeEl) {
+          sizeEl.textContent = text;
+          sizeEl.classList.remove('hidden');
+          mimeEl.classList.add('hidden');
+        }
+      }
+
+      // ── Intersection Observer for lazy size fetch ──
+      const sizeObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              fetchFileSize(entry.target as HTMLElement);
+              sizeObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: '200px' }
+      );
+      document.querySelectorAll<HTMLElement>('[data-file-card]').forEach((card) => {
+        sizeObserver.observe(card);
+      });
+
+      // ── Download with progress ──
+      async function downloadFile(card: HTMLElement): Promise<void> {
+        const url = card.dataset.fileUrl;
+        const filename = card.dataset.fileName || 'download';
+        if (!url) return;
+
+        const overlay = card.querySelector('.file-progress-overlay') as HTMLElement | null;
+        const progressBar = card.querySelector('.file-progress-bar') as HTMLElement | null;
+        const pctText = card.querySelector('.file-progress-pct') as HTMLElement | null;
+        const statusText = card.querySelector('.file-progress-status') as HTMLElement | null;
+        const cancelBtn = card.querySelector('.file-cancel-btn') as HTMLElement | null;
+
+        if (!overlay || !progressBar || !pctText || !statusText) return;
+
+        // Check file size first — fallback to direct download for large files
+        let totalSize = 0;
+        if (sizeCache.has(url)) {
+          // Parse cached size back to bytes (rough check)
+          const cached = sizeCache.get(url)!;
+          if (cached.includes('GB')) {
+            directDownload(url, filename);
+            return;
+          }
+        } else {
+          try {
+            const headRes = await fetch(url, { method: 'GET' });
+            totalSize = Number(headRes.headers.get('Content-Length')) || 0;
+            // Don't consume the body — let it GC
+          } catch { /* proceed with fetch anyway */ }
+          if (totalSize > MAX_FETCH_SIZE) {
+            directDownload(url, filename);
+            return;
+          }
+        }
+
+        const controller = new AbortController();
+        const onAbort = () => controller.abort();
+        cancelBtn?.addEventListener('click', onAbort, { once: true });
+
+        // Show overlay
+        overlay.classList.remove('hidden');
+        progressBar.style.width = '0%';
+        pctText.textContent = '0';
+        statusText.textContent = 'Đang tải...';
+        statusText.classList.remove('text-error');
+        progressBar.classList.toggle('indeterminate', totalSize === 0);
+
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error('Download failed');
+
+          const total = totalSize || Number(response.headers.get('Content-Length')) || 0;
+          const reader = response.body!.getReader();
+          const chunks: Uint8Array[] = [];
+          let loaded = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.length;
+            if (total > 0) {
+              const pct = Math.round((loaded / total) * 100);
+              progressBar.style.width = pct + '%';
+              pctText.textContent = String(pct);
+              statusText.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+            } else {
+              statusText.textContent = `Đang tải... ${formatBytes(loaded)}`;
+            }
+          }
+
+          // Build blob and trigger download
+          const blob = new Blob(chunks);
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+          progressBar.classList.remove('indeterminate');
+          progressBar.style.width = '100%';
+          pctText.textContent = '100';
+          statusText.textContent = 'Hoàn thành!';
+          setTimeout(() => overlay.classList.add('hidden'), 800);
+        } catch (e: any) {
+          progressBar.classList.remove('indeterminate');
+          if (e?.name !== 'AbortError') {
+            statusText.textContent = 'Lỗi tải file';
+            statusText.classList.add('text-error');
+            setTimeout(() => overlay.classList.add('hidden'), 2000);
+          } else {
+            overlay.classList.add('hidden');
+          }
+        } finally {
+          cancelBtn?.removeEventListener('click', onAbort);
+        }
+      }
+
+      function directDownload(url: string, filename: string): void {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.click();
+      }
+
+      // ── Preview modal ──
+      const previewModal = document.getElementById('file-preview-modal');
+      const previewBackdrop = document.getElementById('preview-backdrop');
+      const previewBody = document.getElementById('preview-body');
+      const previewFilename = document.getElementById('preview-filename');
+      const previewCloseBtn = document.getElementById('preview-close');
+      const previewOpenExt = document.getElementById('preview-open-external');
+      const previewDownloadBtn = document.getElementById('preview-download');
+      let previewUrl = '';
+      let previewFileName = '';
+
+      function openPreview(url: string, filename: string, mime: string): void {
+        if (!previewModal || !previewBody || !previewFilename) return;
+        previewUrl = url;
+        previewFileName = filename;
+        previewFilename.textContent = filename;
+        previewBody.innerHTML = '';
+
+        if (mime.includes('pdf')) {
+          previewBody.innerHTML = `<iframe src="${escapeAttr(url)}" class="w-full h-full rounded-xl border-none" style="min-height: 60vh" title="PDF Preview"></iframe>`;
+        } else if (mime.includes('image')) {
+          previewBody.innerHTML = `
+            <div class="relative flex items-center justify-center w-full h-full">
+              <img id="preview-img" class="max-w-full max-h-full object-contain rounded-xl" alt="${escapeAttr(filename)}" />
+              <div class="absolute inset-0 flex items-center justify-center preview-loading">
+                <span class="material-symbols-outlined text-4xl text-on-surface-variant" style="animation: spin 1s linear infinite;">progress_activity</span>
+              </div>
+            </div>`;
+          const img = document.getElementById('preview-img') as HTMLImageElement | null;
+          fetch(url).then(r => r.blob()).then(blob => {
+            if (img) img.src = URL.createObjectURL(blob);
+            previewBody?.querySelector('.preview-loading')?.remove();
+          }).catch(() => {
+            previewBody.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-8">Không thể tải ảnh</p>';
+          });
+        }
+
+        previewModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        // Focus trap
+        previewCloseBtn?.focus();
+      }
+
+      function closePreview(): void {
+        if (!previewModal) return;
+        previewModal.classList.add('hidden');
+        if (previewBody) previewBody.innerHTML = '';
+        document.body.style.overflow = '';
+        previewUrl = '';
+        previewFileName = '';
+      }
+
+      previewCloseBtn?.addEventListener('click', closePreview);
+      previewBackdrop?.addEventListener('click', closePreview);
+      previewOpenExt?.addEventListener('click', () => {
+        if (previewUrl) window.open(previewUrl, '_blank', 'noopener');
+      });
+      previewDownloadBtn?.addEventListener('click', () => {
+        if (previewUrl && previewFileName) {
+          directDownload(previewUrl, previewFileName);
+        }
+      });
+
+      // ── Event delegation for file card buttons ──
+      document.addEventListener('click', (e) => {
+        const target = (e.target as HTMLElement).closest<HTMLElement>('.file-download-btn, .file-preview-btn');
+        if (!target) return;
+        const card = target.closest<HTMLElement>('[data-file-card]');
+        if (!card) return;
+
+        if (target.classList.contains('file-download-btn')) {
+          e.preventDefault();
+          downloadFile(card);
+        } else if (target.classList.contains('file-preview-btn')) {
+          e.preventDefault();
+          const url = card.dataset.fileUrl;
+          const name = card.dataset.fileName || 'preview';
+          const mime = card.dataset.fileMime || '';
+          if (url) openPreview(url, name, mime);
+        }
+      });
+
+      // Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) {
+          closePreview();
+        }
+      });
+    })();
+  </script>
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </BaseLayout>

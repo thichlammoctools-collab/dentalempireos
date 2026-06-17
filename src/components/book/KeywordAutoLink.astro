@@ -1,11 +1,19 @@
 ---
 // Keyword auto-linking — scans article text and wraps keywords in <a> links
-// Keywords are defined in src/data/keywords.ts and serialized as JSON for client-side use
+// Static keywords from src/data/keywords.ts + auto keywords from section headings (DB)
 import { keywords, keywordAliases } from '../../data/keywords';
+import type { AutoKeyword } from '../../lib/book-db';
+
+interface Props {
+  autoKeywords?: AutoKeyword[];
+}
+
+const { autoKeywords = [] } = Astro.props;
 
 // Build search map for client
 const searchMap: Array<{ pattern: string; target: string; label: string; desc: string }> = [];
 
+// Static keywords (manual registry)
 for (const [key, def] of Object.entries(keywords)) {
   searchMap.push({ pattern: key, target: def.target, label: def.label, desc: def.description || '' });
 }
@@ -13,6 +21,15 @@ for (const [alias, mainKey] of Object.entries(keywordAliases)) {
   const main = keywords[mainKey as keyof typeof keywords];
   if (main) {
     searchMap.push({ pattern: alias, target: main.target, label: main.label, desc: main.description || '' });
+  }
+}
+
+// Auto keywords from section headings (DB-driven)
+for (const ak of autoKeywords) {
+  // Skip if already covered by static keywords
+  const exists = searchMap.some(s => s.pattern.toLowerCase() === ak.pattern.toLowerCase());
+  if (!exists) {
+    searchMap.push({ pattern: ak.pattern, target: ak.target, label: ak.label, desc: '' });
   }
 }
 

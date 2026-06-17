@@ -261,6 +261,36 @@ export async function upsertSupportSettings(
     .run();
 }
 
+// ── Auto-keywords from headings ─────────────────────────────
+
+export interface AutoKeyword {
+  pattern: string;  // section title
+  target: string;   // /book/{chapter_id}#{slug}
+  label: string;
+}
+
+/**
+ * Fetches all sections from published chapters.
+ * Each section title becomes an auto-keyword linking to its chapter + anchor.
+ */
+export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT s."title", s."slug", s."level", c."id" as chapter_id
+       FROM "section" s
+       JOIN "chapter" c ON c."id" = s."chapter_id"
+       WHERE c."status" = 'published'
+       ORDER BY c."tier", c."order", s."order"`,
+    )
+    .all<{ title: string; slug: string; level: number; chapter_id: string }>();
+
+  return results.map((r) => ({
+    pattern: r.title,
+    target: `/book/${r.chapter_id}#${r.slug}`,
+    label: r.title,
+  }));
+}
+
 // ── Tree assembly ───────────────────────────────────────────
 
 // Builds the full chapter -> sections -> blocks tree in 3 queries,

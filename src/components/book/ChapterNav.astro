@@ -16,30 +16,30 @@ const { prev, next } = Astro.props;
 ---
 
 <div class="mt-12 pt-8 border-t border-outline-variant">
-  <div class="flex flex-col sm:flex-row gap-4">
+  <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
     {prev ? (
       <a
         href={`/book/${prev.id}`}
-        class="flex-1 group p-4 bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all"
+        class="flex-1 group p-4 sm:p-4 min-h-[56px] bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all active:scale-[0.98]"
       >
         <div class="flex items-center gap-2 text-xs text-on-surface-variant mb-1">
           <span class="material-symbols-outlined text-[16px]">arrow_back</span>
           Chương trước
         </div>
-        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">{prev.data.title}</p>
+        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">{prev.data.title}</p>
       </a>
     ) : <div class="flex-1" />}
 
     {next ? (
       <a
         href={`/book/${next.id}`}
-        class="flex-1 group p-4 bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all text-right"
+        class="flex-1 group p-4 sm:p-4 min-h-[56px] bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all text-right sm:text-right active:scale-[0.98]"
       >
         <div class="flex items-center justify-end gap-2 text-xs text-on-surface-variant mb-1">
           Chương tiếp
           <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
         </div>
-        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">{next.data.title}</p>
+        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">{next.data.title}</p>
       </a>
     ) : <div class="flex-1" />}
   </div>

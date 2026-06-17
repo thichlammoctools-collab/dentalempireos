@@ -274,12 +274,17 @@
 }
 
 /* === Reader Theme Variables === */
-.reader-app {
+/* Default (dark) theme — defined on body so body.light-mode / body.sepia-mode can override via same-level cascade */
+body {
   --reader-bg: var(--color-surface);
   --reader-surface: var(--color-surface-container-low);
   --reader-text: var(--color-on-surface);
   --reader-text-muted: var(--color-on-surface-variant);
   --reader-accent: var(--color-primary);
+}
+.reader-app {
+  background-color: var(--reader-bg);
+  color: var(--reader-text);
   transition: background-color 0.3s, color 0.3s;
 }
 
@@ -290,6 +295,18 @@ html:has(.reader-app),
 html:has(.reader-app) body {
   overflow: hidden !important;
   overscroll-behavior: none !important;
+}
+
+/* Reader-app takes over the full viewport: fixed position covers Header/Footer/main padding.
+   Uses z-index 40 so it sits above Header but below overlays (z-50+). */
+html:has(.reader-app) body > header,
+html:has(.reader-app) body > footer {
+  display: none !important;
+}
+.reader-app {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
 }
 
 .reader-main {
@@ -331,10 +348,8 @@ body.focus-mode:hover .toc-sidebar {
 
 /* Mobile bottom bar padding + reader layout fixes */
 @media (max-width: 1023px) {
-  .reader-app {
-    /* toolbar (h-12=48px) + bottom-bar (~60px with safe area) */
-    height: calc(100vh - 5rem);
-    padding-bottom: 0;
+  .mobile-bottom-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mobile-bottom-bar {
     padding-bottom: env(safe-area-inset-bottom, 0);
@@ -387,6 +402,8 @@ body.focus-mode:hover .toc-sidebar {
   /* Mobile: tighter spacing for better reading */
   word-break: break-word;
   overflow-wrap: break-word;
+  /* Prevent accidental horizontal swipe back on mobile */
+  touch-action: pan-y;
 }
 .reader-content p {
   color: var(--reader-text-muted, var(--color-on-surface-variant));
@@ -517,4 +534,63 @@ body.focus-mode .reader-main {
    Uses !important to beat Tailwind Typography prose overrides. */
 h2[id], h3[id], h4[id] {
   scroll-margin-top: 6rem !important;
+}
+
+/* === File Download Card === */
+.file-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.file-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.file-card:active {
+  transform: translateY(0);
+}
+
+/* Download button metallic in file card */
+.file-card .file-download-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.file-card .file-download-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(43, 152, 221, 0.3);
+}
+.file-card .file-download-btn:active {
+  transform: scale(0.95);
+}
+
+/* Preview button */
+.file-preview-btn {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.file-preview-btn:active {
+  transform: scale(0.9);
+}
+
+/* Progress overlay */
+.file-progress-overlay {
+  transition: opacity 0.3s ease;
+}
+
+/* Indeterminate progress */
+.file-progress-bar.indeterminate {
+  width: 40% !important;
+  animation: file-progress-indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes file-progress-indeterminate {
+  0% { margin-left: 0; }
+  100% { margin-left: 100%; }
+}
+
+/* File preview modal */
+#file-preview-modal .file-preview-backdrop {
+  transition: opacity 0.3s ease;
+}
+#file-preview-modal .file-preview-panel {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+}
+#file-preview-modal.hidden .file-preview-panel {
+  transform: scale(0.95);
+  opacity: 0;
 }

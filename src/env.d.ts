@@ -10,6 +10,8 @@ declare namespace Cloudflare {
     BETTER_AUTH_URL: string;
     RESEND_API_KEY: string;
     ADMIN_EMAILS: string;
+    CF_API_TOKEN: string;
+    CF_ZONE_ID: string;
   }
 }
 

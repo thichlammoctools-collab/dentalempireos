@@ -1,0 +1,376 @@
+---
+interface SectionItem {
+  title: string;
+  slug: string;
+  level: number;
+}
+
+interface Props {
+  sections: SectionItem[];
+}
+
+const { sections } = Astro.props;
+const h2Count = sections.filter((s) => s.level === 2).length;
+
+// Pre-compute numbering for each section
+let h2Idx = 0;
+const numberedSections = sections.map((section) => {
+  const isH3 = section.level === 3;
+  const num = isH3 ? '' : String(++h2Idx).padStart(2, '0');
+  return { ...section, isH3, num };
+});
+---
+
+<!-- ============ DESKTOP: Sticky right sidebar ============ -->
+<aside
+  class="section-nav-desktop hidden lg:flex flex-col sticky top-24 self-start w-64 shrink-0 max-h-[calc(100vh-8rem)] overflow-y-auto border-l border-white/[0.06] bg-surface-container-low/30"
+>
+  <div class="px-4 py-4 border-b border-white/[0.06]">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-2">
+      <span class="material-symbols-outlined text-sm text-primary">format_list_numbered</span>
+      Đề mục
+    </h3>
+    <div class="mt-2.5 h-0.5 bg-surface-container-high rounded-full overflow-hidden">
+      <div class="section-nav-progress h-full rounded-full transition-all duration-300" style="width: 0%; background: var(--color-primary);"></div>
+    </div>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto py-2 px-2">
+    {numberedSections.map((section) => (
+      <a
+        href={`#${section.slug}`}
+        class:list={[
+          'section-nav-link group flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-all duration-200',
+          section.isH3 ? 'pl-8 text-on-surface-variant/70' : 'font-medium text-on-surface-variant',
+        ]}
+        data-section-link={section.slug}
+      >
+        {!section.isH3 && (
+          <span class="text-[10px] font-bold text-on-surface-variant/40 tabular-nums w-5 shrink-0 group-hover:text-primary/60 transition-colors">{section.num}</span>
+        )}
+        {section.isH3 && <span class="w-1 h-1 rounded-full bg-on-surface-variant/30 shrink-0"></span>}
+        <span class="truncate">{section.title}</span>
+      </a>
+    ))}
+  </nav>
+
+  {h2Count > 0 && (
+    <div class="px-4 py-3 border-t border-white/[0.06]">
+      <p class="text-[10px] text-on-surface-variant/50 font-semibold">{h2Count} mục</p>
+    </div>
+  )}
+</aside>
+
+<!-- ============ MOBILE: Floating trigger + Drawer ============ -->
+<div class="section-nav-mobile lg:hidden">
+  <!-- Floating trigger button -->
+  <button
+    id="section-nav-trigger"
+    class="fixed left-4 z-[55] flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
+    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); color: var(--color-on-surface); backdrop-filter: blur(12px); bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));"
+    aria-label="Mở đề mục"
+  >
+    <span class="material-symbols-outlined text-base">format_list_numbered</span>
+    <span class="text-[11px] font-bold">Đề mục</span>
+    <span class="text-[9px] text-on-surface-variant font-semibold">{sections.length}</span>
+  </button>
+
+  <!-- Overlay -->
+  <div
+    id="section-nav-overlay"
+    class="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm hidden"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Drawer -->
+  <div
+    id="section-nav-sheet"
+    class="fixed inset-x-0 bottom-0 z-[85] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl translate-y-full"
+    style="background: var(--color-surface-container-low); max-height: 70vh; transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
+  >
+    <!-- Handle -->
+    <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="section-nav-handle">
+      <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant);"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+      <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--color-on-surface);">
+        <span class="material-symbols-outlined text-primary text-base">format_list_numbered</span>
+        Đề mục chương
+      </h3>
+      <button id="section-nav-close" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style="background: var(--color-surface-container-high);">
+        <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+      </button>
+    </div>
+
+    <!-- Scrollable section list -->
+    <nav class="flex-1 overflow-y-auto px-3 py-3">
+      {numberedSections.map((section) => (
+        <a
+          href={`#${section.slug}`}
+          class:list={[
+            'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
+            section.isH3
+              ? 'pl-8 border-transparent'
+              : 'border-transparent',
+          ]}
+          style="color: var(--color-on-surface-variant);"
+          data-mobile-section-link={section.slug}
+        >
+          {!section.isH3 ? (
+            <span class="text-[11px] font-bold w-6 shrink-0" style="color: var(--color-on-surface-variant);">{section.num}</span>
+          ) : (
+            <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-on-surface-variant); opacity: 0.4;"></span>
+          )}
+          <span class="truncate text-xs font-medium">{section.title}</span>
+        </a>
+      ))}
+    </nav>
+
+    <!-- Footer -->
+    <div class="px-5 py-3 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
+      <p class="text-[10px] text-on-surface-variant font-semibold">{h2Count} mục chính · {sections.length - h2Count} mục con</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Desktop: scroll-spy active link */
+  .section-nav-link.section-nav-active {
+    background: rgba(146, 204, 255, 0.08);
+    color: var(--color-primary);
+  }
+  .section-nav-link:not(.section-nav-active):hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-on-surface);
+  }
+
+  /* Hide scrollbar for section nav */
+  .section-nav-desktop::-webkit-scrollbar,
+  .section-nav-desktop *::-webkit-scrollbar {
+    width: 2px;
+  }
+  .section-nav-desktop::-webkit-scrollbar-thumb,
+  .section-nav-desktop *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 99px;
+  }
+  .section-nav-desktop::-webkit-scrollbar-track,
+  .section-nav-desktop *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Mobile sheet open state */
+  #section-nav-sheet.section-nav-open {
+    transform: translateY(0) !important;
+  }
+
+  /* Active section in mobile drawer */
+  [data-mobile-section-link].section-nav-active-mobile {
+    border-color: var(--color-primary) !important;
+    background: rgba(146, 204, 255, 0.08) !important;
+    color: var(--color-primary) !important;
+  }
+
+  /* Focus mode: hide section nav (matches body.focus-mode pattern in global.css) */
+  body.focus-mode .section-nav-desktop,
+  body.focus-mode .section-nav-mobile {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  body.focus-mode:hover .section-nav-desktop,
+  body.focus-mode:hover .section-nav-mobile {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Smooth scroll for anchor links */
+  [data-section-link],
+  [data-mobile-section-link] {
+    scroll-margin-top: 6rem;
+  }
+</style>
+
+<script>
+  (function () {
+    const READER_OFFSET = 80;
+
+    function initSectionNav() {
+      const readerScroll = document.getElementById('reader-scroll');
+      if (!readerScroll) return;
+
+      // ---- Desktop scroll-spy ----
+      const sectionLinks = document.querySelectorAll('[data-section-link]');
+      const headings = document.querySelectorAll('.reader-content h2[id], .reader-content h3[id]');
+      const progressBar = document.querySelector('.section-nav-progress');
+
+      function updateProgress() {
+        if (!readerScroll || !progressBar) return;
+        const { scrollTop, scrollHeight, clientHeight } = readerScroll;
+        const maxScroll = scrollHeight - clientHeight;
+        const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
+        (progressBar as HTMLElement).style.width = `${pct}%`;
+      }
+
+      readerScroll.addEventListener('scroll', updateProgress);
+      updateProgress();
+
+      if (headings.length > 0 && sectionLinks.length > 0) {
+        let activeId: string | null = null;
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            const visible = entries
+              .filter((e) => e.isIntersecting)
+              .sort((a, b) => {
+                const ar = a.boundingClientRect;
+                const br = b.boundingClientRect;
+                return Math.abs(ar.top) - Math.abs(br.top);
+              });
+
+            if (visible.length > 0) {
+              const id = visible[0].target.id;
+              if (id !== activeId) {
+                activeId = id;
+                sectionLinks.forEach((link) => {
+                  const isActive = (link as HTMLElement).dataset.sectionLink === id;
+                  link.classList.toggle('section-nav-active', isActive);
+                  if (isActive) {
+                    link.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }
+                });
+              }
+            }
+          },
+          { rootMargin: `-${READER_OFFSET}px 0px -60% 0px`, threshold: 0 }
+        );
+
+        headings.forEach((h) => observer.observe(h));
+      }
+
+      // ---- Mobile drawer ----
+      const trigger = document.getElementById('section-nav-trigger');
+      const overlay = document.getElementById('section-nav-overlay');
+      const sheet = document.getElementById('section-nav-sheet');
+      const handle = document.getElementById('section-nav-handle');
+      const closeBtn = document.getElementById('section-nav-close');
+      const mobileLinks = document.querySelectorAll('[data-mobile-section-link]');
+
+      if (!trigger || !sheet) return;
+
+      function openSheet() {
+        sheet.classList.add('section-nav-open');
+        overlay?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Highlight current section in mobile
+        if (activeId) {
+          mobileLinks.forEach((link) => {
+            const isActive = (link as HTMLElement).dataset.mobileSectionLink === activeId;
+            link.classList.toggle('section-nav-active-mobile', isActive);
+          });
+        }
+      }
+
+      function closeSheet() {
+        sheet.classList.remove('section-nav-open');
+        overlay?.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+
+      trigger.addEventListener('click', () => {
+        sheet.classList.contains('section-nav-open') ? closeSheet() : openSheet();
+      });
+      overlay?.addEventListener('click', closeSheet);
+      closeBtn?.addEventListener('click', closeSheet);
+
+      // Close on mobile link click + smooth scroll
+      mobileLinks.forEach((link) => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const hash = (link as HTMLAnchorElement).getAttribute('href');
+          if (hash && hash !== '#') {
+            const target = document.getElementById(hash.slice(1));
+            if (target && readerScroll) {
+              const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
+              readerScroll.scrollTo({ top, behavior: 'smooth' });
+            }
+            history.replaceState(null, '', hash);
+          }
+          closeSheet();
+        });
+      });
+
+      // Touch drag to close
+      let startY = 0;
+      let deltaY = 0;
+      let dragging = false;
+
+      handle?.addEventListener('touchstart', (e: Event) => {
+        startY = (e as TouchEvent).touches[0].clientY;
+        dragging = true;
+        sheet.style.transition = 'none';
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e: Event) => {
+        if (!dragging) return;
+        deltaY = (e as TouchEvent).touches[0].clientY - startY;
+        if (deltaY > 0) {
+          sheet.style.transform = `translateY(${deltaY}px)`;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', () => {
+        if (!dragging) return;
+        dragging = false;
+        sheet.style.transition = '';
+        if (deltaY > 80) {
+          closeSheet();
+        }
+        sheet.style.transform = '';
+        deltaY = 0;
+      });
+
+      // Keyboard: Escape to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sheet.classList.contains('section-nav-open')) {
+          closeSheet();
+        }
+      });
+    }
+
+    // Handle desktop anchor links (smooth scroll within reader)
+    function initDesktopAnchorLinks() {
+      const readerScroll = document.getElementById('reader-scroll');
+      if (!readerScroll) return;
+
+      document.querySelectorAll('[data-section-link]').forEach((link) => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const hash = (link as HTMLAnchorElement).getAttribute('href');
+          if (hash && hash !== '#') {
+            const target = document.getElementById(hash.slice(1));
+            if (target) {
+              const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
+              readerScroll.scrollTo({ top, behavior: 'smooth' });
+            }
+            history.replaceState(null, '', hash);
+          }
+        });
+      });
+    }
+
+    // Init on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initSectionNav();
+        initDesktopAnchorLinks();
+      });
+    } else {
+      initSectionNav();
+      initDesktopAnchorLinks();
+    }
+  })();
+</script>

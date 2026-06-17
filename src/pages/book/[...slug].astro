@@ -1,7 +1,7 @@
 ---
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
-import { getChapterTree, listPublishedChapters, getSupportSettings, type SectionNode } from '../../lib/book-db';
+import { getChapterTree, listPublishedChapters, listAllSections, getSupportSettings, type SectionNode } from '../../lib/book-db';
 import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import BookHeader from '../../components/book/BookHeader.astro';
@@ -20,6 +20,9 @@ const tree = await getChapterTree(db, slug);
 if (!tree) {
   return new Response('Không tìm thấy chương', { status: 404 });
 }
+
+// Auto-keywords from all published section headings
+const autoKeywords = await listAllSections(db);
 
 const { chapter: ch, sections } = tree;
 
@@ -46,6 +49,19 @@ const modules = sections.map((s) => ({
   title: s.title,
   slug: s.slug,
 }));
+
+// Flatten section tree for SectionNav (h2 + h3)
+function flattenSections(nodes: SectionNode[]): { title: string; slug: string; level: number }[] {
+  const result: { title: string; slug: string; level: number }[] = [];
+  for (const node of nodes) {
+    result.push({ title: node.title, slug: node.slug, level: node.level });
+    if (node.children.length > 0) {
+      result.push(...flattenSections(node.children));
+    }
+  }
+  return result;
+}
+const sectionNavItems = flattenSections(sections);
 
 marked.use({ breaks: true });
 
@@ -88,16 +104,53 @@ function renderSection(s: SectionNode): string {
         ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
       </figure>`;
     } else if (block.type === 'file' && block.r2_key) {
-      const icon = getFileIcon(block.mime);
-      html += `<div class="my-4 p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl flex items-center gap-4">
-        <span class="material-symbols-outlined text-primary text-3xl">${icon}</span>
-        <div class="flex-1">
-          <p class="text-sm text-white font-semibold">${block.filename ?? 'Tải file'}</p>
-          ${block.caption ? `<p class="text-xs text-on-surface-variant mt-0.5">${block.caption}</p>` : ''}
+      const meta = getFileMeta(block.mime);
+      const ext = (block.filename ?? '').split('.').pop()?.toUpperCase() ?? meta.badge;
+      html += `<div class="file-card my-5 relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-low hover:border-primary/30 transition-all duration-300"
+        data-file-url="/media/${block.r2_key}"
+        data-file-mime="${block.mime ?? ''}"
+        data-file-name="${(block.filename ?? 'file').replace(/"/g, '&quot;')}"
+        data-file-card>
+        <!-- Progress overlay -->
+        <div class="file-progress-overlay hidden absolute inset-0 bg-surface-container-low/95 backdrop-blur-sm z-10 flex items-center px-4 gap-3">
+          <div class="flex-1">
+            <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="file-progress-bar h-full rounded-full transition-all duration-200" style="width: 0%; background: var(--color-primary);"></div>
+            </div>
+            <p class="text-[10px] text-on-surface-variant mt-1 font-medium">
+              <span class="file-progress-pct">0</span>% · <span class="file-progress-status">Đang tải...</span>
+            </p>
+          </div>
+          <button class="file-cancel-btn w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:text-error hover:bg-error/10 transition-all" title="Hủy">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
-        <a href="/media/${block.r2_key}" target="_blank" class="px-3 py-1.5 text-xs font-bold text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-all">
-          Tải
-        </a>
+        <!-- Main content -->
+        <div class="flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4">
+          <div class="flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${meta.iconBg} transition-transform duration-300 group-hover:scale-105">
+            <span class="material-symbols-outlined text-2xl">${meta.icon}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="text-sm text-on-surface font-semibold truncate">${block.filename ?? 'Tải file'}</p>
+              <span class="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded ${meta.badgeClass}">${ext}</span>
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-on-surface-variant file-mime-label">${meta.mimeLabel}</span>
+              <span class="text-xs text-on-surface-variant file-size-display hidden"></span>
+            </div>
+            ${block.caption ? `<p class="text-xs text-on-surface-variant/70 mt-1 line-clamp-1">${block.caption}</p>` : ''}
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${meta.isPreviewable ? `<button class="file-preview-btn w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-200" title="Xem trước">
+              <span class="material-symbols-outlined text-[20px]">visibility</span>
+            </button>` : ''}
+            <button class="file-download-btn btn-primary-metallic flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white" title="Tải file">
+              <span class="material-symbols-outlined text-[16px] sm:text-[18px]">download</span>
+              <span class="hidden sm:inline">Tải</span>
+            </button>
+          </div>
+        </div>
       </div>`;
     }
   }
@@ -109,13 +162,14 @@ function renderSection(s: SectionNode): string {
   return html;
 }
 
-function getFileIcon(mime: string | null): string {
-  if (!mime) return 'description';
-  if (mime.includes('pdf')) return 'picture_as_pdf';
-  if (mime.includes('word') || mime.includes('document')) return 'article';
-  if (mime.includes('sheet') || mime.includes('excel')) return 'table_chart';
-  if (mime.includes('image')) return 'image';
-  return 'description';
+function getFileMeta(mime: string | null): { icon: string; badge: string; iconBg: string; badgeClass: string; isPreviewable: boolean; mimeLabel: string } {
+  if (!mime) return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
+  if (mime.includes('pdf')) return { icon: 'picture_as_pdf', badge: 'PDF', iconBg: 'bg-error/15 text-error', badgeClass: 'bg-error/15 text-error', isPreviewable: true, mimeLabel: 'PDF Document' };
+  if (mime.includes('word') || mime.includes('document')) return { icon: 'article', badge: 'DOC', iconBg: 'bg-primary/15 text-primary', badgeClass: 'bg-primary/15 text-primary', isPreviewable: false, mimeLabel: 'Word Document' };
+  if (mime.includes('sheet') || mime.includes('excel')) return { icon: 'table_chart', badge: 'XLS', iconBg: 'bg-green-400/15 text-green-400', badgeClass: 'bg-green-400/15 text-green-400', isPreviewable: false, mimeLabel: 'Excel Spreadsheet' };
+  if (mime.includes('presentation') || mime.includes('powerpoint')) return { icon: 'slideshow', badge: 'PPT', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: false, mimeLabel: 'PowerPoint' };
+  if (mime.includes('image')) return { icon: 'image', badge: 'IMG', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: true, mimeLabel: 'Image' };
+  return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
 }
 
 // Render sections, stripping first h2 (chapter title is shown by BookHeader)
@@ -139,6 +193,7 @@ const supportSettings = (await getSupportSettings(db)) ?? {
   groupedChapters={groupedByTier}
   currentSlug={slug}
   currentModules={modules}
+  sections={sectionNavItems}
   tier={ch.tier}
   tierLabel={getTierLabel(ch.tier)}
   chapterNo={ch.chapter_no}
@@ -152,8 +207,8 @@ const supportSettings = (await getSupportSettings(db)) ?? {
     chapterNo={ch.chapter_no}
   />
 
-  <!-- Module Navigation Pills (desktop) -->
-  <div class="hidden lg:block">
+  <!-- Module Navigation Pills (mobile only - desktop uses SectionNav right sidebar) -->
+  <div class="lg:hidden">
     <ModuleNav modules={modules} />
   </div>
 
@@ -167,5 +222,5 @@ const supportSettings = (await getSupportSettings(db)) ?? {
   <ChapterNav prev={prev} next={next} />
 
   <!-- Keyword Auto-Linking -->
-  <KeywordAutoLink />
+  <KeywordAutoLink autoKeywords={autoKeywords} />
 </BookLayout>

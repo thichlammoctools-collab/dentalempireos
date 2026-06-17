@@ -36,9 +36,9 @@ const tierEmojis: Record<number, string> = {
 
 <!-- Mobile Book Header -->
 <div class="lg:hidden mb-6 pb-6 border-b border-white/[0.06]">
-  <div class="flex items-start gap-4 mb-4">
+  <div class="flex items-start gap-3 mb-4">
     <!-- Book Cover -->
-    <div class="w-14 h-20 rounded-lg overflow-hidden flex-shrink-0 shadow-lg border border-white/[0.08] bg-surface-container">
+    <div class="w-16 h-22 rounded-lg overflow-hidden flex-shrink-0 shadow-lg border border-white/[0.08] bg-surface-container" style="aspect-ratio: 3/4;">
       {coverUrl ? (
         <img src={coverUrl} alt={coverAlt ?? title} class="w-full h-full object-cover" loading="eager" />
       ) : (
@@ -48,13 +48,13 @@ const tierEmojis: Record<number, string> = {
       )}
     </div>
     <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 mb-1">
+      <div class="flex items-center gap-2 mb-1.5">
         <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border ${colors.bg} ${colors.border} ${colors.text}`}>
           Chương {chapterNo}
         </span>
         <span class="text-on-surface-variant text-xs">{tierLabel}</span>
       </div>
-      <h1 class="text-xl font-bold text-on-surface leading-tight tracking-tight">{title}</h1>
+      <h1 class="text-lg font-bold text-on-surface leading-snug tracking-tight">{title}</h1>
       <div class="flex items-center gap-1.5 text-on-surface-variant text-xs mt-1.5">
         <span class="material-symbols-outlined text-[14px]">schedule</span>
         <span id="read-time-remaining">~12 phút đọc</span>
@@ -70,7 +70,7 @@ const tierEmojis: Record<number, string> = {
         <span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
         <span class="text-[10px] font-bold uppercase tracking-widest text-primary">Key Insight</span>
       </div>
-      <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">{description}</p>
+      <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-3">{description}</p>
     </div>
   )}
 </div>
