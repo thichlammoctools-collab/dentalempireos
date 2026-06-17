@@ -1,0 +1,78 @@
+---
+import Sidebar from '../components/admin/Sidebar.astro';
+import Topbar from '../components/admin/Topbar.astro';
+import '../styles/global.css';
+import '../styles/admin.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  searchPlaceholder?: string;
+}
+
+const {
+  title,
+  description = 'Trang quản trị nội dung Dental Empire OS Knowledge Hub.',
+  searchPlaceholder,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="vi" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="robots" content="noindex,nofollow" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Be Vietnam Pro font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Material Symbols -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+
+    <script is:inline>
+      document.documentElement.classList.add('dark');
+    </script>
+  </head>
+
+  <body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
+    <Sidebar />
+
+    <main class="flex-1 ml-64 min-h-screen overflow-y-auto scrollbar-hide flex flex-col">
+      <Topbar searchPlaceholder={searchPlaceholder} />
+
+      <div class="mt-16 p-6 flex-1 flex flex-col gap-6">
+        <slot />
+      </div>
+
+      <footer class="mt-auto p-6 border-t border-outline-variant/15 flex flex-col md:flex-row justify-between items-center gap-3 bg-surface">
+        <span class="text-sm text-on-surface-variant/50">
+          © {new Date().getFullYear()} Dental Empire Knowledge Hub — Admin Control Unit
+        </span>
+        <div class="flex gap-6">
+          <a href="/" class="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant hover:text-white transition-colors">
+            Về site
+          </a>
+          <a href="/admin/settings" class="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant hover:text-white transition-colors">
+            Settings
+          </a>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

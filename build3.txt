@@ -1,0 +1,40 @@
+[2m21:27:46[22m [34m[@astrojs/cloudflare][39m Enabling image processing with Cloudflare Images for production with the "IMAGES" Images binding.
+[2m21:27:46[22m [34m[@astrojs/cloudflare][39m Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+[33m[1m21:27:46[22m [WARN] [vite][39m [2mDefault inspector port 9229 not available, using 9230 instead
+[22m
+[2m21:27:57[22m [34m[content][39m Syncing content
+[2m21:27:57[22m [34m[content][39m Synced content
+[2m21:27:57[22m [34m[types][39m Generated [2m10.85s[22m
+[2m21:27:57[22m [34m[build][39m output: [34m"static"[39m
+[2m21:27:57[22m [34m[build][39m mode: [34m"static"[39m
+[2m21:27:57[22m [34m[build][39m directory: [34mC:\Users\nguye\OneDrive\Documents\GitHub\dentalempireos\dist\[39m
+[2m21:27:57[22m [34m[build][39m adapter: [32m@astrojs/cloudflare[39m
+[2m21:27:57[22m [34m[build][39m Collecting build info...
+[2m21:27:57[22m [34m[build][39m [32m✓ Completed in 10.97s.[39m
+[2m21:27:57[22m [34m[build][39m Building static entrypoints...
+[2m21:28:01[22m [34m[vite][39m [32m✓ built in 4.24s[39m
+[2m21:28:01[22m [34m[vite][39m [32m✓ built in 75ms[39m
+[2m21:28:01[22m [34m[build][39m Rearranging server assets...
+[2mDefault inspector port 9229 not available, using 9231 instead
+[22m
+
+[42m[30m generating static routes [39m[49m
+[2m21:28:07[22m   [34m├─[39m [2m/admin/index.html[22m [2m(+102ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/index.html[22m [2m(+35ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-1/01-trien-khai-he-thong/index.html[22m [2m(+71ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-1/02-quan-tri-nhan-su/index.html[22m [2m(+62ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/01-dental-empire-os/index.html[22m [2m(+62ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/22-he-thong-song/index.html[22m [2m(+57ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/23-con-nguoi-la-chu-the/index.html[22m [2m(+56ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/24-to-be-sky/index.html[22m [2m(+64ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/25-s-t-a-r-s/index.html[22m [2m(+62ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/book/tier-3/26-r-o-a-d-m-a-p/index.html[22m [2m(+63ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/resources/index.html[22m [2m(+37ms)[22m 
+[2m21:28:07[22m   [34m├─[39m [2m/index.html[22m [2m(+25ms)[22m 
+[2m21:28:07[22m [32m✓ Completed in 6.23s.
+[39m
+[2m21:28:07[22m [34m[build][39m [32m✓ Completed in 10.68s.[39m
+[2m21:28:07[22m [34m[@astrojs/cloudflare][39m Injected immutable Cache-Control for /_astro/* into _headers.
+[2m21:28:07[22m [34m[@astrojs/sitemap][39m `sitemap-index.xml` created at `dist\client`
+[2m21:28:07[22m [34m[build][39m 12 page(s) built in [1m21.68s[22m
+[2m21:28:07[22m [34m[build][39m [1mComplete![22m

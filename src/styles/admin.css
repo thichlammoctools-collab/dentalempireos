@@ -1,0 +1,63 @@
+/* ===========================================================
+   Admin UI styles — Knowledge Hub
+   Used only inside AdminLayout (not loaded on public pages)
+   =========================================================== */
+
+/* Glass card surface (with hover micro-interaction) */
+.glass-card {
+  background: rgba(30, 31, 35, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(192, 192, 192, 0.1);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.glass-card:hover {
+  border-color: rgba(146, 204, 255, 0.2);
+}
+
+/* Cyan glow used on primary accent buttons / active bars */
+.cyan-glow {
+  box-shadow: 0 4px 20px rgba(0, 136, 204, 0.3);
+}
+
+/* Status dot with pulsing halo (e.g. "System Online") */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+}
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+  animation: admin-pulse 2s infinite;
+}
+@keyframes admin-pulse {
+  0%   { transform: scale(1);   opacity: 0.3; }
+  50%  { transform: scale(1.8); opacity: 0;   }
+  100% { transform: scale(1);   opacity: 0;   }
+}
+
+/* Shimmer overlay (revealed on hover via opacity) */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: admin-shimmer 3s infinite linear;
+}
+@keyframes admin-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Hide scrollbar (kept content scrollable) */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

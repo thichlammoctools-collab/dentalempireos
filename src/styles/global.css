@@ -60,6 +60,7 @@
   --color-outline-variant: #3f4850;
 
   --color-metallic-blue: #2b98dd;
+  --color-brand-cyan: #0088cc;
 
   /* === Font Family === */
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
@@ -111,7 +112,48 @@
   .glass-nav {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+    transform: translateZ(0);
+    contain: paint;
+    will-change: transform;
   }
+
+  /* About page accents */
+  .cyan-glow {
+    box-shadow: 0 0 20px rgba(0, 136, 204, 0.3);
+  }
+  .glass-card {
+    background: rgba(30, 31, 35, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(192, 192, 192, 0.1);
+  }
+  .text-gradient-cyan {
+    background: linear-gradient(135deg, #92ccff 0%, #0088cc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    background: #0088cc;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #0088cc;
+    animation: pulse-dot 2s infinite;
+  }
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Hint the compositor to cache heavy decorative blurs as a layer so
+   they don't repaint on every scroll frame. Uses will-change only —
+   not a transform override — to avoid clobbering utilities like rotate. */
+.blur-2xl, .blur-3xl {
+  will-change: transform;
 }
 
 /* === Material Symbols === */

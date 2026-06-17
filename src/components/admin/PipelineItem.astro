@@ -1,0 +1,61 @@
+---
+type Status = 'published' | 'scheduled' | 'draft';
+
+interface Props {
+  title: string;
+  meta: string;          // e.g. "Last edited 2 hours ago by Dr. Vinh"
+  status: Status;
+  statusNote: string;    // e.g. "Live for 14 days"
+  icon?: string;         // material symbol name (used when no thumb)
+  thumb?: string;        // image URL
+  href?: string;
+}
+
+const { title, meta, status, statusNote, icon = 'description', thumb, href = '#' } = Astro.props;
+
+const statusStyles: Record<Status, { text: string; bg: string; label: string }> = {
+  published: { text: 'text-primary',            bg: 'bg-primary/10',     label: 'Published' },
+  scheduled: { text: 'text-tertiary',           bg: 'bg-tertiary/10',    label: 'Scheduled' },
+  draft:     { text: 'text-on-surface-variant', bg: 'bg-surface-variant', label: 'Draft' },
+};
+
+const s = statusStyles[status];
+---
+
+<a
+  href={href}
+  class="flex items-center justify-between p-4 bg-surface-container-low/50 rounded-lg border border-outline-variant/10 hover:border-primary/30 transition-all cursor-pointer group"
+>
+  <div class="flex items-center gap-6">
+    <div class="w-12 h-12 rounded bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant/15 shrink-0">
+      {thumb ? (
+        <img
+          src={thumb}
+          alt=""
+          class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all"
+          loading="lazy"
+        />
+      ) : (
+        <div class="w-full h-full flex items-center justify-center bg-surface-variant text-on-surface-variant">
+          <span class="material-symbols-outlined">{icon}</span>
+        </div>
+      )}
+    </div>
+    <div class="min-w-0">
+      <h5 class="text-base text-white font-semibold truncate">{title}</h5>
+      <p class="text-sm text-on-surface-variant/70 truncate">{meta}</p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-6 shrink-0">
+    <div class="flex flex-col items-end">
+      <span class={`text-[10px] font-bold tracking-[0.1em] uppercase px-2 py-0.5 rounded ${s.text} ${s.bg}`}>
+        {s.label}
+      </span>
+      <span class="text-[12px] text-on-surface-variant mt-0.5">{statusNote}</span>
+    </div>
+    <span class="material-symbols-outlined text-on-surface-variant group-hover:text-white transition-colors">
+      more_vert
+    </span>
+  </div>
+</a>

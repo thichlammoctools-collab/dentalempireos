@@ -10,6 +10,7 @@ export interface ChapterMeta {
   slug: string;
   description: string;
   modules: string[]; // h2 heading titles within the chapter
+  draft?: boolean;
 }
 
 export interface TierMeta {
@@ -102,5 +103,27 @@ export function countContentChapters(tier: number): { total: number; content: nu
   };
 }
 
-// Re-export TierMeta type
-export type { TierMeta };
+// Re-export TierMeta type for compatibility
+// (TierMeta is already exported above)
+
+// Testimonials for homepage social proof section
+export const testimonials = [
+  {
+    quote: 'Hệ thống Dental Empire OS đã giúp tôi giải phóng hoàn toàn khỏi việc giám sát vặt tại phòng khám. Giờ đây tôi có thể tập trung vào chuyên môn và mở thêm cơ sở thứ 3.',
+    name: 'BS. Nguyễn Minh Tuấn',
+    role: 'Chủ hệ thống Nha Khoa Tâm Đức',
+    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop',
+  },
+  {
+    quote: 'Kiến thức về Marketing và Tài chính trong sách rất thực chiến. Tôi đã áp dụng ngay và thấy doanh thu tăng trưởng rõ rệt chỉ sau 3 tháng.',
+    name: 'BS. Phan Thùy Linh',
+    role: 'Giám đốc Nha Khoa Elite',
+    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop',
+  },
+  {
+    quote: 'Dental Empire không chỉ là một cộng đồng, đó là nơi những người làm nghề y học cách làm kinh doanh một cách tử tế và chuyên nghiệp.',
+    name: 'BS. Trần Hoàng Nam',
+    role: 'Founder Dental Connect',
+    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=200&fit=crop',
+  },
+] as const;

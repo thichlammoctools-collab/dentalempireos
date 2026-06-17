@@ -1,0 +1,64 @@
+---
+type Trend = 'up' | 'down' | 'flat';
+type Accent = 'primary' | 'tertiary' | 'error';
+
+interface Props {
+  icon: string;
+  label: string;
+  value: string;
+  trend: string;          // e.g. "+12%" or "Stable"
+  trendDir?: Trend;
+  accent?: Accent;
+  progress: number;       // 0..100
+}
+
+const {
+  icon,
+  label,
+  value,
+  trend,
+  trendDir = 'up',
+  accent = 'primary',
+  progress,
+} = Astro.props;
+
+const accentClasses: Record<Accent, { text: string; bg: string; bar: string; glow: boolean }> = {
+  primary:  { text: 'text-primary',  bg: 'bg-primary/10',  bar: 'bg-primary',  glow: true  },
+  tertiary: { text: 'text-tertiary', bg: 'bg-tertiary/10', bar: 'bg-tertiary', glow: false },
+  error:    { text: 'text-error',    bg: 'bg-error/10',    bar: 'bg-error',    glow: false },
+};
+
+const trendIcon: Record<Trend, string> = {
+  up: 'trending_up',
+  down: 'trending_down',
+  flat: 'remove',
+};
+
+const trendColor =
+  trendDir === 'flat' ? 'text-on-surface-variant' : accentClasses[accent].text;
+
+const a = accentClasses[accent];
+const pct = Math.max(0, Math.min(100, progress));
+---
+
+<div class="glass-card p-6 rounded-xl flex flex-col gap-3 relative overflow-hidden group">
+  <div class="shimmer absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+  <div class="flex justify-between items-center relative">
+    <span class={`material-symbols-outlined ${a.text} ${a.bg} p-2 rounded-lg`}>{icon}</span>
+    <span class={`${trendColor} font-bold text-sm flex items-center gap-1`}>
+      {trend}
+      <span class="material-symbols-outlined text-sm">{trendIcon[trendDir]}</span>
+    </span>
+  </div>
+
+  <h4 class="text-[12px] font-bold tracking-[0.1em] uppercase text-on-surface-variant">{label}</h4>
+  <span class="text-3xl text-white font-bold leading-tight">{value}</span>
+
+  <div class="w-full bg-surface-container-low h-1 rounded-full overflow-hidden">
+    <div
+      class:list={[a.bar, 'h-full', a.glow && 'cyan-glow']}
+      style={`width: ${pct}%`}
+    ></div>
+  </div>
+</div>
