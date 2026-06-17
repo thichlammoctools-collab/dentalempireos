@@ -1,0 +1,130 @@
+-- Homepage content settings (hero, tiers, testimonials, founder, CTA)
+-- Single-row table: admin can customise all text and images on the homepage.
+-- Run: npx wrangler d1 execute dentalempireos-auth --local --file=migrations/0005_create_homepage_settings.sql
+-- For remote: npx wrangler d1 execute dentalempireos-auth --remote --file=migrations/0005_create_homepage_settings.sql
+
+CREATE TABLE IF NOT EXISTS "homepage_settings" (
+  "id"              integer PRIMARY KEY CHECK ("id" = 1),  -- always 1 row
+
+  -- Hero
+  "badge_text"          text NOT NULL DEFAULT 'THE ULTIMATE KNOWLEDGE HUB',
+  "hero_title_line1"    text NOT NULL DEFAULT 'Dental Empire OS:',
+  "hero_title_line2"    text NOT NULL DEFAULT 'Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện',
+  "hero_description"    text NOT NULL DEFAULT 'Xây dựng đế chế nha khoa bền vững với hệ thống quản trị chuẩn mực, tối ưu hóa quy trình từ vận hành, nhân sự đến trải nghiệm khách hàng.',
+  "hero_cta_primary"    text NOT NULL DEFAULT 'Đọc sách miễn phí ngay',
+  "hero_cta_secondary"  text NOT NULL DEFAULT 'Tìm hiểu mô hình',
+  "hero_stats_text"     text NOT NULL DEFAULT '+500 Chủ phòng khám đã tin dùng',
+  "hero_image_url"      text NOT NULL DEFAULT '/images/book/cover.jpg',
+
+  -- Tiers
+  "tier_section_heading"    text NOT NULL DEFAULT '3 Tầng Cốt Lõi Của Dental Empire',
+  "tier_section_subheading" text NOT NULL DEFAULT 'Lộ trình chuyển đổi từ chuyên môn thuần túy đến hệ thống quản trị nha khoa toàn diện.',
+  "tier1_name"     text NOT NULL DEFAULT 'Dental Empire C++',
+  "tier1_subtitle" text NOT NULL DEFAULT 'Nền tảng chuyên môn và vận hành cơ bản',
+  "tier1_icon"     text NOT NULL DEFAULT 'medical_services',
+  "tier2_name"     text NOT NULL DEFAULT 'Dental Empire U++',
+  "tier2_subtitle" text NOT NULL DEFAULT 'Nâng cấp và nhân bản',
+  "tier2_icon"     text NOT NULL DEFAULT 'trending_up',
+  "tier3_name"     text NOT NULL DEFAULT 'Dental Empire OS',
+  "tier3_subtitle" text NOT NULL DEFAULT 'Hệ điều hành quản trị toàn diện',
+  "tier3_icon"     text NOT NULL DEFAULT 'deployed_code',
+
+  -- Testimonials
+  "testimonial_section_heading"    text NOT NULL DEFAULT 'Chia Sẻ Từ Đồng Nghiệp',
+  "testimonial_section_subheading" text NOT NULL DEFAULT 'Hơn 500 bác sĩ và chủ phòng khám đã thay đổi tư duy quản trị từ những kiến thức tại Dental Empire.',
+  "testimonial1_quote"  text NOT NULL DEFAULT 'Hệ thống Dental Empire OS đã giúp tôi giải phóng hoàn toàn khỏi việc giám sát vặt tại phòng khám. Giờ đây tôi có thể tập trung vào chuyên môn và mở thêm cơ sở thứ 3.',
+  "testimonial1_name"   text NOT NULL DEFAULT 'BS. Nguyễn Minh Tuấn',
+  "testimonial1_role"   text NOT NULL DEFAULT 'Chủ hệ thống Nha Khoa Tâm Đức',
+  "testimonial1_avatar" text NOT NULL DEFAULT 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop',
+  "testimonial2_quote"  text NOT NULL DEFAULT 'Kiến thức về Marketing và Tài chính trong sách rất thực chiến. Tôi đã áp dụng ngay và thấy doanh thu tăng trưởng rõ rệt chỉ sau 3 tháng.',
+  "testimonial2_name"   text NOT NULL DEFAULT 'BS. Phan Thùy Linh',
+  "testimonial2_role"   text NOT NULL DEFAULT 'Giám đốc Nha Khoa Elite',
+  "testimonial2_avatar" text NOT NULL DEFAULT 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop',
+  "testimonial3_quote"  text NOT NULL DEFAULT 'Dental Empire không chỉ là một cộng đồng, đó là nơi những người làm nghề y học cách làm kinh doanh một cách tử tế và chuyên nghiệp.',
+  "testimonial3_name"   text NOT NULL DEFAULT 'BS. Trần Hoàng Nam',
+  "testimonial3_role"   text NOT NULL DEFAULT 'Founder Dental Connect',
+  "testimonial3_avatar" text NOT NULL DEFAULT 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=200&fit=crop',
+
+  -- Founder
+  "founder_badge"        text NOT NULL DEFAULT 'VỀ NGƯỜI SÁNG LẬP',
+  "founder_heading"      text NOT NULL DEFAULT 'Dr. Vinh – Sứ Mệnh Chuyên Nghiệp Hóa Ngành Nha',
+  "founder_bio"          text NOT NULL DEFAULT 'Với hơn 15 năm kinh nghiệm trong cả hai vai trò: Bác sĩ điều trị và Nhà quản trị hệ thống, Dr. Vinh đã đúc kết lộ trình "Dental Empire OS" để giúp các đồng nghiệp tránh khỏi những sai lầm đắt giá trong vận hành phòng khám.',
+  "founder_stat1_value"  text NOT NULL DEFAULT '15+',
+  "founder_stat1_label"  text NOT NULL DEFAULT 'Năm kinh nghiệm thực chiến',
+  "founder_stat2_value"  text NOT NULL DEFAULT '500+',
+  "founder_stat2_label"  text NOT NULL DEFAULT 'Học viên là chủ phòng khám',
+  "founder_name"         text NOT NULL DEFAULT 'Dr. Vinh',
+  "founder_title"        text NOT NULL DEFAULT 'Founder & Author',
+  "founder_image_url"    text NOT NULL DEFAULT '',
+  "founder_link_text"    text NOT NULL DEFAULT 'Xem chi tiết hành trình',
+
+  -- CTA
+  "cta_heading"          text NOT NULL DEFAULT 'Sẵn sàng để bắt đầu hành trình nâng tầm?',
+  "cta_subtext"          text NOT NULL DEFAULT 'Tham gia cộng đồng 10.000+ bác sĩ hoặc tải ngay bộ Toolkit quản trị miễn phí của chúng tôi.',
+  "cta_primary_text"     text NOT NULL DEFAULT 'Tham gia Community',
+  "cta_secondary_text"   text NOT NULL DEFAULT 'Tải miễn phí Toolkit',
+  "cta_primary_icon"     text NOT NULL DEFAULT 'groups',
+  "cta_secondary_icon"   text NOT NULL DEFAULT 'download',
+  "cta_primary_link"     text NOT NULL DEFAULT '#',
+  "cta_secondary_link"   text NOT NULL DEFAULT '/resources',
+
+  -- Metadata
+  "updated_at"           text NOT NULL
+);
+
+-- Seed the single default row
+INSERT OR IGNORE INTO "homepage_settings" ("id", "badge_text", "hero_title_line1", "hero_title_line2", "hero_description", "hero_cta_primary", "hero_cta_secondary", "hero_stats_text", "hero_image_url", "tier_section_heading", "tier_section_subheading", "tier1_name", "tier1_subtitle", "tier1_icon", "tier2_name", "tier2_subtitle", "tier2_icon", "tier3_name", "tier3_subtitle", "tier3_icon", "testimonial_section_heading", "testimonial_section_subheading", "testimonial1_quote", "testimonial1_name", "testimonial1_role", "testimonial1_avatar", "testimonial2_quote", "testimonial2_name", "testimonial2_role", "testimonial2_avatar", "testimonial3_quote", "testimonial3_name", "testimonial3_role", "testimonial3_avatar", "founder_badge", "founder_heading", "founder_bio", "founder_stat1_value", "founder_stat1_label", "founder_stat2_value", "founder_stat2_label", "founder_name", "founder_title", "founder_image_url", "founder_link_text", "cta_heading", "cta_subtext", "cta_primary_text", "cta_secondary_text", "cta_primary_icon", "cta_secondary_icon", "cta_primary_link", "cta_secondary_link", "updated_at")
+VALUES (1,
+  'THE ULTIMATE KNOWLEDGE HUB',
+  'Dental Empire OS:',
+  'Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện',
+  'Xây dựng đế chế nha khoa bền vững với hệ thống quản trị chuẩn mực, tối ưu hóa quy trình từ vận hành, nhân sự đến trải nghiệm khách hàng.',
+  'Đọc sách miễn phí ngay',
+  'Tìm hiểu mô hình',
+  '+500 Chủ phòng khám đã tin dùng',
+  '/images/book/cover.jpg',
+  '3 Tầng Cốt Lõi Của Dental Empire',
+  'Lộ trình chuyển đổi từ chuyên môn thuần túy đến hệ thống quản trị nha khoa toàn diện.',
+  'Dental Empire C++',
+  'Nền tảng chuyên môn và vận hành cơ bản',
+  'medical_services',
+  'Dental Empire U++',
+  'Nâng cấp và nhân bản',
+  'trending_up',
+  'Dental Empire OS',
+  'Hệ điều hành quản trị toàn diện',
+  'deployed_code',
+  'Chia Sẻ Từ Đồng Nghiệp',
+  'Hơn 500 bác sĩ và chủ phòng khám đã thay đổi tư duy quản trị từ những kiến thức tại Dental Empire.',
+  'Hệ thống Dental Empire OS đã giúp tôi giải phóng hoàn toàn khỏi việc giám sát vặt tại phòng khám. Giờ đây tôi có thể tập trung vào chuyên môn và mở thêm cơ sở thứ 3.',
+  'BS. Nguyễn Minh Tuấn',
+  'Chủ hệ thống Nha Khoa Tâm Đức',
+  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop',
+  'Kiến thức về Marketing và Tài chính trong sách rất thực chiến. Tôi đã áp dụng ngay và thấy doanh thu tăng trưởng rõ rệt chỉ sau 3 tháng.',
+  'BS. Phan Thùy Linh',
+  'Giám đốc Nha Khoa Elite',
+  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop',
+  'Dental Empire không chỉ là một cộng đồng, đó là nơi những người làm nghề y học cách làm kinh doanh một cách tử tế và chuyên nghiệp.',
+  'BS. Trần Hoàng Nam',
+  'Founder Dental Connect',
+  'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=200&fit=crop',
+  'VỀ NGƯỜI SÁNG LẬP',
+  'Dr. Vinh – Sứ Mệnh Chuyên Nghiệp Hóa Ngành Nha',
+  'Với hơn 15 năm kinh nghiệm trong cả hai vai trò: Bác sĩ điều trị và Nhà quản trị hệ thống, Dr. Vinh đã đúc kết lộ trình "Dental Empire OS" để giúp các đồng nghiệp tránh khỏi những sai lầm đắt giá trong vận hành phòng khám.',
+  '15+',
+  'Năm kinh nghiệm thực chiến',
+  '500+',
+  'Học viên là chủ phòng khám',
+  'Dr. Vinh',
+  'Founder & Author',
+  '',
+  'Xem chi tiết hành trình',
+  'Sẵn sàng để bắt đầu hành trình nâng tầm?',
+  'Tham gia cộng đồng 10.000+ bác sĩ hoặc tải ngay bộ Toolkit quản trị miễn phí của chúng tôi.',
+  'Tham gia Community',
+  'Tải miễn phí Toolkit',
+  'groups',
+  'download',
+  '#',
+  '/resources',
+  '2026-06-17T00:00:00.000Z');

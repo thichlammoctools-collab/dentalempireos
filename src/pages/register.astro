@@ -94,10 +94,17 @@ const redirectTo = Astro.url.searchParams.get('redirect') || '/';
       const { error } = await signUp.email({ name, email, password });
 
       if (error) {
-        errorEl.textContent =
-          error.status === 422
-            ? 'Email này đã được đăng ký.'
-            : 'Không thể tạo tài khoản. Vui lòng thử lại.';
+        // Show actual error details for debugging in dev,
+        // show friendly messages in production
+        const isDev = window.location.hostname === 'localhost';
+        if (error.status === 422) {
+          errorEl.textContent = 'Email này đã được đăng ký.';
+        } else if (isDev) {
+          errorEl.textContent = `Lỗi ${error.status || '?'}: ${error.message || JSON.stringify(error)}`;
+        } else {
+          errorEl.textContent = 'Không thể tạo tài khoản. Vui lòng thử lại.';
+        }
+        console.error('[Register] error:', error);
         errorEl.classList.remove('hidden');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Tạo tài khoản';

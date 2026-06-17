@@ -71,8 +71,8 @@ const currentTier = groupedChapters.find((g) =>
       </div>
 
       <!-- Center: Progress (desktop) -->
-      <div class="hidden lg:flex items-center gap-3 flex-shrink-0">
-        <span id="progress-pct" class="text-[10px] text-on-surface-variant font-semibold">0%</span>
+      <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
+        <span id="progress-pct" class="text-[10px] text-on-surface-variant font-bold tabular-nums" style="min-width: 2.5ch; text-align: right;">0%</span>
         <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
           <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
@@ -261,7 +261,7 @@ const currentTier = groupedChapters.find((g) =>
         </button>
         <button id="mobile-theme-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
           <span class="material-symbols-outlined text-xl" id="mobile-theme-icon">dark_mode</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Nền</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Tối</span>
         </button>
       </div>
 
@@ -312,8 +312,12 @@ const currentTier = groupedChapters.find((g) =>
         if (idx === 1) body.classList.add('light-mode');
         if (idx === 2) body.classList.add('sepia-mode');
         const icons = ['dark_mode', 'light_mode', 'coffee'];
+        const labels = ['Tối', 'Sáng', 'Sepia'];
         doc.getElementById('theme-icon')!.textContent = icons[idx];
-        doc.getElementById('mobile-theme-btn')!.querySelector('.material-symbols-outlined')!.textContent = icons[idx];
+        const mobileIcon = doc.getElementById('mobile-theme-icon');
+        if (mobileIcon) mobileIcon.textContent = icons[idx];
+        const mobileLabel = doc.querySelector('#mobile-theme-btn .text-\\[9px\\]');
+        if (mobileLabel) mobileLabel.textContent = labels[idx];
         currentThemeIdx = idx;
       }
 
@@ -325,21 +329,34 @@ const currentTier = groupedChapters.find((g) =>
       });
 
       // ---- Font size ----
+      const fontOrder = ['sm', 'md', 'lg', 'xl', '2xl'];
+      const fontLabels = { sm: '12', md: '14', lg: '16', xl: '18', '2xl': '20' };
+      let fontIdx = 1; // md = default
+
       function setFontSize(size: string) {
         const sizes = { sm: '0.875', md: '1', lg: '1.125', xl: '1.25', '2xl': '1.4' };
         const el = doc.getElementById('reader-content') as HTMLElement | null;
-        if (el) el.style.fontSize = sizes[size as keyof typeof sizes] + 'rem';
-        fontSize = size;
+        if (el) el.style.setProperty('--fs', sizes[size as keyof typeof sizes] + 'rem');
+        fontIdx = fontOrder.indexOf(size);
         doc.querySelectorAll('.fs-btn').forEach((btn) => {
           const isActive = btn.getAttribute('data-fs') === size;
           btn.classList.toggle('bg-primary', isActive);
           btn.classList.toggle('text-on-primary', isActive);
           btn.classList.toggle('bg-surface-container-high', !isActive);
         });
+        const label = doc.getElementById('mobile-font-label');
+        if (label) label.textContent = fontLabels[size as keyof typeof fontLabels];
       }
 
       doc.querySelectorAll('.fs-btn').forEach((btn) => {
         btn.addEventListener('click', () => setFontSize(btn.getAttribute('data-fs') || 'md'));
+      });
+
+      doc.getElementById('mobile-font-increase')?.addEventListener('click', () => {
+        if (fontIdx < fontOrder.length - 1) { fontIdx++; setFontSize(fontOrder[fontIdx]); }
+      });
+      doc.getElementById('mobile-font-decrease')?.addEventListener('click', () => {
+        if (fontIdx > 0) { fontIdx--; setFontSize(fontOrder[fontIdx]); }
       });
 
       // ---- Focus mode ----
@@ -368,7 +385,6 @@ const currentTier = groupedChapters.find((g) =>
         bookmarked = !bookmarked;
         const icon = bookmarked ? 'bookmark' : 'bookmark_border';
         doc.getElementById('bookmark-icon')!.textContent = icon;
-        doc.getElementById('mobile-bookmark-icon')!.textContent = icon;
         doc.getElementById('bookmark-btn')?.classList.toggle('text-primary', bookmarked);
         doc.getElementById('bookmark-btn')?.classList.toggle('bg-primary/10', bookmarked);
         doc.getElementById('bookmark-btn')?.classList.toggle('border', bookmarked);
@@ -376,7 +392,7 @@ const currentTier = groupedChapters.find((g) =>
       }
 
       doc.getElementById('bookmark-btn')?.addEventListener('click', toggleBookmark);
-      doc.getElementById('mobile-bookmark-btn')?.addEventListener('click', toggleBookmark);
+
 
       // ---- TOC toggle (desktop) ----
       function toggleToc() {
@@ -467,14 +483,6 @@ const currentTier = groupedChapters.find((g) =>
       // ---- Mobile TOC (open/close drawer) ----
       doc.getElementById('mobile-toc-btn')?.addEventListener('click', () => {
         (window as any).__openMobileToc?.();
-      });
-
-      // Mobile font size quick cycle
-      const fontSizes = ['sm', 'md', 'lg', 'xl'];
-      let fontIdx = 1;
-      doc.getElementById('mobile-font-btn')?.addEventListener('click', () => {
-        fontIdx = (fontIdx + 1) % fontSizes.length;
-        setFontSize(fontSizes[fontIdx]);
       });
 
       // ---- Scroll to heading (smooth) ----

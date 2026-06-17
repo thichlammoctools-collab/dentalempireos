@@ -1,6 +1,38 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules';
+import { env } from 'cloudflare:workers';
+import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
+
+export const prerender = false;
+
+const homepage = await getHomepageSettings(env.DB) ?? getDefaults();
+
+const tiers = [
+  { tier: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, icon: homepage.tier1_icon },
+  { tier: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, icon: homepage.tier2_icon },
+  { tier: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, icon: homepage.tier3_icon },
+];
+
+const testimonialsData = [
+  {
+    quote: homepage.testimonial1_quote,
+    name: homepage.testimonial1_name,
+    role: homepage.testimonial1_role,
+    avatar: homepage.testimonial1_avatar,
+  },
+  {
+    quote: homepage.testimonial2_quote,
+    name: homepage.testimonial2_name,
+    role: homepage.testimonial2_role,
+    avatar: homepage.testimonial2_avatar,
+  },
+  {
+    quote: homepage.testimonial3_quote,
+    name: homepage.testimonial3_name,
+    role: homepage.testimonial3_role,
+    avatar: homepage.testimonial3_avatar,
+  },
+];
 ---
 
 <BaseLayout title="Dental Empire OS - Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện">
@@ -14,31 +46,25 @@ import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules
       <div class="space-y-8">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/20 border border-primary/30 text-primary">
           <span class="material-symbols-outlined text-[18px]">verified</span>
-          <span class="font-semibold text-sm tracking-wider">THE ULTIMATE KNOWLEDGE HUB</span>
+          <span class="font-semibold text-sm tracking-wider">{homepage.badge_text}</span>
         </div>
         <h1 class="text-headline-xl leading-tight text-white">
-          Dental Empire OS:<br />
-          <span class="text-primary">Hệ Điều Hành</span> Quản Trị Nha Khoa Toàn Diện
+          {homepage.hero_title_line1.split(':')[0]}:<br />
+          <span class="text-primary">{homepage.hero_title_line1.split(':').slice(1).join(':').trim()}</span> {homepage.hero_title_line2}
         </h1>
-        <p class="text-on-surface-variant max-w-lg leading-relaxed">
-          Xây dựng đế chế nha khoa bền vững với hệ thống quản trị chuẩn mực, tối ưu hóa quy trình từ vận hành, nhân sự đến trải nghiệm khách hàng.
-        </p>
+        <p class="text-on-surface-variant max-w-lg leading-relaxed">{homepage.hero_description}</p>
         <div class="flex flex-wrap gap-4 pt-4">
-          <a href="/book" class="px-8 py-4 btn-primary-metallic font-bold rounded-xl text-lg hover:-translate-y-1 active:scale-95 transition-all">
-            Đọc sách miễn phí ngay
-          </a>
-          <a href="/about" class="px-8 py-4 border-2 border-outline text-on-surface-variant font-bold rounded-xl text-lg hover:border-primary hover:text-primary active:scale-95 transition-all">
-            Tìm hiểu mô hình
-          </a>
+          <a href="/book" class="px-8 py-4 btn-primary-metallic font-bold rounded-xl text-lg hover:-translate-y-1 active:scale-95 transition-all">{homepage.hero_cta_primary}</a>
+          <a href="/about" class="px-8 py-4 border-2 border-outline text-on-surface-variant font-bold rounded-xl text-lg hover:border-primary hover:text-primary active:scale-95 transition-all">{homepage.hero_cta_secondary}</a>
         </div>
         <div class="flex items-center gap-6 pt-6 border-t border-outline-variant">
-          <p class="text-on-surface-variant font-semibold">+500 Chủ phòng khám đã tin dùng</p>
+          <p class="text-on-surface-variant font-semibold">{homepage.hero_stats_text}</p>
         </div>
       </div>
       <div class="hidden md:block relative">
         <div class="absolute inset-0 bg-primary-container/10 rounded-[2rem] -rotate-3 blur-2xl"></div>
         <img
-          src="/images/book/cover.jpg"
+          src={homepage.hero_image_url}
           alt="Dental Empire OS - Bìa sách"
           class="relative z-10 w-full rounded-[2rem] shadow-2xl border-4 border-surface-container-high object-cover"
           loading="eager"
@@ -51,10 +77,8 @@ import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules
   <section class="py-20 bg-surface-container-low">
     <div class="px-6 max-w-[1200px] mx-auto">
       <div class="text-center mb-16 space-y-4">
-        <h2 class="text-headline-lg text-white">3 Tầng Cốt Lõi Của Dental Empire</h2>
-        <p class="text-on-surface-variant max-w-2xl mx-auto">
-          Lộ trình chuyển đổi từ chuyên môn thuần túy đến hệ thống quản trị nha khoa toàn diện.
-        </p>
+        <h2 class="text-headline-lg text-white">{homepage.tier_section_heading}</h2>
+        <p class="text-on-surface-variant max-w-2xl mx-auto">{homepage.tier_section_subheading}</p>
       </div>
       <div class="flex flex-col gap-8 max-w-4xl mx-auto">
         {tiers.map((mod, index) => (
@@ -93,12 +117,12 @@ import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules
     <div class="px-6 max-w-[1200px] mx-auto">
       <div class="flex flex-col md:flex-row justify-between items-end gap-6 mb-16">
         <div class="max-w-xl">
-          <h2 class="text-headline-lg text-white mb-4">Chia Sẻ Từ Đồng Nghiệp</h2>
-          <p class="text-on-surface-variant">Hơn 500 bác sĩ và chủ phòng khám đã thay đổi tư duy quản trị từ những kiến thức tại Dental Empire.</p>
+          <h2 class="text-headline-lg text-white mb-4">{homepage.testimonial_section_heading}</h2>
+          <p class="text-on-surface-variant">{homepage.testimonial_section_subheading}</p>
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {testimonials.map((t) => (
+        {testimonialsData.map((t) => (
           <div class="bg-surface-container-low p-8 rounded-2xl border border-outline-variant shadow-sm relative">
             <span class="absolute top-6 right-8 text-6xl text-primary/10">&ldquo;</span>
             <div class="flex items-center gap-1 text-primary mb-4">
@@ -135,29 +159,27 @@ import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules
         <div class="relative z-10 w-full aspect-[3/4] rounded-3xl shadow-2xl border-2 border-outline-variant bg-gradient-to-br from-surface-container to-surface-container-high flex items-center justify-center overflow-hidden">
           <div class="text-center space-y-4 p-8">
             <span class="material-symbols-outlined text-9xl text-primary/30">person</span>
-            <div class="text-headline-md font-bold text-white">Dr. Vinh</div>
-            <div class="text-on-surface-variant text-sm">Founder &amp; Author</div>
+            <div class="text-headline-md font-bold text-white">{homepage.founder_name}</div>
+            <div class="text-on-surface-variant text-sm">{homepage.founder_title}</div>
           </div>
         </div>
       </div>
       <div class="space-y-8">
-        <div class="inline-block px-4 py-1 rounded-full border border-outline bg-white/5 font-semibold text-sm tracking-wider">VỀ NGƯỜI SÁNG LẬP</div>
-        <h2 class="text-headline-lg text-white">Dr. Vinh &ndash; Sứ Mệnh Chuyên Nghiệp Hóa Ngành Nha</h2>
-        <p class="text-on-surface-variant leading-relaxed">
-          Với hơn 15 năm kinh nghiệm trong cả hai vai trò: Bác sĩ điều trị và Nhà quản trị hệ thống, Dr. Vinh đã đúc kết lộ trình &ldquo;Dental Empire OS&rdquo; để giúp các đồng nghiệp tránh khỏi những sai lầm đắt giá trong vận hành phòng khám.
-        </p>
+        <div class="inline-block px-4 py-1 rounded-full border border-outline bg-white/5 font-semibold text-sm tracking-wider">{homepage.founder_badge}</div>
+        <h2 class="text-headline-lg text-white">{homepage.founder_heading}</h2>
+        <p class="text-on-surface-variant leading-relaxed">{homepage.founder_bio}</p>
         <div class="grid grid-cols-2 gap-8 py-4">
           <div>
-            <div class="text-4xl font-bold text-primary mb-2">15+</div>
-            <div class="text-sm text-on-surface-variant">Năm kinh nghiệm thực chiến</div>
+            <div class="text-4xl font-bold text-primary mb-2">{homepage.founder_stat1_value}</div>
+            <div class="text-sm text-on-surface-variant">{homepage.founder_stat1_label}</div>
           </div>
           <div>
-            <div class="text-4xl font-bold text-primary mb-2">500+</div>
-            <div class="text-sm text-on-surface-variant">Học viên là chủ phòng khám</div>
+            <div class="text-4xl font-bold text-primary mb-2">{homepage.founder_stat2_value}</div>
+            <div class="text-sm text-on-surface-variant">{homepage.founder_stat2_label}</div>
           </div>
         </div>
         <a class="inline-flex items-center gap-2 group font-bold text-primary hover:text-white transition-colors" href="/about">
-          Xem chi tiết hành trình
+          {homepage.founder_link_text}
           <span class="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
         </a>
       </div>
@@ -171,16 +193,16 @@ import { tiers, chapters, testimonials, type ChapterMeta } from '../data/modules
         <div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
         <div class="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
         <div class="relative z-10 max-w-3xl mx-auto space-y-8">
-          <h2 class="text-headline-xl text-white">Sẵn sàng để bắt đầu hành trình nâng tầm?</h2>
-          <p class="text-on-surface-variant">Tham gia cộng đồng 10.000+ bác sĩ hoặc tải ngay bộ Toolkit quản trị miễn phí của chúng tôi.</p>
+          <h2 class="text-headline-xl text-white">{homepage.cta_heading}</h2>
+          <p class="text-on-surface-variant">{homepage.cta_subtext}</p>
           <div class="flex flex-col sm:flex-row gap-6 justify-center pt-4">
-            <a href="#" class="px-10 py-5 btn-primary-metallic font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
-              <span class="material-symbols-outlined">groups</span>
-              Tham gia Community
+            <a href={homepage.cta_primary_link || '#'} class="px-10 py-5 btn-primary-metallic font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+              <span class="material-symbols-outlined">{homepage.cta_primary_icon}</span>
+              {homepage.cta_primary_text}
             </a>
-            <a href="/resources" class="px-10 py-5 border-2 border-outline text-on-surface-variant font-bold rounded-2xl hover:border-primary hover:text-primary shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
-              <span class="material-symbols-outlined">download</span>
-              Tải miễn phí Toolkit
+            <a href={homepage.cta_secondary_link || '/resources'} class="px-10 py-5 border-2 border-outline text-on-surface-variant font-bold rounded-2xl hover:border-primary hover:text-primary shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+              <span class="material-symbols-outlined">{homepage.cta_secondary_icon}</span>
+              {homepage.cta_secondary_text}
             </a>
           </div>
         </div>

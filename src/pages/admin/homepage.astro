@@ -1,0 +1,606 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getHomepageSettings, getDefaults } from '../../lib/homepage-db';
+
+export const prerender = false;
+
+const settings = await getHomepageSettings(env.DB) ?? getDefaults();
+---
+
+<AdminLayout title="Chỉnh sửa Trang Chủ | Admin">
+  <div class="mb-6">
+    <h2 class="text-3xl font-bold text-white mb-1">Chỉnh sửa Trang Chủ</h2>
+    <p class="text-on-surface-variant text-sm">
+      Tuỳ chỉnh nội dung và hình ảnh hiển thị trên trang chủ.
+    </p>
+  </div>
+
+  <form id="homepage-form" class="flex flex-col gap-6">
+
+    <!-- ══════════════ HERO ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">home</span>
+        <h3 class="text-lg font-bold text-white">Hero Section</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Badge Text</label>
+          <input type="text" id="f-badge_text" value={settings.badge_text}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Hero Image URL</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="f-hero_image_url" value={settings.hero_image_url}
+              class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+            <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
+              <img id="hero-img-preview" src={settings.hero_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title Line 1</label>
+          <input type="text" id="f-hero_title_line1" value={settings.hero_title_line1}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title Line 2</label>
+          <input type="text" id="f-hero_title_line2" value={settings.hero_title_line2}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Description</label>
+          <textarea id="f-hero_description" rows="2"
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.hero_description}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">CTA Primary Text</label>
+          <input type="text" id="f-hero_cta_primary" value={settings.hero_cta_primary}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">CTA Secondary Text</label>
+          <input type="text" id="f-hero_cta_secondary" value={settings.hero_cta_secondary}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stats Text</label>
+          <input type="text" id="f-hero_stats_text" value={settings.hero_stats_text}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ TIERS ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">layers</span>
+        <h3 class="text-lg font-bold text-white">3 Tầng Cốt Lõi</h3>
+      </div>
+      <div class="space-y-6">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Section Heading</label>
+          <input type="text" id="f-tier_section_heading" value={settings.tier_section_heading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Section Subheading</label>
+          <input type="text" id="f-tier_section_subheading" value={settings.tier_section_subheading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+
+        {['1', '2', '3'].map((n) => (
+          <div class="p-4 bg-surface-container rounded-xl border border-outline-variant/30">
+            <p class="text-xs font-bold text-primary mb-3">Tier {n}</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Name</label>
+                <input type="text" id={`f-tier${n}_name`} value={settings[`tier${n}_name` as keyof typeof settings] as string}
+                  class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Subtitle</label>
+                <input type="text" id={`f-tier${n}_subtitle`} value={settings[`tier${n}_subtitle` as keyof typeof settings] as string}
+                  class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Icon (Material Symbol)</label>
+                <input type="text" id={`f-tier${n}_icon`} value={settings[`tier${n}_icon` as keyof typeof settings] as string}
+                  class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- ══════════════ TESTIMONIALS ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">format_quote</span>
+        <h3 class="text-lg font-bold text-white">Testimonials</h3>
+      </div>
+      <div class="space-y-4 mb-4">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Section Heading</label>
+          <input type="text" id="f-testimonial_section_heading" value={settings.testimonial_section_heading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Section Subheading</label>
+          <input type="text" id="f-testimonial_section_subheading" value={settings.testimonial_section_subheading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+      </div>
+
+      {['1', '2', '3'].map((n) => (
+        <div class="p-4 bg-surface-container rounded-xl border border-outline-variant/30 mb-3">
+          <p class="text-xs font-bold text-primary mb-3">Testimonial {n}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Quote</label>
+              <textarea id={`f-testimonial${n}_quote`} rows="2"
+                class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings[`testimonial${n}_quote` as keyof typeof settings] as string}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Name</label>
+              <input type="text" id={`f-testimonial${n}_name`} value={settings[`testimonial${n}_name` as keyof typeof settings] as string}
+                class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Role</label>
+              <input type="text" id={`f-testimonial${n}_role`} value={settings[`testimonial${n}_role` as keyof typeof settings] as string}
+                class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Avatar URL</label>
+              <div class="flex items-center gap-2">
+                <input type="text" id={`f-testimonial${n}_avatar`} value={settings[`testimonial${n}_avatar` as keyof typeof settings] as string}
+                  class="flex-1 px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+                <div class="shrink-0 w-10 h-10 rounded-full overflow-hidden border border-outline-variant">
+                  <img id={`test-img-preview-${n}`} src={settings[`testimonial${n}_avatar` as keyof typeof settings] as string} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- ══════════════ FOUNDER ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">person</span>
+        <h3 class="text-lg font-bold text-white">Founder Section</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Badge</label>
+          <input type="text" id="f-founder_badge" value={settings.founder_badge}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Founder Name</label>
+          <input type="text" id="f-founder_name" value={settings.founder_name}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Founder Title</label>
+          <input type="text" id="f-founder_title" value={settings.founder_title}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Heading</label>
+          <input type="text" id="f-founder_heading" value={settings.founder_heading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Link Text</label>
+          <input type="text" id="f-founder_link_text" value={settings.founder_link_text}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Bio</label>
+          <textarea id="f-founder_bio" rows="3"
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.founder_bio}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 1 Value</label>
+          <input type="text" id="f-founder_stat1_value" value={settings.founder_stat1_value}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 1 Label</label>
+          <input type="text" id="f-founder_stat1_label" value={settings.founder_stat1_label}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 2 Value</label>
+          <input type="text" id="f-founder_stat2_value" value={settings.founder_stat2_value}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 2 Label</label>
+          <input type="text" id="f-founder_stat2_label" value={settings.founder_stat2_label}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Founder Image URL</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="f-founder_image_url" value={settings.founder_image_url}
+              class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+            <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
+              <img id="founder-img-preview" src={settings.founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ CTA ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">campaign</span>
+        <h3 class="text-lg font-bold text-white">CTA Section</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Heading</label>
+          <input type="text" id="f-cta_heading" value={settings.cta_heading}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Subtext</label>
+          <textarea id="f-cta_subtext" rows="2"
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.cta_subtext}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Button Text</label>
+          <input type="text" id="f-cta_primary_text" value={settings.cta_primary_text}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Secondary Button Text</label>
+          <input type="text" id="f-cta_secondary_text" value={settings.cta_secondary_text}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Button Icon</label>
+          <input type="text" id="f-cta_primary_icon" value={settings.cta_primary_icon}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Secondary Button Icon</label>
+          <input type="text" id="f-cta_secondary_icon" value={settings.cta_secondary_icon}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Button Link</label>
+          <input type="text" id="f-cta_primary_link" value={settings.cta_primary_link}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Secondary Button Link</label>
+          <input type="text" id="f-cta_secondary_link" value={settings.cta_secondary_link}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ ABOUT PAGE ══════════════ -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="material-symbols-outlined text-primary text-2xl">info</span>
+        <h3 class="text-lg font-bold text-white">Trang About</h3>
+      </div>
+
+      <!-- About Hero -->
+      <p class="text-xs font-bold text-primary mb-3">Hero Section</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Badge</label>
+          <input type="text" id="f-about_hero_badge" value={settings.about_hero_badge}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Gradient Text</label>
+          <input type="text" id="f-about_hero_gradient" value={settings.about_hero_gradient}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title Line 1</label>
+          <input type="text" id="f-about_hero_line1" value={settings.about_hero_line1}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title Line 2</label>
+          <input type="text" id="f-about_hero_line2" value={settings.about_hero_line2}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Description</label>
+          <textarea id="f-about_hero_description" rows="2"
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.about_hero_description}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">CTA Primary</label>
+          <input type="text" id="f-about_hero_cta_primary" value={settings.about_hero_cta_primary}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">CTA Secondary</label>
+          <input type="text" id="f-about_hero_cta_secondary" value={settings.about_hero_cta_secondary}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- About Brand Story -->
+      <p class="text-xs font-bold text-primary mb-3">Brand Story Section</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Image URL</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="f-about_story_image_url" value={settings.about_story_image_url}
+              class="flex-1 px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+            <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
+              <img id="about-story-preview" src={settings.about_story_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Heading</label>
+          <input type="text" id="f-about_story_heading" value={settings.about_story_heading}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Paragraph 1</label>
+          <textarea id="f-about_story_para1" rows="2"
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.about_story_para1}</textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Paragraph 2</label>
+          <textarea id="f-about_story_para2" rows="2"
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.about_story_para2}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 1 Value</label>
+          <input type="text" id="f-about_story_stat1_value" value={settings.about_story_stat1_value}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 1 Label</label>
+          <input type="text" id="f-about_story_stat1_label" value={settings.about_story_stat1_label}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 2 Value</label>
+          <input type="text" id="f-about_story_stat2_value" value={settings.about_story_stat2_value}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Stat 2 Label</label>
+          <input type="text" id="f-about_story_stat2_label" value={settings.about_story_stat2_label}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- About Founder -->
+      <p class="text-xs font-bold text-primary mb-3">Founder Section</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Image URL</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="f-about_founder_image_url" value={settings.about_founder_image_url}
+              class="flex-1 px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+            <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
+              <img id="about-founder-preview" src={settings.about_founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Name</label>
+          <input type="text" id="f-about_founder_name" value={settings.about_founder_name}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title</label>
+          <input type="text" id="f-about_founder_title" value={settings.about_founder_title}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Quote</label>
+          <textarea id="f-about_founder_quote" rows="3"
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings.about_founder_quote}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Role 1 Label</label>
+          <input type="text" id="f-about_founder_role1_label" value={settings.about_founder_role1_label}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Role 1 Description</label>
+          <input type="text" id="f-about_founder_role1_desc" value={settings.about_founder_role1_desc}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Role 2 Label</label>
+          <input type="text" id="f-about_founder_role2_label" value={settings.about_founder_role2_label}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Role 2 Description</label>
+          <input type="text" id="f-about_founder_role2_desc" value={settings.about_founder_role2_desc}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- About Core Values -->
+      <p class="text-xs font-bold text-primary mb-3">Core Values</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Section Heading</label>
+          <input type="text" id="f-about_values_heading" value={settings.about_values_heading}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        {['1', '2', '3', '4'].map((n) => (
+          <div class="p-3 bg-surface rounded-xl border border-outline-variant/30">
+            <label class="block text-xs font-semibold text-primary mb-2">Card {n}</label>
+            <div class="space-y-2">
+              <div>
+                <label class="block text-[10px] text-on-surface-variant mb-1">Title</label>
+                <input type="text" id={`f-about_values_card${n}_title`} value={settings[`about_values_card${n}_title` as keyof typeof settings] as string}
+                  class="w-full px-2 py-1.5 bg-surface-container border border-outline-variant rounded text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-[10px] text-on-surface-variant mb-1">Description</label>
+                <textarea id={`f-about_values_card${n}_desc`} rows="2"
+                  class="w-full px-2 py-1.5 bg-surface-container border border-outline-variant rounded text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none resize-y">{settings[`about_values_card${n}_desc` as keyof typeof settings] as string}</textarea>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <!-- About Final CTA -->
+      <p class="text-xs font-bold text-primary mb-3">Final CTA</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Line 1</label>
+          <input type="text" id="f-about_cta_line1" value={settings.about_cta_line1}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Line 2 (Gradient)</label>
+          <input type="text" id="f-about_cta_line2" value={settings.about_cta_line2}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Button</label>
+          <input type="text" id="f-about_cta_primary" value={settings.about_cta_primary}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Secondary Button</label>
+          <input type="text" id="f-about_cta_secondary" value={settings.about_cta_secondary}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Link</label>
+          <input type="text" id="f-about_cta_primary_link" value={settings.about_cta_primary_link}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Secondary Link</label>
+          <input type="text" id="f-about_cta_secondary_link" value={settings.about_cta_secondary_link}
+            class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="flex items-center gap-3">
+      <button type="submit"
+        class="px-6 py-2.5 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-90 transition-all flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">save</span>
+        Lưu thay đổi
+      </button>
+      <span id="save-status" class="text-sm text-on-surface-variant"></span>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  const form = document.getElementById('homepage-form') as HTMLFormElement;
+  const saveStatus = document.getElementById('save-status')!;
+
+  // Image preview on URL change
+  const previewMap: Record<string, string> = {
+    'f-hero_image_url': 'hero-img-preview',
+    'f-founder_image_url': 'founder-img-preview',
+    'f-about_story_image_url': 'about-story-preview',
+    'f-about_founder_image_url': 'about-founder-preview',
+  };
+  for (const [inputId, previewId] of Object.entries(previewMap)) {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    const preview = document.getElementById(previewId) as HTMLImageElement | null;
+    if (input && preview) {
+      input.addEventListener('input', () => {
+        preview.src = input.value;
+        preview.style.display = '';
+      });
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    saveStatus.textContent = 'Đang lưu...';
+
+    const fields = [
+      'badge_text', 'hero_title_line1', 'hero_title_line2', 'hero_description',
+      'hero_cta_primary', 'hero_cta_secondary', 'hero_stats_text', 'hero_image_url',
+      'tier_section_heading', 'tier_section_subheading',
+      'tier1_name', 'tier1_subtitle', 'tier1_icon',
+      'tier2_name', 'tier2_subtitle', 'tier2_icon',
+      'tier3_name', 'tier3_subtitle', 'tier3_icon',
+      'testimonial_section_heading', 'testimonial_section_subheading',
+      'testimonial1_quote', 'testimonial1_name', 'testimonial1_role', 'testimonial1_avatar',
+      'testimonial2_quote', 'testimonial2_name', 'testimonial2_role', 'testimonial2_avatar',
+      'testimonial3_quote', 'testimonial3_name', 'testimonial3_role', 'testimonial3_avatar',
+      'founder_badge', 'founder_heading', 'founder_bio',
+      'founder_stat1_value', 'founder_stat1_label',
+      'founder_stat2_value', 'founder_stat2_label',
+      'founder_name', 'founder_title', 'founder_image_url', 'founder_link_text',
+      'cta_heading', 'cta_subtext',
+      'cta_primary_text', 'cta_secondary_text',
+      'cta_primary_icon', 'cta_secondary_icon',
+      'cta_primary_link', 'cta_secondary_link',
+      // About page
+      'about_hero_badge', 'about_hero_line1', 'about_hero_line2', 'about_hero_gradient',
+      'about_hero_description', 'about_hero_cta_primary', 'about_hero_cta_secondary',
+      'about_story_image_url', 'about_story_heading',
+      'about_story_para1', 'about_story_para2',
+      'about_story_stat1_value', 'about_story_stat1_label',
+      'about_story_stat2_value', 'about_story_stat2_label',
+      'about_founder_image_url', 'about_founder_name', 'about_founder_title',
+      'about_founder_quote', 'about_founder_role1_label', 'about_founder_role1_desc',
+      'about_founder_role2_label', 'about_founder_role2_desc',
+      'about_values_heading',
+      'about_values_card1_title', 'about_values_card1_desc',
+      'about_values_card2_title', 'about_values_card2_desc',
+      'about_values_card3_title', 'about_values_card3_desc',
+      'about_values_card4_title', 'about_values_card4_desc',
+      'about_cta_line1', 'about_cta_line2',
+      'about_cta_primary', 'about_cta_secondary',
+      'about_cta_primary_link', 'about_cta_secondary_link',
+    ];
+
+    const data: Record<string, string> = {};
+    for (const field of fields) {
+      const el = document.getElementById(`f-${field}`) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) data[field] = el.value;
+    }
+
+    try {
+      const res = await fetch('/api/admin/homepage-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        saveStatus.textContent = '✓ Đã lưu';
+        setTimeout(() => { saveStatus.textContent = ''; }, 3000);
+      } else {
+        saveStatus.textContent = '✗ Lỗi khi lưu';
+      }
+    } catch {
+      saveStatus.textContent = '✗ Lỗi kết nối';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
