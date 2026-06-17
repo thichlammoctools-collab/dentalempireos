@@ -5,11 +5,25 @@ interface SectionItem {
   level: number;
 }
 
-interface Props {
-  sections: SectionItem[];
+interface ChapterNavItem {
+  id: string;
+  data: { title: string; tier: number; chapter: number };
 }
 
-const { sections } = Astro.props;
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: ChapterNavItem[];
+}
+
+interface Props {
+  sections: SectionItem[];
+  // Chapter nav for unified mobile drawer
+  groupedChapters?: TierGroup[];
+  currentSlug?: string;
+}
+
+const { sections, groupedChapters = [], currentSlug = '' } = Astro.props;
 const h2Count = sections.filter((s) => s.level === 2).length;
 
 // Pre-compute numbering for each section
@@ -19,6 +33,11 @@ const numberedSections = sections.map((section) => {
   const num = isH3 ? '' : String(++h2Idx).padStart(2, '0');
   return { ...section, isH3, num };
 });
+
+// Current chapter title for mobile drawer
+const currentChapterTitle = groupedChapters
+  .flatMap((g) => g.chapters)
+  .find((c) => c.id === currentSlug)?.data.title ?? '';
 ---
 
 <!-- ============ DESKTOP: Sticky right sidebar ============ -->
@@ -61,14 +80,14 @@ const numberedSections = sections.map((section) => {
   )}
 </aside>
 
-<!-- ============ MOBILE: Floating trigger + Drawer ============ -->
+<!-- ============ MOBILE: Floating trigger + Unified Drawer ============ -->
 <div class="section-nav-mobile lg:hidden">
-  <!-- Floating trigger button -->
+  <!-- Floating trigger button — "Đề mục" (left side, above bottom bar) -->
   <button
     id="section-nav-trigger"
     class="fixed left-4 z-[55] flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
     style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); color: var(--color-on-surface); backdrop-filter: blur(12px); bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));"
-    aria-label="Mở đề mục"
+    aria-label="Mở mục lục"
   >
     <span class="material-symbols-outlined text-base">format_list_numbered</span>
     <span class="text-[11px] font-bold">Đề mục</span>
@@ -78,15 +97,15 @@ const numberedSections = sections.map((section) => {
   <!-- Overlay -->
   <div
     id="section-nav-overlay"
-    class="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm hidden"
+    class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity"
     aria-hidden="true"
   ></div>
 
-  <!-- Drawer -->
+  <!-- Unified Drawer -->
   <div
     id="section-nav-sheet"
-    class="fixed inset-x-0 bottom-0 z-[85] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl translate-y-full"
-    style="background: var(--color-surface-container-low); max-height: 70vh; transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
+    class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl translate-y-full"
+    style="background: var(--color-surface-container-low); max-height: 85vh; transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
   >
     <!-- Handle -->
     <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="section-nav-handle">
@@ -95,17 +114,37 @@ const numberedSections = sections.map((section) => {
 
     <!-- Header -->
     <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-      <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--color-on-surface);">
-        <span class="material-symbols-outlined text-primary text-base">format_list_numbered</span>
-        Đề mục chương
-      </h3>
-      <button id="section-nav-close" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style="background: var(--color-surface-container-high);">
-        <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+      <div>
+        <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--color-on-surface);">
+          <span class="material-symbols-outlined text-primary text-base">format_list_numbered</span>
+          Đề mục
+        </h3>
+        <p class="text-[10px] mt-0.5" style="color: var(--color-on-surface-variant);">{currentChapterTitle}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-20 h-1 rounded-full overflow-hidden" style="background: var(--color-surface-container-high);">
+          <div id="section-nav-progress-mobile" class="h-full rounded-full" style="width: 0%; background: var(--color-tertiary); transition: width 0.3s;"></div>
+        </div>
+        <button id="section-nav-close" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style="background: var(--color-surface-container-high);">
+          <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab switcher: Đề mục / Chương -->
+    <div class="flex px-4 pt-3 gap-1" id="section-nav-tabs">
+      <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="sections" style="background: rgba(146,204,255,0.1); color: var(--color-primary); border: 1px solid rgba(146,204,255,0.3);">
+        <span class="material-symbols-outlined text-sm align-middle mr-1">format_list_numbered</span>
+        Đề mục ({sections.length})
+      </button>
+      <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="chapters" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
+        <span class="material-symbols-outlined text-sm align-middle mr-1">menu_book</span>
+        Chương ({groupedChapters.flatMap((g) => g.chapters).length})
       </button>
     </div>
 
-    <!-- Scrollable section list -->
-    <nav class="flex-1 overflow-y-auto px-3 py-3">
+    <!-- Scrollable content: Section headings -->
+    <nav class="flex-1 overflow-y-auto px-3 py-3 section-nav-panel" id="section-nav-panel-sections" data-panel="sections">
       {numberedSections.map((section) => (
         <a
           href={`#${section.slug}`}
@@ -126,11 +165,54 @@ const numberedSections = sections.map((section) => {
           <span class="truncate text-xs font-medium">{section.title}</span>
         </a>
       ))}
+      {sections.length === 0 && (
+        <div class="py-8 text-center">
+          <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">article</span>
+          <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có đề mục</p>
+        </div>
+      )}
+    </nav>
+
+    <!-- Scrollable content: Chapter navigation -->
+    <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-1 section-nav-panel hidden" id="section-nav-panel-chapters" data-panel="chapters">
+      {groupedChapters.map((group) => (
+        <div>
+          <div class="flex items-center gap-2 px-3 py-2">
+            <span class="material-symbols-outlined text-primary text-[16px]">folder</span>
+            <span class="text-xs font-bold" style="color: var(--color-on-surface-variant);">{group.label}</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">{group.chapters.length}</span>
+          </div>
+          {group.chapters.map((ch) => {
+            const isCurrent = ch.id === currentSlug;
+            return (
+              <a
+                href={`/book/${ch.id}`}
+                class:list={[
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
+                  isCurrent
+                    ? 'toc-item-active border-primary bg-primary/10'
+                    : 'border-transparent',
+                ]}
+                style={isCurrent ? '' : 'color: var(--color-on-surface-variant);'}
+                data-section-nav-chapter-link
+              >
+                <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                <span class="truncate text-xs">{ch.data.title}</span>
+                {isCurrent && (
+                  <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
+                )}
+              </a>
+            );
+          })}
+        </div>
+      ))}
     </nav>
 
     <!-- Footer -->
     <div class="px-5 py-3 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
-      <p class="text-[10px] text-on-surface-variant font-semibold">{h2Count} mục chính · {sections.length - h2Count} mục con</p>
+      <p class="text-[10px] font-semibold" style="color: var(--color-on-surface-variant);">
+        {h2Count} mục chính · {sections.length - h2Count} mục con
+      </p>
     </div>
   </div>
 </div>
@@ -191,6 +273,14 @@ const numberedSections = sections.map((section) => {
   [data-mobile-section-link] {
     scroll-margin-top: 6rem;
   }
+
+  /* Tab active state */
+  .section-nav-tab[data-active="true"],
+  .section-nav-tab.active-tab {
+    background: rgba(146, 204, 255, 0.1) !important;
+    color: var(--color-primary) !important;
+    border: 1px solid rgba(146, 204, 255, 0.3) !important;
+  }
 </style>
 
 <script>
@@ -198,16 +288,20 @@ const numberedSections = sections.map((section) => {
     const READER_OFFSET = 80;
 
     function initSectionNav() {
-      const readerScroll = document.getElementById('reader-scroll');
-      if (!readerScroll) return;
+      const readerScrollEl = document.getElementById('reader-scroll');
+      if (!readerScrollEl) return;
+      const readerScroll = readerScrollEl; // narrowed non-null
 
       // ---- Desktop scroll-spy ----
       const sectionLinks = document.querySelectorAll('[data-section-link]');
       const headings = document.querySelectorAll('.reader-content h2[id], .reader-content h3[id]');
       const progressBar = document.querySelector('.section-nav-progress');
 
+      // Shared active section ID (used by both desktop scroll-spy and mobile drawer)
+      let activeId: string | null = null;
+
       function updateProgress() {
-        if (!readerScroll || !progressBar) return;
+        if (!progressBar) return;
         const { scrollTop, scrollHeight, clientHeight } = readerScroll;
         const maxScroll = scrollHeight - clientHeight;
         const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
@@ -218,8 +312,6 @@ const numberedSections = sections.map((section) => {
       updateProgress();
 
       if (headings.length > 0 && sectionLinks.length > 0) {
-        let activeId: string | null = null;
-
         const observer = new IntersectionObserver(
           (entries) => {
             const visible = entries
@@ -250,20 +342,27 @@ const numberedSections = sections.map((section) => {
         headings.forEach((h) => observer.observe(h));
       }
 
-      // ---- Mobile drawer ----
+      // ---- Mobile unified drawer ----
       const trigger = document.getElementById('section-nav-trigger');
       const overlay = document.getElementById('section-nav-overlay');
-      const sheet = document.getElementById('section-nav-sheet');
+      const sheetEl = document.getElementById('section-nav-sheet');
       const handle = document.getElementById('section-nav-handle');
       const closeBtn = document.getElementById('section-nav-close');
       const mobileLinks = document.querySelectorAll('[data-mobile-section-link]');
+      const mobileProgressBar = document.getElementById('section-nav-progress-mobile');
 
-      if (!trigger || !sheet) return;
+      if (!trigger || !sheetEl) return;
+      const sheet = sheetEl; // narrow: now guaranteed non-null
 
       function openSheet() {
         sheet.classList.add('section-nav-open');
-        overlay?.classList.remove('hidden');
+        if (overlay) {
+          overlay.classList.remove('hidden');
+          overlay.classList.add('block');
+        }
         document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
 
         // Highlight current section in mobile
         if (activeId) {
@@ -272,13 +371,33 @@ const numberedSections = sections.map((section) => {
             link.classList.toggle('section-nav-active-mobile', isActive);
           });
         }
+
+        // Sync progress
+        syncMobileProgress();
       }
 
       function closeSheet() {
         sheet.classList.remove('section-nav-open');
-        overlay?.classList.add('hidden');
+        if (overlay) {
+          overlay.classList.add('hidden');
+          overlay.classList.remove('block');
+        }
         document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
       }
+
+      function syncMobileProgress() {
+        if (!mobileProgressBar) return;
+        const { scrollTop, scrollHeight, clientHeight } = readerScroll;
+        const maxScroll = scrollHeight - clientHeight;
+        const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
+        mobileProgressBar.style.width = `${pct}%`;
+      }
+
+      // Expose open/close globally for other components
+      (window as any).__openSectionNav = openSheet;
+      (window as any).__closeSectionNav = closeSheet;
 
       trigger.addEventListener('click', () => {
         sheet.classList.contains('section-nav-open') ? closeSheet() : openSheet();
@@ -286,14 +405,43 @@ const numberedSections = sections.map((section) => {
       overlay?.addEventListener('click', closeSheet);
       closeBtn?.addEventListener('click', closeSheet);
 
-      // Close on mobile link click + smooth scroll
+      // ---- Tab switching ----
+      const tabs = document.querySelectorAll<HTMLElement>('.section-nav-tab');
+      const panels = document.querySelectorAll<HTMLElement>('.section-nav-panel');
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const target = tab.dataset.tab;
+
+          // Update tab styles
+          tabs.forEach((t) => {
+            t.style.background = 'var(--color-surface-container-high)';
+            t.style.color = 'var(--color-on-surface-variant)';
+            t.style.border = 'none';
+          });
+          tab.style.background = 'rgba(146,204,255,0.1)';
+          tab.style.color = 'var(--color-primary)';
+          tab.style.border = '1px solid rgba(146,204,255,0.3)';
+
+          // Show/hide panels
+          panels.forEach((panel) => {
+            if (panel.dataset.panel === target) {
+              panel.classList.remove('hidden');
+            } else {
+              panel.classList.add('hidden');
+            }
+          });
+        });
+      });
+
+      // Close on mobile section link click + smooth scroll
       mobileLinks.forEach((link) => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           const hash = (link as HTMLAnchorElement).getAttribute('href');
           if (hash && hash !== '#') {
             const target = document.getElementById(hash.slice(1));
-            if (target && readerScroll) {
+            if (target) {
               const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
               readerScroll.scrollTo({ top, behavior: 'smooth' });
             }
@@ -301,6 +449,11 @@ const numberedSections = sections.map((section) => {
           }
           closeSheet();
         });
+      });
+
+      // Close on chapter link click
+      sheet.querySelectorAll<HTMLElement>('[data-section-nav-chapter-link]').forEach((link) => {
+        link.addEventListener('click', () => closeSheet());
       });
 
       // Touch drag to close

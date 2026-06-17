@@ -1,0 +1,197 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getQuestion, getReplies, updateQuestionStatus } from '../../../lib/question-db';
+import { listChapters } from '../../../lib/book-db';
+import { marked } from 'marked';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/questions');
+
+const question = await getQuestion(env.DB, id);
+if (!question) return new Response('Không tìm thấy câu hỏi', { status: 404 });
+
+const replies = await getReplies(env.DB, id);
+const chapters = await listChapters(env.DB);
+const chapterTitle = chapters.find(c => c.id === question.chapter_id)?.title ?? question.chapter_id;
+
+// Handle status update via POST
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const newStatus = formData.get('status') as string;
+  if (['open', 'answered', 'closed'].includes(newStatus)) {
+    await updateQuestionStatus(env.DB, id, newStatus as 'open' | 'answered' | 'closed');
+    return Astro.redirect(`/admin/questions/${id}`);
+  }
+}
+
+marked.use({ breaks: true });
+function renderMd(text: string): string {
+  return marked.parse(text) as string;
+}
+
+function statusBadge(status: string) {
+  if (status === 'open') return { label: 'Chờ trả lời', cls: 'bg-error/10 text-error border-error/20' };
+  if (status === 'answered') return { label: 'Đã trả lời', cls: 'bg-primary/10 text-primary border-primary/20' };
+  return { label: 'Đã đóng', cls: 'bg-on-surface-variant/10 text-on-surface-variant border-outline-variant/20' };
+}
+
+const badge = statusBadge(question.status);
+---
+
+<AdminLayout title={`${question.title} | Admin Câu Hỏi`}>
+  <div class="max-w-[900px] w-full mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+      <div>
+        <a href="/admin/questions" class="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-3">
+          <span class="material-symbols-outlined text-lg">arrow_back</span>
+          <span>Quay lại danh sách</span>
+        </a>
+        <div class="flex items-center gap-3 mb-2">
+          <span class:list={['px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border', badge.cls]}>
+            {badge.label}
+          </span>
+          <span class="text-xs text-on-surface-variant">{question.createdAt}</span>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white">{question.title}</h2>
+        <div class="flex items-center gap-3 text-sm text-on-surface-variant mt-2">
+          <span class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-base">person</span>
+            {question.user_id}
+          </span>
+          <span>·</span>
+          <span class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-base">menu_book</span>
+            {chapterTitle}
+          </span>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-shrink-0">
+        <form method="POST" class="flex gap-2">
+          {question.status !== 'answered' && (
+            <button name="status" value="answered" class="px-4 py-2 rounded-lg bg-primary/10 text-primary border border-primary/30 text-sm font-bold hover:bg-primary/20 transition-all">
+              Đánh dấu Đã trả lời
+            </button>
+          )}
+          {question.status !== 'closed' && (
+            <button name="status" value="closed" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant border border-outline-variant/15 text-sm font-bold hover:border-primary/30 transition-all">
+              Đóng
+            </button>
+          )}
+          {question.status !== 'open' && (
+            <button name="status" value="open" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant border border-outline-variant/15 text-sm font-bold hover:border-primary/30 transition-all">
+              Mở lại
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+
+    <!-- Original question -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary text-base">person</span>
+        </div>
+        <div>
+          <p class="text-sm font-bold text-white">{question.user_id}</p>
+          <p class="text-[10px] text-on-surface-variant">Câu hỏi ban đầu</p>
+        </div>
+      </div>
+      <div class="prose prose-invert prose-sm max-w-none reader-content" set:html={renderMd(question.body)} />
+    </div>
+
+    <!-- Replies -->
+    {replies.length > 0 && (
+      <div class="flex flex-col gap-3">
+        <h3 class="text-sm font-bold text-on-surface-variant uppercase tracking-wider">{replies.length} câu trả lời</h3>
+        {replies.map(reply => (
+          <div class:list={[
+            'rounded-xl p-6',
+            reply.is_admin
+              ? 'bg-primary/5 border border-primary/20'
+              : 'glass-card',
+          ]}>
+            <div class="flex items-center gap-3 mb-3">
+              <div class:list={[
+                'w-8 h-8 rounded-full flex items-center justify-center',
+                reply.is_admin ? 'bg-primary/20' : 'bg-tertiary/15',
+              ]}>
+                <span class:list={[
+                  'material-symbols-outlined text-base',
+                  reply.is_admin ? 'text-primary' : 'text-tertiary',
+                ]}>
+                  {reply.is_admin ? 'shield_person' : 'person'}
+                </span>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-white">{reply.user_name || reply.user_email}</p>
+                <p class="text-[10px] text-on-surface-variant">
+                  {reply.is_admin ? 'Admin' : 'Độc giả'} · {reply.createdAt}
+                </p>
+              </div>
+            </div>
+            <div class="prose prose-invert prose-sm max-w-none reader-content" set:html={renderMd(reply.body)} />
+          </div>
+        ))}
+      </div>
+    )}
+
+    <!-- Reply form -->
+    <div class="glass-card rounded-xl p-6">
+      <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">Trả lời câu hỏi này</h3>
+      <form id="reply-form" class="flex flex-col gap-4">
+        <textarea
+          id="reply-body"
+          name="body"
+          rows={5}
+          placeholder="Nhập câu trả lời của bạn (hỗ trợ Markdown)..."
+          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary resize-y"
+          required
+        />
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="px-6 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:opacity-90 transition-all"
+          >
+            Gửi câu trả lời
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script define:vars={{ questionId: id }}>
+    const form = document.getElementById('reply-form');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bodyEl = document.getElementById('reply-body');
+      const body = bodyEl?.value?.trim();
+      if (!body) return;
+
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.textContent = 'Đang gửi...'; (btn as HTMLButtonElement).disabled = true; }
+
+      try {
+        const res = await fetch(`/api/admin/questions/${questionId}/reply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || 'Có lỗi xảy ra');
+          return;
+        }
+        window.location.reload();
+      } catch {
+        alert('Lỗi kết nối');
+      } finally {
+        if (btn) { btn.textContent = 'Gửi câu trả lời'; (btn as HTMLButtonElement).disabled = false; }
+      }
+    });
+  </script>
+</AdminLayout>

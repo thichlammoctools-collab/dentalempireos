@@ -1,11 +1,16 @@
 ---
 interface Props {
   resourceId: string;
-  fileName: string;
+  fileUrl: string;
   fileLabel: string;
 }
 
-const { resourceId, fileName, fileLabel } = Astro.props;
+const { resourceId, fileUrl, fileLabel } = Astro.props;
+
+// Resolve download URL: R2 keys (no protocol) → /media/{key}, external URLs → use as-is
+const isExternal = fileUrl.startsWith('http');
+const downloadHref = isExternal ? fileUrl : `/media/${fileUrl}`;
+const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(fileUrl);
 ---
 
 <!-- Login CTA (shown when not logged in) -->
@@ -21,14 +26,26 @@ const { resourceId, fileName, fileLabel } = Astro.props;
 
 <!-- Download link (shown when logged in) -->
 <div id={`link-${resourceId}`} class="hidden mt-4">
-  <a
-    href={`/files/${fileName}`}
-    download
-    class="inline-flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold hover:bg-emerald-500/20 transition-all"
-  >
-    <span class="material-symbols-outlined text-[18px]">check_circle</span>
-    Tải {fileLabel}
-  </a>
+  {isVideo ? (
+    <a
+      href={downloadHref}
+      target="_blank"
+      rel="noopener"
+      class="inline-flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold hover:bg-emerald-500/20 transition-all"
+    >
+      <span class="material-symbols-outlined text-[18px]">play_circle</span>
+      Xem {fileLabel}
+    </a>
+  ) : (
+    <a
+      href={downloadHref}
+      download
+      class="inline-flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold hover:bg-emerald-500/20 transition-all"
+    >
+      <span class="material-symbols-outlined text-[18px]">check_circle</span>
+      Tải {fileLabel}
+    </a>
+  )}
 </div>
 
 <script>

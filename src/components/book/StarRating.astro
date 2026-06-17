@@ -1,0 +1,70 @@
+---
+interface Props {
+  name: string;
+  value?: number;
+  readonly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const { name, value = 0, readonly = false, size = 'md' } = Astro.props;
+const uid = `sr-${name}-${Math.random().toString(36).slice(2, 8)}`;
+const sizeMap = { sm: 'text-lg', md: 'text-xl', lg: 'text-2xl' };
+const starSize = sizeMap[size];
+---
+
+<!--
+  Star rating using pure CSS sibling selectors.
+  RTL direction so star 5 is on the right, star 1 on the left visually.
+  DOM order: 5,4,3,2,1 → visual order (RTL): 1,2,3,4,5
+  input:checked ~ label highlights all labels after it in DOM (= lower stars visually).
+-->
+<div
+  class:list={['star-rating flex items-center gap-1', { 'pointer-events-none': readonly }]}
+  style="direction: rtl;"
+>
+  {[5, 4, 3, 2, 1].map((star) => (
+    <>
+      <input
+        type="radio"
+        name={name}
+        value={star}
+        id={`${uid}-${star}`}
+        checked={star === value}
+        disabled={readonly}
+        class="sr-only"
+      />
+      <label
+        for={`${uid}-${star}`}
+        class:list={[
+          'star-label cursor-pointer transition-all duration-150 -mr-0.5',
+          starSize,
+          readonly ? '!cursor-default' : 'hover:scale-110',
+        ]}
+      >
+        <span
+          class:list={[
+            'material-symbols-outlined',
+            star <= value ? 'text-amber-400' : 'text-on-surface-variant/30',
+          ]}
+          style="font-variation-settings: 'FILL' 1;"
+        >
+          star
+        </span>
+      </label>
+    </>
+  ))}
+</div>
+
+<style is:global>
+  /* Highlight stars on hover */
+  .star-rating label.star-label:hover span,
+  .star-rating label.star-label:hover ~ label.star-label span {
+    color: #facc15;
+    opacity: 1;
+  }
+  /* Highlight stars when radio is checked (all labels after the checked input in DOM) */
+  .star-rating input:checked ~ label.star-label span {
+    color: #facc15;
+    opacity: 1;
+  }
+</style>

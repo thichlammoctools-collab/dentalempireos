@@ -477,16 +477,16 @@ body.focus-mode .reader-main {
   max-width: 800px !important;
   margin: 0 auto;
 }
-/* Mobile: focus mode also hides bottom bar and FAB */
+/* Mobile: focus mode also hides bottom bar and section nav trigger */
 @media (max-width: 1023px) {
   body.focus-mode .mobile-bottom-bar,
-  body.focus-mode #sidebar-mobile-toggle {
+  body.focus-mode #section-nav-trigger {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease;
   }
   body.focus-mode:hover .mobile-bottom-bar,
-  body.focus-mode:hover #sidebar-mobile-toggle {
+  body.focus-mode:hover #section-nav-trigger {
     opacity: 1;
     pointer-events: auto;
   }

@@ -1,0 +1,119 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listLatestReviews } from '../lib/review-db';
+import ReviewCard from '../components/book/ReviewCard.astro';
+
+export const prerender = false;
+
+const reviews = await listLatestReviews(env.DB, 20, 0);
+const currentUser = Astro.locals.user;
+---
+
+<BaseLayout title="Cảm Nhận Từ Độc Giả - Dental Empire OS" description="Đọc những cảm nhận, đánh giá mới nhất từ độc giả về Dental Empire OS.">
+
+  <!-- Hero -->
+  <section class="py-16 bg-surface-container-low">
+    <div class="px-6 max-w-[1200px] mx-auto text-center">
+      <span class="material-symbols-outlined text-primary text-5xl mb-4 block">reviews</span>
+      <h1 class="text-headline-lg text-white mb-4">Cảm Nhận Từ Độc Giả</h1>
+      <p class="text-on-surface-variant max-w-2xl mx-auto">
+        Những chia sẻ, đánh giá từ cộng đồng độc giả đã đồng hành cùng Dental Empire OS.
+      </p>
+    </div>
+  </section>
+
+  <!-- Reviews Grid -->
+  <section class="py-16">
+    <div class="px-6 max-w-[1200px] mx-auto">
+      {reviews.length === 0 ? (
+        <div class="text-center py-16">
+          <span class="material-symbols-outlined text-6xl text-on-surface-variant/20 mb-4 block">rate_review</span>
+          <p class="text-on-surface-variant text-lg mb-2">Chưa có đánh giá nào</p>
+          <p class="text-on-surface-variant/70 text-sm">Hãy đọc một chương và chia sẻ cảm nhận của bạn!</p>
+          <a
+            href="/book"
+            class="inline-flex items-center gap-2 mt-6 px-6 py-3 btn-primary-metallic font-bold rounded-xl"
+          >
+            <span class="material-symbols-outlined text-[20px]">menu_book</span>
+            Đọc Sách Ngay
+          </a>
+        </div>
+      ) : (
+        <div id="reviews-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {reviews.map((review) => (
+            <ReviewCard
+              review={review}
+              showChapter={true}
+              currentUserId={currentUser?.id}
+            />
+          ))}
+        </div>
+      )}
+
+      {reviews.length >= 20 && (
+        <div class="text-center mt-10">
+          <button
+            id="load-more-reviews"
+            class="px-8 py-3 bg-surface-container-high hover:bg-surface-container border border-outline-variant/40 rounded-xl text-sm font-semibold text-on-surface-variant hover:text-white transition-all"
+            data-offset="20"
+          >
+            Xem thêm đánh giá
+          </button>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <script>
+    const btn = document.getElementById('load-more-reviews');
+    const grid = document.getElementById('reviews-grid');
+
+    btn?.addEventListener('click', async () => {
+      const offset = parseInt(btn.getAttribute('data-offset') ?? '0');
+      btn.textContent = 'Đang tải...';
+
+      try {
+        const res = await fetch(`/api/public/reviews/latest?limit=20&offset=${offset}`);
+        const reviews: any[] = await res.json();
+
+        if (!reviews || reviews.length === 0) {
+          btn.textContent = 'Hết đánh giá';
+          (btn as HTMLButtonElement).disabled = true;
+          return;
+        }
+
+        for (const review of reviews) {
+          const card = document.createElement('div');
+          card.innerHTML = `
+            <article class="review-card bg-surface-container rounded-2xl border border-outline-variant/40 p-5 transition-all duration-300 hover:border-outline-variant/70">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm">
+                  ${(review.user_name || review.author_name || 'Ẩn danh').charAt(0).toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-semibold text-white text-sm truncate">${review.user_name || review.author_name || 'Ẩn danh'}</p>
+                  <div class="flex items-center gap-2">
+                    ${review.chapter_title ? `<a href="/book/${review.chapter_id}" class="text-xs text-primary hover:underline truncate">${review.chapter_title}</a>` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-0.5 mb-2">
+                ${Array.from({length: 5}, (_, i) => `<span class="material-symbols-outlined text-lg ${i < review.rating ? 'text-amber-400' : 'text-on-surface-variant/30'}" style="font-variation-settings: 'FILL' 1;">star</span>`).join('')}
+              </div>
+              ${review.title ? `<p class="font-semibold text-white text-sm mb-1">${review.title}</p>` : ''}
+              <p class="text-sm text-on-surface-variant leading-relaxed whitespace-pre-line">${review.content}</p>
+            </article>
+          `;
+          grid?.appendChild(card.firstElementChild!);
+        }
+
+        btn.setAttribute('data-offset', String(offset + reviews.length));
+        btn.textContent = 'Xem thêm đánh giá';
+      } catch {
+        btn.textContent = 'Thử lại';
+      }
+    });
+  </script>
+
+</BaseLayout>

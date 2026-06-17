@@ -1,0 +1,156 @@
+---
+import StarRating from './StarRating.astro';
+
+interface Props {
+  chapterId: string;
+  isLoggedIn: boolean;
+}
+
+const { chapterId, isLoggedIn } = Astro.props;
+---
+
+<div
+  class="review-form-container bg-surface-container rounded-2xl border border-outline-variant/40 p-6 mb-8"
+  data-chapter-id={chapterId}
+>
+  <!-- Header -->
+  <div class="flex items-center gap-2 mb-4">
+    <span class="material-symbols-outlined text-primary text-xl">rate_review</span>
+    <h3 class="font-bold text-white">Gửi cảm nhận của bạn</h3>
+  </div>
+
+  <!-- Form -->
+  <form id="review-form" class="space-y-4">
+    <input type="hidden" name="chapter_id" value={chapterId} />
+
+    {/* Name field — only for anonymous */}
+    {!isLoggedIn && (
+      <div>
+        <label for="review-author" class="block text-sm font-medium text-on-surface-variant mb-1.5">
+          Tên của bạn <span class="text-error">*</span>
+        </label>
+        <input
+          type="text"
+          id="review-author"
+          name="author_name"
+          required
+          placeholder="Tên hiển thị..."
+          class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+        />
+      </div>
+    )}
+
+    {/* Rating */}
+    <div>
+      <label class="block text-sm font-medium text-on-surface-variant mb-1.5">
+        Đánh giá <span class="text-error">*</span>
+      </label>
+      <StarRating name="rating" size="lg" />
+    </div>
+
+    {/* Title (optional) */}
+    <div>
+      <label for="review-title" class="block text-sm font-medium text-on-surface-variant mb-1.5">
+        Tiêu đề <span class="text-on-surface-variant/50">(tùy chọn)</span>
+      </label>
+      <input
+        type="text"
+        id="review-title"
+        name="title"
+        placeholder="Tóm tắt cảm nhận..."
+        class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+      />
+    </div>
+
+    {/* Content */}
+    <div>
+      <label for="review-content" class="block text-sm font-medium text-on-surface-variant mb-1.5">
+        Nội dung <span class="text-error">*</span>
+      </label>
+      <textarea
+        id="review-content"
+        name="content"
+        required
+        rows="4"
+        minlength="2"
+        placeholder="Chia sẻ cảm nhận về chương này..."
+        class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all resize-y min-h-[6rem] max-h-[12rem]"
+      ></textarea>
+    </div>
+
+    {/* Submit */}
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-on-surface-variant/50 review-status"></p>
+      <button
+        type="submit"
+        class="review-submit px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm flex items-center gap-2"
+      >
+        <span class="material-symbols-outlined text-[18px]">send</span>
+        Gửi đánh giá
+      </button>
+    </div>
+  </form>
+
+  {/* Success message (hidden by default) */}
+  <div class="review-success hidden text-center py-6">
+    <span class="material-symbols-outlined text-5xl text-green-400 mb-2 block">check_circle</span>
+    <p class="font-semibold text-white mb-1">Cảm ơn bạn đã chia sẻ!</p>
+    <p class="text-sm text-on-surface-variant">Đánh giá của bạn đã được hiển thị.</p>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('#review-form').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form as HTMLFormElement);
+      const container = (form as HTMLElement).closest('.review-form-container');
+      const statusEl = container?.querySelector('.review-status');
+      const submitBtn = container?.querySelector('.review-submit') as HTMLButtonElement;
+
+      // Get rating value from checked radio
+      const rating = formData.get('rating');
+      if (!rating) {
+        if (statusEl) statusEl.textContent = 'Vui lòng chọn số sao';
+        return;
+      }
+
+      const body = {
+        chapter_id: formData.get('chapter_id'),
+        rating: parseInt(rating as string),
+        title: formData.get('title') || undefined,
+        content: formData.get('content'),
+        author_name: formData.get('author_name') || undefined,
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang gửi...';
+
+      try {
+        const res = await fetch('/api/public/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+          (form as HTMLElement).classList.add('hidden');
+          const successEl = container?.querySelector('.review-success');
+          successEl?.classList.remove('hidden');
+
+          // Reload page to show new review
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          const err = (await res.json()) as { error?: string };
+          if (statusEl) statusEl.textContent = err.error || 'Có lỗi xảy ra';
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">send</span> Gửi đánh giá';
+        }
+      } catch {
+        if (statusEl) statusEl.textContent = 'Không thể kết nối server';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">send</span> Gửi đánh giá';
+      }
+    });
+  });
+</script>

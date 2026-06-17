@@ -1,0 +1,194 @@
+---
+// NotificationBell - bell icon with unread badge + dropdown panel
+---
+
+<!-- Desktop notification bell -->
+<div class="relative hidden md:block">
+  <button
+    id="notif-bell-btn"
+    class="relative flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+    title="Thông báo"
+  >
+    <span class="material-symbols-outlined text-xl">notifications</span>
+    <span id="notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[9px] font-bold text-white bg-error rounded-full hidden">0</span>
+  </button>
+
+  <!-- Dropdown -->
+  <div id="notif-dropdown" class="hidden absolute right-0 top-full mt-2 z-[70] w-[360px] max-h-[420px] glass-panel-dark rounded-xl shadow-2xl border border-outline-variant/20 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/15">
+      <h4 class="text-sm font-bold text-white">Thông báo</h4>
+      <button id="notif-mark-all" class="text-[11px] text-primary hover:underline font-bold">Đánh dấu tất cả đã đọc</button>
+    </div>
+    <div id="notif-list" class="overflow-y-auto max-h-[350px] divide-y divide-outline-variant/10">
+      <div class="p-6 text-center text-sm text-on-surface-variant/50">
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-50">notifications_none</span>
+        Chưa có thông báo
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile notification bell (for mobile header) -->
+<div class="relative md:hidden">
+  <button
+    id="notif-bell-btn-mobile"
+    class="relative flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary transition-all"
+    title="Thông báo"
+  >
+    <span class="material-symbols-outlined text-xl">notifications</span>
+    <span id="notif-badge-mobile" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[9px] font-bold text-white bg-error rounded-full hidden">0</span>
+  </button>
+
+  <!-- Mobile dropdown -->
+  <div id="notif-dropdown-mobile" class="hidden fixed inset-x-0 bottom-0 z-[70] max-h-[70vh] bg-surface rounded-t-2xl shadow-2xl border-t border-outline-variant/20 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/15">
+      <h4 class="text-sm font-bold text-white">Thông báo</h4>
+      <div class="flex items-center gap-3">
+        <button id="notif-mark-all-mobile" class="text-[11px] text-primary hover:underline font-bold">Đọc tất cả</button>
+        <button id="notif-close-mobile" class="w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+    </div>
+    <div id="notif-list-mobile" class="overflow-y-auto max-h-[calc(70vh-52px)] divide-y divide-outline-variant/10">
+      <div class="p-6 text-center text-sm text-on-surface-variant/50">
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-50">notifications_none</span>
+        Chưa có thông báo
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Fetch unread count ──
+  async function fetchUnreadCount(): Promise<number> {
+    try {
+      const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return data.count ?? 0;
+    } catch { return 0; }
+  }
+
+  function updateBadge(count: number) {
+    const badges = [
+      document.getElementById('notif-badge'),
+      document.getElementById('notif-badge-mobile'),
+    ];
+    badges.forEach(badge => {
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Fetch notifications ──
+  async function fetchNotifications() {
+    try {
+      const res = await fetch('/api/notifications', { credentials: 'include' });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch { return []; }
+  }
+
+  function renderNotificationList(notifs: any[], containerId: string) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!notifs.length) {
+      container.innerHTML = `
+        <div class="p-6 text-center text-sm text-on-surface-variant/50">
+          <span class="material-symbols-outlined text-3xl block mb-2 opacity-50">notifications_none</span>
+          Chưa có thông báo
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = notifs.map(n => `
+      <a href="${n.link || '#'}" data-notif-id="${n.id}" class="notif-item flex items-start gap-3 px-4 py-3 hover:bg-surface-container transition-colors ${n.read ? '' : 'bg-primary/5'}">
+        <div class="w-8 h-8 rounded-full ${n.read ? 'bg-surface-container-high' : 'bg-primary/15'} flex items-center justify-center flex-shrink-0 mt-0.5">
+          <span class="material-symbols-outlined text-sm ${n.read ? 'text-on-surface-variant' : 'text-primary'}">chat</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold ${n.read ? 'text-on-surface-variant' : 'text-white'} leading-snug">${n.title}</p>
+          <p class="text-[11px] text-on-surface-variant/70 mt-0.5 line-clamp-2">${n.body}</p>
+          <p class="text-[10px] text-on-surface-variant/50 mt-1">${new Date(n.createdAt).toLocaleDateString('vi-VN')}</p>
+        </div>
+        ${!n.read ? '<div class="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2"></div>' : ''}
+      </a>
+    `).join('');
+  }
+
+  // ── Dropdown toggle ──
+  async function openDropdown(dropdownId: string, listId: string) {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) return;
+    dropdown.classList.remove('hidden');
+    const notifs = await fetchNotifications();
+    renderNotificationList(notifs, listId);
+  }
+
+  function closeDropdown(dropdownId: string) {
+    document.getElementById(dropdownId)?.classList.add('hidden');
+  }
+
+  // Desktop
+  document.getElementById('notif-bell-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const dd = document.getElementById('notif-dropdown');
+    if (dd?.classList.contains('hidden')) {
+      openDropdown('notif-dropdown', 'notif-list');
+    } else {
+      closeDropdown('notif-dropdown');
+    }
+  });
+
+  // Mobile
+  document.getElementById('notif-bell-btn-mobile')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openDropdown('notif-dropdown-mobile', 'notif-list-mobile');
+  });
+
+  document.getElementById('notif-close-mobile')?.addEventListener('click', () => {
+    closeDropdown('notif-dropdown-mobile');
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('#notif-dropdown') && !target.closest('#notif-bell-btn')) {
+      closeDropdown('notif-dropdown');
+    }
+  });
+
+  // ── Mark all as read ──
+  async function markAllRead() {
+    await fetch('/api/notifications/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({}),
+    });
+    updateBadge(0);
+    // Re-fetch and re-render lists
+    const notifs = await fetchNotifications();
+    renderNotificationList(notifs, 'notif-list');
+    renderNotificationList(notifs, 'notif-list-mobile');
+  }
+
+  document.getElementById('notif-mark-all')?.addEventListener('click', markAllRead);
+  document.getElementById('notif-mark-all-mobile')?.addEventListener('click', markAllRead);
+
+  // ── Init: poll every 30s ──
+  async function pollUnread() {
+    const count = await fetchUnreadCount();
+    updateBadge(count);
+  }
+
+  pollUnread();
+  setInterval(pollUnread, 30000);
+</script>

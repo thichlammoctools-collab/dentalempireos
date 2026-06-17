@@ -1,6 +1,5 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import SidebarMobile from '../components/book/SidebarMobile.astro';
 import SectionNav from '../components/book/SectionNav.astro';
 
 interface ChapterItem {
@@ -220,6 +219,7 @@ const currentTier = groupedChapters.find((g) =>
         <!-- Content -->
         <div
           class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-12 reader-content"
+          id="reader-content"
           data-chapter-title={title}
           data-chapter-tier={tier}
           data-chapter-tier-label={tierLabel}
@@ -233,7 +233,7 @@ const currentTier = groupedChapters.find((g) =>
       <!-- ==========================================
            SECTION NAV (Desktop right sidebar + Mobile drawer)
            ========================================== -->
-      <SectionNav sections={sections} />
+      <SectionNav sections={sections} groupedChapters={groupedChapters} currentSlug={currentSlug} />
 
       </div><!-- end horizontal content row -->
 
@@ -261,9 +261,10 @@ const currentTier = groupedChapters.find((g) =>
            MOBILE BOTTOM BAR
            ========================================== -->
       <div class="lg:hidden flex items-center justify-around gap-1 px-2 py-2 glass-nav border-t border-white/[0.06] z-50 mobile-bottom-bar" style="padding-bottom: env(safe-area-inset-bottom, 0);">
-        <button id="mobile-toc-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
-          <span class="material-symbols-outlined text-xl">list</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Mục lục</span>
+        <!-- Đọc offline (previously Mục lục — TOC now via SectionNav floating trigger) -->
+        <button id="mobile-offline-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all">
+          <span class="material-symbols-outlined text-xl">download_for_offline</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Offline</span>
         </button>
         <button id="mobile-font-decrease" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
           <span class="material-symbols-outlined text-lg">text_decrease</span>
@@ -292,19 +293,6 @@ const currentTier = groupedChapters.find((g) =>
       <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
     </div>
   </div>
-
-  <!-- Mobile TOC FAB -->
-  <button
-    id="sidebar-mobile-toggle"
-    class="lg:hidden fixed right-4 z-[60] w-12 h-12 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg"
-    style="bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));"
-    aria-label="Mở mục lục"
-  >
-    <span class="material-symbols-outlined text-2xl">menu_book</span>
-  </button>
-
-  <!-- Mobile Sidebar (drawer) -->
-  <SidebarMobile groupedChapters={groupedChapters} currentSlug={currentSlug} currentModules={currentModules} />
 
   <!-- ═══════════════ File Preview Modal ═══════════════ -->
   <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">
@@ -406,7 +394,7 @@ const currentTier = groupedChapters.find((g) =>
       // ---- Focus mode ----
       function toggleFocus() {
         focusMode = !focusMode;
-        readerApp?.classList.toggle('focus-mode', focusMode);
+        body.classList.toggle('focus-mode', focusMode);
         const btn = doc.getElementById('focus-btn');
         const mobileBtn = doc.getElementById('mobile-focus-btn');
         const icon = focusMode ? 'visibility_off' : 'visibility';
@@ -524,10 +512,8 @@ const currentTier = groupedChapters.find((g) =>
         doc.getElementById('word-count')!.textContent = words.toLocaleString('vi') + ' từ';
       }
 
-      // ---- Mobile TOC (open/close drawer) ----
-      doc.getElementById('mobile-toc-btn')?.addEventListener('click', () => {
-        (window as any).__openMobileToc?.();
-      });
+      // ---- Mobile TOC (now unified via SectionNav floating trigger) ----
+      // The SectionNav's own #section-nav-trigger handles this; no separate handler needed.
 
       // ---- Scroll to heading (smooth) ----
       const HEADER_OFFSET = 80;
@@ -543,7 +529,7 @@ const currentTier = groupedChapters.find((g) =>
           }
           history.replaceState(null, '', hash);
           // Close mobile TOC if open
-          doc.getElementById('sidebar-mobile-close')?.click();
+          (window as any).__closeSectionNav?.();
         });
       });
 

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, badRequest } from '../../lib/api-helpers';
+import { json, badRequest } from '../../../lib/api-helpers';
 
 export const prerender = false;
 

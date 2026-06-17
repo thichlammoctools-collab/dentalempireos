@@ -1,0 +1,79 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import QuestionThread from '../../components/questions/QuestionThread.astro';
+import { env } from 'cloudflare:workers';
+import { getQuestion, getReplies, listQuestionsByUser } from '../../lib/question-db';
+import { listChapters } from '../../lib/book-db';
+import { createAuth } from '../../lib/auth';
+
+export const prerender = false;
+
+// Check auth
+const auth = createAuth(env);
+const result = await auth.api.getSession({ headers: Astro.request.headers });
+if (!result?.user) {
+  return Astro.redirect('/login?redirect=/my-questions/' + Astro.params.id);
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/my-questions');
+
+const question = await getQuestion(env.DB, id);
+if (!question || question.user_id !== result.user.id) {
+  return Astro.redirect('/my-questions');
+}
+
+const replies = await getReplies(env.DB, id);
+const chapters = await listChapters(env.DB);
+const ch = chapters.find(c => c.id === question.chapter_id);
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} giờ trước`;
+  const days = Math.floor(hrs / 24);
+  return `${days} ngày trước`;
+}
+---
+
+<BaseLayout title={`${question.title} - Câu Hỏi`}>
+  <div class="min-h-screen bg-surface pt-24 pb-16">
+    <div class="max-w-[800px] mx-auto px-6">
+      <!-- Back link -->
+      <a href="/my-questions" class="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-6">
+        <span class="material-symbols-outlined text-lg">arrow_back</span>
+        <span>Quay lại câu hỏi</span>
+      </a>
+
+      <!-- Chapter reference -->
+      {ch && (
+        <div class="flex items-center gap-2 mb-3">
+          <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-primary/10 text-primary">
+            Tier {ch.tier} · Ch{String(ch.chapter_no).padStart(2, '0')}
+          </span>
+          <a href={`/book/${question.chapter_id}`} class="text-xs text-on-surface-variant hover:text-primary transition-colors">
+            {ch.title} →
+          </a>
+        </div>
+      )}
+
+      <!-- Question title -->
+      <h1 class="text-xl md:text-2xl font-bold text-white mb-6">{question.title}</h1>
+
+      <!-- Thread -->
+      <QuestionThread
+        questionId={question.id}
+        questionTitle={question.title}
+        questionBody={question.body}
+        questionUser={result.user.name || result.user.email}
+        questionDate={timeAgo(question.createdAt)}
+        replies={replies}
+        showReplyForm={true}
+        status={question.status}
+      />
+    </div>
+  </div>
+</BaseLayout>
