@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*.local
+.dev.vars
+.wrangler/
 
 # MCP sensitive files
 .mcp.json
@@ -19,3 +21,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Build/debug logs
+*.txt
+!README.md

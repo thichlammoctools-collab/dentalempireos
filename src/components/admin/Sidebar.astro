@@ -13,8 +13,7 @@ const navItems: NavItem[] = [
 ];
 
 const settingsItems: NavItem[] = [
-  { href: '/admin/settings', label: 'Settings', icon: 'settings', match: '/admin/settings' },
-  { href: '/',               label: 'Về site',  icon: 'public' },
+  { href: '/', label: 'Về site', icon: 'public' },
 ];
 
 const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
@@ -87,5 +86,23 @@ function isActive(item: NavItem): boolean {
         </a>
       );
     })}
+
+    <button
+      id="admin-logout"
+      type="button"
+      class="flex items-center gap-3 p-3 rounded-lg font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left"
+    >
+      <span class="material-symbols-outlined">logout</span>
+      <span class="text-sm">Đăng xuất</span>
+    </button>
   </div>
 </aside>
+
+<script>
+  import { signOut } from '../../lib/auth-client';
+
+  document.getElementById('admin-logout')?.addEventListener('click', async () => {
+    await signOut();
+    window.location.href = '/login';
+  });
+</script>

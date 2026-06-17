@@ -2,8 +2,6 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { resources, resourceCategories } from '../../../data/resources';
 
-export const prerender = true;
-
 const total = resources.length;
 const freeCount = resources.filter((r) => r.tier === 'free').length;
 const premiumCount = total - freeCount;
@@ -114,14 +112,6 @@ const extColors: Record<string, string> = {
   </div>
 </AdminLayout>
 
-<style>
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-</style>
 
 <script>
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));

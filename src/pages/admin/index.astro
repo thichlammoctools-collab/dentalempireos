@@ -2,20 +2,22 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import StatCard from '../../components/admin/StatCard.astro';
 import PipelineItem from '../../components/admin/PipelineItem.astro';
-import { chapters } from '../../data/modules';
+import { env } from 'cloudflare:workers';
+import { listChapters } from '../../lib/book-db';
 import { resources } from '../../data/resources';
 
-export const prerender = true;
+export const prerender = false;
 
 // Counts derived from real data
+const chapters = await listChapters(env.DB);
 const totalChapters = chapters.length;
-const publishedChapters = chapters.filter((c) => !c.draft).length;
+const publishedChapters = chapters.filter((c) => c.status === 'published').length;
 const draftChapters = totalChapters - publishedChapters;
 const totalResources = resources.length;
 
-// Pipeline preview (3 latest signals — derived heuristically from real data)
-const recentPublished = chapters.find((c) => !c.draft);
-const firstDraft = chapters.find((c) => c.draft);
+// Pipeline preview (latest signals from real data)
+const recentPublished = chapters.find((c) => c.status === 'published');
+const firstDraft = chapters.find((c) => c.status === 'draft');
 ---
 
 <AdminLayout title="Dashboard | Dental Empire Admin">
@@ -97,30 +99,32 @@ const firstDraft = chapters.find((c) => c.draft);
       <div class="flex flex-col gap-2">
         {recentPublished && (
           <PipelineItem
-            title={`Chapter ${recentPublished.chapter}: ${recentPublished.title}`}
-            meta={`Tier ${recentPublished.tier} · ${recentPublished.modules.length} module`}
+            title={`Chapter ${recentPublished.chapter_no}: ${recentPublished.title}`}
+            meta={`Tier ${recentPublished.tier} · ${recentPublished.description ?? ''}`}
             status="published"
             statusNote="Đang hoạt động"
             icon="menu_book"
-            href={`/book/${recentPublished.slug}`}
+            href={`/book/${recentPublished.id}`}
           />
         )}
-        <PipelineItem
-          title="Chapter 30: Case Study"
-          meta="Đang chuẩn bị nội dung — Dr. Vinh"
-          status="scheduled"
-          statusNote="Chờ duyệt"
-          icon="schedule"
-          href="/admin/ebooks"
-        />
         {firstDraft && (
           <PipelineItem
-            title={`Chapter ${firstDraft.chapter}: ${firstDraft.title}`}
-            meta={firstDraft.description}
+            title={`Chapter ${firstDraft.chapter_no}: ${firstDraft.title}`}
+            meta={firstDraft.description ?? ''}
             status="draft"
             statusNote="Chưa hoàn thiện"
             icon="description"
-            href="/admin/ebooks"
+            href={`/admin/ebooks/${firstDraft.id}`}
+          />
+        )}
+        {totalChapters === 0 && (
+          <PipelineItem
+            title="Chưa có chương nào"
+            meta="Bấm 'Thêm chương mới' để bắt đầu"
+            status="scheduled"
+            statusNote="Khởi tạo"
+            icon="schedule"
+            href="/admin/ebooks/new"
           />
         )}
       </div>

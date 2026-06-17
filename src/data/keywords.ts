@@ -197,32 +197,3 @@ export const keywordAliases: Record<string, string> = {
   'chỉ số hiệu suất': 'KPI',
 };
 
-// Build flat search map for client-side linking
-export function buildKeywordSearchMap(): Array<{ pattern: string; target: string; label: string; description: string }> {
-  const map: Array<{ pattern: string; target: string; label: string; description: string }> = [];
-
-  // Main keywords
-  for (const [key, def] of Object.entries(keywords)) {
-    map.push({
-      pattern: key,
-      target: def.target,
-      label: def.label,
-      description: def.description || '',
-    });
-  }
-
-  // Aliases
-  for (const [alias, mainKey] of Object.entries(keywordAliases)) {
-    const main = keywords[mainKey];
-    if (main) {
-      map.push({
-        pattern: alias,
-        target: main.target,
-        label: main.label,
-        description: main.description || '',
-      });
-    }
-  }
-
-  return map;
-}

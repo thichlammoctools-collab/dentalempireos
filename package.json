@@ -9,16 +9,25 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "db:migrate": "wrangler d1 migrations apply DB --local && wrangler d1 migrations apply DB --remote",
+    "db:seed": "node scripts/generate-mdx-migration.js > migrations/seed-books.sql && wrangler d1 execute DB --file=migrations/seed-books.sql --remote",
+    "db:seed:local": "node scripts/generate-mdx-migration.js > migrations/seed-books.sql && wrangler d1 execute DB --file=migrations/seed-books.sql --local"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.7.0",
     "@astrojs/mdx": "^6.0.3",
     "@astrojs/sitemap": "^3.7.3",
-    "astro": "^6.4.7"
+    "astro": "^6.4.7",
+    "better-auth": "^1.6.19",
+    "kysely": "^0.29.2",
+    "kysely-d1": "^0.4.0",
+    "marked": "^18.0.5",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
+    "@cloudflare/workers-types": "^4.20260617.1",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.1",
     "tailwindcss": "^4.3.1",

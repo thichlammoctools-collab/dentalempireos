@@ -40,13 +40,34 @@ const currentPath = Astro.url.pathname;
 
     <!-- Right side -->
     <div class="flex items-center gap-4">
-      <a
-        href="/book"
-        class="hidden lg:flex items-center gap-2 px-6 py-2.5 btn-primary-metallic font-bold rounded-lg active:scale-95 transition-all"
-      >
-        <span class="material-symbols-outlined text-[20px]">menu_book</span>
-        Read Free E-book
-      </a>
+      <!-- Auth: logged-out state (hidden until session resolved) -->
+      <div id="auth-logged-out" class="hidden items-center gap-2">
+        <a
+          href="/login"
+          class="px-4 py-2 label-md font-semibold text-on-surface-variant hover:text-primary transition-colors"
+        >
+          Đăng nhập
+        </a>
+        <a
+          href="/register"
+          class="px-5 py-2.5 btn-primary-metallic font-bold rounded-lg active:scale-95 transition-all label-md"
+        >
+          Đăng ký
+        </a>
+      </div>
+
+      <!-- Auth: logged-in state (hidden until session resolved) -->
+      <div id="auth-logged-in" class="hidden items-center gap-3">
+        <span id="auth-user-email" class="hidden lg:inline text-sm text-on-surface-variant max-w-[180px] truncate"></span>
+        <button
+          id="auth-logout"
+          class="flex items-center gap-2 px-4 py-2 label-md font-semibold text-on-surface-variant hover:text-primary transition-colors"
+        >
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+          Đăng xuất
+        </button>
+      </div>
+
       <button
         id="mobile-menu-toggle"
         class="md:hidden text-primary"
@@ -85,15 +106,71 @@ const currentPath = Astro.url.pathname;
         <span class="material-symbols-outlined text-[20px]">menu_book</span>
         Read Free E-book
       </a>
+
+      <!-- Mobile auth: logged-out -->
+      <div id="auth-mobile-logged-out" class="hidden flex-col gap-2 mt-2 pt-2 border-t border-outline-variant">
+        <a href="/login" class="block px-4 py-3 rounded-xl font-semibold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+          Đăng nhập
+        </a>
+        <a href="/register" class="block px-4 py-3 rounded-xl font-semibold text-primary hover:bg-surface-container transition-colors">
+          Đăng ký
+        </a>
+      </div>
+
+      <!-- Mobile auth: logged-in -->
+      <div id="auth-mobile-logged-in" class="hidden flex-col gap-1 mt-2 pt-2 border-t border-outline-variant">
+        <span id="auth-mobile-email" class="block px-4 py-2 text-sm text-on-surface-variant truncate"></span>
+        <button id="auth-mobile-logout" class="flex items-center gap-2 w-full text-left px-4 py-3 rounded-xl font-semibold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+          Đăng xuất
+        </button>
+      </div>
     </div>
   </div>
 </nav>
 
 <script>
+  import { getSession, signOut } from '../../lib/auth-client';
+
   const toggle = document.getElementById('mobile-menu-toggle');
   const menu = document.getElementById('mobile-menu');
 
   toggle?.addEventListener('click', () => {
     menu?.classList.toggle('hidden');
   });
+
+  async function initAuthState() {
+    const { data } = await getSession();
+    const loggedIn = !!data?.user;
+
+    const show = (id: string, display: string) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('hidden');
+        el.classList.add(display);
+      }
+    };
+
+    if (loggedIn) {
+      const email = data!.user.email;
+      show('auth-logged-in', 'flex');
+      show('auth-mobile-logged-in', 'flex');
+      const desktopEmail = document.getElementById('auth-user-email');
+      const mobileEmail = document.getElementById('auth-mobile-email');
+      if (desktopEmail) desktopEmail.textContent = email;
+      if (mobileEmail) mobileEmail.textContent = email;
+    } else {
+      show('auth-logged-out', 'flex');
+      show('auth-mobile-logged-out', 'flex');
+    }
+
+    const logout = async () => {
+      await signOut();
+      window.location.href = '/';
+    };
+    document.getElementById('auth-logout')?.addEventListener('click', logout);
+    document.getElementById('auth-mobile-logout')?.addEventListener('click', logout);
+  }
+
+  initAuthState();
 </script>

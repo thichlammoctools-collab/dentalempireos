@@ -75,37 +75,6 @@ export const chapters: ChapterMeta[] = [
   { tier: 3, chapter: 32, title: 'Roadmap Áp Dụng', slug: '32-roadmap-ap-dung', description: 'Lộ trình từng bước triển khai Dental Empire OS.', modules: [], draft: true },
 ];
 
-// Helper: get chapters by tier
-export function getChaptersByTier(tier: number): ChapterMeta[] {
-  return chapters.filter((c) => c.tier === tier);
-}
-
-// Helper: get chapter by slug
-export function getChapterBySlug(slug: string): ChapterMeta | undefined {
-  return chapters.find((c) => c.slug === slug);
-}
-
-// Helper: get adjacent chapters (flat order across all tiers)
-export function getAdjacentChapterMeta(slug: string): { prev: ChapterMeta | null; next: ChapterMeta | null } {
-  const idx = chapters.findIndex((c) => c.slug === slug);
-  return {
-    prev: idx > 0 ? chapters[idx - 1] : null,
-    next: idx < chapters.length - 1 ? chapters[idx + 1] : null,
-  };
-}
-
-// Helper: count chapters with content (not draft) per tier
-export function countContentChapters(tier: number): { total: number; content: number } {
-  const tierChapters = getChaptersByTier(tier);
-  return {
-    total: tierChapters.length,
-    content: tierChapters.filter((c) => !c.draft).length,
-  };
-}
-
-// Re-export TierMeta type for compatibility
-// (TierMeta is already exported above)
-
 // Testimonials for homepage social proof section
 export const testimonials = [
   {

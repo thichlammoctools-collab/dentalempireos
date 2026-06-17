@@ -1,0 +1,110 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+if (Astro.locals.user) {
+  return Astro.redirect('/');
+}
+
+const redirectTo = Astro.url.searchParams.get('redirect') || '/';
+---
+
+<BaseLayout title="Đăng ký | Dental Empire OS" description="Tạo tài khoản để tải tài liệu và sử dụng tính năng nâng cao.">
+  <section class="max-w-[440px] mx-auto px-6 py-16">
+    <div class="glass-card rounded-2xl p-8 border border-outline-variant/20">
+      <h1 class="text-2xl font-bold text-white mb-2">Đăng ký</h1>
+      <p class="text-sm text-on-surface-variant mb-6">
+        Đã có tài khoản?
+        <a href={`/login?redirect=${encodeURIComponent(redirectTo)}`} class="text-primary font-semibold hover:underline">Đăng nhập</a>
+      </p>
+
+      <form id="register-form" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-1.5" for="name">Họ và tên</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            autocomplete="name"
+            placeholder="Nguyễn Văn A"
+            class="w-full px-4 py-3 bg-white/5 border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-1.5" for="email">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autocomplete="email"
+            placeholder="ban@email.com"
+            class="w-full px-4 py-3 bg-white/5 border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-1.5" for="password">Mật khẩu</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            placeholder="Tối thiểu 8 ký tự"
+            class="w-full px-4 py-3 bg-white/5 border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+          />
+        </div>
+
+        <p id="register-error" class="hidden text-sm text-rose-400"></p>
+
+        <button
+          type="submit"
+          id="register-submit"
+          class="w-full px-4 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          Tạo tài khoản
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    import { signUp } from '../lib/auth-client';
+
+    const params = new URLSearchParams(window.location.search);
+    const redirectTo = params.get('redirect') || '/';
+
+    const form = document.getElementById('register-form') as HTMLFormElement;
+    const errorEl = document.getElementById('register-error') as HTMLElement;
+    const submitBtn = document.getElementById('register-submit') as HTMLButtonElement;
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.add('hidden');
+
+      const data = new FormData(form);
+      const name = String(data.get('name'));
+      const email = String(data.get('email'));
+      const password = String(data.get('password'));
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang tạo tài khoản...';
+
+      const { error } = await signUp.email({ name, email, password });
+
+      if (error) {
+        errorEl.textContent =
+          error.status === 422
+            ? 'Email này đã được đăng ký.'
+            : 'Không thể tạo tài khoản. Vui lòng thử lại.';
+        errorEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Tạo tài khoản';
+        return;
+      }
+
+      window.location.href = redirectTo;
+    });
+  </script>
+</BaseLayout>

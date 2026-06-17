@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://dentalempireos.com',
+  output: 'server',
   adapter: cloudflare(),
   integrations: [mdx(), sitemap()],
   vite: {

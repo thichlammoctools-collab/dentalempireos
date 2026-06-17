@@ -1,12 +1,22 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { chapters, tiers } from '../../../data/modules';
+import { env } from 'cloudflare:workers';
+import { listChapters } from '../../../lib/book-db';
 
-export const prerender = true;
+export const prerender = false;
+
+const chapters = await listChapters(env.DB);
 
 const total = chapters.length;
-const published = chapters.filter((c) => !c.draft).length;
+const published = chapters.filter((c) => c.status === 'published').length;
 const drafts = total - published;
+
+const tierMap: Record<number, { name: string; subtitle: string; icon: string }> = {
+  1: { name: 'Dental Empire C++', subtitle: 'Nền tảng chuyên môn và vận hành cơ bản', icon: 'medical_services' },
+  2: { name: 'Dental Empire U++', subtitle: 'Nâng cấp và nhân bản', icon: 'trending_up' },
+  3: { name: 'Dental Empire OS', subtitle: 'Hệ điều hành quản trị toàn diện', icon: 'deployed_code' },
+};
+const tiers = [1, 2, 3];
 ---
 
 <AdminLayout title="E-books | Dental Empire Admin">
@@ -35,10 +45,10 @@ const drafts = total - published;
     {tiers.map((t) => (
       <button
         type="button"
-        data-filter={`tier-${t.tier}`}
+        data-filter={`tier-${t}`}
         class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-surface-container-high text-on-surface-variant border-outline-variant transition-all active:scale-95"
       >
-        Tầng {t.tier}
+        Tầng {t}
       </button>
     ))}
     <button type="button" data-filter="published" class="filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-surface-container-high text-on-surface-variant border-outline-variant transition-all active:scale-95">
@@ -49,81 +59,78 @@ const drafts = total - published;
     </button>
   </div>
 
-  <!-- Chapter list grouped by tier -->
-  <div class="flex flex-col gap-8">
-    {tiers.map((tier) => {
-      const tierChapters = chapters.filter((c) => c.tier === tier.tier);
-      return (
-        <section class="ebook-tier-group flex flex-col gap-3" data-tier={`tier-${tier.tier}`}>
-          <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">{tier.icon}</span>
-            <div>
-              <h3 class="text-lg font-bold text-white">Tầng {tier.tier}: {tier.name}</h3>
-              <p class="text-xs text-on-surface-variant">{tier.subtitle}</p>
+  {total === 0 ? (
+    <div class="text-center py-16 glass-card rounded-xl">
+      <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">menu_book</span>
+      <p class="text-on-surface-variant mt-3">Chưa có chương nào</p>
+      <a href="/admin/ebooks/new" class="inline-block mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold">+ Tạo chương đầu tiên</a>
+    </div>
+  ) : (
+    <div class="flex flex-col gap-8">
+      {tiers.map((tier) => {
+        const tierChapters = chapters.filter((c) => c.tier === tier);
+        if (tierChapters.length === 0) return null;
+        const t = tierMap[tier];
+        return (
+          <section class="ebook-tier-group flex flex-col gap-3" data-tier={`tier-${tier}`}>
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">{t.icon}</span>
+              <div>
+                <h3 class="text-lg font-bold text-white">Tầng {tier}: {t.name}</h3>
+                <p class="text-xs text-on-surface-variant">{t.subtitle}</p>
+              </div>
             </div>
-          </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {tierChapters.map((ch) => (
-              <article
-                class="ebook-card glass-card rounded-xl p-4 flex items-start gap-4"
-                data-tier={`tier-${ch.tier}`}
-                data-status={ch.draft ? 'draft' : 'published'}
-              >
-                <div class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/15 flex items-center justify-center shrink-0 text-on-surface-variant">
-                  <span class="text-sm font-bold">{String(ch.chapter).padStart(2, '0')}</span>
-                </div>
-
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-1">
-                    {ch.draft ? (
-                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-on-surface-variant bg-surface-variant">Draft</span>
-                    ) : (
-                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
-                    )}
-                    {ch.modules.length > 0 && (
-                      <span class="text-[10px] text-on-surface-variant">{ch.modules.length} module</span>
-                    )}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {tierChapters.map((ch) => (
+                <article
+                  class="ebook-card glass-card rounded-xl p-4 flex items-start gap-4"
+                  data-tier={`tier-${ch.tier}`}
+                  data-status={ch.status}
+                >
+                  <div class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/15 flex items-center justify-center shrink-0 text-on-surface-variant">
+                    <span class="text-sm font-bold">{String(ch.chapter_no).padStart(2, '0')}</span>
                   </div>
-                  <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
-                  <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
 
-                  <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
-                    {ch.draft ? (
-                      <a href="/admin/ebooks/new" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[16px]">edit</span> Thêm nội dung
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      {ch.status === 'draft' ? (
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-on-surface-variant bg-surface-variant">Draft</span>
+                      ) : (
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
+                      )}
+                    </div>
+                    <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
+                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
+
+                    <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
+                      <a href={`/admin/ebooks/${ch.id}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">edit</span> Sửa
                       </a>
-                    ) : (
-                      <a href={`/book/${ch.slug}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[16px]">visibility</span> Xem
-                      </a>
-                    )}
-                    <span class="text-[11px] text-on-surface-variant ml-auto font-mono">{ch.slug}</span>
+                      {ch.status === 'published' && (
+                        <a href={`/book/${ch.id}`} target="_blank" class="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[16px]">visibility</span> Xem
+                        </a>
+                      )}
+                      <span class="text-[11px] text-on-surface-variant ml-auto font-mono">{ch.id}</span>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      );
-    })}
-  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  )}
 
-  <!-- Empty state -->
+  <!-- Empty state for filters -->
   <div id="ebook-empty" class="hidden text-center py-16">
     <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">search_off</span>
     <p class="text-on-surface-variant mt-3">Không có chương nào khớp bộ lọc</p>
   </div>
 </AdminLayout>
 
-<style>
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-</style>
 
 <script>
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
@@ -158,7 +165,6 @@ const drafts = total - published;
       if (show) visible += 1;
     });
 
-    // Hide tier group headers with no visible cards
     groups.forEach((group) => {
       const anyVisible = group.querySelectorAll('.ebook-card:not(.hidden)').length > 0;
       group.classList.toggle('hidden', !anyVisible);

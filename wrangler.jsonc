@@ -3,6 +3,7 @@
   "name": "dentalempireos",
   "account_id": "4d4c5fc50aea6754a60f6ddaaa4cab56",
   "compatibility_date": "2025-06-17",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist/client"
   },
@@ -10,6 +11,13 @@
     {
       "binding": "SESSION",
       "id": "b413653daae54f559428fb4d74dbab17"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dentalempireos-auth",
+      "database_id": "92b199df-2f38-4603-ade7-2200f12ade16"
     }
   ]
 }

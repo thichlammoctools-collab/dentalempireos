@@ -1,61 +1,136 @@
 ---
-import { render } from 'astro:content';
-import { getAllChapters, getAdjacentChapters, getAllChaptersGroupedByTier, getModulesFromHeadings } from '../../lib/collection-helpers';
+import { marked } from 'marked';
+import { env } from 'cloudflare:workers';
+import { getChapterTree, listPublishedChapters, type SectionNode } from '../../lib/book-db';
+import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import ChapterNav from '../../components/book/ChapterNav.astro';
-import DonateWidget from '../../components/book/DonateWidget.astro';
 import ModuleNav from '../../components/book/ModuleNav.astro';
-import Badge from '../../components/ui/Badge.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
-import { getTierLabel } from '../../lib/collection-helpers';
+import DonateWidget from '../../components/book/DonateWidget.astro';
+import Badge from '../../components/ui/Badge.astro';
 
-export const prerender = true;
+export const prerender = false;
 
-export async function getStaticPaths() {
-  const chapters = await getAllChapters();
-  return chapters.map((chapter) => ({
-    params: { slug: chapter.id },
-    props: { chapter },
-  }));
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/book');
+
+const db = env.DB;
+const tree = await getChapterTree(db, slug);
+if (!tree) {
+  return new Response('Không tìm thấy chương', { status: 404 });
 }
 
-const { chapter } = Astro.props;
-const { Content, headings } = await render(chapter);
-const { prev, next } = await getAdjacentChapters(chapter.id);
-const groupedChapters = await getAllChaptersGroupedByTier();
-const tierLabel = getTierLabel(chapter.data.tier);
-const modules = getModulesFromHeadings(headings, chapter.data.modules);
+const { chapter: ch, sections } = tree;
+
+// Published chapters list for sidebar + nav (same shape SidebarNav/ChapterNav expect)
+const allPublished = await listPublishedChapters(db);
+const groupedByTier = [1, 2, 3].map((tier) => ({
+  tier,
+  label: getTierLabel(tier),
+  chapters: allPublished
+    .filter((c) => c.tier === tier)
+    .map((c) => ({
+      id: c.id,
+      data: { title: c.title, tier: c.tier, chapter: c.chapter_no },
+    })),
+}));
+
+// Adjacent chapters
+const flatIds = allPublished.map((c) => c.id);
+const currentIdx = flatIds.indexOf(slug);
+const prevCh = currentIdx > 0 ? allPublished[currentIdx - 1] : null;
+const nextCh = currentIdx < flatIds.length - 1 ? allPublished[currentIdx + 1] : null;
+const prev = prevCh ? { id: prevCh.id, data: { title: prevCh.title, tier: prevCh.tier } } : null;
+const next = nextCh ? { id: nextCh.id, data: { title: nextCh.title, tier: nextCh.tier } } : null;
+
+// Modules = top-level sections (h2) for sidebar + ModuleNav
+const modules = sections.map((s) => ({
+  title: s.title,
+  slug: s.slug,
+}));
+
+// Configure marked
+marked.use({ breaks: true });
+
+function renderMarkdown(text: string): string {
+  return marked.parse(text) as string;
+}
+
+function renderSection(s: SectionNode): string {
+  const tag = s.level === 2 ? 'h2' : 'h3';
+  let html = `<${tag} id="${s.slug}">${s.title}</${tag}>`;
+
+  for (const block of s.blocks) {
+    if (block.type === 'text' && block.text_md) {
+      html += renderMarkdown(block.text_md);
+    } else if (block.type === 'image' && block.r2_key) {
+      html += `<figure class="my-6">
+        <img src="/media/${block.r2_key}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" />
+        ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
+      </figure>`;
+    } else if (block.type === 'file' && block.r2_key) {
+      const icon = getFileIcon(block.mime);
+      html += `<div class="my-4 p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl flex items-center gap-4">
+        <span class="material-symbols-outlined text-primary text-3xl">${icon}</span>
+        <div class="flex-1">
+          <p class="text-sm text-white font-semibold">${block.filename ?? 'Tải file'}</p>
+          ${block.caption ? `<p class="text-xs text-on-surface-variant mt-0.5">${block.caption}</p>` : ''}
+        </div>
+        <a href="/media/${block.r2_key}" target="_blank" class="px-3 py-1.5 text-xs font-bold text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-all">
+          Tải
+        </a>
+      </div>`;
+    }
+  }
+
+  // Render sub-sections
+  for (const child of s.children) {
+    html += renderSection(child);
+  }
+
+  return html;
+}
+
+function getFileIcon(mime: string | null): string {
+  if (!mime) return 'description';
+  if (mime.includes('pdf')) return 'picture_as_pdf';
+  if (mime.includes('word') || mime.includes('document')) return 'article';
+  if (mime.includes('sheet') || mime.includes('excel')) return 'table_chart';
+  if (mime.includes('image')) return 'image';
+  return 'description';
+}
+
+const contentHtml = sections.map(renderSection).join('');
 ---
 
 <BookLayout
-  title={chapter.data.title}
-  description={chapter.data.description}
-  groupedChapters={groupedChapters}
-  currentSlug={chapter.id}
+  title={ch.title}
+  description={ch.description ?? ''}
+  groupedChapters={groupedByTier}
+  currentSlug={slug}
   currentModules={modules}
 >
   <!-- Chapter Header -->
   <div class="mb-4 pb-6 border-b border-outline-variant">
     <div class="flex items-center gap-3 mb-4">
-      <Badge variant="accent">Tầng {chapter.data.tier}</Badge>
-      <span class="text-on-surface-variant text-sm">{tierLabel}</span>
+      <Badge variant="accent">Tầng {ch.tier}</Badge>
+      <span class="text-on-surface-variant text-sm">{getTierLabel(ch.tier)}</span>
       <span class="text-on-surface-variant text-sm">·</span>
-      <span class="text-on-surface-variant text-sm">Chương {chapter.data.chapter}</span>
+      <span class="text-on-surface-variant text-sm">Chương {ch.chapter_no}</span>
     </div>
-    <h1 class="text-headline-lg text-white mb-3">{chapter.data.title}</h1>
-    <p class="text-on-surface-variant">{chapter.data.description}</p>
+    <h1 class="text-headline-lg text-white mb-3">{ch.title}</h1>
+    <p class="text-on-surface-variant">{ch.description}</p>
   </div>
 
-  <!-- Module Nav (horizontal chips) -->
+  <!-- Module Nav -->
   <ModuleNav modules={modules} />
 
   <!-- Chapter Content -->
-  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant max-w-none">
-    <Content />
-  </div>
+  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none" set:html={contentHtml} />
 
   <!-- Donate Widget -->
-  <DonateWidget tier={chapter.data.tier} />
+  <DonateWidget tier={ch.tier} />
 
   <!-- Chapter Navigation -->
   <ChapterNav prev={prev} next={next} />
