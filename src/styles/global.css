@@ -346,6 +346,21 @@ body.focus-mode:hover .toc-sidebar {
   pointer-events: auto;
 }
 
+/* Mobile: focus mode — hide reader-toolbar + bottom bar + floating triggers, keep only focus btn */
+@media (max-width: 1023px) {
+  body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn),
+  body.focus-mode #section-nav-trigger,
+  body.focus-mode #review-trigger {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  body.focus-mode #mobile-focus-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* Mobile bottom bar padding + reader layout fixes */
 @media (max-width: 1023px) {
   .mobile-bottom-bar {
@@ -397,7 +412,7 @@ body.focus-mode:hover .toc-sidebar {
 /* Reader content typography */
 .reader-content {
   --fs: 1rem;
-  font-size: clamp(0.875rem, var(--fs), 1.4rem);
+  font-size: clamp(0.875rem, var(--fs), 1.7rem);
   line-height: 1.8;
   /* Mobile: tighter spacing for better reading */
   word-break: break-word;
@@ -460,6 +475,17 @@ body.focus-mode:hover .toc-sidebar {
   border-left-color: var(--reader-accent, var(--color-primary));
 }
 
+.search-highlight {
+  background: rgba(255, 213, 115, 0.25);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 0.25rem;
+}
+.search-highlight-active {
+  background: rgba(255, 213, 115, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 213, 115, 0.2);
+}
+
 /* Slide animations */
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(12px); }
@@ -477,18 +503,22 @@ body.focus-mode .reader-main {
   max-width: 800px !important;
   margin: 0 auto;
 }
-/* Mobile: focus mode also hides bottom bar and section nav trigger */
+/* Mobile: focus mode hides mobile controls except the focus toggle */
 @media (max-width: 1023px) {
-  body.focus-mode .mobile-bottom-bar,
+  body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn),
   body.focus-mode #section-nav-trigger {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease;
   }
-  body.focus-mode:hover .mobile-bottom-bar,
-  body.focus-mode:hover #section-nav-trigger {
+  body.focus-mode #mobile-focus-btn {
     opacity: 1;
     pointer-events: auto;
+  }
+  body.focus-mode:hover .mobile-bottom-bar button:not(#mobile-focus-btn),
+  body.focus-mode:hover #section-nav-trigger {
+    opacity: 0;
+    pointer-events: none;
   }
 }
 
@@ -511,6 +541,23 @@ body.focus-mode .reader-main {
   background: rgba(146, 204, 255, 0.1);
   color: var(--color-primary);
   border: 1px solid rgba(146, 204, 255, 0.3);
+}
+
+.read-progress {
+  background: linear-gradient(90deg, var(--color-primary), rgba(146, 204, 255, 0.75));
+  box-shadow: 0 0 18px rgba(146, 204, 255, 0.22);
+  min-width: 2px;
+  will-change: width;
+  transition: width 0.45s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.read-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at right center, rgba(255,255,255,0.35), transparent 40%);
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 /* === Keyword Links === */
@@ -581,6 +628,30 @@ h2[id], h3[id], h4[id] {
 @keyframes file-progress-indeterminate {
   0% { margin-left: 0; }
   100% { margin-left: 100%; }
+}
+
+/* Attachment summary cards */
+.attachment-summary a {
+  display: block;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 1.2rem;
+  background: rgba(255,255,255,0.03);
+  transition: transform 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+}
+.attachment-summary a:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.06);
+}
+.attachment-summary a p:first-child {
+  color: #fff;
+}
+.attachment-summary a p:last-child {
+  color: rgba(255,255,255,0.75);
+}
+.attachment-anchor {
+  scroll-margin-top: 7rem;
 }
 
 /* File preview modal */

@@ -10,6 +10,8 @@ const { resourceId, fileUrl, fileLabel } = Astro.props;
 // Resolve download URL: R2 keys (no protocol) → /media/{key}, external URLs → use as-is
 const isExternal = fileUrl.startsWith('http');
 const downloadHref = isExternal ? fileUrl : `/media/${fileUrl}`;
+// Derive a safe filename from the fileUrl for the download attribute
+const downloadFilename = fileUrl.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '_') || '';
 const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(fileUrl);
 ---
 
@@ -39,7 +41,7 @@ const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(fileUrl);
   ) : (
     <a
       href={downloadHref}
-      download
+      download={downloadFilename}
       class="inline-flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold hover:bg-emerald-500/20 transition-all"
     >
       <span class="material-symbols-outlined text-[18px]">check_circle</span>

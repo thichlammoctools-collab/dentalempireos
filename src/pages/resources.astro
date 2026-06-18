@@ -3,6 +3,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import DownloadForm from '../components/sections/DownloadForm.astro';
 import { resourceCategories as categories } from '../data/resources';
 import { listResources } from '../lib/resource-db';
+import DonateWidget from '../components/book/DonateWidget.astro';
+import { getSupportSettings } from '../lib/book-db';
 import type { ResourceRow } from '../lib/resource-db';
 
 // Fetch from D1 — falls back to empty array if DB unavailable (e.g. local dev)
@@ -10,8 +12,23 @@ let resources: ResourceRow[] = [];
 try {
   const { env } = await import('cloudflare:workers');
   resources = await listResources(env.DB);
+  // Fetch support settings for the compact donate widget
+  var supportSettings = (await getSupportSettings(env.DB)) ?? {
+    enabled: 0,
+    title: 'Ủng Hộ Dental Empire OS',
+    message: '',
+    qr_url: '/images/qr/donation-qr.svg',
+    payment_methods: '',
+  };
 } catch {
   resources = [];
+  var supportSettings = {
+    enabled: 0,
+    title: 'Ủng Hộ Dental Empire OS',
+    message: '',
+    qr_url: '/images/qr/donation-qr.svg',
+    payment_methods: '',
+  };
 }
 
 const extColors: Record<string, string> = {
@@ -249,28 +266,10 @@ const iconColors: Record<string, string> = {
     </div>
   </section>
 
-  <!-- Donation -->
-  <section id="bundle" class="py-16 mt-12 bg-surface-container-low">
+  <!-- Donation (compact, collapsible) -->
+  <section class="py-16 mt-12 bg-surface-container-low">
     <div class="px-6 max-w-[1200px] mx-auto">
-      <div class="bg-surface-container border border-outline-variant rounded-[2rem] p-8 md:p-12 text-center max-w-2xl mx-auto">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-6">
-          <span class="material-symbols-outlined text-4xl">volunteer_activism</span>
-        </div>
-        <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">Ủng Hộ Dental Empire OS</h2>
-        <p class="text-on-surface-variant mb-8 max-w-md mx-auto">
-          Nếu các tài nguyên này đã giúp ích cho phòng khám của bạn, hãy ủng hộ để chúng tôi tiếp tục tạo ra nhiều công cụ chất lượng hơn.
-        </p>
-
-        <div class="inline-block p-4 bg-white rounded-2xl mb-4">
-          <img src="/images/qr/donation-qr.svg" alt="QR Code ủng hộ Dental Empire OS" class="w-56 h-56" loading="lazy" />
-        </div>
-
-        <p class="text-on-surface-variant text-sm mt-4">Quét mã QR với ứng dụng ngân hàng để ủng hộ</p>
-        <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
-          <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
-          <span> Vietcombank · Techcombank · Momo · ZaloPay</span>
-        </div>
-      </div>
+      <DonateWidget settings={supportSettings} />
     </div>
   </section>
 </BaseLayout>

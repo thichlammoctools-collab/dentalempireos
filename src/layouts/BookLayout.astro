@@ -27,6 +27,21 @@ interface TierGroup {
   chapters: ChapterItem[];
 }
 
+interface AttachmentItem {
+  id: string;
+  type: 'image' | 'file';
+  title: string;
+  url: string;
+  caption?: string;
+  filename?: string;
+  mime?: string | null;
+  mimeLabel?: string;
+  sectionSlug: string;
+  sectionTitle: string;
+  ext?: string;
+  previewable: boolean;
+}
+
 interface Props {
   title: string;
   description?: string;
@@ -34,6 +49,7 @@ interface Props {
   currentSlug: string;
   currentModules: ModuleItem[];
   sections?: SectionItem[];
+  attachments?: AttachmentItem[];
   tier?: number;
   tierLabel?: string;
   chapterNo?: number;
@@ -51,6 +67,7 @@ const {
   currentSlug,
   currentModules,
   sections = [],
+  attachments = [],
   tier = 3,
   tierLabel = 'Tier 3',
   chapterNo = 1,
@@ -137,6 +154,20 @@ const currentTier = groupedChapters.find((g) =>
           <span class="hidden lg:inline text-[11px] font-semibold">Tìm</span>
         </button>
 
+        {attachments.length > 0 && (
+          <a
+            href="#attachments-summary"
+            id="attachments-btn"
+            class="relative flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+            title={`Xem ${attachments.length} tệp đính kèm`}
+            aria-label={`Xem ${attachments.length} tệp đính kèm`}
+          >
+            <span class="material-symbols-outlined text-base">attachment</span>
+            <span class="hidden lg:inline text-[11px] font-semibold">Tệp</span>
+            <span class="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold px-2 py-0.5 border border-primary/20">{attachments.length}</span>
+          </a>
+        )}
+
         <!-- Bookmark -->
         <button id="bookmark-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Đánh dấu">
           <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
@@ -160,7 +191,8 @@ const currentTier = groupedChapters.find((g) =>
         </div>
         <div class="p-8 text-center text-sm text-on-surface-variant">
           <span class="material-symbols-outlined text-4xl block mb-3 opacity-50">manage_search</span>
-          <p>Nhập từ khóa để tìm kiếm trong nội dung</p>
+          <p id="search-helper-text">Nhập từ khóa để tìm kiếm trong nội dung</p>
+          <p id="search-result-count" class="mt-3 text-xs text-on-surface-variant/70"></p>
         </div>
       </div>
     </div>
@@ -178,12 +210,6 @@ const currentTier = groupedChapters.find((g) =>
         <div class="px-4 py-4 border-b border-white/[0.06] sticky top-0 bg-surface-container-low z-10">
           <h3 class="text-sm font-bold text-on-surface mb-1">Mục lục</h3>
           <p class="text-xs text-on-surface-variant">{currentTierLabel}</p>
-          <div class="mt-3">
-            <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
-              <div id="progress-bar-sidebar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="progress-pct-sidebar" class="text-[10px] text-tertiary mt-1 font-bold">0% Hoàn thành</p>
-          </div>
         </div>
 
         <!-- Chapter navigation -->
@@ -232,6 +258,7 @@ const currentTier = groupedChapters.find((g) =>
         <div
           class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-12 reader-content"
           id="reader-content"
+          data-chapter-id={currentSlug}
           data-chapter-title={title}
           data-chapter-tier={tier}
           data-chapter-tier-label={tierLabel}
@@ -245,7 +272,7 @@ const currentTier = groupedChapters.find((g) =>
       <!-- ==========================================
            SECTION NAV (Desktop right sidebar + Mobile drawer)
            ========================================== -->
-      <SectionNav sections={sections} />
+<SectionNav sections={sections} attachments={attachments} />
 
       </div><!-- end horizontal content row -->
 
@@ -294,6 +321,10 @@ const currentTier = groupedChapters.find((g) =>
           <span class="material-symbols-outlined text-xl" id="mobile-theme-icon">dark_mode</span>
           <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-theme-label">Tối</span>
         </button>
+        <button id="mobile-focus-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
+          <span class="material-symbols-outlined text-xl">visibility</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter">Focus</span>
+        </button>
       </div>
 
       <!-- Mobile bottom padding -->
@@ -307,7 +338,13 @@ const currentTier = groupedChapters.find((g) =>
   </div>
 
   <!-- ═══════════════ Section Nav Mobile (outside #reader-app, fixed positioned) ═══════════════ -->
-  <SectionNavMobile sections={sections} groupedChapters={groupedChapters} currentSlug={currentSlug} />
+  <SectionNavMobile
+    sections={sections}
+    groupedChapters={groupedChapters}
+    currentSlug={currentSlug}
+    reviewStats={reviewStats}
+    attachments={attachments}
+  />
 
   <!-- ═══════════════ Review Drawer (outside #reader-app, fixed positioned) ═══════════════ -->
   <ReviewDrawer
@@ -390,9 +427,12 @@ const currentTier = groupedChapters.find((g) =>
       let fontIdx = 1; // md = default
 
       function setFontSize(size: string) {
-        const sizes = { sm: '0.875', md: '1', lg: '1.125', xl: '1.25', '2xl': '1.4' };
+        const sizes = { sm: '0.875', md: '1', lg: '1.15', xl: '1.3', '2xl': '1.55' };
         const el = doc.getElementById('reader-content') as HTMLElement | null;
-        if (el) el.style.setProperty('--fs', sizes[size as keyof typeof sizes] + 'rem');
+        if (el) {
+          el.style.setProperty('--fs', sizes[size as keyof typeof sizes] + 'rem');
+          el.style.fontSize = sizes[size as keyof typeof sizes] + 'rem';
+        }
         fontIdx = fontOrder.indexOf(size);
         doc.querySelectorAll('.fs-btn').forEach((btn) => {
           const isActive = btn.getAttribute('data-fs') === size;
@@ -422,10 +462,14 @@ const currentTier = groupedChapters.find((g) =>
         const btn = doc.getElementById('focus-btn');
         const mobileBtn = doc.getElementById('mobile-focus-btn');
         const icon = focusMode ? 'visibility_off' : 'visibility';
-        btn?.querySelector('.material-symbols-outlined')!.setAttribute('data-icon', icon);
-        btn!.querySelector('.material-symbols-outlined')!.textContent = icon;
-        mobileBtn?.querySelector('.material-symbols-outlined')!.setAttribute('data-icon', icon);
-        mobileBtn!.querySelector('.material-symbols-outlined')!.textContent = icon;
+        if (btn) {
+          const iconEl = btn.querySelector('.material-symbols-outlined');
+          if (iconEl) iconEl.textContent = icon;
+        }
+        if (mobileBtn) {
+          const iconEl = mobileBtn.querySelector('.material-symbols-outlined');
+          if (iconEl) iconEl.textContent = icon;
+        }
         btn?.classList.toggle('bg-primary/10', focusMode);
         btn?.classList.toggle('text-primary', focusMode);
         btn?.classList.toggle('border', focusMode);
@@ -437,17 +481,57 @@ const currentTier = groupedChapters.find((g) =>
       doc.getElementById('mobile-focus-btn')?.addEventListener('click', toggleFocus);
 
       // ---- Bookmark ----
-      function toggleBookmark() {
-        bookmarked = !bookmarked;
-        const icon = bookmarked ? 'bookmark' : 'bookmark_border';
-        doc.getElementById('bookmark-icon')!.textContent = icon;
-        doc.getElementById('bookmark-btn')?.classList.toggle('text-primary', bookmarked);
-        doc.getElementById('bookmark-btn')?.classList.toggle('bg-primary/10', bookmarked);
-        doc.getElementById('bookmark-btn')?.classList.toggle('border', bookmarked);
-        doc.getElementById('bookmark-btn')?.classList.toggle('border-primary/30', bookmarked);
+      const bookmarkButton = doc.getElementById('bookmark-btn');
+      const bookmarkIcon = doc.getElementById('bookmark-icon');
+      const readerContent = doc.getElementById('reader-content');
+      const chapterId = readerContent?.getAttribute('data-chapter-id');
+
+      function updateBookmarkUi(active) {
+        if (!bookmarkButton || !bookmarkIcon) return;
+        const icon = active ? 'bookmark' : 'bookmark_border';
+        bookmarkIcon.textContent = icon;
+        bookmarkButton.classList.toggle('text-primary', active);
+        bookmarkButton.classList.toggle('bg-primary/10', active);
+        bookmarkButton.classList.toggle('border', active);
+        bookmarkButton.classList.toggle('border-primary/30', active);
+        bookmarkButton.setAttribute('aria-pressed', active ? 'true' : 'false');
+        bookmarkButton.title = active ? 'Bỏ dấu' : 'Đánh dấu';
       }
 
-      doc.getElementById('bookmark-btn')?.addEventListener('click', toggleBookmark);
+      function loadBookmarkState() {
+        if (!chapterId) return false;
+        try {
+          const stored = localStorage.getItem('bookmarks') || '{}';
+          const parsed = JSON.parse(stored);
+          return Boolean(parsed[chapterId]);
+        } catch {
+          return false;
+        }
+      }
+
+      function saveBookmarkState(active) {
+        if (!chapterId) return;
+        try {
+          const stored = localStorage.getItem('bookmarks') || '{}';
+          const parsed = JSON.parse(stored);
+          parsed[chapterId] = active ? true : false;
+          localStorage.setItem('bookmarks', JSON.stringify(parsed));
+        } catch {
+          // ignore storage failures
+        }
+      }
+
+      function toggleBookmark() {
+        bookmarked = !bookmarked;
+        updateBookmarkUi(bookmarked);
+        saveBookmarkState(bookmarked);
+      }
+
+      if (bookmarkButton) {
+        bookmarked = loadBookmarkState();
+        updateBookmarkUi(bookmarked);
+        bookmarkButton.addEventListener('click', toggleBookmark);
+      }
 
 
       // ---- TOC toggle (desktop) ----
@@ -467,18 +551,124 @@ const currentTier = groupedChapters.find((g) =>
       doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);
 
       // ---- Search ----
+      const searchHelperText = doc.getElementById('search-helper-text');
+      const searchResultCount = doc.getElementById('search-result-count');
+      let searchMatches: Element[] = [];
+      let activeSearchIndex = 0;
+      const originalReaderHtml = readerContent?.innerHTML;
+
+      function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function clearSearchHighlights() {
+        if (!readerContent || !originalReaderHtml) return;
+        readerContent.innerHTML = originalReaderHtml;
+        searchMatches = [];
+        activeSearchIndex = 0;
+        if (searchResultCount) searchResultCount.textContent = '';
+        if (searchHelperText) searchHelperText.textContent = 'Nhập từ khóa để tìm kiếm trong nội dung';
+      }
+
+      function highlightText(node, regex) {
+        const text = node.textContent || '';
+        if (!regex.test(text)) return;
+        const span = document.createDocumentFragment();
+        let lastIndex = 0;
+        regex.lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          const before = text.slice(lastIndex, match.index);
+          if (before) span.appendChild(document.createTextNode(before));
+          const mark = document.createElement('mark');
+          mark.className = 'search-highlight';
+          mark.textContent = match[0];
+          span.appendChild(mark);
+          lastIndex = regex.lastIndex;
+        }
+        const after = text.slice(lastIndex);
+        if (after) span.appendChild(document.createTextNode(after));
+        node.parentNode?.replaceChild(span, node);
+      }
+
+      function walkTextNodes(root, regex) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+            if (node.parentElement?.closest('script,style,mark')) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        const textNodes = [];
+        while (walker.nextNode()) {
+          textNodes.push(walker.currentNode);
+        }
+        textNodes.forEach((node) => highlightText(node, regex));
+      }
+
+      function selectSearchMatch(index) {
+        if (!searchMatches.length) return;
+        searchMatches.forEach((el, i) => el.classList.toggle('search-highlight-active', i === index));
+        const target = searchMatches[index] as HTMLElement;
+        if (target) {
+          if (readerScroll) {
+            const top = target.offsetTop - 120;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          } else {
+            const top = target.getBoundingClientRect().top + window.scrollY - 140;
+            window.scrollTo({ top, behavior: 'smooth' });
+          }
+        }
+      }
+
+      function updateSearch(query) {
+        clearSearchHighlights();
+        const trimmed = query.trim();
+        if (!trimmed || !readerContent) return;
+        const regex = new RegExp(escapeRegExp(trimmed), 'gi');
+        walkTextNodes(readerContent, regex);
+        searchMatches = Array.from(readerContent.querySelectorAll('.search-highlight'));
+        if (searchMatches.length > 0) {
+          activeSearchIndex = 0;
+          selectSearchMatch(activeSearchIndex);
+          if (searchResultCount) searchResultCount.textContent = `${searchMatches.length} kết quả`;
+          if (searchHelperText) searchHelperText.textContent = `Đã tìm thấy ${searchMatches.length} kết quả`;
+        } else {
+          if (searchResultCount) searchResultCount.textContent = 'Không tìm thấy kết quả';
+          if (searchHelperText) searchHelperText.textContent = 'Không tìm thấy nội dung phù hợp';
+        }
+      }
+
       function openSearch() {
         searchOverlay?.classList.remove('hidden');
         searchInput?.focus();
       }
       function closeSearch() {
         searchOverlay?.classList.add('hidden');
-        if (searchInput) searchInput.value = '';
+        if (searchInput) {
+          searchInput.value = '';
+          updateSearch('');
+        }
       }
 
       doc.getElementById('search-btn')?.addEventListener('click', openSearch);
       doc.getElementById('search-overlay')?.addEventListener('click', (e) => {
         if (e.target === searchOverlay) closeSearch();
+      });
+
+      searchInput?.addEventListener('input', (event) => {
+        const query = (event.target as HTMLInputElement).value;
+        updateSearch(query);
+      });
+
+      searchInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (searchMatches.length > 0) {
+            activeSearchIndex = (activeSearchIndex + 1) % searchMatches.length;
+            selectSearchMatch(activeSearchIndex);
+          }
+        }
       });
 
       // Ctrl+K shortcut
@@ -488,7 +678,9 @@ const currentTier = groupedChapters.find((g) =>
           openSearch();
         }
         if (e.key === 'Escape') {
-          closeSearch();
+          if (!searchOverlay?.classList.contains('hidden')) {
+            closeSearch();
+          }
           fontPopup?.classList.add('hidden');
         }
       });
@@ -521,12 +713,10 @@ const currentTier = groupedChapters.find((g) =>
         doc.querySelectorAll('[id^="progress-pct"]').forEach((el) => {
           el.textContent = pct + '%';
         });
-        doc.querySelectorAll('[id$="-pct-sidebar"]').forEach((el) => {
-          el.textContent = pct + '% Hoàn thành';
-        });
       }
 
       readerScroll?.addEventListener('scroll', updateProgress);
+      updateProgress();
 
       // ---- Word count ----
       const article = doc.querySelector('article, .reader-content');

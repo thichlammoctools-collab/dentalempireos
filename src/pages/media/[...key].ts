@@ -41,10 +41,9 @@ export const GET: APIRoute = async ({ params }) => {
   const ct = object.httpMetadata?.contentType ?? 'application/octet-stream';
   headers.set('Content-Type', ct);
 
+  const filename = key.split('/').pop() || 'download';
   const cd = object.httpMetadata?.contentDisposition;
-  if (cd) {
-    headers.set('Content-Disposition', cd);
-  }
+  headers.set('Content-Disposition', cd || `attachment; filename="${filename}"`);
 
   return new Response(object.body, { status: 200, headers });
 };

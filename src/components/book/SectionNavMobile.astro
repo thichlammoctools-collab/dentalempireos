@@ -19,14 +19,47 @@ interface TierGroup {
   chapters: ChapterNavItem[];
 }
 
+interface ReviewStats {
+  avgRating: number;
+  totalReviews: number;
+}
+
+interface AttachmentItem {
+  id: string;
+  type: 'image' | 'file';
+  title: string;
+  url: string;
+  caption?: string;
+  filename?: string;
+  mime?: string | null;
+  mimeLabel?: string;
+  sectionSlug: string;
+  sectionTitle: string;
+  ext?: string;
+  previewable: boolean;
+}
+
 interface Props {
   sections: SectionItem[];
   groupedChapters?: TierGroup[];
   currentSlug?: string;
+  reviewStats?: ReviewStats;
+  attachments?: AttachmentItem[];
+  chapterId?: string;
+  chapterTitle?: string;
 }
 
-const { sections, groupedChapters = [], currentSlug = '' } = Astro.props;
+const {
+  sections,
+  groupedChapters = [],
+  currentSlug = '',
+  reviewStats = { avgRating: 0, totalReviews: 0 },
+  attachments = [],
+  chapterId = '',
+  chapterTitle = '',
+} = Astro.props;
 const h2Count = sections.filter((s) => s.level === 2).length;
+const attachmentCount = attachments.length;
 
 let h2Idx = 0;
 const numberedSections = sections.map((section) => {
@@ -40,17 +73,33 @@ const currentChapterTitle = groupedChapters
   .find((c) => c.id === currentSlug)?.data.title ?? '';
 ---
 
-<!-- Floating trigger button -->
-<button
-  id="section-nav-trigger"
-  class="fixed left-4 z-[55] flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
-  style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); color: var(--color-on-surface); backdrop-filter: blur(12px); bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));"
-  aria-label="Mở mục lục"
->
-  <span class="material-symbols-outlined text-base">format_list_numbered</span>
-  <span class="text-[11px] font-bold">Đề mục</span>
-  <span class="text-[9px] text-on-surface-variant font-semibold">{sections.length}</span>
-</button>
+<!-- Floating trigger buttons (right side, above bottom bar) -->
+<div class="fixed right-4 bottom-[calc(9rem+env(safe-area-inset-bottom,0px))] z-[55] pointer-events-none flex flex-col gap-2 lg:bottom-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+  <!-- Section nav: mobile only (desktop has sidebar) -->
+  <button
+    id="section-nav-trigger"
+    class="pointer-events-auto flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95 lg:hidden"
+    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); color: var(--color-on-surface); backdrop-filter: blur(12px);"
+    aria-label="Mở mục lục"
+  >
+    <span class="material-symbols-outlined text-base">format_list_numbered</span>
+    <span class="text-[11px] font-bold">Đề mục</span>
+    <span class="text-[9px] text-on-surface-variant font-semibold">{sections.length}</span>
+  </button>
+  <!-- Review: always visible -->
+  <button
+    id="review-trigger"
+    class="pointer-events-auto flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
+    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); backdrop-filter: blur(12px);"
+    aria-label="Mở đánh giá"
+  >
+    <span class="material-symbols-outlined text-base" style="color: var(--color-primary);">reviews</span>
+    <span class="text-[11px] font-bold" style="color: var(--color-on-surface);">Đánh giá</span>
+    {reviewStats.totalReviews > 0 && (
+      <span class="text-[9px] font-bold px-1 py-0.5 rounded-full" style="background: var(--color-primary); color: white;">{reviewStats.totalReviews}</span>
+    )}
+  </button>
+</div>
 
 <!-- Overlay -->
 <div
@@ -98,6 +147,14 @@ const currentChapterTitle = groupedChapters
     <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="chapters" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
       <span class="material-symbols-outlined text-sm align-middle mr-1">menu_book</span>
       Chương ({groupedChapters.flatMap((g) => g.chapters).length})
+    </button>
+    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="attachments" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
+      <span class="material-symbols-outlined text-sm align-middle mr-1">attachment</span>
+      Đính kèm ({attachmentCount})
+    </button>
+    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="question" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
+      <span class="material-symbols-outlined text-sm align-middle mr-1">help</span>
+      Hỏi
     </button>
   </div>
 
@@ -162,6 +219,29 @@ const currentChapterTitle = groupedChapters
     ))}
   </nav>
 
+  <nav class="flex-1 overflow-y-auto px-3 py-3 section-nav-panel hidden" id="section-nav-panel-attachments" data-panel="attachments">
+    {attachmentCount > 0 ? (
+      attachments.map((item) => (
+        <a
+          href={`#attachment-${item.id}`}
+          class="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-surface-container-high px-3 py-3 text-sm transition-all hover:border-primary/40 hover:bg-primary/5"
+          data-mobile-attachment-link
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-white truncate">{item.title}</p>
+            <p class="text-[11px] text-on-surface-variant truncate">{item.sectionTitle}</p>
+          </div>
+          <span class="inline-flex h-6 items-center rounded-full bg-surface-container-low px-2 text-[10px] font-semibold text-on-surface-variant">{item.type === 'image' ? 'Hình' : item.ext ?? 'Tệp'}</span>
+        </a>
+      ))
+    ) : (
+      <div class="py-8 text-center">
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">attachment</span>
+        <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có mục đính kèm trong chương này</p>
+      </div>
+    )}
+  </nav>
+
   <!-- Footer -->
   <div class="px-5 py-3 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
     <p class="text-[10px] font-semibold" style="color: var(--color-on-surface-variant);">
@@ -185,6 +265,19 @@ const currentChapterTitle = groupedChapters
     border-color: var(--color-primary) !important;
     background: rgba(146, 204, 255, 0.08) !important;
     color: var(--color-primary) !important;
+  }
+
+  /* Focus mode: hide floating triggers */
+  body.focus-mode #section-nav-trigger,
+  body.focus-mode #review-trigger {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  body.focus-mode:hover #section-nav-trigger,
+  body.focus-mode:hover #review-trigger {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   [data-mobile-section-link],
@@ -273,6 +366,9 @@ const currentChapterTitle = groupedChapters
         sheet.classList.contains('section-nav-open') ? closeSheet() : openSheet();
       });
       overlay?.addEventListener('click', closeSheet);
+
+      // ---- Review trigger ----
+      // review-trigger click is handled by ReviewDrawer.astro script directly
       closeBtn?.addEventListener('click', closeSheet);
 
       // ---- Tab switching ----
@@ -321,6 +417,23 @@ const currentChapterTitle = groupedChapters
       // Close on chapter link click
       sheet.querySelectorAll<HTMLElement>('[data-section-nav-chapter-link]').forEach((link) => {
         link.addEventListener('click', () => closeSheet());
+      });
+
+      const attachmentLinks = sheet.querySelectorAll<HTMLElement>('[data-mobile-attachment-link]');
+      attachmentLinks.forEach((link) => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const hash = (link as HTMLAnchorElement).getAttribute('href');
+          if (hash && hash !== '#') {
+            const target = document.getElementById(hash.slice(1));
+            if (target) {
+              const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
+              readerScroll.scrollTo({ top, behavior: 'smooth' });
+            }
+            history.replaceState(null, '', hash);
+          }
+          closeSheet();
+        });
       });
 
       // Touch drag to close

@@ -84,6 +84,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     const res = await fetch('/api/admin/chapters', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(payload),
     });
 

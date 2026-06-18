@@ -221,6 +221,7 @@ const settings = await getSupportSettings(env.DB);
 
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
@@ -258,6 +259,7 @@ const settings = await getSupportSettings(env.DB);
       const res = await fetch('/api/admin/support-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           enabled: enabledCheckbox.checked ? 1 : 0,
           title: (document.getElementById('field-title') as HTMLInputElement).value,

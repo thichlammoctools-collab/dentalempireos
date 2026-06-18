@@ -679,6 +679,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
 
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
@@ -736,6 +737,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
 
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
@@ -824,6 +826,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       const res = await fetch('/api/admin/homepage-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
 

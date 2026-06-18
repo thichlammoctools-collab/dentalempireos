@@ -6,7 +6,6 @@ import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import BookHeader from '../../components/book/BookHeader.astro';
 import ChapterNav from '../../components/book/ChapterNav.astro';
-import ModuleNav from '../../components/book/ModuleNav.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
 import AskAuthorButton from '../../components/book/AskAuthorButton.astro';
@@ -68,6 +67,23 @@ const sectionNavItems = flattenSections(sections);
 
 marked.use({ breaks: true });
 
+interface AttachmentItem {
+  id: string;
+  type: 'image' | 'file';
+  title: string;
+  url: string;
+  caption?: string;
+  filename?: string;
+  mime?: string | null;
+  mimeLabel?: string;
+  sectionSlug: string;
+  sectionTitle: string;
+  ext?: string;
+  previewable: boolean;
+}
+
+const attachments: AttachmentItem[] = [];
+
 function renderMarkdown(text: string): string {
   let html = marked.parse(text) as string;
   // Rewrite <img> src: if it's an R2 key (no protocol), prepend /media/
@@ -102,14 +118,39 @@ function renderSection(s: SectionNode): string {
     if (block.type === 'text' && block.text_md) {
       html += renderMarkdown(block.text_md);
     } else if (block.type === 'image' && block.r2_key) {
-      html += `<figure class="my-6">
-        <img src="/media/${block.r2_key}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" />
+      const imageUrl = `/media/${block.r2_key}`;
+      attachments.push({
+        id: block.id,
+        type: 'image',
+        title: block.caption ?? `Hình ảnh trong ${s.title}`,
+        url: imageUrl,
+        caption: block.caption ?? undefined,
+        sectionSlug: s.slug,
+        sectionTitle: s.title,
+        previewable: true,
+      });
+      html += `<div id="attachment-${block.id}" class="attachment-anchor"></div><figure class="my-6">
+        <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" />
         ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
       </figure>`;
     } else if (block.type === 'file' && block.r2_key) {
       const meta = getFileMeta(block.mime);
       const ext = (block.filename ?? '').split('.').pop()?.toUpperCase() ?? meta.badge;
-      html += `<div class="file-card my-5 relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-low hover:border-primary/30 transition-all duration-300"
+      attachments.push({
+        id: block.id,
+        type: 'file',
+        title: block.filename ?? `Tệp trong ${s.title}`,
+        url: `/media/${block.r2_key}`,
+        caption: block.caption ?? undefined,
+        filename: block.filename ?? undefined,
+        mime: block.mime,
+        mimeLabel: meta.mimeLabel,
+        sectionSlug: s.slug,
+        sectionTitle: s.title,
+        ext,
+        previewable: meta.isPreviewable,
+      });
+      html += `<div id="attachment-${block.id}" class="attachment-anchor"></div><div class="file-card my-5 relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-low hover:border-primary/30 transition-all duration-300"
         data-file-url="/media/${block.r2_key}"
         data-file-mime="${block.mime ?? ''}"
         data-file-name="${(block.filename ?? 'file').replace(/"/g, '&quot;')}"
@@ -180,6 +221,10 @@ const sectionsHtml = sections.map(renderSection).join('');
 // Strip the first h2/h3 since BookHeader shows the chapter title
 const strippedContent = sectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
 
+const attachmentCount = attachments.length;
+const imageAttachments = attachments.filter((item) => item.type === 'image');
+const fileAttachments = attachments.filter((item) => item.type === 'file');
+
 // Support widget settings
 const supportSettings = (await getSupportSettings(db)) ?? {
   enabled: 0,
@@ -205,6 +250,7 @@ const currentUser = Astro.locals.user;
   currentSlug={slug}
   currentModules={modules}
   sections={sectionNavItems}
+  attachments={attachments}
   tier={ch.tier}
   tierLabel={getTierLabel(ch.tier)}
   chapterNo={ch.chapter_no}
@@ -222,13 +268,41 @@ const currentUser = Astro.locals.user;
     chapterNo={ch.chapter_no}
   />
 
-  <!-- Module Navigation Pills (mobile only - desktop uses SectionNav right sidebar) -->
-  <div class="lg:hidden">
-    <ModuleNav modules={modules} />
-  </div>
 
   <!-- Chapter Content -->
   <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
+
+  {attachmentCount > 0 ? (
+    <section id="attachments-summary" class="attachment-summary mb-8 rounded-3xl border border-white/[0.06] bg-surface-container-low/70 p-5 shadow-sm">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-on-surface-variant mb-2">Tài liệu đính kèm</p>
+          <h2 class="text-lg font-bold text-white">Xem nhanh hình ảnh & tài liệu</h2>
+          <p class="mt-2 text-sm text-on-surface-variant">Chương này có {attachmentCount} mục đính kèm — {imageAttachments.length} hình ảnh và {fileAttachments.length} file.</p>
+        </div>
+        <a href="#reader-content" class="text-xs font-semibold text-primary hover:text-primary/80">Quay lại nội dung</a>
+      </div>
+      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        {attachments.map((item) => (
+          <a href={`#attachment-${item.id}`} class="group block rounded-3xl border border-white/[0.06] bg-surface-container rounded-xl p-4 hover:border-primary/40 hover:bg-primary/5 transition-all">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-white truncate">{item.title}</p>
+                <p class="mt-1 text-[11px] text-on-surface-variant truncate">{item.sectionTitle}</p>
+              </div>
+              <span class="inline-flex items-center rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] font-semibold text-on-surface-variant">
+                {item.type === 'image' ? 'Hình' : item.ext ?? 'Tệp'}
+              </span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-2 text-[12px] text-on-surface-variant">
+              <span class="truncate">{item.caption ?? item.filename ?? item.url.split('/').pop()}</span>
+              <span class="font-semibold text-primary">{item.previewable ? 'Xem' : 'Mở'}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  ) : null}
 
   <!-- Donate Widget -->
   <DonateWidget settings={supportSettings} />

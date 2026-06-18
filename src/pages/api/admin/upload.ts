@@ -55,8 +55,10 @@ export const POST: APIRoute = async ({ request }) => {
   // R2 key: purpose/{subfolder}/{uuid}-{sanitised-filename}
   const ext = ALLOWED_MIME[mime];
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+  // Strip original extension from filename since we add it via `ext` below
+  const baseName = safeName.replace(/\.[^.]+$/, '');
   const folder = purpose === 'resource' ? 'resources' : `book/${chapterId}`;
-  const key = `${folder}/${crypto.randomUUID()}-${safeName}.${ext}`;
+  const key = `${folder}/${crypto.randomUUID()}-${baseName}.${ext}`;
 
   // Sanitise filename for Content-Disposition header (RFC 6266)
   const safeDispositionName = safeName.replace(/["\\]/g, '_');

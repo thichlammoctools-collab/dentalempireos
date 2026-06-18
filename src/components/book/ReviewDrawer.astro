@@ -18,8 +18,8 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
 <!-- Overlay -->
 <div
   id="review-overlay"
-  class="fixed inset-0 z-[88] bg-black/50 backdrop-blur-sm"
-  style="display: none; opacity: 0; transition: opacity 0.3s;"
+  class="review-overlay fixed inset-0 z-[88] bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+  style="opacity: 0;"
   aria-hidden="true"
 ></div>
 
@@ -80,8 +80,8 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
 <!-- Mobile: bottom sheet (always in DOM, controlled by transform) -->
 <div
   id="review-drawer-mobile"
-  class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl"
-  style="background: var(--color-surface-container-low); max-height: 88vh; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); display: none;"
+  class="review-drawer-mobile fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden"
+  style="background: var(--color-surface-container-low); max-height: 88vh; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
 >
   <!-- Handle -->
   <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="review-handle">
@@ -136,19 +136,7 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
   </div>
 </div>
 
-<!-- Floating trigger button -->
-<button
-  id="review-trigger"
-  class="fixed z-[55] flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
-  style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); backdrop-filter: blur(12px); bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); right: 1rem;"
-  aria-label="Mở đánh giá"
->
-  <span class="material-symbols-outlined text-base" style="color: var(--color-primary);">reviews</span>
-  <span class="text-[11px] font-bold" style="color: var(--color-on-surface);">Đánh giá</span>
-  {stats.totalReviews > 0 && (
-    <span class="text-[9px] font-bold px-1 py-0.5 rounded-full" style="background: var(--color-primary); color: white;">{stats.totalReviews}</span>
-  )}
-</button>
+<!-- review-trigger button is rendered in SectionNavMobile.astro -->
 
 <style>
   /* Focus mode: hide trigger */
@@ -184,7 +172,7 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
     const closeMobile = document.getElementById('review-close-mobile');
     const handle = document.getElementById('review-handle');
 
-    if (!trigger || !overlay) return;
+    if (!overlay) return;
 
     let isOpen = false;
     let isMobile = false;
@@ -193,14 +181,14 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
       isOpen = true;
       isMobile = window.innerWidth < 1024;
 
-      // Show overlay
-      overlay.style.display = 'block';
+      // Show overlay (use class so CSS transitions work)
+      overlay.classList.remove('hidden');
       // Force reflow then animate opacity
       overlay.offsetHeight;
       overlay.style.opacity = '1';
 
       if (isMobile && mobile) {
-        mobile.style.display = 'flex';
+        mobile.classList.remove('hidden');
         // Force reflow before animating
         mobile.offsetHeight;
         mobile.style.transform = 'translateY(0)';
@@ -215,7 +203,7 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
       // Animate overlay out
       overlay.style.opacity = '0';
       setTimeout(() => {
-        overlay.style.display = 'none';
+        overlay.classList.add('hidden');
       }, 300);
 
       if (desktop) {
@@ -224,18 +212,22 @@ const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.pr
       if (mobile) {
         mobile.style.transform = 'translateY(100%)';
         setTimeout(() => {
-          if (!isOpen) mobile!.style.display = 'none';
+          if (!isOpen) mobile!.classList.add('hidden');
         }, 350);
       }
     }
 
-    trigger.addEventListener('click', () => {
+    trigger?.addEventListener('click', () => {
       isOpen ? close() : open();
     });
 
     overlay.addEventListener('click', close);
     closeDesktop?.addEventListener('click', close);
     closeMobile?.addEventListener('click', close);
+
+    // Expose globally for SectionNavMobile's review trigger
+    (window as any).__openReview = open;
+    (window as any).__closeReview = close;
 
     // Escape key
     document.addEventListener('keydown', (e) => {

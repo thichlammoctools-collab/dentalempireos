@@ -200,7 +200,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Fetch tree ────────────────────────────────────────
     async function loadTree(): Promise<ChapterTree> {
-      const res = await fetch(`/api/admin/chapters/${chapterId}`);
+      const res = await fetch(`/api/admin/chapters/${chapterId}`, { credentials: 'include' });
       const tree = await res.json() as ChapterTree;
       currentTree = tree;
       return tree;
@@ -214,6 +214,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const res = await fetch(`/api/admin/chapters/${chapterId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           title: fd.get('title'),
           description: fd.get('description'),
@@ -234,6 +235,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const res = await fetch('/api/admin/sections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           chapter_id: chapterId,
           level: 2,
@@ -306,7 +308,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           const fd = new FormData();
           fd.append('file', file);
           fd.append('chapterId', chapterId);
-          const upRes = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+          const upRes = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: fd });
           if (upRes.ok) {
             const up = await upRes.json() as { r2_key: string; mime: string; filename: string };
             body.r2_key = up.r2_key;
@@ -318,6 +320,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         await fetch(`/api/admin/blocks/${blockId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(body),
         });
 

@@ -8,12 +8,29 @@ interface SectionItem {
   level: number;
 }
 
-interface Props {
-  sections: SectionItem[];
+interface AttachmentItem {
+  id: string;
+  type: 'image' | 'file';
+  title: string;
+  url: string;
+  caption?: string;
+  filename?: string;
+  mime?: string | null;
+  mimeLabel?: string;
+  sectionSlug: string;
+  sectionTitle: string;
+  ext?: string;
+  previewable: boolean;
 }
 
-const { sections } = Astro.props;
+interface Props {
+  sections: SectionItem[];
+  attachments?: AttachmentItem[];
+}
+
+const { sections, attachments = [] } = Astro.props;
 const h2Count = sections.filter((s) => s.level === 2).length;
+const attachmentCount = attachments.length;
 
 let h2Idx = 0;
 const numberedSections = sections.map((section) => {
@@ -37,6 +54,17 @@ const numberedSections = sections.map((section) => {
       <div class="section-nav-progress h-full rounded-full transition-all duration-300" style="width: 0%; background: var(--color-primary);"></div>
     </div>
   </div>
+  {attachmentCount > 0 ? (
+    <div class="px-4 py-3 border-b border-white/[0.06]">
+      <a href="#attachments-summary" class="flex items-center justify-between gap-2 rounded-2xl bg-surface-container-high px-3 py-2 text-[12px] font-semibold text-primary transition-all hover:bg-primary/10">
+        <span class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">attachment</span>
+          Đính kèm
+        </span>
+        <span class="inline-flex h-6 items-center rounded-full bg-surface-container-low px-2 text-[10px] font-bold text-on-surface-variant">{attachmentCount}</span>
+      </a>
+    </div>
+  ) : null}
 
   <nav class="flex-1 overflow-y-auto py-2 px-2">
     {numberedSections.map((section) => (
