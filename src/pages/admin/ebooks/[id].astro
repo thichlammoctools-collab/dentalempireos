@@ -122,7 +122,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     <div id="modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal panel -->
-    <div class="relative bg-surface-container rounded-2xl shadow-2xl border border-outline-variant/30 w-full max-w-3xl max-h-[85vh] flex flex-col mx-4 my-4">
+    <div class="relative bg-surface-container rounded-2xl shadow-2xl border border-outline-variant/30 w-full max-w-6xl max-h-[92vh] flex flex-col mx-4 my-3">
       <!-- Header -->
       <div class="flex items-center justify-between p-5 border-b border-outline-variant/30 shrink-0">
         <div class="flex items-center gap-2 min-w-0">
@@ -339,6 +339,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     }
 
     // ── Render blocks inside modal ────────────────────────
+    let lastAddedBlockId = '';
+
     function renderModalBlocks(section: SectionNode) {
       if (section.blocks.length === 0) {
         modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
@@ -347,71 +349,118 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       modalBody.innerHTML = section.blocks
         .sort((a, b) => a.order - b.order)
-        .map((b) => renderBlock(b))
+        .map((b) => renderBlock(b, b.id !== lastAddedBlockId))
         .join('');
+      autoResizeAll();
+      lastAddedBlockId = '';
     }
 
-    function renderBlock(b: BlockRow): string {
+    // ── Toggle collapse ───────────────────────────────────
+    modalBody.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      // Skip if clicking delete button (it's inside the toggle header)
+      if (target.closest('[data-action="delete"]')) return;
+      const toggle = target.closest<HTMLElement>('[data-action="toggle-collapse"]');
+      if (!toggle) return;
+      const item = toggle.closest<HTMLElement>('.block-item');
+      if (!item) return;
+      const content = item.querySelector<HTMLElement>('.block-content');
+      const icon = toggle.querySelector<HTMLElement>('.collapse-icon');
+      if (!content || !icon) return;
+
+      const isCollapsed = item.dataset.collapsed === '1';
+      if (isCollapsed) {
+        item.dataset.collapsed = '0';
+        content.style.display = '';
+        icon.style.transform = 'rotate(0deg)';
+      } else {
+        item.dataset.collapsed = '1';
+        content.style.display = 'none';
+        icon.style.transform = 'rotate(-90deg)';
+      }
+    });
+
+    function renderBlock(b: BlockRow, collapsed = true): string {
+      const preview = b.type === 'text'
+        ? `<span class="text-xs text-on-surface-variant/60 truncate max-w-[300px]">${escapeHtml((b.text_md ?? '').slice(0, 60))}</span>`
+        : b.type === 'image'
+          ? (b.r2_key ? `<img src="/media/${b.r2_key}" class="h-5 rounded" />` : '<span class="text-xs text-error">Chưa có ảnh</span>')
+          : (b.filename ? `<span class="text-xs text-on-surface-variant/60">📎 ${escapeHtml(b.filename)}</span>` : '<span class="text-xs text-error">Chưa có file</span>');
+
+      const header = `
+        <div class="flex items-center justify-between gap-2 cursor-pointer select-none" data-action="toggle-collapse">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="material-symbols-outlined text-[16px] text-on-surface-variant collapse-icon" style="transition:transform 0.2s">expand_more</span>
+            <span class="text-xs font-bold text-on-surface-variant shrink-0">${b.type === 'text' ? 'Text block' : b.type === 'image' ? 'Image block' : 'File block'}</span>
+            ${preview}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>`;
+
       if (b.type === 'text') {
         return `
-          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-on-surface-variant">Text block</span>
-              <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
-                <span class="material-symbols-outlined text-[18px]">delete</span>
-              </button>
+          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+            ${header}
+            <div class="block-content" style="${collapsed ? 'display:none' : ''}">
+              <textarea data-field="text_md" rows="12" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-3 text-white text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[200px]" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
             </div>
-            <textarea data-field="text_md" rows="5" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-white text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none resize-y" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
           </div>`;
       }
       if (b.type === 'image') {
         const url = b.r2_key ? `/media/${b.r2_key}` : '';
         return `
-          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-on-surface-variant">Image block</span>
-              <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
-                <span class="material-symbols-outlined text-[18px]">delete</span>
-              </button>
-            </div>
-            ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs text-on-surface-variant mb-1">Thay ảnh</label>
-                <input data-field="file" type="file" accept="image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+            ${header}
+            <div class="block-content" style="${collapsed ? 'display:none' : ''}">
+              ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs text-on-surface-variant mb-1">Thay ảnh</label>
+                  <input data-field="file" type="file" accept="image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+                </div>
+                <div>
+                  <label class="block text-xs text-on-surface-variant mb-1">Alt text (cho AI)</label>
+                  <input data-field="alt" value="${escapeHtml(b.alt ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+                </div>
               </div>
               <div>
-                <label class="block text-xs text-on-surface-variant mb-1">Alt text (cho AI)</label>
-                <input data-field="alt" value="${escapeHtml(b.alt ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+                <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
+                <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
               </div>
-            </div>
-            <div>
-              <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
-              <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
             </div>
           </div>`;
       }
       // file
       return `
-        <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-on-surface-variant">File block</span>
-            <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
-              <span class="material-symbols-outlined text-[18px]">delete</span>
-            </button>
-          </div>
-          ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs text-on-surface-variant mb-1">Thay file</label>
-              <input data-field="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
-            </div>
-            <div>
-              <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
-              <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+        <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          ${header}
+          <div class="block-content" style="${collapsed ? 'display:none' : ''}">
+            ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-on-surface-variant mb-1">Thay file</label>
+                <input data-field="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" class="w-full text-xs text-on-surface-variant file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+              </div>
+              <div>
+                <label class="block text-xs text-on-surface-variant mb-1">Caption</label>
+                <input data-field="caption" value="${escapeHtml(b.caption ?? '')}" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-white text-xs focus:ring-1 focus:ring-primary focus:outline-none" />
+              </div>
             </div>
           </div>
         </div>`;
+    }
+
+    // ── Auto-resize textarea helper ────────────────────────
+    function autoResize(ta: HTMLTextAreaElement) {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+    function autoResizeAll() {
+      modalBody.querySelectorAll<HTMLTextAreaElement>('textarea[data-field="text_md"]').forEach(autoResize);
     }
 
     // ── Modal body: event delegation for inputs & delete ──
@@ -420,6 +469,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (target.matches('input[data-field], textarea[data-field]')) {
         target.closest<HTMLElement>('.block-item')?.setAttribute('data-dirty', '1');
         markDirty();
+      }
+      if (target.matches('textarea[data-field="text_md"]')) {
+        autoResize(target as HTMLTextAreaElement);
       }
     });
     modalBody.addEventListener('change', (e) => {
@@ -466,7 +518,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             }),
           });
           if (res.ok) {
-            // Re-fetch tree and re-render modal
+            // Re-fetch tree and re-render modal (new block will be expanded)
+            const created = await res.json() as { id: string };
+            lastAddedBlockId = created.id;
             const tree = await loadTree();
             const section = findSection(tree.sections, modalSectionId);
             if (section) {

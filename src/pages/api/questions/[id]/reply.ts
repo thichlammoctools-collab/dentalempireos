@@ -23,6 +23,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const { body: content } = body as { body?: string };
   if (!content) return badRequest('body is required');
 
-  const reply = await replyToQuestion(env.DB, id, user.id, content, false);
-  return json(reply, 201);
+  try {
+    const reply = await replyToQuestion(env.DB, id, user.id, content, false);
+    return json(reply, 201);
+  } catch (err) {
+    console.error('[POST /api/questions/:id/reply] DB error:', err);
+    return json({ error: 'Database error' }, 500);
+  }
 };

@@ -1,0 +1,332 @@
+---
+interface Props {
+  chapterId: string;
+  chapterTitle?: string;
+}
+
+const { chapterId, chapterTitle = '' } = Astro.props;
+---
+
+<!-- Overlay -->
+<div
+  id="question-overlay"
+  class="fixed inset-0 z-[88] bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+  style="opacity: 0;"
+  aria-hidden="true"
+></div>
+
+<!-- Desktop: slide-in from right -->
+<aside
+  id="question-drawer-desktop"
+  class="hidden lg:flex fixed right-0 top-0 bottom-0 z-[90] flex-col shadow-2xl"
+  style="width: 420px; background: var(--color-surface-container-low); transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); border-left: 1px solid rgba(255,255,255,0.06);"
+>
+  <!-- Header -->
+  <div class="flex items-center justify-between px-5 py-4 shrink-0" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-xl">support_agent</span>
+      <h3 class="text-sm font-bold" style="color: var(--color-on-surface);">Hỏi Tác Giả</h3>
+    </div>
+    <button id="question-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-container-high" title="Đóng">
+      <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto px-5 py-4">
+    {chapterTitle && (
+      <p class="text-[11px] mb-4" style="color: var(--color-on-surface-variant);">{chapterTitle}</p>
+    )}
+
+    <div id="question-logged-out" class="hidden text-center py-12">
+      <span class="material-symbols-outlined text-5xl block mb-4 opacity-30" style="color: var(--color-on-surface-variant);">lock</span>
+      <p class="text-xs mb-4" style="color: var(--color-on-surface-variant);">Đăng nhập để đặt câu hỏi cho tác giả</p>
+      <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
+        <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
+      </a>
+    </div>
+
+    <form id="question-form-desktop" class="flex flex-col gap-3">
+      <input type="hidden" name="chapter_id" value={chapterId} />
+      <div>
+        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Tiêu đề</label>
+        <input
+          type="text"
+          name="title"
+          placeholder="Tóm tắt câu hỏi..."
+          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary"
+          style="color: var(--color-on-surface);"
+          required
+          maxlength="200"
+        />
+      </div>
+      <div>
+        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Chi tiết</label>
+        <textarea
+          name="body"
+          rows={5}
+          placeholder="Mô tả chi tiết câu hỏi..."
+          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
+          style="color: var(--color-on-surface);"
+          required
+        ></textarea>
+      </div>
+      <button
+        type="submit"
+        id="question-submit-desktop"
+        class="w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+      >
+        <span class="material-symbols-outlined text-base">send</span>
+        Gửi câu hỏi
+      </button>
+      <p class="text-[10px] text-center" style="color: var(--color-on-surface-variant);">Tác giả sẽ nhận thông báo và trả lời sớm nhất có thể.</p>
+    </form>
+
+    <div id="question-success-desktop" class="hidden text-center py-8">
+      <span class="material-symbols-outlined text-primary text-5xl mb-4 block">check_circle</span>
+      <p class="text-xs font-bold mb-1" style="color: var(--color-on-surface);">Câu hỏi đã được gửi!</p>
+      <p class="text-[11px]" style="color: var(--color-on-surface-variant);">Tác giả sẽ trả lời trong thời gian sớm nhất.</p>
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile: bottom sheet -->
+<div
+  id="question-drawer-mobile"
+  class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden lg:hidden"
+  style="background: var(--color-surface-container-low); max-height: 88vh; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
+>
+  <!-- Handle -->
+  <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="question-handle">
+    <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant);"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="px-5 pb-3 flex items-center justify-between shrink-0" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-lg">support_agent</span>
+      <h3 class="text-sm font-bold" style="color: var(--color-on-surface);">Hỏi Tác Giả</h3>
+    </div>
+    <button id="question-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--color-surface-container-high);">
+      <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto px-5 py-4">
+    {chapterTitle && (
+      <p class="text-[11px] mb-4" style="color: var(--color-on-surface-variant);">{chapterTitle}</p>
+    )}
+
+    <div id="question-logged-out-mobile" class="hidden text-center py-8">
+      <span class="material-symbols-outlined text-4xl block mb-3 opacity-30" style="color: var(--color-on-surface-variant);">lock</span>
+      <p class="text-xs mb-3" style="color: var(--color-on-surface-variant);">Đăng nhập để đặt câu hỏi cho tác giả</p>
+      <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
+        <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
+      </a>
+    </div>
+
+    <form id="question-form-mobile" class="flex flex-col gap-3">
+      <input type="hidden" name="chapter_id" value={chapterId} />
+      <div>
+        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Tiêu đề</label>
+        <input
+          type="text"
+          name="title"
+          placeholder="Tóm tắt câu hỏi..."
+          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary"
+          style="color: var(--color-on-surface);"
+          required
+          maxlength="200"
+        />
+      </div>
+      <div>
+        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Chi tiết</label>
+        <textarea
+          name="body"
+          rows={4}
+          placeholder="Mô tả chi tiết câu hỏi..."
+          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
+          style="color: var(--color-on-surface);"
+          required
+        ></textarea>
+      </div>
+      <button
+        type="submit"
+        id="question-submit-mobile"
+        class="w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+      >
+        <span class="material-symbols-outlined text-base">send</span>
+        Gửi câu hỏi
+      </button>
+      <p class="text-[10px] text-center" style="color: var(--color-on-surface-variant);">Tác giả sẽ nhận thông báo và trả lời sớm nhất có thể.</p>
+    </form>
+
+    <div id="question-success-mobile" class="hidden text-center py-6">
+      <span class="material-symbols-outlined text-primary text-4xl mb-3 block">check_circle</span>
+      <p class="text-xs font-bold mb-1" style="color: var(--color-on-surface);">Câu hỏi đã được gửi!</p>
+      <p class="text-[11px]" style="color: var(--color-on-surface-variant);">Tác giả sẽ trả lời trong thời gian sớm nhất.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<script>
+  (function () {
+    const trigger = document.getElementById('question-trigger');
+    const overlay = document.getElementById('question-overlay');
+    const desktop = document.getElementById('question-drawer-desktop');
+    const mobile = document.getElementById('question-drawer-mobile');
+    const closeDesktop = document.getElementById('question-close-desktop');
+    const closeMobile = document.getElementById('question-close-mobile');
+    const handle = document.getElementById('question-handle');
+
+    let isOpen = false;
+
+    async function checkAuth() {
+      const loggedOutDesktop = document.getElementById('question-logged-out');
+      const formDesktop = document.getElementById('question-form-desktop');
+      const loggedOutMobile = document.getElementById('question-logged-out-mobile');
+      const formMobile = document.getElementById('question-form-mobile');
+
+      try {
+        const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+        const showForm = res.ok;
+        loggedOutDesktop?.classList.toggle('hidden', showForm);
+        formDesktop?.classList.toggle('hidden', !showForm);
+        loggedOutMobile?.classList.toggle('hidden', showForm);
+        formMobile?.classList.toggle('hidden', !showForm);
+      } catch {
+        document.querySelectorAll('.question-logged-out, #question-logged-out, #question-logged-out-mobile').forEach(el => el.classList.remove('hidden'));
+        document.querySelectorAll('#question-form-desktop, #question-form-mobile').forEach(el => el.classList.add('hidden'));
+      }
+    }
+
+    function open() {
+      isOpen = true;
+      overlay?.classList.remove('hidden');
+      overlay?.setAttribute('style', 'opacity: 1;');
+
+      if (window.innerWidth >= 1024 && desktop) {
+        desktop.style.transform = 'translateX(0)';
+      } else if (mobile) {
+        mobile.classList.remove('hidden');
+        mobile.offsetHeight;
+        mobile.style.transform = 'translateY(0)';
+      }
+
+      checkAuth();
+    }
+
+    function close() {
+      isOpen = false;
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+      }
+      if (desktop) desktop.style.transform = 'translateX(100%)';
+      if (mobile) {
+        mobile.style.transform = 'translateY(100%)';
+        setTimeout(() => {
+          if (!isOpen) mobile.classList.add('hidden');
+        }, 350);
+      }
+    }
+
+    trigger?.addEventListener('click', () => {
+      isOpen ? close() : open();
+    });
+    overlay?.addEventListener('click', close);
+    closeDesktop?.addEventListener('click', close);
+    closeMobile?.addEventListener('click', close);
+
+    // Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen) close();
+    });
+
+    // Submit handler
+    async function submitQuestion(e: Event, form: HTMLFormElement, submitBtn: HTMLButtonElement | null, successEl: HTMLElement | null) {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const title = (formData.get('title') as string)?.trim();
+      const body = (formData.get('body') as string)?.trim();
+      const chapterId = formData.get('chapter_id') as string;
+      if (!title || !body) return;
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
+      }
+
+      try {
+        const res = await fetch('/api/questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ chapter_id: chapterId, title, body }),
+        });
+
+        if (!res.ok) {
+          alert('Có lỗi xảy ra, vui lòng thử lại.');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+          return;
+        }
+
+        form.classList.add('hidden');
+        successEl?.classList.remove('hidden');
+        setTimeout(() => {
+          form.reset();
+          form.classList.remove('hidden');
+          successEl?.classList.add('hidden');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+        }, 2500);
+      } catch {
+        alert('Lỗi kết nối. Vui lòng thử lại.');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+      }
+    }
+
+    const desktopForm = document.getElementById('question-form-desktop') as HTMLFormElement;
+    const mobileForm = document.getElementById('question-form-mobile') as HTMLFormElement;
+    desktopForm?.addEventListener('submit', (e) => submitQuestion(e, desktopForm, document.getElementById('question-submit-desktop') as HTMLButtonElement, document.getElementById('question-success-desktop')));
+    mobileForm?.addEventListener('submit', (e) => submitQuestion(e, mobileForm, document.getElementById('question-submit-mobile') as HTMLButtonElement, document.getElementById('question-success-mobile')));
+
+    // Touch drag to close mobile
+    let startY = 0;
+    let deltaY = 0;
+    let dragging = false;
+
+    handle?.addEventListener('touchstart', (e: Event) => {
+      startY = (e as TouchEvent).touches[0].clientY;
+      dragging = true;
+      if (mobile) mobile.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e: Event) => {
+      if (!dragging) return;
+      deltaY = (e as TouchEvent).touches[0].clientY - startY;
+      if (deltaY > 0 && mobile) mobile.style.transform = `translateY(${deltaY}px)`;
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (mobile) mobile.style.transition = '';
+      if (deltaY > 80) close();
+      else if (mobile) mobile.style.transform = isOpen ? 'translateY(0)' : 'translateY(100%)';
+      deltaY = 0;
+    });
+
+    // Resize: close on breakpoint change
+    window.addEventListener('resize', () => {
+      if (isOpen) close();
+    });
+  })();
+</script>

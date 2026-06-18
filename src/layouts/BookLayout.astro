@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import SectionNav from '../components/book/SectionNav.astro';
 import SectionNavMobile from '../components/book/SectionNavMobile.astro';
 import ReviewDrawer from '../components/book/ReviewDrawer.astro';
+import QuestionDrawer from '../components/book/QuestionDrawer.astro';
 import type { ReviewDisplay, ReviewStats } from '../lib/review-db';
 
 interface ChapterItem {
@@ -104,8 +105,14 @@ const currentTier = groupedChapters.find((g) =>
           <span class="hidden sm:inline text-xs lg:text-sm font-semibold">Thư Viện</span>
         </a>
         <div class="w-px h-5 bg-outline-variant hidden sm:block"></div>
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-xs lg:text-sm font-bold text-on-surface truncate max-w-[80px] sm:max-w-[160px] lg:max-w-[200px]">{title}</span>
+        <!-- Mobile: "Đang đọc" label + title -->
+        <div class="flex flex-col min-w-0 lg:hidden">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant leading-none">Đang đọc</span>
+          <span class="text-xs font-bold text-on-surface truncate max-w-[140px] leading-tight">{title}</span>
+        </div>
+        <!-- Desktop: title only -->
+        <div class="hidden lg:flex items-center gap-2 min-w-0">
+          <span class="text-xs lg:text-sm font-bold text-on-surface truncate max-w-[200px]">{title}</span>
         </div>
       </div>
 
@@ -115,6 +122,14 @@ const currentTier = groupedChapters.find((g) =>
         <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
           <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
+      </div>
+
+      <!-- Mobile: Progress bar inline (right of title, before controls) -->
+      <div class="flex lg:hidden items-center gap-2 flex-1 min-w-0 mx-3">
+        <div class="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
+          <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <span id="progress-pct-mobile" class="text-[10px] text-on-surface-variant font-bold tabular-nums shrink-0" style="min-width: 2.5ch; text-align: right;">0%</span>
       </div>
 
       <!-- Right: Controls -->
@@ -227,8 +242,8 @@ const currentTier = groupedChapters.find((g) =>
                   data-toc-toggle
                 >
                   <span class="material-symbols-outlined text-primary text-[16px] toc-group-icon transition-transform duration-200">folder_open</span>
-                  <span class="text-xs font-bold text-on-surface-variant toc-group-label flex-1 truncate">{group.label}</span>
-                  <span class="text-[10px] text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded toc-group-count">{group.chapters.length}</span>
+                  <span class="text-sm font-bold text-on-surface-variant toc-group-label flex-1 truncate">{group.label}</span>
+                  <span class="text-xs text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded toc-group-count">{group.chapters.length}</span>
                   <span class="material-symbols-outlined text-[16px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
                 </button>
 
@@ -240,14 +255,14 @@ const currentTier = groupedChapters.find((g) =>
                       <a
                         href={`/book/${ch.id}`}
                         class:list={[
-                          'flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border-l-2',
+                          'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border-l-2',
                           isCurrent
                             ? 'toc-item-active border-primary text-primary'
                             : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container hover:border-white/20',
                         ]}
                         data-toc-chapter
                       >
-                        <span class="shrink-0 text-[10px] w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                        <span class="shrink-0 text-xs w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                         <span class="truncate">{ch.data.title}</span>
                       </a>
                     );
@@ -260,10 +275,11 @@ const currentTier = groupedChapters.find((g) =>
 
         <!-- Current section -->
         <div class="px-4 py-4 border-t border-white/[0.06] sticky bottom-0 bg-surface-container-low">
-          <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Đang đọc</p>
-          <p class="text-sm font-bold text-on-surface leading-tight line-clamp-2">{title}</p>
+          <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Đang đọc</p>
+          <p class="text-base font-bold text-on-surface leading-tight line-clamp-2">{title}</p>
         </div>
       </aside>
+
 
       <!-- Reader Scroll Area -->
       <main id="reader-scroll" class="flex-1 overflow-y-auto relative reader-main" tabindex="-1">
@@ -312,7 +328,7 @@ const currentTier = groupedChapters.find((g) =>
       <!-- ==========================================
            MOBILE BOTTOM BAR
            ========================================== -->
-      <div class="lg:hidden flex items-center justify-around gap-1 px-2 py-2 glass-nav border-t border-white/[0.06] z-50 mobile-bottom-bar" style="padding-bottom: env(safe-area-inset-bottom, 0);">
+      <div id="mobile-bottom-bar" class="lg:hidden flex items-center justify-around gap-1 px-2 py-2 glass-nav border-t border-white/[0.06] z-50 mobile-bottom-bar" style="padding-bottom: env(safe-area-inset-bottom, 0);">
         <!-- Bookmark (mobile) -->
         <button id="mobile-bookmark-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Đánh dấu">
           <span class="material-symbols-outlined text-xl" id="mobile-bookmark-icon">bookmark_border</span>
@@ -335,19 +351,25 @@ const currentTier = groupedChapters.find((g) =>
           <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-theme-label">Tối</span>
         </button>
         <button id="mobile-focus-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
-          <span class="material-symbols-outlined text-xl">visibility</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Focus</span>
+          <span class="material-symbols-outlined text-xl" id="mobile-focus-icon">center_focus_strong</span>
+          <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-focus-label">Focus</span>
         </button>
       </div>
 
       <!-- Mobile bottom padding -->
       <div class="lg:hidden h-14" style="padding-bottom: env(safe-area-inset-bottom, 0);"></div>
+
+      <!-- Focus mode floating exit button (desktop, shown when focus is active) -->
+      <button
+        id="desktop-focus-float-btn"
+        class="hidden lg:fixed z-[60] w-12 h-12 rounded-full bg-surface/80 backdrop-blur border border-white/10 shadow-2xl flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/30 transition-all"
+        style="top: 1.5rem; right: 1.5rem;"
+        title="Thoát Focus"
+      >
+        <span class="material-symbols-outlined text-2xl" id="desktop-focus-float-icon">visibility_off</span>
+      </button>
     </div>
 
-    <!-- Mobile progress bar (fixed, outside flex container) -->
-    <div class="lg:hidden fixed left-0 right-0 z-40 h-0.5 bg-surface-container-high pointer-events-none" style="top: 5rem;">
-      <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
-    </div>
   </div>
 
   <!-- ═══════════════ Section Nav Mobile (outside #reader-app, fixed positioned) ═══════════════ -->
@@ -368,6 +390,12 @@ const currentTier = groupedChapters.find((g) =>
     stats={reviewStats}
     isLoggedIn={isLoggedIn}
     currentUserId={currentUserId}
+  />
+
+  <!-- ═══════════════ Question Drawer (outside #reader-app, fixed positioned) ═══════════════ -->
+  <QuestionDrawer
+    chapterId={currentSlug}
+    chapterTitle={title}
   />
 
   <!-- ═══════════════ File Preview Modal ═══════════════ -->
@@ -409,7 +437,7 @@ const currentTier = groupedChapters.find((g) =>
       const body = doc.body;
       const readerApp = doc.getElementById('reader-app');
       const readerScroll = doc.getElementById('reader-scroll');
-      const tocSidebar = doc.getElementById('toc-sidebar');
+      // tocSidebar used in focus mode and TOC toggle below
       const searchOverlay = doc.getElementById('search-overlay');
       const searchInput = doc.getElementById('search-input');
       const fontPopup = doc.getElementById('font-popup');
@@ -446,7 +474,6 @@ const currentTier = groupedChapters.find((g) =>
         const el = doc.getElementById('reader-content') as HTMLElement | null;
         if (el) {
           el.style.setProperty('--fs', sizes[size as keyof typeof sizes] + 'rem');
-          el.style.fontSize = sizes[size as keyof typeof sizes] + 'rem';
         }
         fontIdx = fontOrder.indexOf(size);
         doc.querySelectorAll('.fs-btn').forEach((btn) => {
@@ -471,33 +498,73 @@ const currentTier = groupedChapters.find((g) =>
       });
 
       // ---- Focus mode ----
+      const toolbar = doc.getElementById('reader-toolbar');
+      const mobileBottomBar = doc.getElementById('mobile-bottom-bar');
+      const tocSidebar = doc.getElementById('toc-sidebar');
+      const readerStatus = doc.getElementById('reader-status');
+      const sectionNav = doc.getElementById('section-nav-desktop');
+
       function toggleFocus() {
         focusMode = !focusMode;
         body.classList.toggle('focus-mode', focusMode);
-        const btn = doc.getElementById('focus-btn');
-        const mobileBtn = doc.getElementById('mobile-focus-btn');
+
+        // Desktop: fade out (no reflow) toolbar, sidebars, status bar
+        const setOpacity = (el: HTMLElement | null, hidden: boolean) => {
+          if (!el) return;
+          el.style.transition = 'opacity 0.3s ease';
+          el.style.opacity = hidden ? '0' : '1';
+          el.style.pointerEvents = hidden ? 'none' : '';
+        };
+        setOpacity(toolbar, focusMode);
+        setOpacity(tocSidebar, focusMode);
+        setOpacity(readerStatus, focusMode);
+        setOpacity(sectionNav, focusMode);
+        // Don't hide mobileBottomBar here — CSS handles it for mobile
+
         const icon = focusMode ? 'visibility_off' : 'visibility';
+
+        // Desktop floating exit button
+        const desktopFloatBtn = doc.getElementById('desktop-focus-float-btn');
+        if (desktopFloatBtn) {
+          desktopFloatBtn.classList.toggle('hidden', !focusMode);
+          const floatIcon = desktopFloatBtn.querySelector('.material-symbols-outlined');
+          if (floatIcon) floatIcon.textContent = icon;
+        }
+
+      // Mobile: CSS handles hiding non-focus buttons in bottom bar
+      // via body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn)
+
+        // Update toolbar focus button icon
+        const btn = doc.getElementById('focus-btn');
         if (btn) {
           const iconEl = btn.querySelector('.material-symbols-outlined');
           if (iconEl) iconEl.textContent = icon;
+          btn?.classList.toggle('bg-primary/10', focusMode);
+          btn?.classList.toggle('text-primary', focusMode);
+          btn?.classList.toggle('border', focusMode);
+          btn?.classList.toggle('border-primary/30', focusMode);
         }
+
+        // Update mobile focus button
+        const mobileBtn = doc.getElementById('mobile-focus-btn');
         if (mobileBtn) {
-          const iconEl = mobileBtn.querySelector('.material-symbols-outlined');
+          const iconEl = doc.getElementById('mobile-focus-icon');
           if (iconEl) iconEl.textContent = icon;
+          const labelEl = doc.getElementById('mobile-focus-label');
+          if (labelEl) labelEl.textContent = focusMode ? 'Thoát' : 'Focus';
+          mobileBtn.classList.toggle('text-primary', focusMode);
+          mobileBtn.classList.toggle('bg-primary/10', focusMode);
         }
-        btn?.classList.toggle('bg-primary/10', focusMode);
-        btn?.classList.toggle('text-primary', focusMode);
-        btn?.classList.toggle('border', focusMode);
-        btn?.classList.toggle('border-primary/30', focusMode);
-        mobileBtn?.classList.toggle('text-primary', focusMode);
       }
 
       doc.getElementById('focus-btn')?.addEventListener('click', toggleFocus);
       doc.getElementById('mobile-focus-btn')?.addEventListener('click', toggleFocus);
+      doc.getElementById('desktop-focus-float-btn')?.addEventListener('click', toggleFocus);
 
       // ---- Bookmark ----
       const bookmarkButton = doc.getElementById('bookmark-btn');
       const mobileBookmarkButton = doc.getElementById('mobile-bookmark-btn');
+      const bookmarkIcon = doc.getElementById('bookmark-icon');
       const mobileBookmarkIcon = doc.getElementById('mobile-bookmark-icon');
       const readerContent = doc.getElementById('reader-content');
       const chapterId = readerContent?.getAttribute('data-chapter-id');
@@ -556,12 +623,12 @@ const currentTier = groupedChapters.find((g) =>
       }
 
 
-      // ---- TOC toggle (desktop) ----
       function toggleToc() {
         tocOpen = !tocOpen;
         if (tocSidebar) {
-          tocSidebar.classList.toggle('hidden', !tocOpen);
-          tocSidebar.classList.toggle('lg:flex', tocOpen);
+          tocSidebar.style.transition = 'opacity 0.25s ease';
+          tocSidebar.style.opacity = tocOpen ? '1' : '0';
+          tocSidebar.style.pointerEvents = tocOpen ? '' : 'none';
         }
         const btn = doc.getElementById('toc-toggle-btn');
         btn?.classList.toggle('bg-primary/10', tocOpen);
@@ -570,8 +637,17 @@ const currentTier = groupedChapters.find((g) =>
         btn?.classList.toggle('border-primary/30', tocOpen);
       }
 
-      doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);
+      function toggleSectionNav() {
+        if (!sectionNav) return;
+        // sectionNav is "hidden" when opacity is explicitly '0'
+        const isCurrentlyHidden = sectionNav.style.opacity === '0';
+        const willBeHidden = !isCurrentlyHidden;
+        sectionNav.style.transition = 'opacity 0.25s ease';
+        sectionNav.style.opacity = willBeHidden ? '0' : '1';
+        sectionNav.style.pointerEvents = willBeHidden ? 'none' : '';
+      }
 
+      doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);
       // ---- Search ----
       const searchHelperText = doc.getElementById('search-helper-text');
       const searchResultCount = doc.getElementById('search-result-count');
@@ -699,6 +775,11 @@ const currentTier = groupedChapters.find((g) =>
           e.preventDefault();
           openSearch();
         }
+        // Ctrl+Shift+L: toggle TOC sidebar
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'L') {
+          e.preventDefault();
+          toggleToc();
+        }
         if (e.key === 'Escape') {
           if (!searchOverlay?.classList.contains('hidden')) {
             closeSearch();
@@ -803,17 +884,45 @@ const currentTier = groupedChapters.find((g) =>
           group.dataset.collapsed = isCollapsed ? 'true' : 'false';
           const header = group.querySelector<HTMLElement>('[data-toc-toggle]');
           if (header) header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+          const chapters = group.querySelector<HTMLElement>('.toc-group-chapters');
+          if (chapters) {
+            chapters.style.maxHeight = isCollapsed ? '0px' : '';
+          }
         });
       }
       function toggleGroup(tier: number) {
         const collapsed = getCollapsedTiers();
+        const group = document.querySelector<HTMLElement>(`.toc-group[data-tier="${tier}"]`);
+        const chapters = group?.querySelector<HTMLElement>('.toc-group-chapters');
+
         if (collapsed.has(tier)) {
+          // Expanding
           collapsed.delete(tier);
+          saveCollapsedTiers(collapsed);
+          group!.dataset.collapsed = 'false';
+          const header = group!.querySelector<HTMLElement>('[data-toc-toggle]');
+          if (header) header.setAttribute('aria-expanded', 'true');
+          if (chapters) {
+            chapters.style.maxHeight = chapters.scrollHeight + 'px';
+            chapters.addEventListener('transitionend', function handler() {
+              chapters.style.maxHeight = '';
+              chapters.removeEventListener('transitionend', handler);
+            });
+          }
         } else {
+          // Collapsing
           collapsed.add(tier);
+          saveCollapsedTiers(collapsed);
+          group!.dataset.collapsed = 'true';
+          const header = group!.querySelector<HTMLElement>('[data-toc-toggle]');
+          if (header) header.setAttribute('aria-expanded', 'false');
+          if (chapters) {
+            chapters.style.maxHeight = chapters.scrollHeight + 'px';
+            requestAnimationFrame(() => {
+              chapters.style.maxHeight = '0px';
+            });
+          }
         }
-        saveCollapsedTiers(collapsed);
-        applyCollapsedState();
       }
       applyCollapsedState();
       document.querySelectorAll<HTMLElement>('[data-toc-toggle]').forEach((btn) => {
@@ -826,6 +935,7 @@ const currentTier = groupedChapters.find((g) =>
 
       // ---- Init ----
       setFontSize('md');
+
     })();
   </script>
 
@@ -1093,8 +1203,13 @@ const currentTier = groupedChapters.find((g) =>
   </script>
   <style>
     /* TOC group collapse */
+    .toc-group-chapters {
+      
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+    }
     .toc-group[data-collapsed="true"] .toc-group-chapters {
-      max-height: 0 !important;
+      max-height: 0;
       opacity: 0;
     }
     .toc-group[data-collapsed="true"] .toc-group-chevron {
@@ -1150,7 +1265,6 @@ const currentTier = groupedChapters.find((g) =>
       border-radius: 99px;
     }
   </style>
-
   <style>
     @keyframes spin {
       from { transform: rotate(0deg); }

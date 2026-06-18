@@ -148,13 +148,15 @@ function renderMd(text: string): string {
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          alert(err.error || 'Có lỗi xảy ra');
+          const msg = err.error || `HTTP ${res.status}`;
+          alert(`Gửi thất bại: ${msg}`);
           return;
         }
 
         window.location.reload();
-      } catch {
-        alert('Lỗi kết nối');
+      } catch (err) {
+        console.error('[reply] fetch error:', err);
+        alert('Lỗi kết nối. Vui lòng thử lại.');
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi';

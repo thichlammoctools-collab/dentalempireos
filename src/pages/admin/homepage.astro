@@ -579,6 +579,21 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
   const founderProgressBar = document.getElementById('founder-progress-bar')!;
   const founderUploadStatus = document.getElementById('founder-upload-status')!;
 
+  // Auto-save a single field to D1 after image upload
+  async function autoSaveField(field: string, value: string): Promise<boolean> {
+    try {
+      const res = await fetch('/api/admin/homepage-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ [field]: value }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // Image preview on URL change
   const previewMap: Record<string, string> = {
     'f-hero_image_url': 'hero-img-preview',
@@ -702,11 +717,15 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       }
 
       heroProgressBar.style.width = '100%';
-      heroUploadStatus.textContent = '✓ Upload thành công';
-      
+      heroUploadStatus.textContent = 'Đang lưu...';
+
+      // Auto-save to D1
+      const saved = await autoSaveField('hero_image_url', mediaUrl);
+      heroUploadStatus.textContent = saved ? '✓ Upload & lưu thành công' : '✓ Upload thành công (chưa lưu — nhấn Lưu thay đổi)';
+
       setTimeout(() => {
         heroProgressContainer.classList.add('hidden');
-      }, 2000);
+      }, 2500);
     } catch (err) {
       heroProgressContainer.classList.add('hidden');
       alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -760,11 +779,15 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       }
 
       founderProgressBar.style.width = '100%';
-      founderUploadStatus.textContent = '✓ Upload thành công';
-      
+      founderUploadStatus.textContent = 'Đang lưu...';
+
+      // Auto-save to D1
+      const saved = await autoSaveField('founder_image_url', mediaUrl);
+      founderUploadStatus.textContent = saved ? '✓ Upload & lưu thành công' : '✓ Upload thành công (chưa lưu — nhấn Lưu thay đổi)';
+
       setTimeout(() => {
         founderProgressContainer.classList.add('hidden');
-      }, 2000);
+      }, 2500);
     } catch (err) {
       founderProgressContainer.classList.add('hidden');
       alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);

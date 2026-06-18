@@ -48,12 +48,12 @@ const testimonialsData = [
 <BaseLayout title="Dental Empire OS - Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện">
 
   <!-- Hero Section -->
-  <section class="relative min-h-[870px] flex items-center overflow-hidden">
+  <section class="relative min-h-[560px] flex items-center overflow-hidden">
     <div class="absolute inset-0 z-0">
       <div class="absolute inset-0 bg-gradient-to-r from-surface-container-lowest via-surface-container-lowest/90 to-transparent"></div>
     </div>
-    <div class="relative z-10 w-full px-6 max-w-[1200px] mx-auto grid md:grid-cols-2 gap-12 items-center">
-      <div class="space-y-8">
+    <div class="relative z-10 w-full px-6 max-w-[1200px] mx-auto grid md:grid-cols-2 gap-10 items-center py-12">
+      <div class="space-y-5">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/20 border border-primary/30 text-primary">
           <span class="material-symbols-outlined text-[18px]">verified</span>
           <span class="font-semibold text-sm tracking-wider">{homepage.badge_text}</span>
@@ -63,11 +63,11 @@ const testimonialsData = [
           <span class="text-primary">{homepage.hero_title_line1.split(':').slice(1).join(':').trim()}</span> {homepage.hero_title_line2}
         </h1>
         <p class="text-on-surface-variant max-w-lg leading-relaxed">{homepage.hero_description}</p>
-        <div class="flex flex-wrap gap-4 pt-4">
-          <a href="/book" class="px-8 py-4 btn-primary-metallic font-bold rounded-xl text-lg hover:-translate-y-1 active:scale-95 transition-all">{homepage.hero_cta_primary}</a>
-          <a href="/about" class="px-8 py-4 border-2 border-outline text-on-surface-variant font-bold rounded-xl text-lg hover:border-primary hover:text-primary active:scale-95 transition-all">{homepage.hero_cta_secondary}</a>
+        <div class="flex flex-wrap gap-4 pt-2">
+          <a href="/book" class="px-7 py-3 btn-primary-metallic font-bold rounded-xl hover:-translate-y-1 active:scale-95 transition-all">{homepage.hero_cta_primary}</a>
+          <a href="/about" class="px-7 py-3 border-2 border-outline text-on-surface-variant font-bold rounded-xl hover:border-primary hover:text-primary active:scale-95 transition-all">{homepage.hero_cta_secondary}</a>
         </div>
-        <div class="flex items-center gap-6 pt-6 border-t border-outline-variant">
+        <div class="flex items-center gap-6 pt-4 border-t border-outline-variant">
           <p class="text-on-surface-variant font-semibold">{homepage.hero_stats_text}</p>
         </div>
       </div>
