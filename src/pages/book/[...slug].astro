@@ -10,8 +10,7 @@ import ModuleNav from '../../components/book/ModuleNav.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
 import AskAuthorButton from '../../components/book/AskAuthorButton.astro';
-import ReviewForm from '../../components/book/ReviewForm.astro';
-import ReviewList from '../../components/book/ReviewList.astro';
+import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
 import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
 
 export const prerender = false;
@@ -209,6 +208,10 @@ const currentUser = Astro.locals.user;
   tier={ch.tier}
   tierLabel={getTierLabel(ch.tier)}
   chapterNo={ch.chapter_no}
+  reviews={reviews}
+  reviewStats={reviewStats}
+  isLoggedIn={!!currentUser}
+  currentUserId={currentUser?.id}
 >
   <!-- Mobile-optimized Book Header -->
   <BookHeader
@@ -232,25 +235,6 @@ const currentUser = Astro.locals.user;
 
   <!-- Ask the Author FAB -->
   <AskAuthorButton chapterId={slug} chapterTitle={ch.title} />
-
-  <!-- Reviews Section -->
-  <section class="mt-12 pt-8 border-t border-outline-variant/40">
-    <div class="flex items-center gap-2 mb-6">
-      <span class="material-symbols-outlined text-primary text-2xl">reviews</span>
-      <h2 class="text-headline-sm text-white">Đánh Giá Từ Độc Giả</h2>
-    </div>
-    <ReviewForm
-      chapterId={slug}
-      isLoggedIn={!!currentUser}
-      userName={currentUser?.name}
-    />
-    <ReviewList
-      reviews={reviews}
-      stats={reviewStats}
-      chapterId={slug}
-      currentUserId={currentUser?.id}
-    />
-  </section>
 
   <!-- Chapter Navigation -->
   <ChapterNav prev={prev} next={next} />

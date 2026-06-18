@@ -1,6 +1,9 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import SectionNav from '../components/book/SectionNav.astro';
+import SectionNavMobile from '../components/book/SectionNavMobile.astro';
+import ReviewDrawer from '../components/book/ReviewDrawer.astro';
+import type { ReviewDisplay, ReviewStats } from '../lib/review-db';
 
 interface ChapterItem {
   id: string;
@@ -34,6 +37,11 @@ interface Props {
   tier?: number;
   tierLabel?: string;
   chapterNo?: number;
+  // Review drawer props (optional — only rendered when provided)
+  reviews?: ReviewDisplay[];
+  reviewStats?: ReviewStats;
+  isLoggedIn?: boolean;
+  currentUserId?: string | null;
 }
 
 const {
@@ -46,6 +54,10 @@ const {
   tier = 3,
   tierLabel = 'Tier 3',
   chapterNo = 1,
+  reviews = [],
+  reviewStats = { avgRating: 0, totalReviews: 0 },
+  isLoggedIn = false,
+  currentUserId = null,
 } = Astro.props;
 
 const currentTierLabel = groupedChapters.find((g) =>
@@ -233,7 +245,7 @@ const currentTier = groupedChapters.find((g) =>
       <!-- ==========================================
            SECTION NAV (Desktop right sidebar + Mobile drawer)
            ========================================== -->
-      <SectionNav sections={sections} groupedChapters={groupedChapters} currentSlug={currentSlug} />
+      <SectionNav sections={sections} />
 
       </div><!-- end horizontal content row -->
 
@@ -293,6 +305,18 @@ const currentTier = groupedChapters.find((g) =>
       <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
     </div>
   </div>
+
+  <!-- ═══════════════ Section Nav Mobile (outside #reader-app, fixed positioned) ═══════════════ -->
+  <SectionNavMobile sections={sections} groupedChapters={groupedChapters} currentSlug={currentSlug} />
+
+  <!-- ═══════════════ Review Drawer (outside #reader-app, fixed positioned) ═══════════════ -->
+  <ReviewDrawer
+    chapterId={currentSlug}
+    reviews={reviews}
+    stats={reviewStats}
+    isLoggedIn={isLoggedIn}
+    currentUserId={currentUserId}
+  />
 
   <!-- ═══════════════ File Preview Modal ═══════════════ -->
   <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">

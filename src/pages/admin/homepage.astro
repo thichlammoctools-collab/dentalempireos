@@ -30,8 +30,31 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
           <input type="text" id="f-badge_text" value={settings.badge_text}
             class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
         </div>
-        <div>
+        <div class="md:col-span-2">
           <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Hero Image URL</label>
+          
+          <!-- Upload area -->
+          <div class="mb-3 p-4 border-2 border-dashed border-outline-variant rounded-lg hover:border-primary transition-colors cursor-pointer" id="hero-upload-area">
+            <input
+              type="file"
+              id="hero-file-input"
+              accept="image/*"
+              class="hidden"
+            />
+            <div class="flex flex-col items-center justify-center text-center">
+              <span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-2">cloud_upload</span>
+              <p class="text-sm text-on-surface-variant font-medium">Kéo thả hoặc click để upload</p>
+              <p class="text-xs text-on-surface-variant mt-1">PNG, JPG, WebP, SVG (tối đa 10MB)</p>
+            </div>
+            <div id="hero-upload-progress" class="hidden mt-3">
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                <div id="hero-progress-bar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <p id="hero-upload-status" class="text-xs text-on-surface-variant mt-2">Đang upload...</p>
+            </div>
+          </div>
+
+          <!-- URL input and preview -->
           <div class="flex items-center gap-2">
             <input type="text" id="f-hero_image_url" value={settings.hero_image_url}
               class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
@@ -39,6 +62,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
               <img id="hero-img-preview" src={settings.hero_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
             </div>
           </div>
+          <p class="text-xs text-on-surface-variant mt-1.5">Hoặc nhập đường dẫn URL trực tiếp.</p>
         </div>
         <div>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Title Line 1</label>
@@ -228,6 +252,29 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
         </div>
         <div class="md:col-span-2 lg:col-span-3">
           <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Founder Image URL</label>
+          
+          <!-- Upload area -->
+          <div class="mb-3 p-4 border-2 border-dashed border-outline-variant rounded-lg hover:border-primary transition-colors cursor-pointer" id="founder-upload-area">
+            <input
+              type="file"
+              id="founder-file-input"
+              accept="image/*"
+              class="hidden"
+            />
+            <div class="flex flex-col items-center justify-center text-center">
+              <span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-2">cloud_upload</span>
+              <p class="text-sm text-on-surface-variant font-medium">Kéo thả hoặc click để upload</p>
+              <p class="text-xs text-on-surface-variant mt-1">PNG, JPG, WebP, SVG (tối đa 10MB)</p>
+            </div>
+            <div id="founder-upload-progress" class="hidden mt-3">
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                <div id="founder-progress-bar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <p id="founder-upload-status" class="text-xs text-on-surface-variant mt-2">Đang upload...</p>
+            </div>
+          </div>
+
+          <!-- URL input and preview -->
           <div class="flex items-center gap-2">
             <input type="text" id="f-founder_image_url" value={settings.founder_image_url}
               class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
@@ -235,6 +282,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
               <img id="founder-img-preview" src={settings.founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
             </div>
           </div>
+          <p class="text-xs text-on-surface-variant mt-1.5">Hoặc nhập đường dẫn URL trực tiếp.</p>
         </div>
       </div>
     </div>
@@ -515,6 +563,22 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
   const form = document.getElementById('homepage-form') as HTMLFormElement;
   const saveStatus = document.getElementById('save-status')!;
 
+  // Hero image upload handlers
+  const heroUploadArea = document.getElementById('hero-upload-area')!;
+  const heroFileInput = document.getElementById('hero-file-input') as HTMLInputElement;
+  const heroUrlField = document.getElementById('f-hero_image_url') as HTMLInputElement;
+  const heroProgressContainer = document.getElementById('hero-upload-progress')!;
+  const heroProgressBar = document.getElementById('hero-progress-bar')!;
+  const heroUploadStatus = document.getElementById('hero-upload-status')!;
+
+  // Founder image upload handlers
+  const founderUploadArea = document.getElementById('founder-upload-area')!;
+  const founderFileInput = document.getElementById('founder-file-input') as HTMLInputElement;
+  const founderUrlField = document.getElementById('f-founder_image_url') as HTMLInputElement;
+  const founderProgressContainer = document.getElementById('founder-upload-progress')!;
+  const founderProgressBar = document.getElementById('founder-progress-bar')!;
+  const founderUploadStatus = document.getElementById('founder-upload-status')!;
+
   // Image preview on URL change
   const previewMap: Record<string, string> = {
     'f-hero_image_url': 'hero-img-preview',
@@ -530,6 +594,178 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
         preview.src = input.value;
         preview.style.display = '';
       });
+    }
+  }
+
+  // Hero image upload handlers
+  heroUploadArea.addEventListener('click', () => heroFileInput.click());
+
+  heroUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    heroUploadArea.classList.add('border-primary', 'bg-primary/5');
+  });
+
+  heroUploadArea.addEventListener('dragleave', () => {
+    heroUploadArea.classList.remove('border-primary', 'bg-primary/5');
+  });
+
+  heroUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    heroUploadArea.classList.remove('border-primary', 'bg-primary/5');
+    
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      heroFileInput.files = files;
+      handleHeroImageUpload(files[0]);
+    }
+  });
+
+  heroFileInput.addEventListener('change', () => {
+    if (heroFileInput.files && heroFileInput.files.length > 0) {
+      handleHeroImageUpload(heroFileInput.files[0]);
+    }
+  });
+
+  // Founder image upload handlers
+  founderUploadArea.addEventListener('click', () => founderFileInput.click());
+
+  founderUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    founderUploadArea.classList.add('border-primary', 'bg-primary/5');
+  });
+
+  founderUploadArea.addEventListener('dragleave', () => {
+    founderUploadArea.classList.remove('border-primary', 'bg-primary/5');
+  });
+
+  founderUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    founderUploadArea.classList.remove('border-primary', 'bg-primary/5');
+    
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      founderFileInput.files = files;
+      handleFounderImageUpload(files[0]);
+    }
+  });
+
+  founderFileInput.addEventListener('change', () => {
+    if (founderFileInput.files && founderFileInput.files.length > 0) {
+      handleFounderImageUpload(founderFileInput.files[0]);
+    }
+  });
+
+  async function handleHeroImageUpload(file: File) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File quá lớn (tối đa 10MB)');
+      return;
+    }
+
+    // Show progress
+    heroProgressContainer.classList.remove('hidden');
+    heroProgressBar.style.width = '0%';
+    heroUploadStatus.textContent = 'Đang upload...';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('purpose', 'homepage');
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+
+      const data = await res.json() as { r2_key: string };
+      
+      // Update URL field with the R2 key
+      const mediaUrl = `/media/${data.r2_key}`;
+      heroUrlField.value = mediaUrl;
+
+      // Update preview
+      const preview = document.getElementById('hero-img-preview') as HTMLImageElement;
+      if (preview) {
+        preview.src = mediaUrl;
+        preview.style.display = '';
+      }
+
+      heroProgressBar.style.width = '100%';
+      heroUploadStatus.textContent = '✓ Upload thành công';
+      
+      setTimeout(() => {
+        heroProgressContainer.classList.add('hidden');
+      }, 2000);
+    } catch (err) {
+      heroProgressContainer.classList.add('hidden');
+      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  async function handleFounderImageUpload(file: File) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File quá lớn (tối đa 10MB)');
+      return;
+    }
+
+    // Show progress
+    founderProgressContainer.classList.remove('hidden');
+    founderProgressBar.style.width = '0%';
+    founderUploadStatus.textContent = 'Đang upload...';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('purpose', 'homepage');
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+
+      const data = await res.json() as { r2_key: string };
+      
+      // Update URL field with the R2 key
+      const mediaUrl = `/media/${data.r2_key}`;
+      founderUrlField.value = mediaUrl;
+
+      // Update preview
+      const preview = document.getElementById('founder-img-preview') as HTMLImageElement;
+      if (preview) {
+        preview.src = mediaUrl;
+        preview.style.display = '';
+      }
+
+      founderProgressBar.style.width = '100%';
+      founderUploadStatus.textContent = '✓ Upload thành công';
+      
+      setTimeout(() => {
+        founderProgressContainer.classList.add('hidden');
+      }, 2000);
+    } catch (err) {
+      founderProgressContainer.classList.add('hidden');
+      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   }
 

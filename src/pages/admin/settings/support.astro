@@ -69,9 +69,32 @@ const settings = await getSupportSettings(env.DB);
 
         <!-- QR URL -->
         <div>
-          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5" for="field-qr_url">
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">
             URL ảnh QR Code
           </label>
+          
+          <!-- Upload area -->
+          <div class="mb-3 p-4 border-2 border-dashed border-outline-variant rounded-lg hover:border-primary transition-colors cursor-pointer" id="qr-upload-area">
+            <input
+              type="file"
+              id="qr-file-input"
+              accept="image/*"
+              class="hidden"
+            />
+            <div class="flex flex-col items-center justify-center text-center">
+              <span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-2">cloud_upload</span>
+              <p class="text-sm text-on-surface-variant font-medium">Kéo thả hoặc click để upload</p>
+              <p class="text-xs text-on-surface-variant mt-1">PNG, JPG, WebP, SVG (tối đa 10MB)</p>
+            </div>
+            <div id="qr-upload-progress" class="hidden mt-3">
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                <div id="qr-progress-bar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <p id="qr-upload-status" class="text-xs text-on-surface-variant mt-2">Đang upload...</p>
+            </div>
+          </div>
+
+          <!-- URL input and preview -->
           <div class="flex items-center gap-3">
             <input
               type="text"
@@ -86,7 +109,7 @@ const settings = await getSupportSettings(env.DB);
               </div>
             )}
           </div>
-          <p class="text-xs text-on-surface-variant mt-1.5">Upload ảnh QR mới qua trang E-books editor hoặc qua R2 bucket.</p>
+          <p class="text-xs text-on-surface-variant mt-1.5">Hoặc nhập đường dẫn URL trực tiếp.</p>
         </div>
 
         <!-- Payment Methods -->
@@ -125,6 +148,14 @@ const settings = await getSupportSettings(env.DB);
   const enabledCheckbox = document.getElementById('field-enabled') as HTMLInputElement;
   const contentFields = document.getElementById('content-fields')!;
   const saveStatus = document.getElementById('save-status')!;
+  
+  // QR upload handlers
+  const uploadArea = document.getElementById('qr-upload-area')!;
+  const fileInput = document.getElementById('qr-file-input') as HTMLInputElement;
+  const qrUrlField = document.getElementById('field-qr_url') as HTMLInputElement;
+  const progressContainer = document.getElementById('qr-upload-progress')!;
+  const progressBar = document.getElementById('qr-progress-bar')!;
+  const uploadStatus = document.getElementById('qr-upload-status')!;
 
   // Toggle content fields based on enabled state
   function updateContentFields() {
@@ -136,6 +167,86 @@ const settings = await getSupportSettings(env.DB);
   }
   enabledCheckbox.addEventListener('change', updateContentFields);
   updateContentFields();
+
+  // File upload handlers
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('border-primary', 'bg-primary/5');
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('border-primary', 'bg-primary/5');
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('border-primary', 'bg-primary/5');
+    
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      fileInput.files = files;
+      handleFileUpload(files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files.length > 0) {
+      handleFileUpload(fileInput.files[0]);
+    }
+  });
+
+  async function handleFileUpload(file: File) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File quá lớn (tối đa 10MB)');
+      return;
+    }
+
+    // Show progress
+    progressContainer.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    uploadStatus.textContent = 'Đang upload...';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('purpose', 'support');
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+
+      const data = await res.json() as { r2_key: string };
+      
+      // Update URL field with the R2 key
+      // R2 paths are served from https://media.dentalempireos.com/
+      const mediaUrl = `/media/${data.r2_key}`;
+      qrUrlField.value = mediaUrl;
+
+      progressBar.style.width = '100%';
+      uploadStatus.textContent = '✓ Upload thành công';
+      
+      setTimeout(() => {
+        progressContainer.classList.add('hidden');
+      }, 2000);
+    } catch (err) {
+      progressContainer.classList.add('hidden');
+      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -151,7 +262,7 @@ const settings = await getSupportSettings(env.DB);
           enabled: enabledCheckbox.checked ? 1 : 0,
           title: (document.getElementById('field-title') as HTMLInputElement).value,
           message: (document.getElementById('field-message') as HTMLTextAreaElement).value,
-          qr_url: (document.getElementById('field-qr_url') as HTMLInputElement).value,
+          qr_url: qrUrlField.value,
           payment_methods: (document.getElementById('field-payment_methods') as HTMLInputElement).value,
         }),
       });
