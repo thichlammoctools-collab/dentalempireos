@@ -26,9 +26,11 @@ interface AttachmentItem {
 interface Props {
   sections: SectionItem[];
   attachments?: AttachmentItem[];
+  chapterId?: string;
+  chapterTitle?: string;
 }
 
-const { sections, attachments = [] } = Astro.props;
+const { sections, attachments = [], chapterId = '', chapterTitle = '' } = Astro.props;
 const h2Count = sections.filter((s) => s.level === 2).length;
 const attachmentCount = attachments.length;
 
@@ -43,7 +45,7 @@ const numberedSections = sections.map((section) => {
 <!-- ============ DESKTOP: Sticky right sidebar ============ -->
 <aside
   id="section-nav-desktop"
-  class="section-nav-desktop hidden lg:flex flex-col sticky top-24 self-start w-64 shrink-0 max-h-[calc(100vh-8rem)] overflow-y-auto border-l border-white/[0.06] bg-surface-container-low/30"
+  class="section-nav-desktop hidden lg:flex flex-col sticky top-24 self-start w-80 shrink-0 max-h-[calc(100vh-8rem)] overflow-y-auto border-l border-white/[0.06] bg-surface-container-low/30"
 >
   <div class="px-4 py-4 border-b border-white/[0.06]">
     <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-2">
@@ -66,12 +68,69 @@ const numberedSections = sections.map((section) => {
     </div>
   ) : null}
 
+  <div class="px-4 py-3">
+    <button
+      id="desktop-ask-author-btn"
+      class="w-full flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-[12px] font-semibold transition-all"
+      style="background: rgba(146,204,255,0.08); color: var(--color-primary); border: 1px solid rgba(146,204,255,0.2);"
+    >
+      <span class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm">support_agent</span>
+        Hỏi Tác Giả
+      </span>
+      <span class="material-symbols-outlined text-sm">chevron_right</span>
+    </button>
+  </div>
+
+  <!-- Desktop Ask Author Inline Form -->
+  <div id="desktop-ask-panel" class="hidden px-4 pb-3">
+    <div id="desktop-ask-logged-out" class="hidden text-center py-4">
+      <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">lock</span>
+      <p class="text-[11px] mb-3" style="color: var(--color-on-surface-variant);">Đăng nhập để đặt câu hỏi</p>
+      <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
+        <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
+      </a>
+    </div>
+    <form id="desktop-ask-form" class="flex flex-col gap-2">
+      <input type="hidden" name="chapter_id" value={chapterId} />
+      <input
+        type="text"
+        name="title"
+        placeholder="Tiêu đề câu hỏi..."
+        class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs outline-none focus:border-primary"
+        style="color: var(--color-on-surface);"
+        required
+        maxlength="200"
+      />
+      <textarea
+        name="body"
+        rows={3}
+        placeholder="Chi tiết câu hỏi..."
+        class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs outline-none focus:border-primary resize-none"
+        style="color: var(--color-on-surface);"
+        required
+      ></textarea>
+      <button
+        type="submit"
+        id="desktop-ask-submit"
+        class="w-full py-2 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
+      >
+        <span class="material-symbols-outlined text-base">send</span>
+        Gửi câu hỏi
+      </button>
+    </form>
+    <div id="desktop-ask-success" class="hidden text-center py-4">
+      <span class="material-symbols-outlined text-primary text-3xl mb-2 block">check_circle</span>
+      <p class="text-xs font-bold" style="color: var(--color-on-surface);">Đã gửi!</p>
+    </div>
+  </div>
+
   <nav class="flex-1 overflow-y-auto py-2 px-2">
     {numberedSections.map((section) => (
       <a
         href={`#${section.slug}`}
         class:list={[
-          'section-nav-link group flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-all duration-200',
+          'section-nav-link group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200',
           section.isH3 ? 'pl-8 text-on-surface-variant/70' : 'font-medium text-on-surface-variant',
         ]}
         data-section-link={section.slug}
@@ -202,6 +261,83 @@ const numberedSections = sections.map((section) => {
             history.replaceState(null, '', hash);
           }
         });
+      });
+
+      // ---- Ask Author (desktop inline) ----
+      const askBtn = document.getElementById('desktop-ask-author-btn');
+      const askPanel = document.getElementById('desktop-ask-panel');
+      const loggedOut = document.getElementById('desktop-ask-logged-out');
+      const askForm = document.getElementById('desktop-ask-form') as HTMLFormElement;
+      const submitBtn = document.getElementById('desktop-ask-submit') as HTMLButtonElement;
+      const success = document.getElementById('desktop-ask-success');
+
+      let panelOpen = false;
+
+      async function checkAuth() {
+        if (!loggedOut || !askForm) return;
+        try {
+          const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+          if (res.ok) {
+            loggedOut.classList.add('hidden');
+            askForm.classList.remove('hidden');
+          } else {
+            loggedOut.classList.remove('hidden');
+            askForm.classList.add('hidden');
+          }
+        } catch {
+          loggedOut.classList.remove('hidden');
+          askForm.classList.add('hidden');
+        }
+      }
+
+      askBtn?.addEventListener('click', async () => {
+        panelOpen = !panelOpen;
+        if (panelOpen) {
+          if (askPanel) askPanel.classList.remove('hidden');
+          await checkAuth();
+        } else {
+          if (askPanel) askPanel.classList.add('hidden');
+        }
+      });
+
+      askForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(askForm);
+        const title = (formData.get('title') as string)?.trim();
+        const body = (formData.get('body') as string)?.trim();
+        if (!title || !body) return;
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
+        }
+
+        try {
+          const res = await fetch('/api/questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ chapter_id: chapterId, title, body }),
+          });
+
+          if (!res.ok) {
+            alert('Có lỗi xảy ra, vui lòng thử lại.');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+            return;
+          }
+
+          askForm.classList.add('hidden');
+          success?.classList.remove('hidden');
+          setTimeout(() => {
+            askForm.reset();
+            askForm.classList.remove('hidden');
+            success?.classList.add('hidden');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+          }, 2500);
+        } catch {
+          alert('Lỗi kết nối. Vui lòng thử lại.');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+        }
       });
     }
 

@@ -188,35 +188,47 @@ const currentChapterTitle = groupedChapters
 
   <!-- Scrollable content: Chapter navigation -->
   <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-1 section-nav-panel hidden" id="section-nav-panel-chapters" data-panel="chapters">
-    {groupedChapters.map((group) => (
-      <div>
-        <div class="flex items-center gap-2 px-3 py-2">
-          <span class="material-symbols-outlined text-primary text-[16px]">folder</span>
-          <span class="text-xs font-bold" style="color: var(--color-on-surface-variant);">{group.label}</span>
-          <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">{group.chapters.length}</span>
+    {groupedChapters.map((group) => {
+      const hasCurrent = group.chapters.some((ch) => ch.id === currentSlug);
+      return (
+        <div class="mobile-toc-group" data-tier={group.tier} data-current-tier={hasCurrent ? 'true' : 'false'}>
+          <button
+            class="mobile-toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-xl text-left transition-all border border-transparent"
+            style="background: var(--color-surface-container-high);"
+            data-mobile-toc-toggle
+          >
+            <span class="material-symbols-outlined text-primary text-[16px] mobile-toc-group-icon transition-transform duration-200">folder_open</span>
+            <span class="text-xs font-bold flex-1 truncate" style="color: var(--color-on-surface-variant);">{group.label}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-surface-container-low); color: var(--color-on-surface-variant);">{group.chapters.length}</span>
+            <span class="material-symbols-outlined text-[16px] transition-transform duration-200" style="color: var(--color-on-surface-variant);">expand_more</span>
+          </button>
+          <div class="mobile-toc-group-chapters overflow-hidden transition-all duration-300">
+            {group.chapters.map((ch) => {
+              const isCurrent = ch.id === currentSlug;
+              return (
+                <a
+                  href={`/book/${ch.id}`}
+                  class:list={[
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
+                    isCurrent ? 'border-primary' : 'border-transparent',
+                  ]}
+                  style={isCurrent
+                    ? 'background: rgba(146,204,255,0.1); color: var(--color-primary); box-shadow: inset 0 0 0 1px rgba(146,204,255,0.15);'
+                    : 'color: var(--color-on-surface-variant);'}
+                  data-section-nav-chapter-link
+                >
+                  <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                  <span class="truncate text-xs font-medium">{ch.data.title}</span>
+                  {isCurrent && (
+                    <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
+                  )}
+                </a>
+              );
+            })}
+          </div>
         </div>
-        {group.chapters.map((ch) => {
-          const isCurrent = ch.id === currentSlug;
-          return (
-            <a
-              href={`/book/${ch.id}`}
-              class:list={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
-                isCurrent ? 'toc-item-active border-primary bg-primary/10' : 'border-transparent',
-              ]}
-              style={isCurrent ? '' : 'color: var(--color-on-surface-variant);'}
-              data-section-nav-chapter-link
-            >
-              <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
-              <span class="truncate text-xs">{ch.data.title}</span>
-              {isCurrent && (
-                <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
-              )}
-            </a>
-          );
-        })}
-      </div>
-    ))}
+      );
+    })}
   </nav>
 
   <nav class="flex-1 overflow-y-auto px-3 py-3 section-nav-panel hidden" id="section-nav-panel-attachments" data-panel="attachments">
@@ -241,6 +253,70 @@ const currentChapterTitle = groupedChapters
       </div>
     )}
   </nav>
+
+  <!-- Scrollable content: Ask Author -->
+  <div class="flex-1 overflow-y-auto px-4 py-4 section-nav-panel hidden" id="section-nav-panel-question" data-panel="question">
+    <div class="mb-4">
+      <h4 class="text-sm font-bold flex items-center gap-2 mb-1" style="color: var(--color-on-surface);">
+        <span class="material-symbols-outlined text-primary text-base">support_agent</span>
+        Hỏi Tác Giả
+      </h4>
+      <p class="text-[11px]" style="color: var(--color-on-surface-variant);">{chapterTitle}</p>
+    </div>
+
+    <div id="section-nav-ask-form-container">
+      <div id="section-nav-ask-logged-out" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-4xl block mb-3 opacity-30" style="color: var(--color-on-surface-variant);">lock</span>
+        <p class="text-xs mb-3" style="color: var(--color-on-surface-variant);">Đăng nhập để đặt câu hỏi cho tác giả</p>
+        <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
+          <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
+        </a>
+      </div>
+
+      <form id="section-nav-ask-form" class="flex flex-col gap-3">
+        <input type="hidden" name="chapter_id" value={chapterId} />
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Tiêu đề</label>
+          <input
+            type="text"
+            name="title"
+            placeholder="Tóm tắt câu hỏi..."
+            class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary"
+            style="color: var(--color-on-surface);"
+            required
+            maxlength="200"
+          />
+        </div>
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--color-on-surface-variant);">Chi tiết</label>
+          <textarea
+            name="body"
+            rows={4}
+            placeholder="Mô tả chi tiết câu hỏi..."
+            class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
+            style="color: var(--color-on-surface);"
+            required
+          ></textarea>
+        </div>
+        <button
+          type="submit"
+          id="section-nav-ask-submit"
+          class="w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+        >
+          <span class="material-symbols-outlined text-base">send</span>
+          Gửi câu hỏi
+        </button>
+        <p id="section-nav-ask-hint" class="text-[10px] text-center" style="color: var(--color-on-surface-variant);">Tác giả sẽ nhận thông báo và trả lời sớm nhất có thể.</p>
+      </form>
+
+      <!-- Success -->
+      <div id="section-nav-ask-success" class="hidden text-center py-6">
+        <span class="material-symbols-outlined text-primary text-4xl mb-3 block">check_circle</span>
+        <p class="text-xs font-bold mb-1" style="color: var(--color-on-surface);">Câu hỏi đã được gửi!</p>
+        <p class="text-[11px]" style="color: var(--color-on-surface-variant);">Tác giả sẽ trả lời trong thời gian sớm nhất.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <div class="px-5 py-3 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
@@ -267,6 +343,18 @@ const currentChapterTitle = groupedChapters
     color: var(--color-primary) !important;
   }
 
+  /* Mobile TOC group collapse */
+  .mobile-toc-group[data-collapsed="true"] .mobile-toc-group-chapters {
+    max-height: 0 !important;
+    opacity: 0;
+  }
+  .mobile-toc-group[data-collapsed="true"] .mobile-toc-group-header .material-symbols-outlined:last-child {
+    transform: rotate(-90deg);
+  }
+  .mobile-toc-group[data-collapsed="true"] .mobile-toc-group-icon {
+    transform: rotate(-15deg);
+  }
+
   /* Focus mode: hide floating triggers */
   body.focus-mode #section-nav-trigger,
   body.focus-mode #review-trigger {
@@ -286,6 +374,13 @@ const currentChapterTitle = groupedChapters
   }
 </style>
 
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>
+
 <script>
   (function () {
     const READER_OFFSET = 80;
@@ -301,6 +396,48 @@ const currentChapterTitle = groupedChapters
       const closeBtn = document.getElementById('section-nav-close');
       const mobileLinks = document.querySelectorAll('[data-mobile-section-link]');
       const mobileProgressBar = document.getElementById('section-nav-progress-mobile');
+
+      // Mobile TOC collapsible groups
+      const MOBILE_TOC_KEY = 'mobile-toc-collapsed';
+      function getMobileCollapsed(): Set<number> {
+        try {
+          const raw = localStorage.getItem(MOBILE_TOC_KEY);
+          if (!raw) return new Set();
+          return new Set(JSON.parse(raw) as number[]);
+        } catch { return new Set(); }
+      }
+      function saveMobileCollapsed(set: Set<number>) {
+        try { localStorage.setItem(MOBILE_TOC_KEY, JSON.stringify([...set])); } catch {}
+      }
+      function applyMobileCollapsed() {
+        const collapsed = getMobileCollapsed();
+        document.querySelectorAll<HTMLElement>('.mobile-toc-group').forEach((g) => {
+          const tier = Number(g.dataset.tier);
+          const isCollapsed = collapsed.has(tier);
+          g.dataset.collapsed = isCollapsed ? 'true' : 'false';
+          const header = g.querySelector<HTMLElement>('[data-mobile-toc-toggle]');
+          if (header) {
+            header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+            const chevron = header.querySelector('.material-symbols-outlined:last-child');
+            if (chevron) chevron.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
+          }
+        });
+      }
+      function toggleMobileGroup(tier: number) {
+        const collapsed = getMobileCollapsed();
+        if (collapsed.has(tier)) collapsed.delete(tier);
+        else collapsed.add(tier);
+        saveMobileCollapsed(collapsed);
+        applyMobileCollapsed();
+      }
+      applyMobileCollapsed();
+      document.querySelectorAll<HTMLElement>('[data-mobile-toc-toggle]').forEach((btn) => {
+        const group = btn.closest<HTMLElement>('.mobile-toc-group');
+        const tier = group ? Number(group.dataset.tier) : NaN;
+        btn.addEventListener('click', () => {
+          if (!isNaN(tier)) toggleMobileGroup(tier);
+        });
+      });
 
       if (!trigger || !sheetEl) return;
       const sheet = sheetEl;
@@ -394,7 +531,78 @@ const currentChapterTitle = groupedChapters
               panel.classList.add('hidden');
             }
           });
+
+          // Check auth when switching to question tab
+          if (target === 'question') {
+            checkQuestionAuth();
+          }
         });
+      });
+
+      // ---- Question form auth check ----
+      async function checkQuestionAuth() {
+        const loggedOut = document.getElementById('section-nav-ask-logged-out');
+        const form = document.getElementById('section-nav-ask-form');
+        if (!loggedOut || !form) return;
+
+        try {
+          const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+          if (res.ok) {
+            loggedOut.classList.add('hidden');
+            form.classList.remove('hidden');
+          } else {
+            loggedOut.classList.remove('hidden');
+            form.classList.add('hidden');
+          }
+        } catch {
+          loggedOut.classList.remove('hidden');
+          form.classList.add('hidden');
+        }
+      }
+
+      // ---- Question form submission ----
+      const questionForm = document.getElementById('section-nav-ask-form') as HTMLFormElement;
+      questionForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(questionForm);
+        const title = (formData.get('title') as string)?.trim();
+        const body = (formData.get('body') as string)?.trim();
+        if (!title || !body) return;
+
+        const submitBtn = document.getElementById('section-nav-ask-submit') as HTMLButtonElement;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
+        }
+
+        try {
+          const res = await fetch('/api/questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ chapter_id: chapterId, title, body }),
+          });
+
+          if (!res.ok) {
+            alert('Có lỗi xảy ra, vui lòng thử lại.');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+            return;
+          }
+
+          questionForm.classList.add('hidden');
+          document.getElementById('section-nav-ask-success')?.classList.remove('hidden');
+          document.getElementById('section-nav-ask-hint')?.classList.add('hidden');
+          setTimeout(() => {
+            questionForm.reset();
+            questionForm.classList.remove('hidden');
+            document.getElementById('section-nav-ask-success')?.classList.add('hidden');
+            document.getElementById('section-nav-ask-hint')?.classList.remove('hidden');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+          }, 2500);
+        } catch {
+          alert('Lỗi kết nối. Vui lòng thử lại.');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+        }
       });
 
       // Close on mobile section link click + smooth scroll

@@ -365,30 +365,22 @@ import { resourceCategories } from '../../../data/resources';
   async function loadResources() {
     try {
       const res = await fetch('/api/admin/resources', { credentials: 'include' });
-      console.log('[DEBUG loadResources] status:', res.status, 'url:', res.url);
       if (!res.ok) {
         const err = await res.text();
         statsEl.textContent = `Lỗi: ${res.status} ${err}`;
-        console.error('[resources] load failed', res.status, err);
         return;
       }
-      const data = await res.json();
-      console.log('[DEBUG loadResources] data:', JSON.stringify(data));
-      console.log('[DEBUG loadResources] isArray:', Array.isArray(data), 'length:', data?.length);
-      allResources = Array.isArray(data) ? data : [];
+      allResources = await res.json();
       render();
     } catch (err) {
       statsEl.textContent = `Lỗi kết nối: ${err}`;
-      console.error('[resources] load error', err);
     }
   }
 
   function render() {
-    console.log('[DEBUG render] called, allResources:', JSON.stringify(allResources));
     const visible = allResources.filter(
       (r) => activeFilter === 'all' || r.category === activeFilter
     );
-    console.log('[DEBUG render] visible count:', visible.length, 'activeFilter:', activeFilter);
 
     // Stats
     const total = allResources.length;

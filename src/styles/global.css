@@ -503,24 +503,6 @@ body.focus-mode .reader-main {
   max-width: 800px !important;
   margin: 0 auto;
 }
-/* Mobile: focus mode hides mobile controls except the focus toggle */
-@media (max-width: 1023px) {
-  body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn),
-  body.focus-mode #section-nav-trigger {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-  }
-  body.focus-mode #mobile-focus-btn {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  body.focus-mode:hover .mobile-bottom-bar button:not(#mobile-focus-btn),
-  body.focus-mode:hover #section-nav-trigger {
-    opacity: 0;
-    pointer-events: none;
-  }
-}
 
 /* Pipeline line gradient */
 .pipeline-line {
@@ -631,25 +613,129 @@ h2[id], h3[id], h4[id] {
 }
 
 /* Attachment summary cards */
-.attachment-summary a {
-  display: block;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 1.2rem;
-  background: rgba(255,255,255,0.03);
-  transition: transform 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+/* Attachment list */
+.att-list-section {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: rgba(255,255,255,0.025);
 }
-.attachment-summary a:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.35);
-  background: rgba(56, 189, 248, 0.06);
+.att-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
 }
-.attachment-summary a p:first-child {
-  color: #fff;
+.att-list-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255,255,255,0.45);
 }
-.attachment-summary a p:last-child {
-  color: rgba(255,255,255,0.75);
+.att-list-counts {
+  display: flex;
+  gap: 0.4rem;
 }
+.att-count-chip {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(56,189,248,0.12);
+  color: rgba(56,189,248,0.85);
+}
+.att-count-chip--file {
+  background: rgba(168,85,247,0.12);
+  color: rgba(168,85,247,0.85);
+}
+.att-list {
+  display: flex;
+  flex-direction: column;
+}
+.att-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.att-list-item:last-child { border-bottom: none; }
+.att-list-item:hover { background: rgba(56,189,248,0.06); }
+.att-list-num {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.2);
+  min-width: 1rem;
+  text-align: center;
+}
+.att-list-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.att-list-icon--img { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
+.att-list-icon--file { background: rgba(168,85,247,0.12); color: rgba(168,85,247,0.8); }
+.att-list-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.att-list-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.att-list-meta {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.att-list-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.att-badge--img { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
+.att-badge--pdf { background: rgba(239,68,68,0.12); color: rgba(239,68,68,0.8); }
+.att-badge--doc, .att-badge--docx { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
+.att-badge--xls, .att-badge--xlsx { background: rgba(74,222,128,0.12); color: rgba(74,222,128,0.8); }
+.att-badge--ppt, .att-badge--pptx { background: rgba(251,191,36,0.12); color: rgba(251,191,36,0.8); }
+.att-badge--file { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); }
+.att-list-action {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(56,189,248,0.6);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.att-list-item:hover .att-list-action { opacity: 1; }
 .attachment-anchor {
   scroll-margin-top: 7rem;
 }

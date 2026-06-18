@@ -179,6 +179,7 @@ const badge = statusBadge(question.status);
         const res = await fetch(`/api/admin/questions/${questionId}/reply`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ body }),
         });
         if (!res.ok) {

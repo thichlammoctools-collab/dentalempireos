@@ -437,7 +437,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const blockId = item?.dataset.blockId;
       if (!blockId) return;
       if (!confirm('Xoá block này?')) return;
-      fetch(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }).then(() => {
+      fetch(`/api/admin/blocks/${blockId}`, { method: 'DELETE', credentials: 'include' }).then(() => {
         item?.remove();
         dirty = true;
         updateSaveStatus('Đã xoá');
@@ -458,6 +458,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           const res = await fetch('/api/admin/blocks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
               section_id: modalSectionId,
               type,
@@ -516,6 +517,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         fetch(`/api/admin/sections/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             chapter_id: chapterId,
             level: section?.level ?? 2,
@@ -532,7 +534,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         const sectionItem = target.closest<HTMLElement>('[data-section-item]');
         if (!sectionItem) return;
         if (!confirm('Xoá đề mục (kèm blocks bên trong)?')) return;
-        fetch(`/api/admin/sections/${sectionItem.dataset.sectionId!}`, { method: 'DELETE' })
+        fetch(`/api/admin/sections/${sectionItem.dataset.sectionId!}`, { method: 'DELETE', credentials: 'include' })
           .then(() => location.reload());
         return;
       }
@@ -548,6 +550,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         fetch('/api/admin/sections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             chapter_id: chapterId,
             parent_id: id,
