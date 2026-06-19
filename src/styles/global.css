@@ -230,7 +230,6 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     transform: translateZ(0);
-    contain: paint;
     will-change: transform;
   }
 
@@ -258,6 +257,21 @@
     box-shadow: 0 0 10px #0088cc;
     animation: pulse-dot 2s infinite;
   }
+
+  /* Reader chrome theme helpers — used to make toolbar/sidebar/status bar theme-aware */
+  .r-bg { background-color: var(--reader-chrome-bg); }
+  .r-surface { background-color: var(--reader-chrome-surface); }
+  .r-surface-high { background-color: var(--reader-chrome-surface-high); }
+  .r-text { color: var(--reader-chrome-text); }
+  .r-text-muted { color: var(--reader-chrome-text-muted); }
+  .r-border { border-color: var(--reader-border) !important; }
+  .r-border-top { border-top-color: var(--reader-border) !important; }
+  .r-border-bottom { border-bottom-color: var(--reader-border) !important; }
+  .r-border-left { border-left-color: var(--reader-border) !important; }
+  .r-border-right { border-right-color: var(--reader-border) !important; }
+  .r-hover:hover { background-color: var(--reader-chrome-surface); }
+  .r-hover-text:hover { color: var(--reader-chrome-text); }
+  .r-scrollbar::-webkit-scrollbar-thumb { background: var(--reader-scrollbar); }
 }
 
 @keyframes pulse-dot {
@@ -281,11 +295,23 @@ body {
   --reader-text: var(--color-on-surface);
   --reader-text-muted: var(--color-on-surface-variant);
   --reader-accent: var(--color-primary);
+  /* Reader chrome (toolbar, sidebar, status bar, drawers) */
+  --reader-chrome-bg: var(--color-surface-container-low);
+  --reader-chrome-surface: var(--color-surface-container);
+  --reader-chrome-surface-high: var(--color-surface-container-high);
+  --reader-chrome-text: var(--color-on-surface);
+  --reader-chrome-text-muted: var(--color-on-surface-variant);
+  --reader-border: rgba(255, 255, 255, 0.06);
+  --reader-border-hover: rgba(255, 255, 255, 0.2);
+  --reader-scrollbar: rgba(255, 255, 255, 0.08);
 }
 .reader-app {
   background-color: var(--reader-bg);
   color: var(--reader-text);
   transition: background-color 0.3s, color 0.3s;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
 }
 
 /* Scroll containment — prevent scroll chaining on reader pages.
@@ -297,20 +323,23 @@ html:has(.reader-app) body {
   overscroll-behavior: none !important;
 }
 
-/* Reader-app takes over the full viewport: fixed position covers Header/Footer/main padding.
-   Uses z-index 40 so it sits above Header but below overlays (z-50+). */
+/* Hide the site's main Header and Footer when reader is open
+   (reader-toolbar is inside BaseLayout body, outside reader-app) */
 html:has(.reader-app) body > header,
 html:has(.reader-app) body > footer {
   display: none !important;
 }
-.reader-app {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-}
 
 .reader-main {
   overscroll-behavior-y: contain;
+}
+
+/* Reader flex containers need min-height:0 so overflow-y-auto works inside flex layout */
+html:has(.reader-app) #reader-app {
+  min-height: 0;
+}
+html:has(.reader-app) #reader-app > * {
+  min-height: 0;
 }
 
 /* Light mode */
@@ -320,6 +349,15 @@ body.light-mode {
   --reader-text: #2d2d2d;
   --reader-text-muted: #5a5a5a;
   --reader-accent: #006497;
+  /* Reader chrome */
+  --reader-chrome-bg: #f0eee9;
+  --reader-chrome-surface: #e8e6e1;
+  --reader-chrome-surface-high: #dddad4;
+  --reader-chrome-text: #2d2d2d;
+  --reader-chrome-text-muted: #5a5a5a;
+  --reader-border: rgba(0, 0, 0, 0.08);
+  --reader-border-hover: rgba(0, 0, 0, 0.15);
+  --reader-scrollbar: rgba(0, 0, 0, 0.1);
 }
 
 /* Sepia mode */
@@ -329,51 +367,15 @@ body.sepia-mode {
   --reader-text: #433422;
   --reader-text-muted: #6b5a40;
   --reader-accent: #8b5e3c;
-}
-
-/* Focus mode — hide chrome */
-body.focus-mode .reader-toolbar,
-body.focus-mode .reader-status,
-body.focus-mode .toc-sidebar {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-}
-body.focus-mode:hover .reader-toolbar,
-body.focus-mode:hover .reader-status,
-body.focus-mode:hover .toc-sidebar {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Mobile: focus mode — hide bottom bar chrome, keep only focus btn */
-@media (max-width: 1023px) {
-  body.focus-mode .mobile-bottom-bar {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-  }
-  body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn),
-  body.focus-mode #section-nav-trigger,
-  body.focus-mode #review-trigger {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-  }
-  body.focus-mode #mobile-focus-btn {
-    opacity: 1;
-    pointer-events: auto;
-    background: rgba(30, 27, 34, 0.92);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    padding: 0.75rem;
-    z-index: 55;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  }
+  /* Reader chrome */
+  --reader-chrome-bg: #ede5d0;
+  --reader-chrome-surface: #e6ddc8;
+  --reader-chrome-surface-high: #ddd4bc;
+  --reader-chrome-text: #433422;
+  --reader-chrome-text-muted: #6b5a40;
+  --reader-border: rgba(67, 52, 34, 0.12);
+  --reader-border-hover: rgba(67, 52, 34, 0.22);
+  --reader-scrollbar: rgba(67, 52, 34, 0.15);
 }
 
 /* Mobile bottom bar padding + reader layout fixes */
@@ -452,6 +454,19 @@ body.focus-mode:hover .toc-sidebar {
 .reader-content h5,
 .reader-content h6 { font-size: 1em; margin: 0.8em 0 0.4em; }
 
+/* Section numbers: hierarchical 1, 1.1, 1.1.1 */
+.section-number {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-right: 0.5em;
+  min-width: 1.8em;
+  opacity: 0.7;
+}
+.reader-content h2 .section-number { font-size: 0.65em; }
+.reader-content h3 .section-number { font-size: 0.7em; }
+
 /* Lists: better spacing on mobile */
 .reader-content ul,
 .reader-content ol {
@@ -512,12 +527,6 @@ body.focus-mode:hover .toc-sidebar {
 }
 .animate-slide-right { animation: slideInRight 0.3s ease-out; }
 .animate-slide-left { animation: slideInLeft 0.3s ease-out; }
-
-/* Reader focus mode overrides */
-body.focus-mode .reader-main {
-  max-width: 800px !important;
-  margin: 0 auto;
-}
 
 /* Pipeline line gradient */
 .pipeline-line {
@@ -765,4 +774,59 @@ h2[id], h3[id], h4[id] {
 #file-preview-modal.hidden .file-preview-panel {
   transform: scale(0.95);
   opacity: 0;
+}
+
+/* ==========================================
+   SKELETON LOADING ANIMATION
+   ========================================== */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-bg {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-container) 25%,
+    var(--color-surface-container-high) 50%,
+    var(--color-surface-container) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Shimmer effect for loading states */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.05) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }

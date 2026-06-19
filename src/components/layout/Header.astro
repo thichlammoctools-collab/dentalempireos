@@ -4,6 +4,8 @@ import NotificationBell from './NotificationBell.astro';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/book', label: 'E-book Library' },
+  { href: '/videos', label: 'Videos' },
+  { href: '/blog', label: 'Blog' },
   { href: '/reviews', label: 'Reviews' },
   { href: '/resources', label: 'Resources' },
   { href: '/about', label: 'About' },
@@ -41,9 +43,9 @@ const currentPath = Astro.url.pathname;
       })}
     </div>
 
-    <!-- Right side -->
-    <div class="flex items-center gap-4">
-      <!-- Auth: logged-out state (hidden until session resolved) -->
+    <!-- Right side (desktop only) -->
+    <div class="hidden md:flex items-center gap-4">
+      <!-- Auth: logged-out state -->
       <div id="auth-logged-out" class="hidden items-center gap-2">
         <a
           href="/login"
@@ -59,7 +61,7 @@ const currentPath = Astro.url.pathname;
         </a>
       </div>
 
-      <!-- Auth: logged-in state (hidden until session resolved) -->
+      <!-- Auth: logged-in state -->
       <div id="auth-logged-in" class="hidden items-center gap-3">
         <NotificationBell />
         <a href="/my-questions" class="hidden lg:flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container transition-all">
@@ -75,81 +77,12 @@ const currentPath = Astro.url.pathname;
           Đăng xuất
         </button>
       </div>
-
-      <button
-        id="mobile-menu-toggle"
-        class="md:hidden btn-icon text-primary"
-        aria-label="Mở menu"
-      >
-        <span class="material-symbols-outlined text-[32px]">menu</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Mobile menu panel -->
-  <div id="mobile-menu" class="md:hidden hidden border-t border-outline-variant bg-surface-container-lowest">
-    <div class="px-6 py-4 space-y-2">
-      {navLinks.map((link) => {
-        const isActive = link.href === '/'
-          ? currentPath === '/'
-          : currentPath.startsWith(link.href);
-        return (
-          <a
-            href={link.href}
-            class:list={[
-              'block px-4 py-3 rounded-xl font-semibold transition-colors',
-              isActive
-                ? 'bg-primary/10 text-primary'
-                : 'text-on-surface-variant hover:text-primary hover:bg-surface-container',
-            ]}
-          >
-            {link.label}
-          </a>
-        );
-      })}
-      <a
-        href="/book"
-        class="flex items-center gap-2 px-4 py-3 btn-primary-metallic font-bold rounded-xl mt-4"
-      >
-        <span class="material-symbols-outlined text-[20px]">menu_book</span>
-        Read Free E-book
-      </a>
-
-      <!-- Mobile auth: logged-out -->
-      <div id="auth-mobile-logged-out" class="hidden flex-col gap-2 mt-2 pt-2 border-t border-outline-variant">
-        <a href="/login" class="block px-4 py-3 rounded-xl font-semibold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
-          Đăng nhập
-        </a>
-        <a href="/register" class="block px-4 py-3 rounded-xl font-semibold text-primary hover:bg-surface-container transition-colors">
-          Đăng ký
-        </a>
-      </div>
-
-      <!-- Mobile auth: logged-in -->
-      <div id="auth-mobile-logged-in" class="hidden flex-col gap-1 mt-2 pt-2 border-t border-outline-variant">
-        <span id="auth-mobile-email" class="block px-4 py-2 text-sm text-on-surface-variant truncate"></span>
-        <a href="/my-questions" class="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
-          <span class="material-symbols-outlined text-[20px]">question_answer</span>
-          Câu hỏi của tôi
-        </a>
-        <button id="auth-mobile-logout" class="flex items-center gap-2 w-full text-left px-4 py-3 rounded-xl font-semibold btn-icon text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
-          <span class="material-symbols-outlined text-[20px]">logout</span>
-          Đăng xuất
-        </button>
-      </div>
     </div>
   </div>
 </header>
 
 <script>
   import { getSession, signOut } from '../../lib/auth-client';
-
-  const toggle = document.getElementById('mobile-menu-toggle');
-  const menu = document.getElementById('mobile-menu');
-
-  toggle?.addEventListener('click', () => {
-    menu?.classList.toggle('hidden');
-  });
 
   async function initAuthState() {
     const { data } = await getSession();
@@ -164,24 +97,15 @@ const currentPath = Astro.url.pathname;
     };
 
     if (loggedIn) {
-      const email = data!.user.email;
       show('auth-logged-in', 'flex');
-      show('auth-mobile-logged-in', 'flex');
-      const desktopEmail = document.getElementById('auth-user-email');
-      const mobileEmail = document.getElementById('auth-mobile-email');
-      if (desktopEmail) desktopEmail.textContent = email;
-      if (mobileEmail) mobileEmail.textContent = email;
     } else {
       show('auth-logged-out', 'flex');
-      show('auth-mobile-logged-out', 'flex');
     }
 
-    const logout = async () => {
+    document.getElementById('auth-logout')?.addEventListener('click', async () => {
       await signOut();
       window.location.href = '/';
-    };
-    document.getElementById('auth-logout')?.addEventListener('click', logout);
-    document.getElementById('auth-mobile-logout')?.addEventListener('click', logout);
+    });
   }
 
   initAuthState();

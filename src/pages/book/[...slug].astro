@@ -8,9 +8,12 @@ import BookHeader from '../../components/book/BookHeader.astro';
 import ChapterNav from '../../components/book/ChapterNav.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
-import AskAuthorButton from '../../components/book/AskAuthorButton.astro';
+
 import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
 import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
+
+// Configure marked ONCE at module level (persists across requests within the same isolate)
+marked.use({ breaks: true });
 
 export const prerender = false;
 
@@ -18,17 +21,34 @@ const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/book');
 
 const db = env.DB;
-const tree = await getChapterTree(db, slug);
+
+// ── In-memory cache (per isolate, 60s TTL) ─────────────────────────────────────
+interface ChapterCacheEntry {
+  html: string;
+  attachments: ReturnType<typeof buildAttachments>;
+  sectionNavItems: ReturnType<typeof flattenSections>;
+  ch: Awaited<ReturnType<typeof getChapterTree>>['chapter'];
+  ts: number;
+}
+const _chapterCache = new Map<string, ChapterCacheEntry>();
+const _CHAPTER_TTL_MS = 60_000;
+
+const dbFetchStart = Date.now();
+
+// Fire ALL data fetches in parallel — no sequential dependencies
+const [tree, autoKeywords, allPublished, supportSettings] = await Promise.all([
+  getChapterTree(db, slug),
+  listAllSections(db),
+  listPublishedChapters(db),
+  getSupportSettings(db),
+]);
+
 if (!tree) {
   return new Response('Không tìm thấy chương', { status: 404 });
 }
 
-// Auto-keywords from all published section headings
-const autoKeywords = await listAllSections(db);
-
 const { chapter: ch, sections } = tree;
 
-const allPublished = await listPublishedChapters(db);
 const groupedByTier = [1, 2, 3].map((tier) => ({
   tier,
   label: getTierLabel(tier),
@@ -52,46 +72,45 @@ const modules = sections.map((s) => ({
   slug: s.slug,
 }));
 
-// Flatten section tree for SectionNav (h2 + h3)
-function flattenSections(nodes: SectionNode[]): { title: string; slug: string; level: number }[] {
-  const result: { title: string; slug: string; level: number }[] = [];
+// ── Helpers (move outside handler for cache reuse) ─────────────────────────────────
+function flattenSections(
+  nodes: SectionNode[],
+  prefix = '',
+): { title: string; slug: string; level: number; sectionNumber: string }[] {
+  const result: { title: string; slug: string; level: number; sectionNumber: string }[] = [];
+  let localIdx = 0;
   for (const node of nodes) {
-    result.push({ title: node.title, slug: node.slug, level: node.level });
+    localIdx++;
+    const sectionNumber = prefix ? `${prefix}.${localIdx}` : `${localIdx}`;
+    result.push({ title: node.title, slug: node.slug, level: node.level, sectionNumber });
     if (node.children.length > 0) {
-      result.push(...flattenSections(node.children));
+      result.push(...flattenSections(node.children, sectionNumber));
     }
   }
   return result;
 }
-const sectionNavItems = flattenSections(sections);
-
-marked.use({ breaks: true });
 
 interface AttachmentItem {
-  id: string;
-  type: 'image' | 'file';
-  title: string;
-  url: string;
-  caption?: string;
-  filename?: string;
-  mime?: string | null;
-  mimeLabel?: string;
-  sectionSlug: string;
-  sectionTitle: string;
-  ext?: string;
-  previewable: boolean;
+  id: string; type: 'image' | 'file'; title: string; url: string;
+  caption?: string; filename?: string; mime?: string | null; mimeLabel?: string;
+  sectionSlug: string; sectionTitle: string; ext?: string; previewable: boolean;
 }
 
-const attachments: AttachmentItem[] = [];
+function getFileMeta(mime: string | null): { icon: string; badge: string; iconBg: string; badgeClass: string; isPreviewable: boolean; mimeLabel: string } {
+  if (!mime) return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
+  if (mime.includes('pdf')) return { icon: 'picture_as_pdf', badge: 'PDF', iconBg: 'bg-error/15 text-error', badgeClass: 'bg-error/15 text-error', isPreviewable: true, mimeLabel: 'PDF Document' };
+  if (mime.includes('word') || mime.includes('document')) return { icon: 'article', badge: 'DOC', iconBg: 'bg-primary/15 text-primary', badgeClass: 'bg-primary/15 text-primary', isPreviewable: false, mimeLabel: 'Word Document' };
+  if (mime.includes('sheet') || mime.includes('excel')) return { icon: 'table_chart', badge: 'XLS', iconBg: 'bg-green-400/15 text-green-400', badgeClass: 'bg-green-400/15 text-green-400', isPreviewable: false, mimeLabel: 'Excel Spreadsheet' };
+  if (mime.includes('presentation') || mime.includes('powerpoint')) return { icon: 'slideshow', badge: 'PPT', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: false, mimeLabel: 'PowerPoint' };
+  if (mime.includes('image')) return { icon: 'image', badge: 'IMG', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: true, mimeLabel: 'Image' };
+  return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
+}
 
 function renderMarkdown(text: string): string {
   let html = marked.parse(text) as string;
-  // Rewrite <img> src: if it's an R2 key (no protocol), prepend /media/
-  // Also add onerror to hide broken images gracefully
   html = html.replace(
     /<img\b([^>]*)>/gi,
     (match, attrs: string) => {
-      // Fix src: bare keys like "book/xxx/file.jpg" → "/media/book/xxx/file.jpg"
       let fixed = attrs.replace(
         /\bsrc="([^"]*)"/i,
         (_: string, src: string) => {
@@ -100,7 +119,6 @@ function renderMarkdown(text: string): string {
           return `src="/media/${src}"`;
         }
       );
-      // Add onerror fallback
       if (!/onerror/i.test(fixed)) {
         fixed += ' onerror="this.style.display=\'none\'"';
       }
@@ -110,9 +128,9 @@ function renderMarkdown(text: string): string {
   return html;
 }
 
-function renderSection(s: SectionNode): string {
+function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNumber = ''): string {
   const tag = s.level === 2 ? 'h2' : 'h3';
-  let html = `<${tag} id="${s.slug}" class="section-heading">${s.title}</${tag}>`;
+  let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
   for (const block of s.blocks) {
     if (block.type === 'text' && block.text_md) {
@@ -120,42 +138,32 @@ function renderSection(s: SectionNode): string {
     } else if (block.type === 'image' && block.r2_key) {
       const imageUrl = `/media/${block.r2_key}`;
       attachments.push({
-        id: block.id,
-        type: 'image',
+        id: block.id, type: 'image',
         title: block.caption ?? `Hình ảnh trong ${s.title}`,
-        url: imageUrl,
-        caption: block.caption ?? undefined,
-        sectionSlug: s.slug,
-        sectionTitle: s.title,
-        previewable: true,
+        url: imageUrl, caption: block.caption ?? undefined,
+        sectionSlug: s.slug, sectionTitle: s.title, previewable: true,
       });
       html += `<div id="attachment-${block.id}" class="attachment-anchor"></div><figure class="my-6">
-        <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" />
+        <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" decoding="async" />
         ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
       </figure>`;
     } else if (block.type === 'file' && block.r2_key) {
       const meta = getFileMeta(block.mime);
       const ext = (block.filename ?? '').split('.').pop()?.toUpperCase() ?? meta.badge;
       attachments.push({
-        id: block.id,
-        type: 'file',
+        id: block.id, type: 'file',
         title: block.filename ?? `Tệp trong ${s.title}`,
         url: `/media/${block.r2_key}`,
-        caption: block.caption ?? undefined,
-        filename: block.filename ?? undefined,
-        mime: block.mime,
-        mimeLabel: meta.mimeLabel,
-        sectionSlug: s.slug,
-        sectionTitle: s.title,
-        ext,
-        previewable: meta.isPreviewable,
+        caption: block.caption ?? undefined, filename: block.filename ?? undefined,
+        mime: block.mime, mimeLabel: meta.mimeLabel,
+        sectionSlug: s.slug, sectionTitle: s.title,
+        ext, previewable: meta.isPreviewable,
       });
       html += `<div id="attachment-${block.id}" class="attachment-anchor"></div><div class="file-card my-5 relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-low hover:border-primary/30 transition-all duration-300"
         data-file-url="/media/${block.r2_key}"
         data-file-mime="${block.mime ?? ''}"
         data-file-name="${(block.filename ?? 'file').replace(/"/g, '&quot;')}"
         data-file-card>
-        <!-- Progress overlay -->
         <div class="file-progress-overlay hidden absolute inset-0 bg-surface-container-low/95 backdrop-blur-sm z-10 flex items-center px-4 gap-3">
           <div class="flex-1">
             <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
@@ -169,7 +177,6 @@ function renderSection(s: SectionNode): string {
             <span class="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
-        <!-- Main content -->
         <div class="flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4">
           <div class="flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${meta.iconBg} transition-transform duration-300 group-hover:scale-105">
             <span class="material-symbols-outlined text-2xl">${meta.icon}</span>
@@ -199,42 +206,48 @@ function renderSection(s: SectionNode): string {
     }
   }
 
-  for (const child of s.children) {
-    html += renderSection(child);
+  for (let ci = 0; ci < s.children.length; ci++) {
+    const childNum = sectionNumber ? `${sectionNumber}.${ci + 1}` : `${ci + 1}`;
+    html += renderSection(s.children[ci], attachments, childNum);
   }
 
   return html;
 }
 
-function getFileMeta(mime: string | null): { icon: string; badge: string; iconBg: string; badgeClass: string; isPreviewable: boolean; mimeLabel: string } {
-  if (!mime) return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
-  if (mime.includes('pdf')) return { icon: 'picture_as_pdf', badge: 'PDF', iconBg: 'bg-error/15 text-error', badgeClass: 'bg-error/15 text-error', isPreviewable: true, mimeLabel: 'PDF Document' };
-  if (mime.includes('word') || mime.includes('document')) return { icon: 'article', badge: 'DOC', iconBg: 'bg-primary/15 text-primary', badgeClass: 'bg-primary/15 text-primary', isPreviewable: false, mimeLabel: 'Word Document' };
-  if (mime.includes('sheet') || mime.includes('excel')) return { icon: 'table_chart', badge: 'XLS', iconBg: 'bg-green-400/15 text-green-400', badgeClass: 'bg-green-400/15 text-green-400', isPreviewable: false, mimeLabel: 'Excel Spreadsheet' };
-  if (mime.includes('presentation') || mime.includes('powerpoint')) return { icon: 'slideshow', badge: 'PPT', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: false, mimeLabel: 'PowerPoint' };
-  if (mime.includes('image')) return { icon: 'image', badge: 'IMG', iconBg: 'bg-tertiary/15 text-tertiary', badgeClass: 'bg-tertiary/15 text-tertiary', isPreviewable: true, mimeLabel: 'Image' };
-  return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
+// ── Cache lookup (chapter content rendering is the expensive part) ───────────────
+const cached = _chapterCache.get(slug);
+let strippedContent: string;
+let attachments: AttachmentItem[];
+
+if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
+  strippedContent = cached.html;
+  attachments = cached.attachments;
+} else {
+  const localAttachments: AttachmentItem[] = [];
+  const sectionsHtml = sections.map((s, i) => renderSection(s, localAttachments, `${i + 1}`)).join('');
+  strippedContent = sectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+  attachments = localAttachments;
+  _chapterCache.set(slug, { html: strippedContent, attachments, ts: Date.now(), ch });
 }
 
-// Render sections, stripping first h2 (chapter title is shown by BookHeader)
-const sectionsHtml = sections.map(renderSection).join('');
-// Strip the first h2/h3 since BookHeader shows the chapter title
-const strippedContent = sectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+// Trigger stale revalidation in background (non-blocking)
+if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
+  const staleAttachments: AttachmentItem[] = [];
+  const freshSectionsHtml = sections.map((s, i) => renderSection(s, staleAttachments, `${i + 1}`)).join('');
+  const freshHtml = freshSectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+  _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, ts: Date.now(), ch });
+}
 
 const attachmentCount = attachments.length;
 const imageAttachments = attachments.filter((item) => item.type === 'image');
 const fileAttachments = attachments.filter((item) => item.type === 'file');
 
-// Support widget settings
-const supportSettings = (await getSupportSettings(db)) ?? {
-  enabled: 0,
-  title: 'Ủng Hộ Tác Giả',
-  message: '',
-  qr_url: '',
-  payment_methods: '',
-};
+// Compute sectionNavItems (cheap, always fresh)
+const sectionNavItems = flattenSections(sections);
 
-// Reviews
+const dbFetchMs = Date.now() - dbFetchStart;
+
+// Reviews — parallel fetch
 const reviewLimit = 10;
 const [reviews, reviewStats] = await Promise.all([
   listReviewsByChapter(db, slug, reviewLimit, 0),
@@ -254,6 +267,8 @@ const currentUser = Astro.locals.user;
   tier={ch.tier}
   tierLabel={getTierLabel(ch.tier)}
   chapterNo={ch.chapter_no}
+  prev={prev}
+  next={next}
   reviews={reviews}
   reviewStats={reviewStats}
   isLoggedIn={!!currentUser}
@@ -312,12 +327,6 @@ const currentUser = Astro.locals.user;
   <!-- Donate Widget -->
   <DonateWidget settings={supportSettings} />
 
-  <!-- Ask the Author FAB -->
-  <AskAuthorButton chapterId={slug} chapterTitle={ch.title} />
-
   <!-- Chapter Navigation -->
-  <ChapterNav prev={prev} next={next} />
-
-  <!-- Keyword Auto-Linking -->
   <KeywordAutoLink autoKeywords={autoKeywords} />
 </BookLayout>

@@ -1,0 +1,571 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listCategories, upsertCategory, deleteCategory, moveCategory, buildCategoryTree, flattenCategoryTree, type BlogCategoryNode } from '../../../lib/blog-db';
+
+export const prerender = false;
+
+// Handle form actions
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action') as string;
+
+  if (action === 'upsert') {
+    const id = form.get('id') as string;
+    const name = form.get('name') as string;
+    const slug = form.get('slug') as string;
+    if (id && name && slug) {
+      const parentIdVal = form.get('parent_id') as string;
+      await upsertCategory(env.DB, {
+        id,
+        name,
+        slug,
+        description: form.get('description') as string || '',
+        icon: form.get('icon') as string || 'folder',
+        color: form.get('color') as string || '#0d9488',
+        sort_order: parseInt(form.get('sort_order') as string || '0', 10),
+        parent_id: parentIdVal || null,
+      });
+    }
+  } else if (action === 'delete') {
+    const id = form.get('id') as string;
+    if (id) await deleteCategory(env.DB, id);
+  }
+  return Astro.redirect('/admin/blog/categories');
+}
+
+const flatCategories = await listCategories(env.DB);
+const tree = buildCategoryTree(flatCategories);
+const flatOptions = flattenCategoryTree(tree);
+
+// Helpers for template
+function countNodes(nodes: BlogCategoryNode[]): number {
+  return nodes.reduce((acc, n) => acc + 1 + n.children.length, 0);
+}
+function countRoots(nodes: BlogCategoryNode[]): number {
+  return nodes.length;
+}
+---
+
+<AdminLayout title="Chuyên mục | Blog Admin">
+  <div class="max-w-[900px] w-full mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-3xl font-bold text-white">Chuyên mục</h2>
+        <p class="text-on-surface-variant text-sm mt-1">
+          {countRoots(tree)} chuyên mục cha · {countNodes(tree)} tổng cộng
+        </p>
+      </div>
+      <a href="/admin/blog" class="px-4 py-2 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-bold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+        Quay lại blog
+      </a>
+    </div>
+
+    <!-- Add/Edit form -->
+    <section class="glass-card rounded-xl p-5" id="form-section">
+      <h3 class="text-sm font-bold text-white mb-4" id="form-title">Thêm chuyên mục mới</h3>
+      <form method="post" class="flex flex-col gap-4">
+        <input type="hidden" name="_action" value="upsert" />
+        <input type="hidden" name="id" id="new-id" value="" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tên <span class="text-red-400">*</span></label>
+            <input type="text" name="name" id="cat-name" required placeholder="VD: Quản trị" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Slug <span class="text-red-400">*</span></label>
+            <input type="text" name="slug" id="cat-slug" required placeholder="VD: quan-tri" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Parent category dropdown -->
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1">Chuyên mục cha <span class="text-on-surface-variant/60">(không chọn nếu là chuyên mục gốc)</span></label>
+          <select name="parent_id" id="cat-parent" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
+            <option value="">— Không có —</option>
+            {flatOptions.filter(opt => opt.indent === 0).map((opt) => (
+              <option value={opt.id}>{opt.name}</option>
+            ))}
+          </select>
+          <p class="text-[11px] text-on-surface-variant/60 mt-1">Chỉ cho phép 1 cấp con (không chọn chuyên mục đã có cha)</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Icon (Material Symbol)</label>
+            <input type="text" name="icon" id="cat-icon" placeholder="folder" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Màu (hex)</label>
+            <input type="text" name="color" id="cat-color" placeholder="#0d9488" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Thứ tự</label>
+            <input type="number" name="sort_order" id="cat-sort" value="0" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1">Mô tả</label>
+          <input type="text" name="description" id="cat-desc" placeholder="Mô tả ngắn về chuyên mục" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit" class="px-6 py-2.5 bg-primary-container text-white rounded-xl font-bold hover:opacity-90 transition-all">Lưu</button>
+          <button type="button" onclick="resetForm()" class="px-4 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl font-bold hover:border-primary hover:text-primary transition-all">Hủy</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Category tree (drag-and-drop enabled) -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-outline-variant/50 bg-surface-container-high/30">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Danh sách chuyên mục</span>
+          <span class="text-xs text-on-surface-variant/70">Kéo thả để sắp xếp hoặc nhóm</span>
+        </div>
+      </div>
+
+      {tree.length === 0 ? (
+        <div class="text-center py-12">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant/30">folder_open</span>
+          <p class="text-on-surface-variant mt-3">Chưa có chuyên mục nào</p>
+        </div>
+      ) : (
+        <ul class="cat-tree-root py-3" id="cat-tree-root" data-cat-list="root">
+          {tree.map((rootCat) => (
+            <li
+              class="cat-item"
+              data-cat-item={rootCat.id}
+              data-cat-id={rootCat.id}
+              data-cat-name={rootCat.name}
+              data-cat-slug={rootCat.slug}
+              data-cat-desc={rootCat.description}
+              data-cat-icon={rootCat.icon}
+              data-cat-color={rootCat.color}
+              data-cat-sort={rootCat.sort_order}
+              data-cat-parent={rootCat.parent_id ?? ''}
+            >
+              <div class="cat-row flex items-center gap-2 px-4 py-2 hover:bg-surface-container-high/50 transition-colors group">
+                <!-- Drag handle -->
+                <span class="cat-drag-handle material-symbols-outlined text-[18px] text-on-surface-variant/40 hover:text-on-surface-variant cursor-grab select-none" draggable="true">drag_indicator</span>
+                
+                <!-- Expand/collapse if has children -->
+                {rootCat.children.length > 0 ? (
+                  <button type="button" class="cat-toggle text-on-surface-variant/60 hover:text-on-surface-variant w-5 h-5 flex items-center justify-center" aria-label="Toggle">
+                    <span class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+                  </button>
+                ) : (
+                  <span class="w-5 h-5"></span>
+                )}
+                
+                <!-- Color dot -->
+                <span class="w-3 h-3 rounded-full shrink-0" style={`background: ${rootCat.color}`}></span>
+                
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-semibold text-white text-sm truncate">{rootCat.name}</span>
+                    {rootCat.children.length > 0 && (
+                      <span class="text-[10px] px-1.5 py-0.5 bg-surface-container-high rounded text-on-surface-variant/70">
+                        {rootCat.children.length} con
+                      </span>
+                    )}
+                  </div>
+                  <p class="text-xs text-on-surface-variant/50 truncate">{rootCat.slug}</p>
+                </div>
+                
+                <!-- Post count with badge -->
+                <div class="text-right">
+                  <span class="text-sm text-on-surface-variant font-medium">{rootCat.total_post_count}</span>
+                  {rootCat.children.length > 0 && rootCat.total_post_count !== rootCat.post_count && (
+                    <p class="text-[10px] text-on-surface-variant/50">({rootCat.post_count} + {rootCat.total_post_count - rootCat.post_count})</p>
+                  )}
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex items-center gap-1 ml-2">
+                  <button
+                    type="button"
+                    data-edit-cat={rootCat.id}
+                    class="cat-edit-btn p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all"
+                    title="Sửa"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
+                  <form method="post" class="inline" onsubmit="return confirm('Xóa chuyên mục này? Bài viết trong chuyên mục sẽ không bị xóa.')">
+                    <input type="hidden" name="_action" value="delete" />
+                    <input type="hidden" name="id" value={rootCat.id} />
+                    <button type="submit" class="p-1.5 rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/10 transition-all" title="Xóa">
+                      <span class="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Children list */}
+              {rootCat.children.length > 0 && (
+                <ul class="cat-children pl-6 border-l-2 border-outline-variant/20 ml-6 mt-1 mb-1" data-cat-list={rootCat.id}>
+                  {rootCat.children.map((child) => (
+                    <li
+                      class="cat-item"
+                      data-cat-item={child.id}
+                      data-cat-id={child.id}
+                      data-cat-name={child.name}
+                      data-cat-slug={child.slug}
+                      data-cat-desc={child.description}
+                      data-cat-icon={child.icon}
+                      data-cat-color={child.color}
+                      data-cat-sort={child.sort_order}
+                      data-cat-parent={child.parent_id ?? ''}
+                    >
+                      <div class="cat-row flex items-center gap-2 px-3 py-2 hover:bg-surface-container-high/50 transition-colors group rounded-lg">
+                        <span class="cat-drag-handle material-symbols-outlined text-[18px] text-on-surface-variant/40 hover:text-on-surface-variant cursor-grab select-none" draggable="true">drag_indicator</span>
+                        <span class="w-5 h-5"></span>
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style={`background: ${child.color}`}></span>
+                        <div class="flex-1 min-w-0">
+                          <span class="font-medium text-white text-sm truncate">{child.name}</span>
+                          <p class="text-xs text-on-surface-variant/50 truncate">{child.slug}</p>
+                        </div>
+                        <span class="text-sm text-on-surface-variant">{child.post_count}</span>
+                        <div class="flex items-center gap-1 ml-2">
+                          <button
+                            type="button"
+                            data-edit-cat={child.id}
+                            class="cat-edit-btn p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all"
+                            title="Sửa"
+                          >
+                            <span class="material-symbols-outlined text-[16px]">edit</span>
+                          </button>
+                          <form method="post" class="inline" onsubmit="return confirm('Xóa chuyên mục này? Bài viết sẽ không bị xóa.')">
+                            <input type="hidden" name="_action" value="delete" />
+                            <input type="hidden" name="id" value={child.id} />
+                            <button type="submit" class="p-1.5 rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/10 transition-all" title="Xóa">
+                              <span class="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+    <!-- Legend -->
+    <div class="text-xs text-on-surface-variant/60 flex items-center gap-4">
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-primary"></span> Kéo vào giữa = nhóm làm con</span>
+      <span class="flex items-center gap-1"><span class="w-8 h-0.5 bg-primary"></span> Kéo trên/dưới = sắp xếp</span>
+    </div>
+  </div>
+</AdminLayout>
+
+<style>
+  /* Drag and Drop styles */
+  .cat-item { position: relative; }
+  .cat-drag-handle { cursor: grab; }
+  .cat-drag-handle:active { cursor: grabbing; }
+  
+  .cat-item.dragging { opacity: 0.35; transform: scale(1.01); }
+  
+  /* Drop zone indicators */
+  .cat-item.drag-zone-above::before,
+  .cat-item.drag-zone-below::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--color-primary, #0d9488);
+    border-radius: 3px;
+    animation: zone-line-expand 0.2s ease-out;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .cat-item.drag-zone-above::before {
+    top: -2px;
+  }
+  .cat-item.drag-zone-below::after {
+    bottom: -2px;
+  }
+  .cat-item.drag-zone-into {
+    box-shadow: inset 0 0 0 2px var(--color-primary, #0d9488) !important;
+    background: color-mix(in srgb, var(--color-primary, #0d9488) 10%, transparent) !important;
+    animation: zone-pulse 0.3s ease;
+  }
+  
+  @keyframes zone-line-expand {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  @keyframes zone-pulse {
+    0% { box-shadow: inset 0 0 0 0 var(--color-primary, #0d9488); }
+    50% { box-shadow: inset 0 0 0 3px var(--color-primary, #0d9488); }
+    100% { box-shadow: inset 0 0 0 2px var(--color-primary, #0d9488); }
+  }
+  
+  /* Collapsed state */
+  .cat-item.collapsed .cat-children { display: none; }
+  .cat-item.collapsed .cat-toggle span { transform: rotate(-90deg); }
+</style>
+
+<script>
+  // ── Form handling ─────────────────────────────────────────
+  const nameInput = document.getElementById('cat-name') as HTMLInputElement;
+  const slugInput = document.getElementById('cat-slug') as HTMLInputElement;
+  const idInput = document.getElementById('new-id') as HTMLInputElement;
+  const parentInput = document.getElementById('cat-parent') as HTMLSelectElement;
+  const iconInput = document.getElementById('cat-icon') as HTMLInputElement;
+  const colorInput = document.getElementById('cat-color') as HTMLInputElement;
+  const sortInput = document.getElementById('cat-sort') as HTMLInputElement;
+  const descInput = document.getElementById('cat-desc') as HTMLInputElement;
+  const formTitle = document.getElementById('form-title');
+
+  // Slug auto-generation
+  nameInput?.addEventListener('input', () => {
+    if (!slugInput.dataset.manual) {
+      slugInput.value = nameInput.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+  });
+  slugInput?.addEventListener('input', () => { slugInput.dataset.manual = 'true'; });
+
+  // Edit button handler
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-edit-cat]') as HTMLElement | null;
+    if (!btn) return;
+    const item = btn.closest('[data-cat-item]') as HTMLElement | null;
+    if (!item) return;
+
+    idInput.value = item.dataset.catId || '';
+    nameInput.value = item.dataset.catName || '';
+    slugInput.value = item.dataset.catSlug || '';
+    slugInput.dataset.manual = 'true';
+    descInput.value = item.dataset.catDesc || '';
+    iconInput.value = item.dataset.catIcon || 'folder';
+    colorInput.value = item.dataset.catColor || '#0d9488';
+    sortInput.value = item.dataset.catSort || '0';
+    parentInput.value = item.dataset.catParent || '';
+
+    if (formTitle) formTitle.textContent = 'Sửa chuyên mục';
+    document.getElementById('form-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  (window as any).resetForm = function() {
+    idInput.value = '';
+    nameInput.value = '';
+    slugInput.value = '';
+    slugInput.dataset.manual = '';
+    descInput.value = '';
+    iconInput.value = '';
+    colorInput.value = '';
+    sortInput.value = '0';
+    parentInput.value = '';
+    if (formTitle) formTitle.textContent = 'Thêm chuyên mục mới';
+  };
+
+  // ── Collapse/Expand ─────────────────────────────────────
+  document.querySelectorAll('.cat-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.cat-item');
+      item?.classList.toggle('collapsed');
+    });
+  });
+
+  // ── Drag and Drop ────────────────────────────────────────
+  const rootList = document.getElementById('cat-tree-root');
+  let dragSrc: HTMLElement | null = null;
+
+  function isDragHandle(el: HTMLElement) {
+    return el.closest('.cat-drag-handle') !== null;
+  }
+
+  function getCatItem(el: HTMLElement): HTMLElement | null {
+    return el.closest('[data-cat-item]') as HTMLElement | null;
+  }
+
+  function getList(el: HTMLElement): HTMLElement | null {
+    // Could be root list or child list
+    return el.closest('[data-cat-list]') as HTMLElement | null;
+  }
+
+  function isDescendant(candidate: HTMLElement, ancestor: HTMLElement): boolean {
+    let el = candidate.parentElement;
+    while (el) {
+      if (el === ancestor) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  // Determine drop zone: 'above' | 'into' | 'below' based on cursor position
+  function getDropZone(e: DragEvent, item: HTMLElement): 'above' | 'into' | 'below' {
+    const rect = item.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    if (ratio < 0.25) return 'above';
+    if (ratio > 0.75) return 'below';
+    return 'into';
+  }
+
+  function clearDragZones() {
+    document.querySelectorAll('.drag-zone-above, .drag-zone-below, .drag-zone-into')
+      .forEach(el => el.classList.remove('drag-zone-above', 'drag-zone-below', 'drag-zone-into'));
+  }
+
+  // Get sibling IDs in order from a list element
+  function getSiblingIds(list: HTMLElement): string[] {
+    return Array.from(list.querySelectorAll(':scope > [data-cat-item]'))
+      .map(li => (li as HTMLElement).dataset.catId!)
+      .filter(Boolean);
+  }
+
+  // Drag events
+  rootList?.addEventListener('dragstart', (e) => {
+    const target = e.target as HTMLElement;
+    if (!isDragHandle(target)) {
+      e.preventDefault();
+      return;
+    }
+    const item = getCatItem(target);
+    if (!item) return;
+    dragSrc = item;
+    item.classList.add('dragging');
+    (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+  });
+
+  rootList?.addEventListener('dragend', () => {
+    if (dragSrc) dragSrc.classList.remove('dragging');
+    dragSrc = null;
+    clearDragZones();
+  });
+
+  rootList?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (!dragSrc) return;
+    const target = e.target as HTMLElement;
+    const item = getCatItem(target);
+    if (!item || item === dragSrc) return;
+
+    // Prevent circular: can't drop into self or descendant
+    if (isDescendant(item, dragSrc)) return;
+
+    const zone = getDropZone(e as DragEvent, item);
+    const isChild = item.closest('.cat-children') !== null;
+
+    // Can't drop 'into' an item that already has parent (max 2 levels)
+    // But can drop 'into' a root item to make it a child
+    if (zone === 'into' && isChild) return;
+
+    (e as DragEvent).dataTransfer!.dropEffect = 'move';
+    clearDragZones();
+    item.classList.add(`drag-zone-${zone}`);
+  });
+
+  rootList?.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    clearDragZones();
+    if (!dragSrc) return;
+
+    const target = e.target as HTMLElement;
+    const item = getCatItem(target);
+    if (!item || item === dragSrc) return;
+    if (isDescendant(item, dragSrc)) return;
+
+    const srcId = dragSrc.dataset.catId!;
+    const tgtId = item.dataset.catId!;
+    const zone = getDropZone(e as DragEvent, item);
+
+    const srcList = getList(dragSrc);
+    const tgtList = getList(item);
+    const isTgtChild = item.closest('.cat-children') !== null;
+
+    if (zone === 'into') {
+      if (isTgtChild) return; // Can't nest deeper than 2 levels
+      // Reparent: move src to become child of tgt
+      await reparentCategory(srcId, tgtId);
+    } else {
+      // Same list reorder or cross-list as sibling
+      const after = zone === 'below';
+      const targetParentList = zone === 'above'
+        ? item.previousElementSibling?.querySelector('[data-cat-list]') as HTMLElement | null
+        : item.nextElementSibling?.querySelector('[data-cat-list]') as HTMLElement | null;
+
+      // Determine effective target list
+      let effectiveList = tgtList;
+      let newParentId: string | null = tgtList?.dataset.catList === 'root' ? null : tgtList?.dataset.catList || null;
+
+      // If dropping near a root item, check if we should land in its children
+      if (!isTgtChild && zone === 'below' && targetParentList) {
+        // Dropping below a root item that has children
+        effectiveList = targetParentList;
+        newParentId = tgtId;
+      }
+
+      // Move DOM element
+      const items = Array.from(effectiveList?.querySelectorAll(':scope > [data-cat-item]') || []);
+      const fromIdx = items.indexOf(dragSrc);
+      const toIdx = items.indexOf(item);
+
+      if (fromIdx < 0 || toIdx < 0) {
+        // Cross-list move
+        dragSrc.remove();
+        if (after) {
+          item.after(dragSrc);
+        } else {
+          item.before(dragSrc);
+        }
+      } else {
+        // Same list reorder
+        if (fromIdx === toIdx) return;
+        const moved = items.splice(fromIdx, 1)[0];
+        const insertIdx = after ? toIdx + 1 : toIdx;
+        items.splice(insertIdx, 0, moved);
+        items.forEach(li => effectiveList?.appendChild(li));
+      }
+
+      // Save new order
+      const ids = getSiblingIds(effectiveList!);
+      try {
+        const res = await fetch('/api/admin/blog/categories/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ parent_id: newParentId, ids }),
+        });
+        if (!res.ok) throw new Error('Failed to reorder');
+      } catch (err) {
+        console.error('Reorder error:', err);
+        location.reload();
+      }
+    }
+  });
+
+  async function reparentCategory(categoryId: string, newParentId: string | null) {
+    try {
+      const res = await fetch('/api/admin/blog/categories/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ parent_id: newParentId, ids: [categoryId] }),
+      });
+      if (!res.ok) throw new Error('Failed to reparent');
+      location.reload();
+    } catch (err) {
+      console.error('Reparent error:', err);
+      alert('Lỗi khi di chuyển chuyên mục. Trang sẽ tải lại.');
+      location.reload();
+    }
+  }
+</script>

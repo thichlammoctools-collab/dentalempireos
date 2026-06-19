@@ -269,11 +269,22 @@ export interface AutoKeyword {
   label: string;
 }
 
+// In-memory cache: invalidated per request (Workers KV could be used for cross-instance persistence)
+const _sectionCache = new Map<string, { data: AutoKeyword[]; ts: number }>();
+const _SECTION_TTL_MS = 30_000; // 30 seconds — stale-while-revalidate
+
 /**
  * Fetches all sections from published chapters.
  * Each section title becomes an auto-keyword linking to its chapter + anchor.
+ * Result is cached in-memory for 30s to avoid repeated scans across chapter navigations.
  */
 export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
+  const key = '__all_sections__';
+  const cached = _sectionCache.get(key);
+  if (cached && Date.now() - cached.ts < _SECTION_TTL_MS) {
+    return cached.data;
+  }
+
   const { results } = await db
     .prepare(
       `SELECT s."title", s."slug", s."level", c."id" as chapter_id
@@ -284,11 +295,14 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
     )
     .all<{ title: string; slug: string; level: number; chapter_id: string }>();
 
-  return results.map((r) => ({
+  const data: AutoKeyword[] = results.map((r) => ({
     pattern: r.title,
     target: `/book/${r.chapter_id}#${r.slug}`,
     label: r.title,
   }));
+
+  _sectionCache.set(key, { data, ts: Date.now() });
+  return data;
 }
 
 // ── Tree assembly ───────────────────────────────────────────

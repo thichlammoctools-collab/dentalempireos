@@ -1,0 +1,75 @@
+---
+import type { CourseVideo } from '../../lib/course-db';
+
+interface Props {
+  videos: CourseVideo[];
+  activeVideoId?: string;
+  onSelect?: string; // JS function name to call
+}
+
+const { videos, activeVideoId, onSelect } = Astro.props;
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return '';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+---
+
+<div class="flex flex-col gap-2">
+  {videos.map((video, index) => {
+    const isActive = video.id === activeVideoId;
+    const thumbnailUrl = `https://img.youtube.com/vi/${video.youtube_id}/mqdefault.jpg`;
+
+    return (
+      <button
+        type="button"
+        data-video-id={video.youtube_id}
+        data-video-title={video.title}
+        data-video-obj={JSON.stringify(video)}
+        class:list={[
+          'video-item group w-full text-left flex items-start gap-3 p-3 rounded-xl transition-all duration-200',
+          isActive
+            ? 'bg-primary/10 border border-primary/30'
+            : 'bg-surface-container hover:bg-surface-container-high border border-transparent hover:border-outline-variant/30',
+        ]}
+        onclick={onSelect ? `${onSelect}(this)` : undefined}
+      >
+        <!-- Index + Play -->
+        <div class="relative shrink-0">
+          <img
+            src={thumbnailUrl}
+            alt={video.title}
+            class="w-28 h-16 rounded-lg object-cover"
+            loading="lazy"
+          />
+          <div class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 group-hover:bg-black/60 transition-colors">
+            <span class="material-symbols-outlined text-white text-3xl">play_arrow</span>
+          </div>
+          {video.duration_seconds && (
+            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1 rounded">
+              {formatDuration(video.duration_seconds)}
+            </span>
+          )}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <p class:list={[
+            'text-sm font-semibold line-clamp-2 transition-colors',
+            isActive ? 'text-primary' : 'text-white group-hover:text-primary',
+          ]}>
+            <span class="text-on-surface-variant/50 mr-1">{index + 1}.</span>
+            {video.title}
+          </p>
+          {video.description && (
+            <p class="text-xs text-on-surface-variant/60 mt-1 line-clamp-1 hidden sm:block">
+              {video.description}
+            </p>
+          )}
+        </div>
+      </button>
+    );
+  })}
+</div>

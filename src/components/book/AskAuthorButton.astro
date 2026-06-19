@@ -96,6 +96,7 @@ const { chapterId, chapterTitle } = Astro.props;
       const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
       if (res.ok) {
         document.getElementById('ask-author-btn')?.classList.remove('hidden');
+        document.getElementById('toolbar-ask-btn')?.classList.remove('hidden');
       }
     } catch { /* not logged in — keep hidden */ }
   }
@@ -132,6 +133,7 @@ const { chapterId, chapterTitle } = Astro.props;
   }
 
   btn?.addEventListener('click', openModal);
+  document.getElementById('toolbar-ask-btn')?.addEventListener('click', openModal);
   closeBtn?.addEventListener('click', closeModal);
   backdrop?.addEventListener('click', closeModal);
 

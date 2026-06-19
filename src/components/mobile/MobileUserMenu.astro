@@ -1,0 +1,309 @@
+---
+// Mobile slide-out user menu
+---
+
+<!-- User Menu Overlay -->
+<div
+  id="mobile-user-overlay"
+  class="fixed inset-0 z-[105] bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden"
+></div>
+
+<!-- User Menu Drawer (slide from right) -->
+<aside
+  id="mobile-user-drawer"
+  class="fixed top-0 right-0 bottom-0 z-[106] w-80 max-w-[85vw] bg-surface-container-lowest shadow-2xl transform translate-x-full transition-transform duration-300 ease-out lg:hidden"
+>
+  <!-- Header -->
+  <div class="flex items-center justify-between p-4 border-b border-outline-variant/30">
+    <h2 class="text-lg font-bold text-on-surface">Menu</h2>
+    <button
+      id="mobile-user-close"
+      class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors"
+      aria-label="Đóng"
+    >
+      <span class="material-symbols-outlined text-on-surface-variant">close</span>
+    </button>
+  </div>
+
+  <!-- User section (dynamic) -->
+  <div id="user-section" class="p-4 border-b border-outline-variant/20">
+    <!-- Logged out -->
+    <div id="user-logged-out" class="hidden space-y-3">
+      <p class="text-sm text-on-surface-variant">Đăng nhập để lưu tiến độ và đánh dấu chương</p>
+      <div class="flex gap-3">
+        <a
+          href="/login"
+          class="flex-1 px-4 py-2.5 text-center rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant hover:text-on-surface hover:border-on-surface-variant transition-colors"
+        >
+          Đăng nhập
+        </a>
+        <a
+          href="/register"
+          class="flex-1 px-4 py-2.5 text-center rounded-xl text-sm font-semibold bg-primary text-on-primary hover:bg-primary/90 transition-colors"
+        >
+          Đăng ký
+        </a>
+      </div>
+    </div>
+
+    <!-- Logged in -->
+    <div id="user-logged-in" class="hidden">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+          <span class="material-symbols-outlined text-2xl text-primary">person</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p id="user-name" class="font-semibold text-on-surface truncate"></p>
+          <p id="user-email" class="text-xs text-on-surface-variant truncate"></p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <a
+          href="/my-questions"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors"
+        >
+          <span class="material-symbols-outlined text-primary text-sm">question_answer</span>
+          <span class="text-sm text-on-surface">Câu hỏi</span>
+        </a>
+        <button
+          id="user-logout-btn"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors"
+        >
+          <span class="material-symbols-outlined text-sm">logout</span>
+          <span class="text-sm">Đăng xuất</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main links -->
+  <nav class="p-4 space-y-1">
+    <a
+      href="/"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">home</span>
+      <span class="font-medium">Trang chủ</span>
+    </a>
+    <a
+      href="/book"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">menu_book</span>
+      <span class="font-medium">Thư viện sách</span>
+    </a>
+    <a
+      href="/courses"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">school</span>
+      <span class="font-medium">Khóa học</span>
+    </a>
+    <a
+      href="/blog"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">article</span>
+      <span class="font-medium">Blog</span>
+    </a>
+    <a
+      href="/resources"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">folder</span>
+      <span class="font-medium">Tài nguyên</span>
+    </a>
+    <a
+      href="/reviews"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">reviews</span>
+      <span class="font-medium">Đánh giá</span>
+    </a>
+  </nav>
+
+  <!-- Bookmarks section (if reading) -->
+  <div id="bookmarks-section" class="hidden border-t border-outline-variant/20 p-4">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">
+      Đánh dấu gần đây</h3>
+    <div id="bookmarks-list" class="space-y-2">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="border-t border-outline-variant/20 p-4 mt-auto">
+    <a
+      href="/about"
+      class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+    >
+      <span class="material-symbols-outlined">info</span>
+      <span class="font-medium">Giới thiệu</span>
+    </a>
+    <div class="flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3 text-on-surface-variant">
+        <span class="material-symbols-outlined">dark_mode</span>
+        <span class="font-medium">Chế độ tối</span>
+      </div>
+      <button
+        id="theme-toggle"
+        class="w-12 h-6 rounded-full bg-surface-container-high relative transition-colors"
+        aria-label="Toggle theme"
+      >
+        <span class="absolute left-1 top-1 w-4 h-4 rounded-full bg-primary transition-transform" id="theme-knob"></span>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  /* Slide animation helper */
+  #mobile-user-drawer.open {
+    transform: translateX(0);
+  }
+
+  #mobile-user-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+</style>
+
+	<script>
+	  document.addEventListener('DOMContentLoaded', function() {
+	    const overlay = document.getElementById('mobile-user-overlay');
+	    const drawer = document.getElementById('mobile-user-drawer');
+	    const menuBtn = document.getElementById('mobile-nav-menu');
+	    const closeBtn = document.getElementById('mobile-user-close');
+	    const logoutBtn = document.getElementById('user-logout-btn');
+
+	    const loggedOutSection = document.getElementById('user-logged-out');
+	    const loggedInSection = document.getElementById('user-logged-in');
+	    const userName = document.getElementById('user-name');
+	    const userEmail = document.getElementById('user-email');
+
+	    let isOpen = false;
+
+	    function open() {
+	      isOpen = true;
+	      overlay?.classList.add('open');
+	      drawer?.classList.add('open');
+	      document.body.style.overflow = 'hidden';
+	      loadUserState();
+	      loadBookmarks();
+	    }
+
+	    function close() {
+	      isOpen = false;
+	      overlay?.classList.remove('open');
+	      drawer?.classList.remove('open');
+	      document.body.style.overflow = '';
+	    }
+
+	    async function loadUserState() {
+	      try {
+	        const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+	        const session = await sessionRes.json().catch(() => null);
+
+	        if (session?.user) {
+	          loggedInSection?.classList.remove('hidden');
+	          loggedOutSection?.classList.add('hidden');
+	          if (userName) userName.textContent = session.user.name || 'Người dùng';
+	          if (userEmail) userEmail.textContent = session.user.email || '';
+	        } else {
+	          loggedInSection?.classList.add('hidden');
+	          loggedOutSection?.classList.remove('hidden');
+	        }
+	      } catch {
+	        loggedInSection?.classList.add('hidden');
+	        loggedOutSection?.classList.remove('hidden');
+	      }
+	    }
+
+	    function loadBookmarks() {
+	      try {
+	        const bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
+	        const section = document.getElementById('bookmarks-section');
+	        const list = document.getElementById('bookmarks-list');
+
+	        if (bookmarks.length > 0 && section && list) {
+	          section.classList.remove('hidden');
+	          list.innerHTML = bookmarks.slice(0, 5).map(b => `
+	            <a href="${b.url}" class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors text-sm text-on-surface-variant hover:text-on-surface">
+	              <span class="material-symbols-outlined text-xs">bookmark</span>
+	              <span class="flex-1 truncate">${b.title}</span>
+	            </a>
+	          `).join('');
+	        }
+	      } catch {
+	        // Ignore errors
+	      }
+	    }
+
+	    menuBtn?.addEventListener('click', () => {
+	      isOpen ? close() : open();
+	    });
+
+	    closeBtn?.addEventListener('click', close);
+	    overlay?.addEventListener('click', close);
+
+	    // Swipe to close
+	    let startX = 0;
+	    drawer?.addEventListener('touchstart', (e) => {
+	      startX = e.touches[0].clientX;
+	    }, { passive: true });
+
+	    drawer?.addEventListener('touchmove', (e) => {
+	      if (!isOpen) return;
+	      const diff = e.touches[0].clientX - startX;
+	      if (diff > 0) {
+	        drawer.style.transform = `translateX(${diff}px)`;
+	      }
+	    }, { passive: true });
+
+	    drawer?.addEventListener('touchend', (e) => {
+	      const diff = e.changedTouches[0].clientX - startX;
+	      if (diff > 80) {
+	        close();
+	      } else {
+	        drawer.style.transform = '';
+	      }
+	    });
+
+	    // Theme toggle
+	    const themeBtn = document.getElementById('theme-toggle');
+	    const themeKnob = document.getElementById('theme-knob');
+	    let isDark = document.documentElement.classList.contains('dark');
+
+	    themeBtn?.addEventListener('click', () => {
+	      isDark = !isDark;
+	      document.documentElement.classList.toggle('dark', isDark);
+	      if (themeKnob) {
+	        themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+	      }
+	    });
+
+	    // Initialize theme knob position
+	    if (themeKnob) {
+	      themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+	    }
+
+	    // Logout
+	    logoutBtn?.addEventListener('click', async () => {
+	      try {
+	        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+	        window.location.reload();
+	      } catch {
+	        window.location.href = '/';
+	      }
+	    });
+
+	    // Keyboard
+	    document.addEventListener('keydown', (e) => {
+	      if (e.key === 'Escape' && isOpen) close();
+	    });
+
+	    // Expose
+	    (window as any).openUserMenu = open;
+	    (window as any).closeUserMenu = close;
+	  });
+	</script>

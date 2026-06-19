@@ -1,0 +1,21 @@
+---
+interface Props {
+  youtubeId: string;
+  title?: string;
+  autoplay?: boolean;
+}
+
+const { youtubeId, title, autoplay = false } = Astro.props;
+const embedUrl = `https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1${autoplay ? '&autoplay=1' : ''}`;
+---
+
+<div class="video-player-wrapper relative w-full" style="padding-top: 56.25%;">
+  <iframe
+    class="absolute inset-0 w-full h-full rounded-xl"
+    src={embedUrl}
+    title={title ?? 'YouTube video'}
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+  ></iframe>
+</div>

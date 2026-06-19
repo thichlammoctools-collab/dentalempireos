@@ -2,9 +2,12 @@
 import BaseLayout from './BaseLayout.astro';
 import SectionNav from '../components/book/SectionNav.astro';
 import SectionNavMobile from '../components/book/SectionNavMobile.astro';
+import ChapterNav from '../components/book/ChapterNav.astro';
 import ReviewDrawer from '../components/book/ReviewDrawer.astro';
 import QuestionDrawer from '../components/book/QuestionDrawer.astro';
-import type { ReviewDisplay, ReviewStats } from '../lib/review-db';
+import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
+import MobileSearchOverlay from '../components/mobile/MobileSearchOverlay.astro';
+import MobileUserMenu from '../components/mobile/MobileUserMenu.astro';
 
 interface ChapterItem {
   id: string;
@@ -20,6 +23,7 @@ interface SectionItem {
   title: string;
   slug: string;
   level: number;
+  sectionNumber: string;
 }
 
 interface TierGroup {
@@ -43,6 +47,11 @@ interface AttachmentItem {
   previewable: boolean;
 }
 
+interface ChapterNavItem {
+  id: string;
+  data: { title: string; tier: number };
+}
+
 interface Props {
   title: string;
   description?: string;
@@ -54,9 +63,8 @@ interface Props {
   tier?: number;
   tierLabel?: string;
   chapterNo?: number;
-  // Review drawer props (optional — only rendered when provided)
-  reviews?: ReviewDisplay[];
-  reviewStats?: ReviewStats;
+  prev?: ChapterNavItem | null;
+  next?: ChapterNavItem | null;
   isLoggedIn?: boolean;
   currentUserId?: string | null;
   chapterId?: string;
@@ -73,8 +81,8 @@ const {
   tier = 3,
   tierLabel = 'Tier 3',
   chapterNo = 1,
-  reviews = [],
-  reviewStats = { avgRating: 0, totalReviews: 0 },
+  prev = null,
+  next = null,
   isLoggedIn = false,
   currentUserId = null,
   chapterId = '',
@@ -90,143 +98,122 @@ const currentTier = groupedChapters.find((g) =>
 
 <BaseLayout title={`${title} - Dental Empire OS`} description={description}>
   <!-- ==========================================
+       TOOLBAR (outside reader-app so z-index is relative to root stacking context)
+       ========================================== -->
+  <header id="reader-toolbar" class="fixed top-0 left-0 right-0 flex items-center justify-between px-4 lg:px-6 h-12 lg:h-14 glass-nav border-b r-border z-50" style="background: var(--reader-chrome-bg);">
+    <!-- Left: Back + breadcrumb -->
+    <div class="flex items-center gap-2 lg:gap-3 min-w-0">
+      <a href="/book" class="flex items-center gap-1 lg:gap-2 r-text-muted hover:text-primary transition-colors flex-shrink-0">
+        <span class="material-symbols-outlined text-lg lg:text-xl">arrow_back</span>
+        <span class="hidden sm:inline text-xs lg:text-sm font-semibold">Thư Viện</span>
+      </a>
+      <div class="w-px h-5 hidden sm:block" style="background: var(--reader-border);"></div>
+      <!-- Mobile: "Đang đọc" label + title -->
+      <div class="flex flex-col min-w-0 lg:hidden">
+        <span class="text-[10px] font-bold uppercase tracking-wider r-text-muted leading-none">Đang đọc</span>
+        <span class="text-xs font-bold r-text truncate max-w-[140px] leading-tight">{title}</span>
+      </div>
+      <!-- Desktop: title only -->
+      <div class="hidden lg:flex items-center gap-2 min-w-0">
+        <span class="text-xs lg:text-sm font-bold r-text truncate max-w-[200px]">{title}</span>
+      </div>
+    </div>
+
+    <!-- Center: Progress (desktop) -->
+    <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
+      <span id="progress-pct" class="text-[10px] r-text-muted font-bold tabular-nums" style="min-width: 2.5ch; text-align: right;">0%</span>
+      <div class="w-32 h-1.5 r-surface-high rounded-full overflow-hidden">
+        <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Right: Mobile = progress + bookmark + theme | Desktop = controls -->
+    <div class="flex lg:hidden items-center gap-1.5 flex-shrink-0">
+      <div class="flex items-center gap-1">
+        <div class="w-16 sm:w-20 h-1 r-surface-high rounded-full overflow-hidden">
+          <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <span id="progress-pct-mobile" class="text-[10px] r-text-muted font-bold tabular-nums shrink-0">0%</span>
+      </div>
+      <button id="mobile-bookmark-btn" class="w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Đánh dấu">
+        <span class="material-symbols-outlined text-lg" id="mobile-bookmark-icon">bookmark_border</span>
+      </button>
+      <button id="mobile-theme-btn" class="w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Chế độ nền">
+        <span class="material-symbols-outlined text-lg" id="mobile-theme-icon">dark_mode</span>
+      </button>
+    </div>
+
+    <!-- Right: Controls (desktop) -->
+    <div class="hidden lg:flex items-center gap-1 lg:gap-2">
+      <button id="toolbar-ask-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all hidden" title="Hỏi Tác Giả">
+        <span class="material-symbols-outlined text-base">support_agent</span>
+        <span class="text-[11px] font-semibold">Hỏi tác giả</span>
+      </button>
+
+      <button id="theme-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all" title="Chế độ đọc">
+        <span class="material-symbols-outlined text-base" id="theme-icon">dark_mode</span>
+        <span class="text-[11px] font-semibold">Nền</span>
+      </button>
+
+      <button id="search-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Tìm kiếm (Ctrl+K)">
+        <span class="material-symbols-outlined text-base">search</span>
+        <span class="hidden lg:inline text-[11px] font-semibold">Tìm</span>
+      </button>
+
+      {attachments.length > 0 && (
+        <a
+          href="#attachments-summary"
+          id="attachments-btn"
+          class="relative items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all"
+          title={`Xem ${attachments.length} tệp đính kèm`}
+          aria-label={`Xem ${attachments.length} tệp đính kèm`}
+        >
+          <span class="material-symbols-outlined text-base">attachment</span>
+          <span class="hidden lg:inline text-[11px] font-semibold">Tệp</span>
+          <span class="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold px-2 py-0.5 border border-primary/20">{attachments.length}</span>
+        </a>
+      )}
+
+      <button id="bookmark-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Đánh dấu">
+        <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Search overlay (outside reader-app) -->
+  <div id="search-overlay" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
+    <div class="glass-panel-dark rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+      <div class="flex items-center gap-3 px-4 py-3 border-b r-border" style="border-color: var(--reader-border);">
+        <span class="material-symbols-outlined r-text-muted">search</span>
+        <input id="search-input" type="text" placeholder="Tìm kiếm trong chương..." class="flex-1 bg-transparent border-none outline-none text-sm" autofocus style="color: var(--reader-chrome-text);"/>
+        <kbd class="hidden sm:inline px-2 py-1 rounded r-surface-high text-[10px] r-text-muted font-mono">ESC</kbd>
+      </div>
+      <div class="p-8 text-center text-sm r-text-muted">
+        <span class="material-symbols-outlined text-4xl block mb-3 opacity-50">manage_search</span>
+        <p id="search-helper-text">Nhập từ khóa để tìm kiếm trong nội dung</p>
+        <p id="search-result-count" class="mt-3 text-xs text-on-surface-variant/70"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
        READER LAYOUT WRAPPER
        ========================================== -->
   <div id="reader-app" class="reader-app flex flex-col overflow-hidden">
 
     <!-- ==========================================
-         READER TOOLBAR (top bar)
-         ========================================== -->
-    <header id="reader-toolbar" class="reader-toolbar flex items-center justify-between px-4 lg:px-6 h-12 lg:h-14 flex-shrink-0 glass-nav border-b border-white/[0.06] z-50">
-      <!-- Left: Back + breadcrumb -->
-      <div class="flex items-center gap-2 lg:gap-3 min-w-0">
-        <a href="/book" class="flex items-center gap-1 lg:gap-2 text-on-surface-variant hover:text-primary transition-colors flex-shrink-0">
-          <span class="material-symbols-outlined text-lg lg:text-xl">arrow_back</span>
-          <span class="hidden sm:inline text-xs lg:text-sm font-semibold">Thư Viện</span>
-        </a>
-        <div class="w-px h-5 bg-outline-variant hidden sm:block"></div>
-        <!-- Mobile: "Đang đọc" label + title -->
-        <div class="flex flex-col min-w-0 lg:hidden">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant leading-none">Đang đọc</span>
-          <span class="text-xs font-bold text-on-surface truncate max-w-[140px] leading-tight">{title}</span>
-        </div>
-        <!-- Desktop: title only -->
-        <div class="hidden lg:flex items-center gap-2 min-w-0">
-          <span class="text-xs lg:text-sm font-bold text-on-surface truncate max-w-[200px]">{title}</span>
-        </div>
-      </div>
-
-      <!-- Center: Progress (desktop) -->
-      <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
-        <span id="progress-pct" class="text-[10px] text-on-surface-variant font-bold tabular-nums" style="min-width: 2.5ch; text-align: right;">0%</span>
-        <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-          <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
-        </div>
-      </div>
-
-      <!-- Mobile: Progress bar inline (right of title, before controls) -->
-      <div class="flex lg:hidden items-center gap-2 flex-1 min-w-0 mx-3">
-        <div class="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
-          <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
-        </div>
-        <span id="progress-pct-mobile" class="text-[10px] text-on-surface-variant font-bold tabular-nums shrink-0" style="min-width: 2.5ch; text-align: right;">0%</span>
-      </div>
-
-      <!-- Right: Controls -->
-      <div class="flex items-center gap-1 lg:gap-2">
-        <!-- Font size (desktop only — mobile uses bottom bar controls) -->
-        <div class="relative hidden lg:block">
-          <button id="font-menu-btn" class="fab-control flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Kích thước chữ">
-            <span class="material-symbols-outlined text-base">text_fields</span>
-            <span class="hidden lg:inline text-[11px] font-semibold">A</span>
-          </button>
-          <!-- Font popup -->
-          <div id="font-popup" class="hidden absolute top-full right-0 mt-2 z-[60] glass-panel rounded-xl p-3 w-56 shadow-xl">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-3">Kích thước chữ</p>
-            <div class="flex gap-2">
-              <button data-fs="sm" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 14px">A</button>
-              <button data-fs="md" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-primary text-on-primary active" id="fs-md-active" style="font-size: 16px">A</button>
-              <button data-fs="lg" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 18px">A</button>
-              <button data-fs="xl" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 20px">A</button>
-              <button data-fs="2xl" class="fs-btn flex-1 py-2 rounded-lg text-center font-bold bg-surface-container-high hover:bg-primary/10 hover:text-primary transition-all" style="font-size: 22px">A</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Theme toggle (desktop only — mobile uses bottom bar) -->
-        <button id="theme-btn" class="hidden lg:flex fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all" title="Chế độ đọc">
-          <span class="material-symbols-outlined text-base" id="theme-icon">dark_mode</span>
-          <span class="hidden lg:inline text-[11px] font-semibold">Nền</span>
-        </button>
-
-        <!-- Focus mode (desktop only — mobile uses bottom bar) -->
-        <button id="focus-btn" class="hidden lg:flex fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Chế độ tập trung">
-          <span class="material-symbols-outlined text-base">visibility</span>
-          <span class="hidden lg:inline text-[11px] font-semibold">Focus</span>
-        </button>
-
-        <!-- Search (desktop only — Ctrl+K works on mobile) -->
-        <button id="search-btn" class="hidden lg:flex fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Tìm kiếm (Ctrl+K)">
-          <span class="material-symbols-outlined text-base">search</span>
-          <span class="hidden lg:inline text-[11px] font-semibold">Tìm</span>
-        </button>
-
-        {attachments.length > 0 && (
-          <a
-            href="#attachments-summary"
-            id="attachments-btn"
-            class="hidden lg:flex relative items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
-            title={`Xem ${attachments.length} tệp đính kèm`}
-            aria-label={`Xem ${attachments.length} tệp đính kèm`}
-          >
-            <span class="material-symbols-outlined text-base">attachment</span>
-            <span class="hidden lg:inline text-[11px] font-semibold">Tệp</span>
-            <span class="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold px-2 py-0.5 border border-primary/20">{attachments.length}</span>
-          </a>
-        )}
-
-        <!-- Bookmark (desktop only — mobile uses floating action button area) -->
-        <button id="bookmark-btn" class="hidden lg:flex fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Đánh dấu">
-          <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
-        </button>
-
-        <!-- TOC toggle (desktop) -->
-        <button id="toc-toggle-btn" class="hidden lg:flex fab-control items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active-toc-btn" title="Mục lục">
-          <span class="material-symbols-outlined text-base">list</span>
-          <span class="text-[11px] font-semibold">Mục lục</span>
-        </button>
-      </div>
-    </header>
-
-    <!-- Search overlay -->
-    <div id="search-overlay" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
-      <div class="glass-panel-dark rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
-        <div class="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-          <span class="material-symbols-outlined text-on-surface-variant">search</span>
-          <input id="search-input" type="text" placeholder="Tìm kiếm trong chương..." class="flex-1 bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/50 text-sm" autofocus/>
-          <kbd class="hidden sm:inline px-2 py-1 rounded bg-surface-container-high text-[10px] text-on-surface-variant font-mono">ESC</kbd>
-        </div>
-        <div class="p-8 text-center text-sm text-on-surface-variant">
-          <span class="material-symbols-outlined text-4xl block mb-3 opacity-50">manage_search</span>
-          <p id="search-helper-text">Nhập từ khóa để tìm kiếm trong nội dung</p>
-          <p id="search-result-count" class="mt-3 text-xs text-on-surface-variant/70"></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ==========================================
          MAIN BODY: Sidebar + Reader
          ========================================== -->
-    <div class="flex flex-col flex-1 overflow-hidden relative">
+    <div class="flex flex-col flex-1 overflow-hidden relative pt-12 lg:pt-14 min-h-0">
       <!-- Horizontal content row (sidebar + reader + section nav) -->
-      <div class="flex flex-1 overflow-hidden">
+      <div class="flex flex-1 overflow-hidden min-h-0">
 
       <!-- Desktop Sidebar TOC -->
-      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-80 flex-shrink-0 h-full border-r border-white/[0.06] bg-surface-container-low/50 overflow-y-auto toc-sidebar">
+      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-96 flex-shrink-0 h-full border-r overflow-y-auto toc-sidebar" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
         <!-- TOC Header -->
-        <div class="px-4 py-4 border-b border-white/[0.06] sticky top-0 bg-surface-container-low z-10">
-          <h3 class="text-sm font-bold text-on-surface mb-1">Mục lục</h3>
-          <p class="text-xs text-on-surface-variant">{currentTierLabel}</p>
+        <div class="px-4 py-4 border-b sticky top-0 z-10" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
+          <h3 class="text-sm font-bold r-text mb-1">Mục lục</h3>
+          <p class="text-xs r-text-muted">{currentTierLabel}</p>
         </div>
 
         <!-- Chapter navigation -->
@@ -237,13 +224,13 @@ const currentTier = groupedChapters.find((g) =>
               <div class="toc-group" data-tier={group.tier} data-current-tier={isCurrentTier ? 'true' : 'false'}>
                 <!-- Group header with collapse toggle -->
                 <button
-                  class="toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-lg text-left transition-all hover:bg-surface-container"
+                  class="toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-lg text-left transition-all r-hover"
                   aria-expanded="true"
                   data-toc-toggle
                 >
                   <span class="material-symbols-outlined text-primary text-[16px] toc-group-icon transition-transform duration-200">folder_open</span>
-                  <span class="text-sm font-bold text-on-surface-variant toc-group-label flex-1 truncate">{group.label}</span>
-                  <span class="text-xs text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded toc-group-count">{group.chapters.length}</span>
+                  <span class="text-sm font-bold r-text-muted toc-group-label flex-1 truncate">{group.label}</span>
+                  <span class="text-xs r-text-muted px-1.5 py-0.5 rounded toc-group-count" style="background: var(--reader-chrome-surface-high);">{group.chapters.length}</span>
                   <span class="material-symbols-outlined text-[16px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
                 </button>
 
@@ -258,7 +245,7 @@ const currentTier = groupedChapters.find((g) =>
                           'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border-l-2',
                           isCurrent
                             ? 'toc-item-active border-primary text-primary'
-                            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container hover:border-white/20',
+                            : 'border-transparent r-text-muted r-hover-text r-hover',
                         ]}
                         data-toc-chapter
                       >
@@ -274,18 +261,18 @@ const currentTier = groupedChapters.find((g) =>
         </nav>
 
         <!-- Current section -->
-        <div class="px-4 py-4 border-t border-white/[0.06] sticky bottom-0 bg-surface-container-low">
-          <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Đang đọc</p>
-          <p class="text-base font-bold text-on-surface leading-tight line-clamp-2">{title}</p>
+        <div class="px-4 py-4 border-t sticky bottom-0" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
+          <p class="text-xs font-bold uppercase tracking-wider r-text-muted mb-1">Đang đọc</p>
+          <p class="text-base font-bold r-text leading-tight line-clamp-2">{title}</p>
         </div>
       </aside>
 
 
       <!-- Reader Scroll Area -->
-      <main id="reader-scroll" class="flex-1 overflow-y-auto relative reader-main" tabindex="-1">
+      <main id="reader-scroll" class="flex-1 overflow-y-auto relative reader-main pb-20 lg:pb-0" style="background: var(--reader-bg);" tabindex="-1">
         <!-- Content -->
         <div
-          class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-12 reader-content"
+          class="max-w-[760px] mx-auto px-5 sm:px-8 lg:px-14 py-8 lg:py-12 reader-content"
           id="reader-content"
           data-chapter-id={currentSlug}
           data-chapter-title={title}
@@ -295,6 +282,8 @@ const currentTier = groupedChapters.find((g) =>
           data-chapter-desc={description}
         >
           <slot />
+          <!-- Spacer: push content above fixed chapter nav bar -->
+          <div id="chapter-nav-spacer" style="height: 72px;"></div>
         </div>
       </main>
 
@@ -308,86 +297,44 @@ const currentTier = groupedChapters.find((g) =>
       <!-- ==========================================
            STATUS BAR (Desktop)
            ========================================== -->
-      <footer id="reader-status" class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-nav border-t border-white/[0.06] z-40">
+      <footer id="reader-status" class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-nav border-t z-40" style="background: var(--reader-chrome-bg); border-color: var(--reader-border);">
         <div class="flex items-center gap-4">
           <div class="flex items-center gap-2">
             <span class="status-dot"></span>
-            <span class="text-[10px] text-on-surface-variant font-semibold">Online</span>
+            <span class="text-[10px] r-text-muted font-semibold">Online</span>
           </div>
-          <div class="h-4 w-px bg-outline-variant"></div>
-          <span id="word-count" class="text-[10px] text-on-surface-variant">—</span>
+          <div class="h-4 w-px" style="background: var(--reader-border);"></div>
+          <span id="word-count" class="text-[10px] r-text-muted">—</span>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-[10px] text-primary font-bold">Dental Empire OS</span>
-          <button id="fullscreen-btn" class="text-on-surface-variant hover:text-primary transition-colors">
+          <button id="fullscreen-btn" class="r-text-muted hover:text-primary transition-colors">
             <span class="material-symbols-outlined text-sm">fullscreen</span>
           </button>
         </div>
       </footer>
 
-      <!-- ==========================================
-           MOBILE BOTTOM BAR
-           ========================================== -->
-      <div id="mobile-bottom-bar" class="lg:hidden flex items-center justify-around gap-1 px-2 py-2 glass-nav border-t border-white/[0.06] z-50 mobile-bottom-bar" style="padding-bottom: env(safe-area-inset-bottom, 0);">
-        <!-- Bookmark (mobile) -->
-        <button id="mobile-bookmark-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Đánh dấu">
-          <span class="material-symbols-outlined text-xl" id="mobile-bookmark-icon">bookmark_border</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Đánh dấu</span>
-        </button>
-        <button id="mobile-font-decrease" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
-          <span class="material-symbols-outlined text-lg">text_decrease</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Nhỏ</span>
-        </button>
-        <button id="mobile-font-display" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-primary transition-all">
-          <span class="text-lg font-bold leading-none" id="mobile-font-label">Aa</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Cỡ chữ</span>
-        </button>
-        <button id="mobile-font-increase" class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
-          <span class="material-symbols-outlined text-lg">text_increase</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter">Lớn</span>
-        </button>
-        <button id="mobile-theme-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
-          <span class="material-symbols-outlined text-xl" id="mobile-theme-icon">dark_mode</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-theme-label">Tối</span>
-        </button>
-        <button id="mobile-focus-btn" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active:scale-90 transition-transform">
-          <span class="material-symbols-outlined text-xl" id="mobile-focus-icon">center_focus_strong</span>
-          <span class="text-[9px] font-bold uppercase tracking-tighter" id="mobile-focus-label">Focus</span>
-        </button>
-      </div>
-
-      <!-- Mobile bottom padding -->
-      <div class="lg:hidden h-14" style="padding-bottom: env(safe-area-inset-bottom, 0);"></div>
-
-      <!-- Focus mode floating exit button (desktop, shown when focus is active) -->
-      <button
-        id="desktop-focus-float-btn"
-        class="hidden lg:fixed z-[60] w-12 h-12 rounded-full bg-surface/80 backdrop-blur border border-white/10 shadow-2xl flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/30 transition-all"
-        style="top: 1.5rem; right: 1.5rem;"
-        title="Thoát Focus"
-      >
-        <span class="material-symbols-outlined text-2xl" id="desktop-focus-float-icon">visibility_off</span>
-      </button>
     </div>
 
   </div>
+
 
   <!-- ═══════════════ Section Nav Mobile (outside #reader-app, fixed positioned) ═══════════════ -->
   <SectionNavMobile
     sections={sections}
     groupedChapters={groupedChapters}
     currentSlug={currentSlug}
-    reviewStats={reviewStats}
     attachments={attachments}
     chapterId={chapterId || currentSlug}
     chapterTitle={title}
   />
 
+  <!-- ═══════════════ Chapter Nav Fixed Bottom Bar (outside #reader-app, fixed positioned) ═══════════════ -->
+  <ChapterNav prev={prev} next={next} />
+
   <!-- ═══════════════ Review Drawer (outside #reader-app, fixed positioned) ═══════════════ -->
   <ReviewDrawer
     chapterId={currentSlug}
-    reviews={reviews}
-    stats={reviewStats}
     isLoggedIn={isLoggedIn}
     currentUserId={currentUserId}
   />
@@ -401,14 +348,14 @@ const currentTier = groupedChapters.find((g) =>
   <!-- ═══════════════ File Preview Modal ═══════════════ -->
   <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">
     <div class="file-preview-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" id="preview-backdrop"></div>
-    <div class="file-preview-panel relative z-10 bg-surface-container rounded-2xl border border-outline-variant/30 shadow-2xl mx-4 my-4 flex flex-col w-full h-[90vh] sm:max-w-4xl sm:max-h-[85vh]">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30 shrink-0">
+    <div class="file-preview-panel relative z-10 rounded-2xl border shadow-2xl mx-4 my-4 flex flex-col w-full h-[90vh] sm:max-w-4xl sm:max-h-[85vh]" style="background: var(--reader-chrome-surface); border-color: var(--reader-border);">
+      <div class="flex items-center justify-between px-4 py-3 border-b shrink-0" style="border-color: var(--reader-border);">
         <div class="flex items-center gap-2 min-w-0">
           <span class="material-symbols-outlined text-primary text-lg">visibility</span>
-          <p id="preview-filename" class="text-sm font-bold text-on-surface truncate"></p>
+          <p id="preview-filename" class="text-sm font-bold r-text truncate"></p>
         </div>
         <div class="flex items-center gap-1 shrink-0">
-          <button id="preview-open-external" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Mở tab mới">
+          <button id="preview-open-external" class="w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Mở tab mới">
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
           </button>
           <button id="preview-download" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Tải file">
@@ -431,16 +378,15 @@ const currentTier = groupedChapters.find((g) =>
       let currentThemeIdx = 0;
       let bookmarked = false;
       let tocOpen = true;
-      let focusMode = false;
 
       const doc = document;
       const body = doc.body;
       const readerApp = doc.getElementById('reader-app');
       const readerScroll = doc.getElementById('reader-scroll');
-      // tocSidebar used in focus mode and TOC toggle below
+      const tocSidebar = doc.getElementById('toc-sidebar');
+      const sectionNav = doc.getElementById('section-nav-desktop');
       const searchOverlay = doc.getElementById('search-overlay');
       const searchInput = doc.getElementById('search-input');
-      const fontPopup = doc.getElementById('font-popup');
 
       // ---- Theme cycling ----
       function applyTheme(idx) {
@@ -463,103 +409,6 @@ const currentTier = groupedChapters.find((g) =>
       doc.getElementById('mobile-theme-btn')?.addEventListener('click', () => {
         applyTheme((currentThemeIdx + 1) % themes.length);
       });
-
-      // ---- Font size ----
-      const fontOrder = ['sm', 'md', 'lg', 'xl', '2xl'];
-      const fontLabels = { sm: '14', md: '16', lg: '18', xl: '20', '2xl': '22' };
-      let fontIdx = 1; // md = default
-
-      function setFontSize(size: string) {
-        const sizes = { sm: '1', md: '1.1', lg: '1.3', xl: '1.5', '2xl': '1.7' };
-        const el = doc.getElementById('reader-content') as HTMLElement | null;
-        if (el) {
-          el.style.setProperty('--fs', sizes[size as keyof typeof sizes] + 'rem');
-        }
-        fontIdx = fontOrder.indexOf(size);
-        doc.querySelectorAll('.fs-btn').forEach((btn) => {
-          const isActive = btn.getAttribute('data-fs') === size;
-          btn.classList.toggle('bg-primary', isActive);
-          btn.classList.toggle('text-on-primary', isActive);
-          btn.classList.toggle('bg-surface-container-high', !isActive);
-        });
-        const label = doc.getElementById('mobile-font-label');
-        if (label) label.textContent = fontLabels[size as keyof typeof fontLabels];
-      }
-
-      doc.querySelectorAll('.fs-btn').forEach((btn) => {
-        btn.addEventListener('click', () => setFontSize(btn.getAttribute('data-fs') || 'md'));
-      });
-
-      doc.getElementById('mobile-font-increase')?.addEventListener('click', () => {
-        if (fontIdx < fontOrder.length - 1) { fontIdx++; setFontSize(fontOrder[fontIdx]); }
-      });
-      doc.getElementById('mobile-font-decrease')?.addEventListener('click', () => {
-        if (fontIdx > 0) { fontIdx--; setFontSize(fontOrder[fontIdx]); }
-      });
-
-      // ---- Focus mode ----
-      const toolbar = doc.getElementById('reader-toolbar');
-      const mobileBottomBar = doc.getElementById('mobile-bottom-bar');
-      const tocSidebar = doc.getElementById('toc-sidebar');
-      const readerStatus = doc.getElementById('reader-status');
-      const sectionNav = doc.getElementById('section-nav-desktop');
-
-      function toggleFocus() {
-        focusMode = !focusMode;
-        body.classList.toggle('focus-mode', focusMode);
-
-        // Desktop: fade out (no reflow) toolbar, sidebars, status bar
-        const setOpacity = (el: HTMLElement | null, hidden: boolean) => {
-          if (!el) return;
-          el.style.transition = 'opacity 0.3s ease';
-          el.style.opacity = hidden ? '0' : '1';
-          el.style.pointerEvents = hidden ? 'none' : '';
-        };
-        setOpacity(toolbar, focusMode);
-        setOpacity(tocSidebar, focusMode);
-        setOpacity(readerStatus, focusMode);
-        setOpacity(sectionNav, focusMode);
-        // Don't hide mobileBottomBar here — CSS handles it for mobile
-
-        const icon = focusMode ? 'visibility_off' : 'visibility';
-
-        // Desktop floating exit button
-        const desktopFloatBtn = doc.getElementById('desktop-focus-float-btn');
-        if (desktopFloatBtn) {
-          desktopFloatBtn.classList.toggle('hidden', !focusMode);
-          const floatIcon = desktopFloatBtn.querySelector('.material-symbols-outlined');
-          if (floatIcon) floatIcon.textContent = icon;
-        }
-
-      // Mobile: CSS handles hiding non-focus buttons in bottom bar
-      // via body.focus-mode .mobile-bottom-bar button:not(#mobile-focus-btn)
-
-        // Update toolbar focus button icon
-        const btn = doc.getElementById('focus-btn');
-        if (btn) {
-          const iconEl = btn.querySelector('.material-symbols-outlined');
-          if (iconEl) iconEl.textContent = icon;
-          btn?.classList.toggle('bg-primary/10', focusMode);
-          btn?.classList.toggle('text-primary', focusMode);
-          btn?.classList.toggle('border', focusMode);
-          btn?.classList.toggle('border-primary/30', focusMode);
-        }
-
-        // Update mobile focus button
-        const mobileBtn = doc.getElementById('mobile-focus-btn');
-        if (mobileBtn) {
-          const iconEl = doc.getElementById('mobile-focus-icon');
-          if (iconEl) iconEl.textContent = icon;
-          const labelEl = doc.getElementById('mobile-focus-label');
-          if (labelEl) labelEl.textContent = focusMode ? 'Thoát' : 'Focus';
-          mobileBtn.classList.toggle('text-primary', focusMode);
-          mobileBtn.classList.toggle('bg-primary/10', focusMode);
-        }
-      }
-
-      doc.getElementById('focus-btn')?.addEventListener('click', toggleFocus);
-      doc.getElementById('mobile-focus-btn')?.addEventListener('click', toggleFocus);
-      doc.getElementById('desktop-focus-float-btn')?.addEventListener('click', toggleFocus);
 
       // ---- Bookmark ----
       const bookmarkButton = doc.getElementById('bookmark-btn');
@@ -784,16 +633,8 @@ const currentTier = groupedChapters.find((g) =>
           if (!searchOverlay?.classList.contains('hidden')) {
             closeSearch();
           }
-          fontPopup?.classList.add('hidden');
         }
       });
-
-      // ---- Font popup ----
-      doc.getElementById('font-menu-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        fontPopup?.classList.toggle('hidden');
-      });
-      doc.addEventListener('click', () => fontPopup?.classList.add('hidden'));
 
       // ---- Fullscreen ----
       doc.getElementById('fullscreen-btn')?.addEventListener('click', () => {
@@ -934,7 +775,6 @@ const currentTier = groupedChapters.find((g) =>
       });
 
       // ---- Init ----
-      setFontSize('md');
 
     })();
   </script>
@@ -999,9 +839,18 @@ const currentTier = groupedChapters.find((g) =>
         },
         { rootMargin: '200px' }
       );
-      document.querySelectorAll<HTMLElement>('[data-file-card]').forEach((card) => {
-        sizeObserver.observe(card);
-      });
+
+      // Defer observing file cards until after first paint
+      function observeFileCards() {
+        document.querySelectorAll<HTMLElement>('[data-file-card]').forEach((card) => {
+          sizeObserver.observe(card);
+        });
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(observeFileCards, { timeout: 2000 });
+      } else {
+        setTimeout(observeFileCards, 300);
+      }
 
       // ── Download with progress ──
       async function downloadFile(card: HTMLElement): Promise<void> {
@@ -1202,9 +1051,14 @@ const currentTier = groupedChapters.find((g) =>
     })();
   </script>
   <style>
+    /* Chapter nav fixed bottom bar */
+    .chapter-nav-fixed a:hover span:last-child {
+      color: var(--color-primary) !important;
+    }
+
     /* TOC group collapse */
     .toc-group-chapters {
-      
+
       overflow: hidden;
       transition: max-height 0.3s ease, opacity 0.2s ease;
     }
@@ -1271,4 +1125,14 @@ const currentTier = groupedChapters.find((g) =>
       to { transform: rotate(360deg); }
     }
   </style>
+
+  <!-- Mobile Navigation -->
+  <MobileBottomNav
+    currentPath={Astro.url.pathname}
+    isReading={true}
+    currentSlug={currentSlug}
+    groupedChapters={groupedChapters}
+  />
+  <MobileSearchOverlay />
+  <MobileUserMenu />
 </BaseLayout>

@@ -1,4 +1,4 @@
----
+﻿---
 interface NavItem {
   href: string;
   label: string;
@@ -8,10 +8,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/admin',           label: 'Dashboard',   icon: 'dashboard',     match: '/admin' },
-  { href: '/admin/homepage',  label: 'Trang Chủ',   icon: 'home',          match: '/admin/homepage' },
-  { href: '/admin/ebooks',    label: 'E-books',     icon: 'menu_book',     match: '/admin/ebooks' },
-  { href: '/admin/questions', label: 'Câu Hỏi',    icon: 'question_answer', match: '/admin/questions' },
-  { href: '/admin/resources', label: 'Resources',   icon: 'folder_shared', match: '/admin/resources' },
+  { href: '/admin/ebooks',    label: 'Ebook',       icon: 'menu_book',     match: '/admin/ebooks' },
+  { href: '/admin/resources', label: 'Tài liệu',   icon: 'folder_shared', match: '/admin/resources' },
+  { href: '/admin/courses',    label: 'Khoá Học',     icon: 'school',          match: '/admin/courses' },
+  { href: '/admin/blog',      label: 'Blogs',       icon: 'newsmode',      match: '/admin/blog' },
+  { href: '/admin/questions', label: 'Hỏi Đáp',     icon: 'question_answer', match: '/admin/questions' },
+  { href: '/admin/homepage',  label: 'Trang chủ',   icon: 'home',          match: '/admin/homepage' },
+  { href: '/admin/users',    label: 'Người dùng',  icon: 'people',        match: '/admin/users' },
 ];
 
 const settingsItems: NavItem[] = [

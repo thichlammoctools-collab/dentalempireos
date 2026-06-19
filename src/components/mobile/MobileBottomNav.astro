@@ -1,0 +1,318 @@
+---
+import type { TierGroup } from '../book/SidebarNav.astro';
+
+interface Props {
+  currentPath: string;
+  groupedChapters?: TierGroup[];
+  currentSlug?: string;
+  isReading?: boolean;
+}
+
+const { currentPath, groupedChapters = [], currentSlug = '', isReading = false } = Astro.props;
+
+// Determine active nav item
+const getNavState = () => {
+  if (currentPath === '/') return 'home';
+  if (currentPath.startsWith('/book') && !currentPath.includes('/book/')) return 'library';
+  if (currentPath.startsWith('/blog')) return 'blog';
+  if (currentPath.startsWith('/resources')) return 'resources';
+  return 'menu';
+};
+
+const activeNav = getNavState();
+
+// If reading a chapter, show back to library instead of home
+const homeConfig = isReading
+  ? { href: '/book', icon: 'arrow_back', label: 'Thư viện', id: 'back' }
+  : { href: '/', icon: 'home', label: 'Trang chủ', id: 'home' };
+---
+
+<!-- Mobile Bottom Navigation -->
+<nav
+  id="mobile-bottom-nav"
+  class="fixed bottom-0 left-0 right-0 z-[100] backdrop-blur-xl border-t lg:hidden"
+  style="background: var(--reader-chrome-bg, var(--color-surface-container-lowest)); border-color: var(--reader-border, var(--color-outline-variant)); padding-bottom: env(safe-area-inset-bottom, 0px);"
+>
+  <div class="flex items-center justify-around h-16">
+    <!-- Home / Back -->
+    <a
+      href={homeConfig.href}
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'home' || isReading
+          ? 'text-primary'
+          : 'text-on-surface-variant hover:text-on-surface'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">{homeConfig.icon}</span>
+      <span class="text-[10px] font-medium">{homeConfig.label}</span>
+    </a>
+
+    <!-- Library / Chapters -->
+    {isReading && groupedChapters.length > 0 ? (
+      <button
+        id="mobile-nav-library"
+        class:list={[
+          'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+          activeNav === 'library' || isReading
+            ? 'text-primary'
+            : 'text-on-surface-variant hover:text-on-surface'
+        ]}
+        aria-label="Thư viện"
+      >
+        <span class="material-symbols-outlined text-2xl">menu_book</span>
+        <span class="text-[10px] font-medium">Thư viện</span>
+      </button>
+    ) : (
+      <a
+        href="/book"
+        class:list={[
+          'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+          activeNav === 'library'
+            ? 'text-primary'
+            : 'text-on-surface-variant hover:text-on-surface'
+        ]}
+      >
+        <span class="material-symbols-outlined text-2xl">menu_book</span>
+        <span class="text-[10px] font-medium">Thư viện</span>
+      </a>
+    )}
+
+    <!-- Search (FAB style center) -->
+    <button
+      id="mobile-nav-search"
+      class="flex items-center justify-center w-14 h-14 -mt-6 rounded-full bg-primary text-on-primary shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300 hover:scale-105 active:scale-95"
+      aria-label="Tìm kiếm"
+    >
+      <span class="material-symbols-outlined text-2xl">search</span>
+    </button>
+
+    <!-- Blog -->
+    <a
+      href="/blog"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'blog'
+          ? 'text-primary'
+          : 'text-on-surface-variant hover:text-on-surface'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">article</span>
+      <span class="text-[10px] font-medium">Blog</span>
+    </a>
+
+    <!-- Menu / Profile -->
+    <button
+      id="mobile-nav-menu"
+      class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-on-surface-variant hover:text-on-surface transition-all duration-200"
+      aria-label="Menu"
+    >
+      <span class="material-symbols-outlined text-2xl">menu</span>
+      <span class="text-[10px] font-medium">Menu</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Chapter Quick Drawer (Slide-up) -->
+<div
+  id="mobile-chapter-drawer"
+  class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl shadow-2xl transform translate-y-full transition-transform duration-300 ease-out lg:hidden flex flex-col"
+  style="background: var(--reader-chrome-bg, var(--color-surface-container-lowest)); max-height: 70vh;"
+>
+  <!-- Handle -->
+  <div
+    id="chapter-drawer-handle"
+    class="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+  >
+    <div class="w-12 h-1.5 rounded-full bg-outline-variant"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="px-5 pb-3 border-b" style="border-color: var(--reader-border, var(--color-outline-variant));">
+    <h3 class="text-lg font-bold r-text">Thư viện sách</h3>
+    <p class="text-xs r-text-muted mt-1">Chọn chương để đọc</p>
+  </div>
+
+  <!-- Chapter List -->
+  <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2" id="chapter-drawer-content">
+    {groupedChapters.map((group) => (
+      <div class="tier-group" data-tier={group.tier}>
+        <button
+          class="tier-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-container-high/50 hover:bg-surface-container-high transition-colors"
+          data-tier={group.tier}
+        >
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-lg">folder</span>
+            <span class="text-sm font-semibold r-text">{group.label}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs r-text-muted r-surface px-2 py-0.5 rounded-full">
+              {group.chapters.length} chương
+            </span>
+            <span class="material-symbols-outlined r-text-muted tier-chevron transition-transform">
+              expand_more
+            </span>
+          </div>
+        </button>
+        <div class="tier-chapters hidden space-y-1 mt-1 pl-2">
+          {group.chapters.map((ch) => {
+            const isActive = ch.id === currentSlug;
+            return (
+              <a
+                href={`/book/${ch.id}`}
+                class:list={[
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all',
+                  isActive
+                    ? 'bg-primary/10 text-primary border-l-2 border-primary'
+                    : 'r-text-muted r-hover-text r-hover'
+                ]}
+              >
+                <span class="text-xs font-mono text-on-surface-variant/60 w-8">
+                  Ch{String(ch.data.chapter).padStart(2, '0')}
+                </span>
+                <span class="flex-1 truncate">{ch.data.title}</span>
+                {isActive && (
+                  <span class="material-symbols-outlined text-primary text-lg">play_arrow</span>
+                )}
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<!-- Overlay for drawer -->
+<div
+  id="mobile-drawer-overlay"
+  class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden"
+></div>
+
+<style>
+  /* Prevent body scroll when drawer open */
+  body.drawer-open {
+    overflow: hidden;
+  }
+
+  /* Active tier expansion */
+  .tier-group[data-expanded="true"] .tier-chapters {
+    display: block;
+  }
+  .tier-group[data-expanded="true"] .tier-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Custom scrollbar */
+  #chapter-drawer-content::-webkit-scrollbar {
+    width: 4px;
+  }
+  #chapter-drawer-content::-webkit-scrollbar-thumb {
+    background: var(--reader-scrollbar);
+    border-radius: 4px;
+  }
+
+  /* Bottom nav safe area */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    #mobile-bottom-nav {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const drawer = document.getElementById('mobile-chapter-drawer');
+    const overlay = document.getElementById('mobile-drawer-overlay');
+    const libraryBtn = document.getElementById('mobile-nav-library');
+    const handle = document.getElementById('chapter-drawer-handle');
+
+    let isOpen = false;
+    let startY = 0;
+    let currentY = 0;
+
+    function openDrawer() {
+      isOpen = true;
+      drawer?.classList.remove('translate-y-full');
+      drawer?.classList.add('translate-y-0');
+      overlay?.classList.remove('opacity-0', 'pointer-events-none');
+      overlay?.classList.add('opacity-100', 'pointer-events-auto');
+      document.body.classList.add('drawer-open');
+
+      // Auto-expand current tier if any
+      const currentLink = drawer?.querySelector('a[href*="' + location.pathname + '"]');
+      if (currentLink) {
+        const tierGroup = currentLink.closest('.tier-group');
+        if (tierGroup) {
+          tierGroup.setAttribute('data-expanded', 'true');
+          setTimeout(() => currentLink.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+        }
+      }
+    }
+
+    function closeDrawer() {
+      isOpen = false;
+      drawer?.classList.add('translate-y-full');
+      drawer?.classList.remove('translate-y-0');
+      overlay?.classList.add('opacity-0', 'pointer-events-none');
+      overlay?.classList.remove('opacity-100', 'pointer-events-auto');
+      document.body.classList.remove('drawer-open');
+    }
+
+    libraryBtn?.addEventListener('click', () => {
+      isOpen ? closeDrawer() : openDrawer();
+    });
+
+    overlay?.addEventListener('click', closeDrawer);
+
+    // Tier toggle
+    document.querySelectorAll('.tier-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tier = btn.closest('.tier-group');
+        const isExpanded = tier?.getAttribute('data-expanded') === 'true';
+        tier?.setAttribute('data-expanded', String(!isExpanded));
+      });
+    });
+
+    // Swipe to close
+    handle?.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    handle?.addEventListener('touchmove', (e) => {
+      if (!isOpen) return;
+      currentY = e.touches[0].clientY;
+      const diff = currentY - startY;
+      if (diff > 0) {
+        drawer?.style.setProperty('transform', `translateY(${diff}px)`);
+      }
+    }, { passive: true });
+
+    handle?.addEventListener('touchend', () => {
+      const diff = currentY - startY;
+      if (diff > 100) {
+        closeDrawer();
+      } else {
+        drawer?.style.removeProperty('transform');
+      }
+      currentY = 0;
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen) closeDrawer();
+    });
+
+    // Double tap nav to scroll to top
+    let lastTap = 0;
+    document.querySelectorAll('#mobile-bottom-nav a, #mobile-bottom-nav button').forEach(el => {
+      el.addEventListener('click', () => {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        lastTap = now;
+      });
+    });
+  });
+</script>

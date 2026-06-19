@@ -1,0 +1,281 @@
+---
+// Full-screen search overlay for mobile
+---
+
+<!-- Search Overlay -->
+<div
+  id="mobile-search-overlay"
+  class="fixed inset-0 z-[110] bg-surface-container-lowest transform translate-y-full transition-transform duration-300 lg:hidden"
+>
+  <!-- Header -->
+  <div class="flex items-center gap-3 px-4 h-16 border-b border-outline-variant/30 bg-surface-container-lowest/95 backdrop-blur-xl">
+    <button
+      id="mobile-search-close"
+      class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors"
+      aria-label="Đóng"
+    >
+      <span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+    </button>
+    <div class="flex-1 relative">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60">search</span>
+      <input
+        id="mobile-search-input"
+        type="text"
+        placeholder="Tìm chương, bài viết, từ khóa..."
+        class="w-full bg-surface-container-high rounded-xl py-2.5 pl-10 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+        autocomplete="off"
+      />
+      <button
+        id="mobile-search-clear"
+        class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-surface-container text-on-surface-variant hidden"
+        aria-label="Xóa"
+      >
+        <span class="material-symbols-outlined text-sm">close</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="h-[calc(100vh-4rem)] overflow-y-auto">
+    <!-- Recent searches -->
+    <div id="search-recent" class="px-4 py-3">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+          Tìm kiếm gần đây
+        </h3>
+        <button id="search-clear-all" class="text-xs text-primary hover:underline">
+          Xóa tất cả
+        </button>
+      </div>
+      <div id="recent-tags" class="flex flex-wrap gap-2">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Trending / Quick access -->
+    <div class="px-4 py-3 border-t border-outline-variant/20">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">
+        Truy cập nhanh
+      </h3>
+      <div class="grid grid-cols-2 gap-2">
+        <a href="/book" class="flex items-center gap-2 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+          <span class="material-symbols-outlined text-primary">menu_book</span>
+          <span class="text-sm text-on-surface">Thư viện</span>
+        </a>
+        <a href="/blog" class="flex items-center gap-2 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+          <span class="material-symbols-outlined text-primary">article</span>
+          <span class="text-sm text-on-surface">Blog</span>
+        </a>
+        <a href="/resources" class="flex items-center gap-2 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+          <span class="material-symbols-outlined text-primary">folder</span>
+          <span class="text-sm text-on-surface">Tài nguyên</span>
+        </a>
+        <a href="/book/tier-1/01-trien-khai-he-thong" class="flex items-center gap-2 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+          <span class="material-symbols-outlined text-tertiary">play_arrow</span>
+          <span class="text-sm text-on-surface">Đọc tiếp</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Search results (dynamic) -->
+    <div id="search-results" class="hidden px-4 py-3">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">
+        Kết quả tìm kiếm
+      </h3>
+      <div id="search-results-list" class="space-y-2">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="search-empty" class="hidden flex-col items-center justify-center py-12 text-center">
+      <span class="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-3">search_off</span>
+      <p class="text-sm text-on-surface-variant">Không tìm thấy kết quả</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Results item hover effect */
+  .search-result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    background-color: var(--color-surface-container);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .search-result-item:hover {
+    background-color: var(--color-surface-container-high);
+  }
+
+  /* Highlight match */
+  .search-highlight {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const overlay = document.getElementById('mobile-search-overlay');
+    const searchBtn = document.getElementById('mobile-nav-search');
+    const closeBtn = document.getElementById('mobile-search-close');
+    const input = document.getElementById('mobile-search-input');
+    const clearBtn = document.getElementById('mobile-search-clear');
+    const recentSection = document.getElementById('search-recent');
+    const recentTags = document.getElementById('recent-tags');
+    const resultsSection = document.getElementById('search-results');
+    const resultsList = document.getElementById('search-results-list');
+    const emptyState = document.getElementById('search-empty');
+
+    // LocalStorage key
+    const STORAGE_KEY = 'deos_search_history';
+    const MAX_HISTORY = 10;
+
+    function getHistory() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    function saveHistory(query) {
+      if (!query.trim()) return;
+      const history = getHistory().filter((h: string) => h !== query);
+      history.unshift(query);
+      if (history.length > MAX_HISTORY) history.pop();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      renderHistory();
+    }
+
+    function clearHistory() {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const history = getHistory();
+      if (history.length === 0) {
+        recentSection?.classList.add('hidden');
+        return;
+      }
+      recentSection?.classList.remove('hidden');
+      if (recentTags) {
+        recentTags.innerHTML = history.map((h: string) => `
+          <button class="search-history-tag px-3 py-1.5 rounded-full bg-surface-container-high text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            ${escapeHtml(h)}
+          </button>
+        `).join('');
+
+        recentTags.querySelectorAll('button').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (input) {
+              input.value = btn.textContent?.trim() || '';
+              performSearch(input.value);
+            }
+          });
+        });
+      }
+    }
+
+    function escapeHtml(text: string): string {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function performSearch(query: string) {
+      if (!query.trim()) {
+        resultsSection?.classList.add('hidden');
+        emptyState?.classList.add('hidden');
+        return;
+      }
+
+      saveHistory(query);
+
+      // Mock search - replace with actual API
+      const mockResults = [
+        { title: 'Triển khai hệ thống quản trị', type: 'chapter', url: '/book/tier-1/01-trien-khai-he-thong' },
+        { title: 'Quản lý nhân sự hiệu quả', type: 'chapter', url: '/book/tier-1/02-quan-tri-nhan-su' },
+        { title: 'Công nghệ trong nha khoa', type: 'blog', url: '/blog/cong-nghe-nha-khoa' },
+      ].filter((r: { title: string }) => r.title.toLowerCase().includes(query.toLowerCase()));
+
+      if (mockResults.length === 0) {
+        resultsSection?.classList.add('hidden');
+        emptyState?.classList.remove('hidden');
+        emptyState?.classList.add('flex');
+      } else {
+        emptyState?.classList.add('hidden');
+        emptyState?.classList.remove('flex');
+        resultsSection?.classList.remove('hidden');
+        if (resultsList) {
+          resultsList.innerHTML = mockResults.map((r: { title: string; type: string; url: string }) => {
+            const highlighted = r.title.replace(
+              new RegExp(`(${escapeHtml(query)})`, 'gi'),
+              '<span class="search-highlight">$1</span>'
+            );
+            const icon = r.type === 'chapter' ? 'menu_book' : 'article';
+            return `
+              <a href="${r.url}" class="search-result-item">
+                <span class="material-symbols-outlined text-on-surface-variant">${icon}</span>
+                <div>
+                  <p class="text-sm text-on-surface">${highlighted}</p>
+                  <p class="text-xs text-on-surface-variant/60 capitalize">${r.type}</p>
+                </div>
+              </a>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    function openSearch() {
+      overlay?.classList.remove('translate-y-full');
+      overlay?.classList.add('translate-y-0');
+      setTimeout(() => input?.focus(), 100);
+      renderHistory();
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeSearch() {
+      overlay?.classList.add('translate-y-full');
+      overlay?.classList.remove('translate-y-0');
+      document.body.style.overflow = '';
+      if (input) input.value = '';
+      clearBtn?.classList.add('hidden');
+      resultsSection?.classList.add('hidden');
+    }
+
+    searchBtn?.addEventListener('click', openSearch);
+    closeBtn?.addEventListener('click', closeSearch);
+
+    input?.addEventListener('input', (e) => {
+      const value = (e.target as HTMLInputElement).value;
+      clearBtn?.classList.toggle('hidden', !value);
+      performSearch(value);
+    });
+
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSearch();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      clearBtn.classList.add('hidden');
+      resultsSection?.classList.add('hidden');
+    });
+
+    document.getElementById('search-clear-all')?.addEventListener('click', clearHistory);
+
+    // Expose for external access
+    (window as any).openMobileSearch = openSearch;
+    (window as any).closeMobileSearch = closeSearch;
+  });
+</script>

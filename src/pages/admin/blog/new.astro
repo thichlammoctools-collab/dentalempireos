@@ -1,0 +1,769 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listCategories, listTags, buildCategoryTree, flattenCategoryTree } from '../../../lib/blog-db';
+
+export const prerender = false;
+
+const db = env.DB;
+const [flatCategories, tags] = await Promise.all([
+  listCategories(db),
+  listTags(db),
+]);
+const categoryTree = buildCategoryTree(flatCategories);
+const categoryOptions = flattenCategoryTree(categoryTree);
+---
+
+<AdminLayout title="Viết bài mới | Blog Admin">
+  <div class="max-w-[900px] w-full mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-3xl font-bold text-white">Viết bài mới</h2>
+        <p class="text-on-surface-variant text-sm mt-1">Tạo bài viết blog mới</p>
+      </div>
+      <a
+        href="/admin/blog"
+        class="px-4 py-2 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-bold hover:border-primary hover:text-primary transition-all flex items-center gap-2"
+      >
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+        Quay lại
+      </a>
+    </div>
+
+    <form id="blog-post-form" class="flex flex-col gap-6">
+      <!-- Cover Image -->
+      <section class="glass-card rounded-xl p-5">
+        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[18px]">image</span>
+          Ảnh đại diện
+        </h3>
+        <div class="flex flex-col sm:flex-row gap-4 items-start">
+          <div class="relative">
+            <img
+              id="cover-preview"
+              src=""
+              alt=""
+              class="hidden w-48 h-32 rounded-xl object-cover border border-outline-variant"
+            />
+            <div id="cover-placeholder" class="w-48 h-32 rounded-xl bg-surface-container-high border border-dashed border-outline-variant flex items-center justify-center">
+              <span class="material-symbols-outlined text-4xl text-on-surface-variant/30">add_photo_alternate</span>
+            </div>
+            <button
+              type="button"
+              id="cover-remove"
+              class="hidden absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
+          <div class="flex flex-col gap-2">
+            <input type="hidden" name="cover_url" id="cover-url" value="" />
+            <input type="hidden" name="cover_alt" id="cover-alt" value="" />
+            <button type="button" id="upload-cover-btn" class="px-4 py-2 bg-surface-container-high border border-outline-variant text-white rounded-xl text-sm font-semibold hover:border-primary transition-all">
+              <span class="material-symbols-outlined text-[16px] align-middle mr-1">upload</span>
+              Tải ảnh lên
+            </button>
+            <p class="text-xs text-on-surface-variant">PNG, JPG, WEBP · Tối đa 5MB · Khuyến nghị 1200×630</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Basic Info -->
+      <section class="glass-card rounded-xl p-5">
+        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[18px]">article</span>
+          Thông tin cơ bản
+        </h3>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tiêu đề <span class="text-red-400">*</span></label>
+            <input
+              type="text"
+              name="title"
+              id="post-title"
+              required
+              placeholder="Nhập tiêu đề bài viết..."
+              class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-white text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Mô tả ngắn <span class="text-red-400">*</span></label>
+            <textarea
+              name="description"
+              id="post-description"
+              required
+              rows="2"
+              placeholder="Mô tả ngắn 1-2 câu hiển thị trong danh sách..."
+              class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 resize-none"
+            ></textarea>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1">Slug <span class="text-red-400">*</span></label>
+              <input
+                type="text"
+                name="slug"
+                id="post-slug"
+                required
+                placeholder="slug-bai-viet"
+                class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20"
+              />
+              <p class="text-[10px] text-on-surface-variant/50 mt-1">URL: /blog/[slug]</p>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-on-surface-variant mb-1">Chuyên mục</label>
+                <select
+                  name="category_id"
+                  id="post-category"
+                  class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">— Không chọn —</option>
+                  {categoryOptions.map((opt) => (
+                    <option value={opt.id}>
+                      {opt.indent > 0 ? '└── ' : ''}{opt.name}
+                    </option>
+                  ))}
+                </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tags</label>
+            <div class="flex flex-wrap gap-2 p-3 bg-surface-container border border-outline-variant rounded-xl min-h-[48px]">
+              {tags.map((tag) => (
+                <label class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high border border-outline-variant cursor-pointer hover:border-primary transition-all text-xs text-on-surface-variant has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary">
+                  <input type="checkbox" name="tags" value={tag.id} class="hidden" />
+                  #{tag.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Content -->
+      <section class="glass-card rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">edit_note</span>
+            Nội dung bài viết
+          </h3>
+          <div class="flex items-center gap-2">
+            <button type="button" id="toggle-blocks" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-80 transition-all flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">view_agenda</span>
+              Block
+            </button>
+            <button type="button" id="toggle-markdown" class="px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary transition-all flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">code</span>
+              Markdown
+            </button>
+          </div>
+        </div>
+
+        <!-- Block Editor -->
+        <div id="block-editor" class="flex flex-col gap-3">
+          <input type="hidden" name="blocks_json" id="blocks-json" value="[]" />
+
+          <!-- Blocks container (sortable) -->
+          <div id="blocks-container" class="flex flex-col gap-3 min-h-[60px]">
+            <!-- Blocks rendered here -->
+          </div>
+
+          <!-- Add block buttons -->
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-outline-variant/30">
+            <button type="button" data-add-block="text" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">notes</span>
+              Thêm Text
+            </button>
+            <button type="button" data-add-block="image" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">image</span>
+              Thêm Ảnh
+            </button>
+            <button type="button" data-add-block="form" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">description</span>
+              Thêm Biểu mẫu
+            </button>
+          </div>
+        </div>
+
+        <!-- Markdown Editor -->
+        <div id="markdown-editor" class="hidden">
+          <div class="flex flex-wrap gap-1 mb-3">
+            <button type="button" data-md="bold" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Đậm"><b>B</b></button>
+            <button type="button" data-md="italic" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Nghiêng"><i>I</i></button>
+            <button type="button" data-md="h2" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Tiêu đề 2">H2</button>
+            <button type="button" data-md="h3" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Tiêu đề 3">H3</button>
+            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
+            <button type="button" data-md="ul" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Danh sách"><span class="material-symbols-outlined text-[14px]">format_list_bulleted</span></button>
+            <button type="button" data-md="ol" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Số thứ tự"><span class="material-symbols-outlined text-[14px]">format_list_numbered</span></button>
+            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
+            <button type="button" data-md="link" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Liên kết"><span class="material-symbols-outlined text-[14px]">link</span></button>
+            <button type="button" data-md="quote" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Trích dẫn"><span class="material-symbols-outlined text-[14px]">format_quote</span></button>
+            <button type="button" data-md="code" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Code">`code`</button>
+            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
+            <button type="button" data-md="hr" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all" title="Dòng kẻ">──</button>
+          </div>
+          <textarea
+            name="content_md"
+            id="post-content"
+            rows="20"
+            placeholder="Viết nội dung bài viết bằng Markdown..."
+            class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 resize-y font-mono leading-relaxed"
+            style="min-height: 400px"
+          ></textarea>
+          <p class="text-[10px] text-on-surface-variant/50 mt-1">Hỗ trợ Markdown: **đậm**, *nghiêng*, ## tiêu đề, - danh sách, [liên kết](url), > trích dẫn</p>
+        </div>
+      </section>
+
+      <!-- Options -->
+      <section class="glass-card rounded-xl p-5">
+        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[18px]">settings</span>
+          Tùy chọn
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" name="is_featured" id="is-featured" class="w-4 h-4 accent-primary" />
+              <div>
+                <span class="text-sm font-semibold text-white">Tin nổi bật</span>
+                <p class="text-xs text-on-surface-variant">Hiển thị trong mục "Tin nổi bật" trang chủ</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" name="is_pinned" id="is-pinned" class="w-4 h-4 accent-primary" />
+              <div>
+                <span class="text-sm font-semibold text-white">Ghim bài</span>
+                <p class="text-xs text-on-surface-variant">Luôn hiển thị đầu danh sách</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" name="is_recommended" id="is-recommended" class="w-4 h-4 accent-primary" />
+              <div>
+                <span class="text-sm font-semibold text-white">Khuyến nghị</span>
+                <p class="text-xs text-on-surface-variant">Badge "Recommend" trên card</p>
+              </div>
+            </label>
+          </div>
+          <div class="flex flex-col gap-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" name="status_published" id="status-published" class="w-4 h-4 accent-primary" />
+              <div>
+                <span class="text-sm font-semibold text-white">Xuất bản ngay</span>
+                <p class="text-xs text-on-surface-variant">Bài sẽ hiển thị công khai</p>
+              </div>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit -->
+      <div class="flex items-center justify-end gap-3 pb-4">
+        <a href="/admin/blog" class="px-6 py-3 border border-outline-variant text-on-surface-variant rounded-xl font-bold hover:border-primary hover:text-primary transition-all">
+          Hủy
+        </a>
+        <button type="submit" id="submit-btn" class="px-8 py-3 bg-primary-container text-white rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px]">save</span>
+          Lưu bài viết
+        </button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  // ── Slug auto-generate ─────────────────────────────────────
+  const titleInput = document.getElementById('post-title') as HTMLInputElement;
+  const slugInput = document.getElementById('post-slug') as HTMLInputElement;
+
+  titleInput?.addEventListener('input', () => {
+    if (!slugInput.dataset.manual) {
+      const slug = titleInput.value
+        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      slugInput.value = slug;
+    }
+  });
+  slugInput?.addEventListener('input', () => { slugInput.dataset.manual = 'true'; });
+
+  // ── Cover upload ───────────────────────────────────────────
+  const uploadBtn = document.getElementById('upload-cover-btn');
+  const coverUrlInput = document.getElementById('cover-url') as HTMLInputElement;
+  const coverAltInput = document.getElementById('cover-alt') as HTMLInputElement;
+  const coverPreview = document.getElementById('cover-preview');
+  const coverPlaceholder = document.getElementById('cover-placeholder');
+  const coverRemove = document.getElementById('cover-remove');
+
+  uploadBtn?.addEventListener('click', async () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0]; if (!file) return;
+      const fd = new FormData(); fd.append('file', file);
+      uploadBtn.textContent = 'Đang tải...'; uploadBtn.setAttribute('disabled', 'true');
+      try {
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.url) {
+          coverUrlInput.value = data.url;
+          coverAltInput.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+          coverPreview!.setAttribute('src', data.url);
+          coverPreview!.setAttribute('alt', coverAltInput.value);
+          coverPreview!.classList.remove('hidden');
+          coverPlaceholder!.classList.add('hidden');
+          coverRemove!.classList.remove('hidden');
+        }
+      } catch { alert('Tải ảnh thất bại'); }
+      finally {
+        uploadBtn.innerHTML = '<span class="material-symbols-outlined text-[16px] align-middle mr-1">upload</span>Tải ảnh lên';
+        uploadBtn.removeAttribute('disabled');
+      }
+    };
+    input.click();
+  });
+  coverRemove?.addEventListener('click', () => {
+    coverUrlInput.value = ''; coverAltInput.value = '';
+    coverPreview!.classList.add('hidden'); coverPlaceholder!.classList.remove('hidden');
+    coverRemove!.classList.add('hidden');
+  });
+
+  // ── Toggle Block / Markdown editor ─────────────────────────
+  const blockEditor = document.getElementById('block-editor')!;
+  const markdownEditor = document.getElementById('markdown-editor')!;
+  const toggleBlocksBtn = document.getElementById('toggle-blocks')!;
+  const toggleMdBtn = document.getElementById('toggle-markdown')!;
+
+  function showBlocks() {
+    blockEditor.classList.remove('hidden');
+    markdownEditor.classList.add('hidden');
+    toggleBlocksBtn.classList.add('bg-primary', 'text-white');
+    toggleBlocksBtn.classList.remove('bg-surface-container-high', 'text-on-surface-variant', 'border', 'border-outline-variant');
+    toggleMdBtn.classList.remove('bg-primary', 'text-white');
+    toggleMdBtn.classList.add('bg-surface-container-high', 'text-on-surface-variant', 'border', 'border-outline-variant');
+  }
+  function showMarkdown() {
+    blockEditor.classList.add('hidden');
+    markdownEditor.classList.remove('hidden');
+    toggleMdBtn.classList.add('bg-primary', 'text-white');
+    toggleMdBtn.classList.remove('bg-surface-container-high', 'text-on-surface-variant', 'border', 'border-outline-variant');
+    toggleBlocksBtn.classList.remove('bg-primary', 'text-white');
+    toggleBlocksBtn.classList.add('bg-surface-container-high', 'text-on-surface-variant', 'border', 'border-outline-variant');
+  }
+  toggleBlocksBtn.addEventListener('click', showBlocks);
+  toggleMdBtn.addEventListener('click', showMarkdown);
+  showBlocks(); // default to blocks
+
+  // ── Block Editor State ─────────────────────────────────────
+  interface Block { id: string; type: 'text' | 'image' | 'form'; content: string; sort_order: number; }
+  const blocks: Block[] = [];
+  const blocksContainer = document.getElementById('blocks-container') as HTMLDivElement;
+  const blocksJsonInput = document.getElementById('blocks-json') as HTMLInputElement;
+
+  function syncBlocks() {
+    blocks.forEach((b, i) => b.sort_order = i);
+    blocksJsonInput.value = JSON.stringify(blocks);
+  }
+
+  function renderBlock(block: Block) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'block-wrapper group';
+    wrapper.dataset.blockId = block.id;
+    wrapper.draggable = true;
+
+    const typeLabels: Record<string, string> = { text: 'Văn bản', image: 'Ảnh', form: 'Biểu mẫu' };
+    const typeIcons: Record<string, string> = { text: 'notes', image: 'image', form: 'description' };
+    const typeColors: Record<string, string> = { text: 'border-primary/30 bg-primary/5', image: 'border-tertiary/30 bg-tertiary/5', form: 'border-secondary/30 bg-secondary/5' };
+
+    wrapper.innerHTML = `
+      <div class="flex items-center gap-2 mb-2">
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant/50 cursor-grab active:cursor-grabbing handle">drag_indicator</span>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${typeColors[block.type]} text-on-surface-variant capitalize flex items-center gap-1">
+          <span class="material-symbols-outlined text-[12px]">${typeIcons[block.type]}</span>
+          ${typeLabels[block.type]}
+        </span>
+        <div class="flex-1"></div>
+        <button type="button" data-move="up" class="p-1 rounded text-on-surface-variant/40 hover:text-white hover:bg-surface-container-high transition-all" title="Lên">
+          <span class="material-symbols-outlined text-[14px]">keyboard_arrow_up</span>
+        </button>
+        <button type="button" data-move="down" class="p-1 rounded text-on-surface-variant/40 hover:text-white hover:bg-surface-container-high transition-all" title="Xuống">
+          <span class="material-symbols-outlined text-[14px]">keyboard_arrow_down</span>
+        </button>
+        <button type="button" data-block-delete class="p-1 rounded text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Xóa">
+          <span class="material-symbols-outlined text-[14px]">delete</span>
+        </button>
+      </div>
+      <div class="block-content rounded-xl border border-outline-variant/50 bg-surface-container p-4"></div>
+    `;
+
+    const contentEl = wrapper.querySelector('.block-content') as HTMLDivElement;
+
+    if (block.type === 'text') {
+      contentEl.innerHTML = `
+        <textarea
+          class="w-full bg-transparent border-none text-white text-sm resize-none focus:outline-none placeholder:text-white/20 font-mono leading-relaxed"
+          rows="5" placeholder="Nhập nội dung markdown...">${escHtml(block.content)}</textarea>
+      `;
+      const ta = contentEl.querySelector('textarea') as HTMLTextAreaElement;
+      ta.addEventListener('input', () => {
+        block.content = ta.value;
+        syncBlocks();
+      });
+      // Markdown toolbar for text blocks
+      const toolbar = document.createElement('div');
+      toolbar.className = 'flex flex-wrap gap-1 mb-2';
+      toolbar.innerHTML = `
+        ${['bold','italic','h2','h3','ul','ol','link','quote','code','hr'].map(a =>
+          `<button type="button" data-md="${a}" class="md-tool-btn px-2 py-1 rounded text-[10px] font-bold bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary transition-all">${
+            a === 'bold' ? '<b>B</b>' :
+            a === 'italic' ? '<i>I</i>' :
+            a === 'code' ? '`' :
+            a === 'hr' ? '──' : a.toUpperCase()
+          }</button>`
+        ).join('')}
+      `;
+      contentEl.insertBefore(toolbar, contentEl.firstChild);
+      toolbar.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.md;
+          const start = ta.selectionStart, end = ta.selectionEnd;
+          const selected = ta.value.substring(start, end);
+          let insert = '', cursorOffset = 0;
+          switch (action) {
+            case 'bold': insert = `**${selected || 'text'}**`; cursorOffset = selected ? 0 : -2; break;
+            case 'italic': insert = `*${selected || 'text'}*`; cursorOffset = selected ? 0 : -1; break;
+            case 'h2': insert = `\n## ${selected || 'Heading'}\n`; break;
+            case 'h3': insert = `\n### ${selected || 'Heading'}\n`; break;
+            case 'ul': insert = `\n- ${selected || 'Item 1'}\n- Item 2\n`; break;
+            case 'ol': insert = `\n1. ${selected || 'Item 1'}\n2. Item 2\n`; break;
+            case 'link': insert = `[${selected || 'Link'}](url)`; cursorOffset = selected ? -1 : -4; break;
+            case 'quote': insert = `\n> ${selected || 'Quote'}\n`; break;
+            case 'code': insert = selected.includes('\n') ? `\n\`\`\`\n${selected || 'code'}\n\`\`\`\n` : `\`${selected || 'code'}\``; cursorOffset = selected && !selected.includes('\n') ? 0 : -4; break;
+            case 'hr': insert = '\n---\n'; break;
+          }
+          ta.setRangeText(insert, start, end, 'end');
+          ta.focus();
+          const newPos = start + insert.length + cursorOffset;
+          ta.setSelectionRange(newPos, newPos);
+          block.content = ta.value;
+          syncBlocks();
+        });
+      });
+    } else if (block.type === 'image') {
+      const parsed = (() => { try { return JSON.parse(block.content); } catch { return { url: block.content, alt: '' }; } })();
+      contentEl.innerHTML = `
+        <div class="flex flex-col sm:flex-row gap-3 items-start">
+          <div class="relative w-32 h-24 shrink-0">
+            <img class="block-img-preview w-full h-full rounded-lg object-cover border border-outline-variant ${!parsed.url ? 'hidden' : ''}" src="${parsed.url || ''}" alt="${escAttr(parsed.alt || '')}" />
+            <div class="block-img-placeholder w-full h-full rounded-lg border border-dashed border-outline-variant flex items-center justify-center ${parsed.url ? 'hidden' : ''}">
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant/30">image</span>
+            </div>
+            <button type="button" data-img-remove class="block-img-remove absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 ${!parsed.url ? 'hidden' : ''}">
+              <span class="material-symbols-outlined text-[12px]">close</span>
+            </button>
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <input type="hidden" class="block-img-url" value="${escAttr(parsed.url || '')}" />
+            <input type="text" class="block-img-alt w-full px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Alt text..." value="${escAttr(parsed.alt || '')}" />
+            <button type="button" data-img-upload class="px-3 py-1.5 bg-surface-container-high border border-outline-variant text-on-surface-variant rounded-lg text-xs font-semibold hover:border-primary hover:text-primary transition-all w-fit">
+              <span class="material-symbols-outlined text-[14px] align-middle mr-1">upload</span>Tải ảnh
+            </button>
+          </div>
+        </div>
+      `;
+      const imgUrlInput = contentEl.querySelector('.block-img-url') as HTMLInputElement;
+      const imgAltInput = contentEl.querySelector('.block-img-alt') as HTMLInputElement;
+      const imgPreview = contentEl.querySelector('.block-img-preview') as HTMLImageElement;
+      const imgPlaceholder = contentEl.querySelector('.block-img-placeholder') as HTMLDivElement;
+      const imgRemoveBtn = contentEl.querySelector('[data-img-remove]') as HTMLButtonElement;
+      const imgUploadBtn = contentEl.querySelector('[data-img-upload]') as HTMLButtonElement;
+
+      imgUploadBtn.addEventListener('click', async () => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/*';
+        input.onchange = async () => {
+          const file = input.files?.[0]; if (!file) return;
+          const fd = new FormData(); fd.append('file', file);
+          imgUploadBtn.textContent = 'Đang tải...'; imgUploadBtn.setAttribute('disabled', 'true');
+          try {
+            const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.url) {
+              imgUrlInput.value = data.url;
+              imgPreview.src = data.url; imgPreview.alt = file.name;
+              imgPreview.classList.remove('hidden'); imgPlaceholder.classList.add('hidden');
+              imgRemoveBtn.classList.remove('hidden');
+              block.content = JSON.stringify({ url: data.url, alt: imgAltInput.value });
+              syncBlocks();
+            }
+          } catch { alert('Tải ảnh thất bại'); }
+          finally { imgUploadBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] align-middle mr-1">upload</span>Tải ảnh'; imgUploadBtn.removeAttribute('disabled'); }
+        };
+        input.click();
+      });
+      imgAltInput.addEventListener('input', () => {
+        block.content = JSON.stringify({ url: imgUrlInput.value, alt: imgAltInput.value });
+        syncBlocks();
+      });
+      imgRemoveBtn.addEventListener('click', () => {
+        imgUrlInput.value = ''; imgAltInput.value = '';
+        imgPreview.classList.add('hidden'); imgPlaceholder.classList.remove('hidden');
+        imgRemoveBtn.classList.add('hidden');
+        block.content = JSON.stringify({ url: '', alt: '' });
+        syncBlocks();
+      });
+    } else if (block.type === 'form') {
+      const cfg = (() => { try { return JSON.parse(block.content); } catch { return { title: '', fields: [] }; } })();
+      contentEl.innerHTML = `
+        <div class="form-block-editor flex flex-col gap-3">
+          <input type="text" class="form-title-input w-full px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm font-semibold placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Tiêu đề biểu mẫu..." value="${escAttr(cfg.title || '')}" />
+          <div class="form-fields-list flex flex-col gap-2"></div>
+          <button type="button" data-add-field class="px-3 py-1.5 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-lg text-xs font-semibold hover:border-primary hover:text-primary transition-all w-fit">
+            <span class="material-symbols-outlined text-[14px] align-middle mr-1">add</span>Thêm trường
+          </button>
+        </div>
+      `;
+      const formTitleInput = contentEl.querySelector('.form-title-input') as HTMLInputElement;
+      const formFieldsList = contentEl.querySelector('.form-fields-list') as HTMLDivElement;
+      const addFieldBtn = contentEl.querySelector('[data-add-field]') as HTMLButtonElement;
+
+      function renderFormFields() {
+        formFieldsList.innerHTML = '';
+        cfg.fields.forEach((field: { id: string; type: string; label: string; placeholder?: string; required?: boolean }, idx: number) => {
+          const fieldEl = document.createElement('div');
+          fieldEl.className = 'flex items-center gap-2 p-2 bg-surface-container-high rounded-lg border border-outline-variant/50';
+          fieldEl.innerHTML = `
+            <span class="material-symbols-outlined text-[14px] text-on-surface-variant/40">drag_indicator</span>
+            <select class="field-type px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs focus:outline-none">
+              <option value="text" ${field.type === 'text' ? 'selected' : ''}>Text</option>
+              <option value="email" ${field.type === 'email' ? 'selected' : ''}>Email</option>
+              <option value="phone" ${field.type === 'phone' ? 'selected' : ''}>Phone</option>
+              <option value="textarea" ${field.type === 'textarea' ? 'selected' : ''}>Textarea</option>
+            </select>
+            <input type="text" class="field-label flex-1 px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Label..." value="${escAttr(field.label || '')}" />
+            <input type="text" class="field-placeholder w-32 px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Placeholder..." value="${escAttr(field.placeholder || '')}" />
+            <label class="flex items-center gap-1 cursor-pointer shrink-0">
+              <input type="checkbox" class="field-required w-3 h-3 accent-primary" ${field.required ? 'checked' : ''} />
+              <span class="text-[10px] text-on-surface-variant">Req</span>
+            </label>
+            <button type="button" data-remove-field class="p-1 rounded text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10">
+              <span class="material-symbols-outlined text-[14px]">delete</span>
+            </button>
+          `;
+          fieldEl.querySelector('.field-type')?.addEventListener('change', (e) => {
+            field.type = (e.target as HTMLSelectElement).value;
+            block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+            syncBlocks();
+          });
+          fieldEl.querySelector('.field-label')?.addEventListener('input', (e) => {
+            field.label = (e.target as HTMLInputElement).value;
+            block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+            syncBlocks();
+          });
+          fieldEl.querySelector('.field-placeholder')?.addEventListener('input', (e) => {
+            field.placeholder = (e.target as HTMLInputElement).value;
+            block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+            syncBlocks();
+          });
+          fieldEl.querySelector('.field-required')?.addEventListener('change', (e) => {
+            field.required = (e.target as HTMLInputElement).checked;
+            block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+            syncBlocks();
+          });
+          fieldEl.querySelector('[data-remove-field]')?.addEventListener('click', () => {
+            cfg.fields.splice(idx, 1);
+            block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+            syncBlocks();
+            renderFormFields();
+          });
+          formFieldsList.appendChild(fieldEl);
+        });
+      }
+      renderFormFields();
+
+      formTitleInput.addEventListener('input', () => {
+        cfg.title = formTitleInput.value;
+        block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+        syncBlocks();
+      });
+      addFieldBtn.addEventListener('click', () => {
+        cfg.fields.push({ id: crypto.randomUUID(), type: 'text', label: '', placeholder: '', required: false });
+        block.content = JSON.stringify({ title: cfg.title, fields: cfg.fields });
+        syncBlocks();
+        renderFormFields();
+      });
+    }
+
+    // Move up/down
+    wrapper.querySelector('[data-move="up"]')?.addEventListener('click', () => {
+      const idx = blocks.findIndex(b => b.id === block.id);
+      if (idx > 0) { [blocks[idx - 1], blocks[idx]] = [blocks[idx], blocks[idx - 1]]; syncBlocks(); renderAllBlocks(); }
+    });
+    wrapper.querySelector('[data-move="down"]')?.addEventListener('click', () => {
+      const idx = blocks.findIndex(b => b.id === block.id);
+      if (idx < blocks.length - 1) { [blocks[idx], blocks[idx + 1]] = [blocks[idx + 1], blocks[idx]]; syncBlocks(); renderAllBlocks(); }
+    });
+    // Delete
+    wrapper.querySelector('[data-block-delete]')?.addEventListener('click', () => {
+      const idx = blocks.findIndex(b => b.id === block.id);
+      if (idx >= 0) { blocks.splice(idx, 1); syncBlocks(); renderAllBlocks(); }
+    });
+
+    // Drag and drop
+    wrapper.addEventListener('dragstart', (e: DragEvent) => {
+      (e.dataTransfer as DataTransfer).setData('text/plain', block.id);
+      wrapper.classList.add('opacity-50');
+    });
+    wrapper.addEventListener('dragend', () => { wrapper.classList.remove('opacity-50'); });
+    wrapper.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); });
+    wrapper.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault();
+      const draggedId = (e.dataTransfer as DataTransfer).getData('text/plain');
+      const fromIdx = blocks.findIndex(b => b.id === draggedId);
+      const toIdx = blocks.findIndex(b => b.id === block.id);
+      if (fromIdx !== toIdx && fromIdx >= 0) {
+        const [moved] = blocks.splice(fromIdx, 1);
+        blocks.splice(toIdx, 0, moved);
+        syncBlocks();
+        renderAllBlocks();
+      }
+    });
+
+    return wrapper;
+  }
+
+  function renderAllBlocks() {
+    blocksContainer.innerHTML = '';
+    blocks.forEach(b => blocksContainer.appendChild(renderBlock(b)));
+  }
+
+  function addBlock(type: Block['type']) {
+    const block: Block = { id: crypto.randomUUID(), type, content: type === 'form' ? JSON.stringify({ title: '', fields: [] }) : '', sort_order: blocks.length };
+    blocks.push(block);
+    syncBlocks();
+    blocksContainer.appendChild(renderBlock(block));
+    blocksContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
+
+  // Add block buttons
+  document.querySelectorAll<HTMLButtonElement>('[data-add-block]').forEach(btn => {
+    btn.addEventListener('click', () => addBlock(btn.dataset.addBlock as Block['type']));
+  });
+
+  // Drag to reorder empty container
+  blocksContainer.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); });
+  blocksContainer.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    const draggedId = (e.dataTransfer as DataTransfer).getData('text/plain');
+    const fromIdx = blocks.findIndex(b => b.id === draggedId);
+    if (fromIdx < 0) return;
+    const children = Array.from(blocksContainer.querySelectorAll('.block-wrapper'));
+    let toIdx = blocks.length;
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) { toIdx = i; break; }
+    }
+    if (fromIdx !== toIdx && fromIdx >= 0) {
+      const [moved] = blocks.splice(fromIdx, 1);
+      blocks.splice(toIdx > fromIdx ? toIdx - 1 : toIdx, 0, moved);
+      syncBlocks();
+      renderAllBlocks();
+    }
+  });
+
+  // ── Markdown toolbar (legacy) ───────────────────────────────
+  const contentArea = document.getElementById('post-content') as HTMLTextAreaElement;
+  document.querySelectorAll<HTMLButtonElement>('[data-md]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.md;
+      const start = contentArea.selectionStart, end = contentArea.selectionEnd;
+      const text = contentArea.value, selected = text.substring(start, end);
+      let insert = '', cursorOffset = 0;
+      switch (action) {
+        case 'bold': insert = `**${selected || 'văn bản đậm'}**`; cursorOffset = selected ? 0 : -2; break;
+        case 'italic': insert = `*${selected || 'văn bản nghiêng'}*`; cursorOffset = selected ? 0 : -1; break;
+        case 'h2': insert = `\n## ${selected || 'Tiêu đề'}\n`; break;
+        case 'h3': insert = `\n### ${selected || 'Tiêu đề'}\n`; break;
+        case 'ul': insert = `\n- ${selected || 'Mục 1'}\n- Mục 2\n`; break;
+        case 'ol': insert = `\n1. ${selected || 'Mục 1'}\n2. Mục 2\n`; break;
+        case 'link': insert = `[${selected || 'Liên kết'}](url)`; cursorOffset = selected ? -1 : -4; break;
+        case 'quote': insert = `\n> ${selected || 'Trích dẫn'}\n`; break;
+        case 'code': insert = selected.includes('\n') ? `\n\`\`\`\n${selected || 'code'}\n\`\`\`\n` : `\`${selected || 'code'}\``; cursorOffset = selected && !selected.includes('\n') ? 0 : -4; break;
+        case 'hr': insert = '\n---\n'; break;
+      }
+      contentArea.setRangeText(insert, start, end, 'end'); contentArea.focus();
+    });
+  });
+
+  // ── Submit ─────────────────────────────────────────────────
+  document.getElementById('blog-post-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+    const title = (form.elements.namedItem('title') as HTMLInputElement).value;
+    const slug = (form.elements.namedItem('slug') as HTMLInputElement).value;
+    const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
+    const contentMd = (form.elements.namedItem('content_md') as HTMLTextAreaElement).value;
+    const coverUrl = (form.elements.namedItem('cover_url') as HTMLInputElement).value;
+    const coverAlt = (form.elements.namedItem('cover_alt') as HTMLInputElement).value;
+    const categoryId = (form.elements.namedItem('category_id') as HTMLSelectElement).value || null;
+    const tagIds = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="tags"]:checked')).map((c) => c.value);
+    const isFeatured = (form.elements.namedItem('is_featured') as HTMLInputElement).checked;
+    const isPinned = (form.elements.namedItem('is_pinned') as HTMLInputElement).checked;
+    const isRecommended = (form.elements.namedItem('is_recommended') as HTMLInputElement).checked;
+    const statusPublished = (form.elements.namedItem('status_published') as HTMLInputElement).checked;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Đang lưu...';
+
+    try {
+      const postId = crypto.randomUUID();
+      const useBlocks = blocks.length > 0 && !blockEditor.classList.contains('hidden');
+      const finalContentMd = useBlocks ? '' : contentMd;
+
+      const res = await fetch('/api/admin/blog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: postId,
+          title, slug, description,
+          content_md: finalContentMd,
+          cover_url: coverUrl, cover_alt: coverAlt,
+          category_id: categoryId,
+          is_featured: isFeatured, is_pinned: isPinned, is_recommended: isRecommended,
+          status: statusPublished ? 'published' : 'draft',
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      // Save blocks
+      if (blocks.length > 0) {
+        await fetch('/api/admin/blog/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: data.id, blocks }),
+        });
+      }
+
+      // Set tags
+      if (tagIds.length > 0) {
+        await fetch('/api/admin/blog/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postId: data.id, tagIds }),
+        });
+      }
+
+      window.location.href = `/admin/blog`;
+    } catch {
+      alert('Lưu thất bại');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span> Lưu bài viết';
+    }
+  });
+
+  // Helpers
+  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s: string): string { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+</script>

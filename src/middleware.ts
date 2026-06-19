@@ -2,13 +2,22 @@ import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { createAuth } from './lib/auth';
 
+// Memoize auth instance per isolate (persists across requests in the same Worker instance)
+let _cachedAuth: ReturnType<typeof createAuth> | null = null;
+function getAuth() {
+  if (!_cachedAuth) {
+    _cachedAuth = createAuth(env);
+  }
+  return _cachedAuth;
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { locals, request, url } = context;
 
   locals.user = null;
   locals.session = null;
 
-  const auth = createAuth(env);
+  const auth = getAuth();
   const result = await auth.api.getSession({ headers: request.headers });
   if (result) {
     locals.user = result.user;

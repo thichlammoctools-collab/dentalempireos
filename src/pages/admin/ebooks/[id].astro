@@ -1,4 +1,4 @@
----
+﻿---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import SectionItem from '../../../components/admin/SectionItem.astro';
 import { env } from 'cloudflare:workers';
@@ -67,11 +67,31 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     <!-- Metadata edit (chapter-level) -->
     <section class="glass-card rounded-xl p-5">
-      <h3 class="text-base font-bold text-white mb-3">Thông tin chương</h3>
+      <div class="flex items-center justify-between mb-3">
+        <button type="button" id="meta-toggle" class="flex items-center gap-1.5 text-base font-bold text-white hover:text-primary transition-colors" title="Thu gọn / mở rộng">
+          <span class="material-symbols-outlined text-[20px] meta-collapse-icon" style="transition:transform 0.2s">expand_more</span>
+          <span>Thông tin chương</span>
+        </button>
+        <span class="text-xs text-on-surface-variant/60 meta-summary"></span>
+      </div>
       <form id="chapter-meta-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tiêu đề</label>
           <input name="title" value={ch.title} class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Số thứ tự</label>
+            <input name="chapter_no" type="number" min="1" value={ch.chapter_no} class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tầng</label>
+            <select name="tier" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
+              <option value="1" selected={ch.tier === 1}>Tầng 1</option>
+              <option value="2" selected={ch.tier === 2}>Tầng 2</option>
+              <option value="3" selected={ch.tier === 3}>Tầng 3</option>
+            </select>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Trạng thái</label>
@@ -107,7 +127,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           Chưa có đề mục nào. Bấm "Thêm đề mục chính" để bắt đầu.
         </p>
       ) : (
-        <ul id="section-tree" class="flex flex-col gap-1">
+        <ul id="section-tree" data-section-list class="flex flex-col gap-1">
           {tree.sections.map((s) => (
             <SectionItem section={s} flatSections={flatSections} selectedId={selectedSectionId} />
           ))}
@@ -208,6 +228,44 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Chapter metadata save ─────────────────────────────
     const chapterForm = document.getElementById('chapter-meta-form') as HTMLFormElement;
+
+    // ── Collapse/expand "Thông tin chương" ────────────────
+    const metaToggle = document.getElementById('meta-toggle')!;
+    const metaCollapseIcon = document.querySelector<HTMLElement>('.meta-collapse-icon')!;
+    const metaSummary = document.querySelector<HTMLElement>('.meta-summary')!;
+    const META_KEY = 'admin:ebook:metaCollapsed';
+
+    function updateMetaSummary() {
+      const title = (chapterForm?.querySelector<HTMLInputElement>('[name="title"]')?.value ?? '').trim();
+      metaSummary.textContent = title ? `“${title}”` : '';
+    }
+
+    function applyMetaCollapsed(collapsed: boolean) {
+      if (collapsed) {
+        chapterForm!.style.display = 'none';
+        metaCollapseIcon.style.transform = 'rotate(-90deg)';
+      } else {
+        chapterForm!.style.display = '';
+        metaCollapseIcon.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    // Initial state — default to collapsed on desktop to keep the editor tidy
+    let metaCollapsed: boolean;
+    try {
+      const saved = localStorage.getItem(META_KEY);
+      metaCollapsed = saved === null ? window.matchMedia('(min-width: 768px)').matches : saved === '1';
+    } catch {
+      metaCollapsed = true;
+    }
+    applyMetaCollapsed(metaCollapsed);
+    updateMetaSummary();
+    metaToggle.addEventListener('click', () => {
+      metaCollapsed = !metaCollapsed;
+      applyMetaCollapsed(metaCollapsed);
+      try { localStorage.setItem(META_KEY, metaCollapsed ? '1' : '0'); } catch { /* ignore */ }
+    });
+
     chapterForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(chapterForm);
@@ -222,6 +280,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         }),
       });
       if (res.ok) {
+        updateMetaSummary();
         alert('Đã lưu');
       } else {
         alert('Lỗi khi lưu');
@@ -253,9 +312,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     function markDirty() {
       dirty = true;
-      updateSaveStatus('Có thay đổi...');
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => saveAllDirtyBlocks(), 1500);
+      updateSaveStatus('Có thay đổi chưa lưu');
+      // Auto-save disabled - user must click save button
     }
 
     async function openModal(sectionId: string) {
@@ -289,42 +347,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       for (const item of items) {
         const blockId = item.dataset.blockId;
         if (!blockId) continue;
-
-        const body: Record<string, unknown> = {};
-
-        const textEl = item.querySelector<HTMLTextAreaElement>('[data-field="text_md"]');
-        if (textEl) body.text_md = textEl.value;
-
-        const altEl = item.querySelector<HTMLInputElement>('[data-field="alt"]');
-        if (altEl) body.alt = altEl.value;
-
-        const captionEl = item.querySelector<HTMLInputElement>('[data-field="caption"]');
-        if (captionEl) body.caption = captionEl.value;
-
-        const fileInput = item.querySelector<HTMLInputElement>('[data-field="file"]');
-        const file = fileInput?.files?.[0];
-
-        if (file) {
-          const fd = new FormData();
-          fd.append('file', file);
-          fd.append('chapterId', chapterId);
-          const upRes = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: fd });
-          if (upRes.ok) {
-            const up = await upRes.json() as { r2_key: string; mime: string; filename: string };
-            body.r2_key = up.r2_key;
-            body.mime = up.mime;
-            body.filename = up.filename;
-          }
-        }
-
-        await fetch(`/api/admin/blocks/${blockId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(body),
-        });
-
-        item.removeAttribute('data-dirty');
+        await saveBlockElement(item, blockId);
       }
 
       dirty = false;
@@ -338,7 +361,79 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       setTimeout(() => { if (!dirty) updateSaveStatus(''); }, 2500);
     }
 
-    // ── Render blocks inside modal ────────────────────────
+    // Save a single block element
+    async function saveBlockElement(item: HTMLElement, blockId: string) {
+      const body: Record<string, unknown> = {};
+
+      const textEl = item.querySelector<HTMLTextAreaElement>('[data-field="text_md"]');
+      if (textEl) body.text_md = textEl.value;
+
+      const altEl = item.querySelector<HTMLInputElement>('[data-field="alt"]');
+      if (altEl) body.alt = altEl.value;
+
+      const captionEl = item.querySelector<HTMLInputElement>('[data-field="caption"]');
+      if (captionEl) body.caption = captionEl.value;
+
+      const fileInput = item.querySelector<HTMLInputElement>('[data-field="file"]');
+      const file = fileInput?.files?.[0];
+
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('chapterId', chapterId);
+        const upRes = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: fd });
+        if (upRes.ok) {
+          const up = await upRes.json() as { r2_key: string; mime: string; filename: string };
+          body.r2_key = up.r2_key;
+          body.mime = up.mime;
+          body.filename = up.filename;
+        }
+      }
+
+      await fetch(`/api/admin/blocks/${blockId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      item.removeAttribute('data-dirty');
+      updateBlockSaveButton(item, false);
+    }
+
+    // Update save button appearance based on dirty state
+    function updateBlockSaveButton(item: HTMLElement, isDirty: boolean) {
+      const saveBtn = item.querySelector<HTMLElement>('[data-action="save-block"]');
+      if (saveBtn) {
+        if (isDirty) {
+          saveBtn.classList.remove('opacity-0', 'pointer-events-none');
+          saveBtn.classList.add('opacity-100');
+        } else {
+          saveBtn.classList.add('opacity-0', 'pointer-events-none');
+          saveBtn.classList.remove('opacity-100');
+        }
+      }
+    }
+
+    // Save single block by ID
+    async function saveSingleBlock(blockId: string) {
+      const item = modalBody.querySelector<HTMLElement>(`.block-item[data-block-id="${blockId}"]`);
+      if (!item) return;
+      
+      updateSaveStatus('Đang lưu...');
+      await saveBlockElement(item, blockId);
+      
+      // Check if any blocks still dirty
+      const hasDirty = modalBody.querySelector('.block-item[data-dirty]') !== null;
+      dirty = hasDirty;
+      updateSaveStatus(hasDirty ? 'Có thay đổi chưa lưu' : '✓ Đã lưu');
+      
+      if (!hasDirty) {
+        setTimeout(() => updateSaveStatus(''), 2500);
+      }
+    }
+
+    // ── Render blocks inside modal ─────────────────────────────
     let lastAddedBlockId = '';
 
     function renderModalBlocks(section: SectionNode) {
@@ -358,8 +453,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     // ── Toggle collapse ───────────────────────────────────
     modalBody.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      // Skip if clicking delete button (it's inside the toggle header)
+      // Skip if clicking delete or drag handle button
       if (target.closest('[data-action="delete"]')) return;
+      if (target.closest('.block-drag-handle')) return;
       const toggle = target.closest<HTMLElement>('[data-action="toggle-collapse"]');
       if (!toggle) return;
       const item = toggle.closest<HTMLElement>('.block-item');
@@ -390,11 +486,15 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const header = `
         <div class="flex items-center justify-between gap-2 cursor-pointer select-none" data-action="toggle-collapse">
           <div class="flex items-center gap-2 min-w-0">
+            <span class="block-drag-handle material-symbols-outlined text-[16px] text-on-surface-variant/40 hover:text-primary cursor-grab active:cursor-grabbing shrink-0" title="Kéo để sắp xếp">drag_indicator</span>
             <span class="material-symbols-outlined text-[16px] text-on-surface-variant collapse-icon" style="transition:transform 0.2s">expand_more</span>
             <span class="text-xs font-bold text-on-surface-variant shrink-0">${b.type === 'text' ? 'Text block' : b.type === 'image' ? 'Image block' : 'File block'}</span>
             ${preview}
           </div>
           <div class="flex items-center gap-2 shrink-0">
+            <button data-action="save-block" class="text-on-surface-variant hover:text-primary transition-colors opacity-0 pointer-events-none" title="Lưu block">
+              <span class="material-symbols-outlined text-[18px]">save</span>
+            </button>
             <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
@@ -403,7 +503,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       if (b.type === 'text') {
         return `
-          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               <textarea data-field="text_md" rows="12" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-3 text-white text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[200px]" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
@@ -413,7 +513,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (b.type === 'image') {
         const url = b.r2_key ? `/media/${b.r2_key}` : '';
         return `
-          <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
@@ -436,7 +536,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
       // file
       return `
-        <div class="block-item flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
           ${header}
           <div class="block-content" style="${collapsed ? 'display:none' : ''}">
             ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
@@ -467,7 +567,11 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     modalBody.addEventListener('input', (e) => {
       const target = e.target as HTMLElement;
       if (target.matches('input[data-field], textarea[data-field]')) {
-        target.closest<HTMLElement>('.block-item')?.setAttribute('data-dirty', '1');
+        const item = target.closest<HTMLElement>('.block-item');
+        if (item) {
+          item.setAttribute('data-dirty', '1');
+          updateBlockSaveButton(item, true);
+        }
         markDirty();
       }
       if (target.matches('textarea[data-field="text_md"]')) {
@@ -477,12 +581,29 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     modalBody.addEventListener('change', (e) => {
       const target = e.target as HTMLElement;
       if (target.matches('input[data-field="file"]')) {
-        target.closest<HTMLElement>('.block-item')?.setAttribute('data-dirty', '1');
+        const item = target.closest<HTMLElement>('.block-item');
+        if (item) {
+          item.setAttribute('data-dirty', '1');
+          updateBlockSaveButton(item, true);
+        }
         markDirty();
       }
     });
     modalBody.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
+      
+      // Save button clicked - handle before delete to avoid conflict
+      const saveBtn = target.closest<HTMLElement>('[data-action="save-block"]');
+      if (saveBtn) {
+        const item = saveBtn.closest<HTMLElement>('.block-item');
+        const blockId = item?.dataset.blockId;
+        if (blockId) {
+          saveSingleBlock(blockId);
+        }
+        return;
+      }
+      
+      // Delete button clicked
       const deleteBtn = target.closest<HTMLElement>('[data-action="delete"]');
       if (!deleteBtn) return;
       const item = deleteBtn.closest<HTMLElement>('.block-item');
@@ -545,9 +666,119 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
     });
 
+    // ── Block drag-and-drop reorder inside modal ─────────
+    let blockDragSrc: HTMLElement | null = null;
+
+    modalBody.addEventListener('dragstart', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.block-drag-handle')) {
+        e.preventDefault();
+        return;
+      }
+      const item = target.closest<HTMLElement>('.block-item');
+      if (!item) return;
+      blockDragSrc = item;
+      item.classList.add('dragging');
+      (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+    });
+
+    modalBody.addEventListener('dragend', () => {
+      if (blockDragSrc) blockDragSrc.classList.remove('dragging');
+      blockDragSrc = null;
+      modalBody.querySelectorAll('.drag-above, .drag-below').forEach((el) =>
+        el.classList.remove('drag-above', 'drag-below'),
+      );
+    });
+
+    modalBody.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const target = e.target as HTMLElement;
+      const item = target.closest<HTMLElement>('.block-item');
+      if (!item || item === blockDragSrc) return;
+
+      (e as DragEvent).dataTransfer!.dropEffect = 'move';
+      const rect = item.getBoundingClientRect();
+      const after = e.clientY < rect.top + rect.height / 2;
+
+      modalBody.querySelectorAll('.drag-above, .drag-below').forEach((el) =>
+        el.classList.remove('drag-above', 'drag-below'),
+      );
+      item.classList.add(after ? 'drag-above' : 'drag-below');
+    });
+
+    modalBody.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const target = e.target as HTMLElement;
+      const item = target.closest<HTMLElement>('.block-item');
+      if (!item || !blockDragSrc || item === blockDragSrc) return;
+
+      modalBody.querySelectorAll('.drag-above, .drag-below').forEach((el) =>
+        el.classList.remove('drag-above', 'drag-below'),
+      );
+
+      const items = Array.from(modalBody.querySelectorAll<HTMLElement>('.block-item'));
+      const fromIdx = items.indexOf(blockDragSrc);
+      const toIdx = items.indexOf(item);
+      if (fromIdx < 0 || toIdx < 0) return;
+
+      const rect = item.getBoundingClientRect();
+      const after = e.clientY < rect.top + rect.height / 2;
+      const insertIdx = after ? toIdx : toIdx + 1;
+
+      // Reorder DOM
+      const moved = items.splice(fromIdx, 1)[0];
+      const adjusted = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
+      items.splice(adjusted, 0, moved);
+      items.forEach((el) => modalBody.appendChild(el));
+
+      // Persist via API
+      const ids = items.map((el) => el.dataset.blockId!);
+      try {
+        const res = await fetch('/api/admin/blocks/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids }),
+        });
+        if (!res.ok) {
+          alert('Lỗi khi lưu thứ tự block. Đang tải lại...');
+          location.reload();
+        }
+        // Update order in current section's blocks array
+        if (currentTree) {
+          const section = findSection(currentTree.sections, modalSectionId);
+          if (section) {
+            ids.forEach((id, idx) => {
+              const block = section.blocks.find((b) => b.id === id);
+              if (block) block.order = idx;
+            });
+          }
+        }
+      } catch {
+        alert('Lỗi khi lưu thứ tự block. Đang tải lại...');
+        location.reload();
+      }
+    });
+
     // ── Section tree: event delegation ────────────────────
     document.getElementById('section-tree')?.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
+
+      // Toggle collapse/expand children
+      const toggleBtn = target.closest<HTMLElement>('[data-section-toggle]');
+      if (toggleBtn) {
+        const sectionItem = toggleBtn.closest<HTMLElement>('[data-section-item]');
+        if (sectionItem) {
+          const childList = sectionItem.querySelector<HTMLElement>(':scope > [data-section-list]');
+          const icon = toggleBtn.querySelector<HTMLElement>('.section-toggle-icon');
+          if (childList) {
+            const isCollapsed = childList.style.display === 'none';
+            childList.style.display = isCollapsed ? '' : 'none';
+            if (icon) icon.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+          }
+        }
+        return;
+      }
 
       // Click title → open modal
       const titleEl = target.closest<HTMLElement>('[data-section-title]');
@@ -574,8 +805,10 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           credentials: 'include',
           body: JSON.stringify({
             chapter_id: chapterId,
+            parent_id: section?.parent_id ?? null,
             level: section?.level ?? 2,
             title,
+            slug: section?.slug ?? '',
             order: section?.order ?? 0,
           }),
         }).then(() => location.reload());
@@ -617,7 +850,318 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
     });
 
+    // ── Section drag-and-drop (reorder + reparent) ─────────
+    const sectionTree = document.getElementById('section-tree');
+    let sectionDragSrc: HTMLElement | null = null;
+
+    function isDragHandle(el: HTMLElement) {
+      return el.closest('.section-drag-handle') !== null;
+    }
+
+    // Check if `candidate` is a descendant of `ancestor` in the DOM tree
+    function isDescendantOf(candidate: HTMLElement, ancestor: HTMLElement): boolean {
+      let el = candidate.parentElement;
+      while (el) {
+        if (el === ancestor) return true;
+        el = el.parentElement;
+      }
+      return false;
+    }
+
+    // Count nesting depth from the item up to the root section-tree
+    function getNestingDepth(item: HTMLElement): number {
+      let depth = 0;
+      let el: HTMLElement | null = item;
+      while (el) {
+        if (el.classList.contains('section-nestable')) depth++;
+        el = el.parentElement;
+      }
+      return depth;
+    }
+
+    // Determine drop zone: 'above' (top 25%), 'into' (middle 50%), 'below' (bottom 25%)
+    function getDropZone(e: DragEvent, item: HTMLElement): 'above' | 'into' | 'below' {
+      const rect = item.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      if (ratio < 0.25) return 'above';
+      if (ratio > 0.75) return 'below';
+      return 'into';
+    }
+
+    // Get the DB level from DOM nesting (section-nestable depth 1 → level 2, depth 2 → level 3)
+    function getItemLevel(item: HTMLElement): number {
+      return getNestingDepth(item) + 1;
+    }
+
+    sectionTree?.addEventListener('dragstart', (e) => {
+      const target = e.target as HTMLElement;
+      if (!isDragHandle(target)) {
+        e.preventDefault();
+        return;
+      }
+      const item = target.closest<HTMLElement>('[data-section-item]');
+      if (!item) return;
+      sectionDragSrc = item;
+      item.classList.add('dragging');
+      (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+    });
+
+    sectionTree?.addEventListener('dragend', () => {
+      if (sectionDragSrc) sectionDragSrc.classList.remove('dragging');
+      sectionDragSrc = null;
+      clearAllDragIndicators();
+    });
+
+    sectionTree?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const target = e.target as HTMLElement;
+      const item = target.closest<HTMLElement>('[data-section-item]');
+      if (!item || item === sectionDragSrc || !sectionDragSrc) return;
+
+      // Prevent circular: can't drop into self or descendant
+      if (isDescendantOf(item, sectionDragSrc)) return;
+
+      // Prevent depth overflow: max 3 levels. If source is at depth 2, can't 'into' if target is also at depth 2+
+      const tgtLevel = getItemLevel(item);
+      const zone = getDropZone(e as DragEvent, item);
+
+      if (zone === 'into' && tgtLevel >= 3) return; // level 3 can't have children
+
+      (e as DragEvent).dataTransfer!.dropEffect = 'move';
+
+      clearAllDragIndicators();
+      item.classList.add(`drag-zone-${zone}`);
+    });
+
+    sectionTree?.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      clearAllDragIndicators();
+
+      const target = e.target as HTMLElement;
+      const item = target.closest<HTMLElement>('[data-section-item]');
+      if (!item || !sectionDragSrc || item === sectionDragSrc) return;
+
+      const srcId = sectionDragSrc.dataset.sectionId!;
+      const tgtId = item.dataset.sectionId!;
+      if (isDescendantOf(item, sectionDragSrc)) return;
+
+      const zone = getDropZone(e as DragEvent, item);
+      const tgtLevel = getItemLevel(item);
+
+      if (zone === 'into' && tgtLevel >= 3) return;
+
+      if (zone === 'into') {
+        // Reparent: move sectionDragSrc to become a child of `item`
+        await reparentSection(srcId, tgtId, tgtLevel + 1);
+      } else {
+        // Same-parent reorder or cross-parent as sibling
+        const srcParentUl = sectionDragSrc.closest<HTMLElement>('ul[data-section-list]');
+        const tgtParentUl = item.closest<HTMLElement>('ul[data-section-list]');
+        if (!srcParentUl || !tgtParentUl) return;
+
+        if (srcParentUl === tgtParentUl) {
+          // Same parent — reorder in place
+          const items = Array.from(srcParentUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]'));
+          const fromIdx = items.indexOf(sectionDragSrc);
+          const toIdx = items.indexOf(item);
+          if (fromIdx < 0 || toIdx < 0) return;
+
+          const rect = item.getBoundingClientRect();
+          const after = e.clientY < rect.top + rect.height / 2;
+          const insertIdx = after ? toIdx : toIdx + 1;
+
+          const moved = items.splice(fromIdx, 1)[0];
+          const adjusted = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
+          items.splice(adjusted, 0, moved);
+          items.forEach((li) => srcParentUl.appendChild(li));
+
+          const ids = items.map((li) => li.dataset.sectionId!);
+          try {
+            const res = await fetch('/api/admin/sections/reorder', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ ids }),
+            });
+            if (!res.ok) { location.reload(); }
+          } catch { location.reload(); }
+        } else {
+          // Cross-parent: reparent as sibling of `item`
+          const tgtParentItem = tgtParentUl?.closest<HTMLElement>('.section-nestable[data-section-item]');
+          const newParentId = tgtParentItem?.dataset.sectionId ?? null;
+          const newLevel = tgtLevel;
+          await reparentSection(srcId, newParentId, newLevel);
+        }
+      }
+    });
+
+    // Reparent a section and reload
+    async function reparentSection(sectionId: string, newParentId: string | null, newLevel: number) {
+      if (!currentTree) return;
+      const section = findSection(currentTree.sections, sectionId);
+      if (!section) return;
+
+      // Find sibling order at the target parent
+      let siblingIds: string[] = [];
+      if (newParentId) {
+        const parentNode = findSection(currentTree.sections, newParentId);
+        if (parentNode) siblingIds = parentNode.children.map((c) => c.id);
+      } else {
+        siblingIds = currentTree.sections.map((c) => c.id);
+      }
+      // Put the moved section last among siblings
+      siblingIds = siblingIds.filter((id) => id !== sectionId);
+      siblingIds.push(sectionId);
+
+      const order = Date.now(); // append at end
+
+      try {
+        const res = await fetch(`/api/admin/sections/${sectionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: newParentId,
+            level: newLevel,
+            title: section.title,
+            slug: section.slug,
+            order,
+          }),
+        });
+        if (!res.ok) { alert('Lỗi khi di chuyển đề mục.'); }
+        location.reload();
+      } catch {
+        alert('Lỗi khi di chuyển đề mục.');
+        location.reload();
+      }
+    }
+
+    function clearAllDragIndicators() {
+      sectionTree?.querySelectorAll('.drag-zone-above, .drag-zone-into, .drag-zone-below').forEach((el) =>
+        el.classList.remove('drag-zone-above', 'drag-zone-into', 'drag-zone-below'),
+      );
+    }
+
     // ── Init ──────────────────────────────────────────────
     loadTree();
   });
 </script>
+
+<style>
+  /* ==========================================
+     DRAG & DROP — Section Tree
+     ========================================== */
+
+  /* Smooth transitions on section items */
+  [data-section-item] {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s ease,
+                opacity 0.2s ease,
+                background-color 0.15s ease,
+                border-color 0.15s ease;
+    will-change: transform, opacity;
+  }
+
+  /* While being dragged */
+  [data-section-item].dragging {
+    opacity: 0.35;
+    transform: scale(1.01);
+  }
+
+  /* Drop zone indicators — with animated glow via box-shadow */
+  .drag-zone-above::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: -2px;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 3px;
+    animation: zone-line-expand 0.2s ease-out;
+  }
+  .drag-zone-below::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    bottom: -2px;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 3px;
+    animation: zone-line-expand 0.2s ease-out;
+  }
+  .drag-zone-above,
+  .drag-zone-below {
+    position: relative;
+  }
+  .drag-zone-into {
+    box-shadow: inset 0 0 0 2px var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
+    animation: zone-pulse 0.3s ease;
+  }
+
+  @keyframes zone-line-expand {
+    0% { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+  }
+  @keyframes zone-pulse {
+    0% { box-shadow: inset 0 0 0 0px var(--color-primary); }
+    100% { box-shadow: inset 0 0 0 2px var(--color-primary); }
+  }
+
+  /* Smooth expand/collapse for nested lists */
+  [data-section-list] {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .section-nestable {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Highlight flash after successful reorder */
+  [data-section-item].reorder-success {
+    animation: reorder-flash 0.5s ease;
+  }
+  @keyframes reorder-flash {
+    0% { background: color-mix(in srgb, var(--color-primary) 15%, transparent); }
+    100% { background: transparent; }
+  }
+
+  /* ==========================================
+     DRAG & DROP — Block editor (modal)
+     ========================================== */
+  :global(.block-item) {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.2s ease,
+                box-shadow 0.2s ease;
+    position: relative;
+  }
+  :global(.block-item.dragging) {
+    opacity: 0.35;
+  }
+
+  :global(.drag-above)::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: -2px;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 3px;
+    animation: zone-line-expand 0.2s ease-out;
+  }
+  :global(.drag-below)::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    bottom: -2px;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 3px;
+    animation: zone-line-expand 0.2s ease-out;
+  }
+  :global(.drag-above),
+  :global(.drag-below) {
+    position: relative;
+  }
+</style>
