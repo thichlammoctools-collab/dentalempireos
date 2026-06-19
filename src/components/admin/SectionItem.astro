@@ -9,25 +9,43 @@ interface Props {
 
 const { section, selectedId } = Astro.props;
 const isSelected = section.id === selectedId;
+const hasChildren = section.children.length > 0;
 ---
 
 <li
   data-section-item
   data-section-id={section.id}
+  data-section-order={section.order}
   class:list={[
-    'flex flex-col gap-1 p-2 rounded-lg border transition-colors',
+    'section-nestable relative flex flex-col gap-1 p-2 rounded-lg border transition-colors',
     isSelected
       ? 'bg-primary/5 border-primary/30'
       : 'bg-surface-container-low border-outline-variant/30 hover:border-outline-variant',
   ]}
 >
   <div class="flex items-center gap-2">
-    <span class={`material-symbols-outlined text-[16px] ${section.level === 3 ? 'text-on-surface-variant' : 'text-primary'}`}>
-      {section.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}
+    <span
+      class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/40 hover:text-primary shrink-0 flex items-center justify-center w-6 h-6 rounded-md hover:bg-primary/10 transition-all duration-200"
+      title="Kéo để sắp xếp"
+      draggable="true"
+    >
+      <span class="material-symbols-outlined text-[16px] group-hover:scale-110 transition-transform duration-150">drag_indicator</span>
     </span>
+    {hasChildren ? (
+      <button data-section-toggle class="section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" title="Thu gọn / Mở rộng">
+        <span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span>
+      </button>
+    ) : (
+      <span class={`material-symbols-outlined text-[16px] ${section.level === 3 ? 'text-on-surface-variant' : 'text-primary'}`}>
+        {section.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}
+      </span>
+    )}
     <span data-section-title class={`flex-1 truncate text-sm ${section.level === 3 ? 'text-on-surface-variant' : 'text-white font-semibold'}`}>
       {section.title}
     </span>
+    {hasChildren && (
+      <span class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">{section.children.length} mục</span>
+    )}
     <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
       <span class="material-symbols-outlined text-[14px]">edit</span>
     </button>
@@ -39,8 +57,8 @@ const isSelected = section.id === selectedId;
     </button>
   </div>
 
-  {section.children.length > 0 && (
-    <ul class="flex flex-col gap-1 pl-6 mt-1">
+  {hasChildren && (
+    <ul data-section-list class="flex flex-col gap-1 pl-6">
       {section.children.map((child) => (
         <SectionItem section={child} selectedId={selectedId} />
       ))}

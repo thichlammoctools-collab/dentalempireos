@@ -1,0 +1,488 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getFeaturedPosts, listPosts, listCategories, listTags, getPopularPosts } from '../../lib/blog-db';
+
+export const prerender = false;
+
+const db = env.DB;
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10));
+const perPage = 12;
+const categorySlug = Astro.url.searchParams.get('cat') ?? '';
+const tagSlug = Astro.url.searchParams.get('tag') ?? '';
+const search = Astro.url.searchParams.get('q') ?? '';
+const sort = (Astro.url.searchParams.get('sort') ?? 'recent') as 'recent' | 'popular' | 'featured';
+
+const [featured, { posts, total }, categories, tags, popular] = await Promise.all([
+  getFeaturedPosts(db, 4),
+  listPosts(db, { limit: perPage, offset: (page - 1) * perPage, categoryId: categorySlug || undefined, tagId: tagSlug || undefined, search: search || undefined, sort }),
+  listCategories(db),
+  listTags(db),
+  getPopularPosts(db, 5),
+]);
+
+const totalPages = Math.ceil(total / perPage);
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+---
+
+<BaseLayout
+  title="Blog Quản Trị | Dental Empire OS"
+  description="Cập nhật tin mới nhất về quản trị nha khoa, mẹo vận hành, và chiến lược phát triển phòng khám."
+>
+  <!-- Hero + Search -->
+  <section class="relative py-16 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest to-surface"></div>
+    <div class="relative z-10 px-6 max-w-[1200px] mx-auto text-center space-y-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider">
+        <span class="material-symbols-outlined text-[14px]">newsmode</span>
+        Blog Quản Trị
+      </div>
+      <h1 class="text-headline-large font-bold text-white">
+        Kiến thức quản trị<br />
+        <span class="text-primary">mỗi tuần một bài mới</span>
+      </h1>
+      <p class="text-on-surface-variant max-w-xl mx-auto">
+        Bài viết chuyên sâu, case study thực tế, và mẹo vận hành phòng khám nha khoa từ đội ngũ Dental Empire.
+      </p>
+
+      <!-- Search -->
+      <form method="get" class="max-w-lg mx-auto">
+        <input type="hidden" name="cat" value={categorySlug} />
+        <input type="hidden" name="tag" value={tagSlug} />
+        <div class="relative">
+          <input
+            type="text"
+            name="q"
+            value={search}
+            placeholder="Tìm kiếm bài viết..."
+            class="w-full pl-12 pr-4 py-3.5 bg-surface-container-high border border-outline-variant rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none text-white placeholder:text-white/30"
+          />
+          <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+          {search && (
+            <a href="/blog" class="absolute right-12 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </a>
+          )}
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Featured Posts -->
+  {featured.length > 0 && (
+    <section class="px-6 max-w-[1200px] mx-auto py-10">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]">star</span>
+          Tin nổi bật
+        </h2>
+        <div class="h-px flex-1 mx-4 bg-outline-variant/30"></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Large featured post */}
+        {featured[0] && (
+          <a href={`/blog/${featured[0].slug}`} class="lg:col-span-2 group">
+            <article class="relative h-[340px] rounded-2xl overflow-hidden glass-card">
+              {featured[0].cover_url ? (
+                <img
+                  src={featured[0].cover_url}
+                  alt={featured[0].cover_alt}
+                  class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div class="absolute inset-0 bg-gradient-to-br from-primary/30 to-tertiary/20"></div>
+              )}
+              <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div class="absolute bottom-0 left-0 right-0 p-6">
+                {featured[0].category && (
+                  <span
+                    class="inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full mb-3"
+                    style={`background: ${featured[0].category.color}22; color: ${featured[0].category.color}; border: 1px solid ${featured[0].category.color}44`}
+                  >
+                    {featured[0].category.name}
+                  </span>
+                )}
+                <h3 class="text-xl lg:text-2xl font-bold text-white mb-2 group-hover:text-primary transition-colors leading-snug">
+                  {featured[0].title}
+                </h3>
+                <p class="text-white/70 text-sm line-clamp-2 mb-3">{featured[0].description}</p>
+                <div class="flex items-center gap-3 text-xs text-white/50">
+                  <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                    {formatDate(featured[0].published_at)}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">schedule</span>
+                    {featured[0].read_time_minutes} phút đọc
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">visibility</span>
+                    {featured[0].view_count.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              {featured[0].is_pinned === 1 && (
+                <div class="absolute top-4 left-4 flex items-center gap-1 px-2.5 py-1 bg-tertiary/90 text-white text-[10px] font-bold uppercase rounded-full">
+                  <span class="material-symbols-outlined text-[12px]">push_pin</span>
+                  Ghim
+                </div>
+              )}
+            </article>
+          </a>
+        )}
+
+        {/* Side featured posts */}
+        <div class="flex flex-col gap-5">
+          {featured.slice(1, 4).map((post) => (
+            <a href={`/blog/${post.slug}`} class="group flex-1">
+              <article class="relative h-full min-h-[100px] rounded-2xl overflow-hidden glass-card flex">
+                {post.cover_url ? (
+                  <img
+                    src={post.cover_url}
+                    alt={post.cover_alt}
+                    class="w-28 lg:w-32 object-cover shrink-0 group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div class="w-28 lg:w-32 shrink-0 bg-gradient-to-br from-primary/40 to-tertiary/30"></div>
+                )}
+                <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
+                  <div>
+                    {post.category && (
+                      <span
+                        class="text-[10px] font-bold uppercase tracking-wider"
+                        style={`color: ${post.category.color}`}
+                      >
+                        {post.category.name}
+                      </span>
+                    )}
+                    <h3 class="text-sm font-bold text-white mt-1 line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                      {post.title}
+                    </h3>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] text-white/50 mt-2">
+                    <span>{formatDate(post.published_at)}</span>
+                    <span>·</span>
+                    <span>{post.read_time_minutes} phút</span>
+                  </div>
+                </div>
+              </article>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- Main Content: Filter + Grid -->
+  <section class="px-6 max-w-[1200px] mx-auto py-8">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+      <!-- Left: Posts Grid -->
+      <div class="flex-1 min-w-0">
+
+        <!-- Filter Bar -->
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <button
+            type="button"
+            data-sort="recent"
+            class={`filter-chip px-4 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${sort === 'recent' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary'}`}
+          >
+            Mới nhất
+          </button>
+          <button
+            type="button"
+            data-sort="popular"
+            class={`filter-chip px-4 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${sort === 'popular' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary'}`}
+          >
+            Phổ biến
+          </button>
+
+          <div class="h-5 w-px bg-outline-variant mx-1"></div>
+
+          <!-- Category chips -->
+          {categories.map((cat) => (
+            <button
+              type="button"
+              data-cat={cat.slug}
+              class={`filter-chip px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 ${categorySlug === cat.slug ? 'text-white border-transparent' : 'text-on-surface-variant border-outline-variant hover:border-primary'}`}
+              style={categorySlug === cat.slug ? `background: ${cat.color}; border-color: ${cat.color}` : ''}
+            >
+              {cat.name}
+              <span class="opacity-60 ml-1">({cat.post_count})</span>
+            </button>
+          ))}
+        </div>
+
+        <!-- Search result label -->
+        {search && (
+          <p class="text-sm text-on-surface-variant mb-4">
+            Kết quả tìm kiếm cho "<strong class="text-white">{search}</strong>" — {total} bài viết
+          </p>
+        )}
+
+        <!-- Posts Grid -->
+        {posts.length === 0 ? (
+          <div class="text-center py-20 glass-card rounded-2xl">
+            <span class="material-symbols-outlined text-6xl text-on-surface-variant/30">newsmode</span>
+            <p class="text-on-surface-variant mt-4">Không có bài viết nào</p>
+            <a href="/blog" class="inline-block mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">Xem tất cả bài</a>
+          </div>
+        ) : (
+          <>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              {posts.map((post) => (
+                <a href={`/blog/${post.slug}`} class="group">
+                  <article class="glass-card rounded-2xl overflow-hidden h-full flex flex-col hover:-translate-y-1 transition-all duration-300">
+                    {/* Cover */}
+                    <div class="relative h-44 overflow-hidden">
+                      {post.cover_url ? (
+                        <img
+                          src={post.cover_url}
+                          alt={post.cover_alt}
+                          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div class="w-full h-full bg-gradient-to-br from-primary/20 to-tertiary/10"></div>
+                      )}
+                      {post.is_pinned === 1 && (
+                        <div class="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 bg-tertiary/90 text-white text-[10px] font-bold uppercase rounded-full">
+                          <span class="material-symbols-outlined text-[11px]">push_pin</span>
+                          Ghim
+                        </div>
+                      )}
+                      {post.is_recommended === 1 && (
+                        <div class="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-primary/90 text-white text-[10px] font-bold uppercase rounded-full">
+                          <span class="material-symbols-outlined text-[11px]">recommend</span>
+                          Recommend
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div class="p-4 flex flex-col flex-1">
+                      {post.category && (
+                        <span
+                          class="inline-block text-[10px] font-bold uppercase tracking-wider mb-2"
+                          style={`color: ${post.category.color}`}
+                        >
+                          {post.category.name}
+                        </span>
+                      )}
+                      <h3 class="font-bold text-white text-base leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-2">
+                        {post.title}
+                      </h3>
+                      <p class="text-xs text-on-surface-variant line-clamp-2 flex-1">{post.description}</p>
+
+                      {/* Tags */}
+                      {post.tags.length > 0 && (
+                        <div class="flex flex-wrap gap-1.5 mt-3">
+                          {post.tags.slice(0, 3).map((tag) => (
+                            <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                              #{tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Meta */}
+                      <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/50">
+                        <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[13px]">calendar_today</span>
+                          {formatDate(post.published_at)}
+                        </div>
+                        <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[13px]">schedule</span>
+                          {post.read_time_minutes} phút
+                        </div>
+                        <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[13px]">visibility</span>
+                          {post.view_count.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                </a>
+              ))}
+            </div>
+
+            <!-- Pagination -->
+            {totalPages > 1 && (
+              <div class="flex items-center justify-center gap-2 mt-10">
+                {page > 1 && (
+                  <a
+                    href={`/blog?page=${page - 1}&cat=${categorySlug}&tag=${tagSlug}&q=${search}&sort=${sort}`}
+                    class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95"
+                  >
+                    <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                  </a>
+                )}
+
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  const p = i + 1;
+                  return (
+                    <a
+                      href={`/blog?page=${p}&cat=${categorySlug}&tag=${tagSlug}&q=${search}&sort=${sort}`}
+                      class={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all active:scale-95 ${p === page ? 'bg-primary text-white' : 'bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'}`}
+                    >
+                      {p}
+                    </a>
+                  );
+                })}
+
+                {page < totalPages && (
+                  <a
+                    href={`/blog?page=${page + 1}&cat=${categorySlug}&tag=${tagSlug}&q=${search}&sort=${sort}`}
+                    class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95"
+                  >
+                    <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <!-- Right: Sidebar -->
+      <aside class="w-full lg:w-72 shrink-0 space-y-6">
+
+        {/* Categories */}
+        <div class="glass-card rounded-2xl p-5">
+          <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">folder_open</span>
+            Chuyên mục
+          </h3>
+          <ul class="space-y-1">
+            <li>
+              <a
+                href="/blog"
+                class={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all ${!categorySlug ? 'bg-primary/10 text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-white'}`}
+              >
+                <span>Tất cả</span>
+                <span class="text-xs opacity-60">({total})</span>
+              </a>
+            </li>
+            {categories.map((cat) => (
+              <li>
+                <a
+                  href={`/blog?cat=${cat.slug}`}
+                  class={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group ${categorySlug === cat.slug ? 'bg-primary/10 text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-white'}`}
+                >
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="w-2 h-2 rounded-full shrink-0"
+                      style={`background: ${cat.color}`}
+                    ></span>
+                    <span>{cat.name}</span>
+                  </div>
+                  <span class="text-xs opacity-60">{cat.post_count}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Popular Posts */}
+        {popular.length > 0 && (
+          <div class="glass-card rounded-2xl p-5">
+            <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[18px]">trending_up</span>
+              Phổ biến
+            </h3>
+            <div class="space-y-3">
+              {popular.map((post, i) => (
+                <a href={`/blog/${post.slug}`} class="flex items-start gap-3 group">
+                  <span class="text-2xl font-black text-outline-variant/30 leading-none mt-1 w-6 shrink-0 group-hover:text-primary transition-colors">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    {post.category && (
+                      <span
+                        class="text-[10px] font-bold uppercase tracking-wider"
+                        style={`color: ${post.category.color}`}
+                      >
+                        {post.category.name}
+                      </span>
+                    )}
+                    <p class="text-sm font-semibold text-white/80 line-clamp-2 group-hover:text-primary transition-colors leading-snug mt-0.5">
+                      {post.title}
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-[10px] text-on-surface-variant">{post.view_count.toLocaleString()} lượt xem</span>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tags */}
+        {tags.length > 0 && (
+          <div class="glass-card rounded-2xl p-5">
+            <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[18px]">tag</span>
+              Tags
+            </h3>
+            <div class="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <a
+                  href={`/blog?tag=${tag.slug}`}
+                  class={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all active:scale-95 ${tagSlug === tag.slug ? 'bg-primary text-white border-primary' : 'text-on-surface-variant border-outline-variant hover:border-primary hover:text-white'}`}
+                >
+                  #{tag.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Newsletter */}
+        <div class="glass-card rounded-2xl p-5 border border-primary/20">
+          <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">mail</span>
+            Đăng ký nhận tin
+          </h3>
+          <p class="text-xs text-on-surface-variant mb-4">Nhận bài viết mới nhất mỗi tuần qua email.</p>
+          <form id="blog-newsletter" class="space-y-2">
+            <input
+              type="email"
+              name="email"
+              placeholder="Email của bạn..."
+              required
+              class="w-full px-3 py-2.5 bg-surface-container-high border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 text-sm text-white"
+            />
+            <button type="submit" class="w-full py-2.5 btn-primary-metallic text-sm font-bold rounded-xl active:scale-95 transition-all">
+              Đăng ký ngay
+            </button>
+          </form>
+          <p id="newsletter-success" class="hidden text-xs text-green-400 mt-2 text-center">
+            Đăng ký thành công!
+          </p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Newsletter form
+  document.getElementById('blog-newsletter')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+    fetch('/api/newsletter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(() => {
+      form.classList.add('hidden');
+      document.getElementById('newsletter-success')?.classList.remove('hidden');
+    });
+  });
+</script>

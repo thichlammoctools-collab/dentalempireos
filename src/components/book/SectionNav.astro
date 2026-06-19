@@ -1,11 +1,12 @@
 ---
 // Desktop-only sticky right sidebar for section headings (with scroll-spy)
-// Mobile section nav is handled by SectionNavMobile.astro (rendered outside reader-app)
+// Compact design: auto-scrolls active item into view
 
 interface SectionItem {
   title: string;
   slug: string;
   level: number;
+  sectionNumber: string;
 }
 
 interface AttachmentItem {
@@ -31,166 +32,88 @@ interface Props {
 }
 
 const { sections, attachments = [], chapterId = '', chapterTitle = '' } = Astro.props;
-const h2Count = sections.filter((s) => s.level === 2).length;
 const attachmentCount = attachments.length;
 
-let h2Idx = 0;
 const numberedSections = sections.map((section) => {
-  const isH3 = section.level === 3;
-  const num = isH3 ? '' : String(++h2Idx).padStart(2, '0');
-  return { ...section, isH3, num };
+  const num = section.sectionNumber || '';
+  const depth = num ? num.split('.').length : 0;
+  const isRoot = depth <= 1;
+  const indentPx = Math.max(0, depth - 1) * 12;
+  const linkColorStyle = isRoot
+    ? 'color: var(--reader-chrome-text); opacity: 0.8;'
+    : 'color: var(--reader-chrome-text-muted); opacity: 0.55;';
+  const linkStyle = `padding-left: ${8 + indentPx}px; ${linkColorStyle}`;
+  const numStyle = 'min-width: 2em';
+  const linkCls = isRoot
+    ? 'section-nav-link group flex items-center gap-1.5 rounded-md text-[14px] transition-all duration-150 font-semibold py-1.5 px-2'
+    : 'section-nav-link group flex items-center gap-1.5 rounded-md text-[14px] transition-all duration-150 py-1 px-2';
+  const numCls = isRoot
+    ? 'font-mono tabular-nums shrink-0 transition-colors text-[10px] text-primary/50'
+    : 'font-mono tabular-nums shrink-0 transition-colors text-[10px] text-primary/30';
+  return { ...section, num, depth, linkCls, linkStyle, numCls, numStyle };
 });
 ---
 
-<!-- ============ DESKTOP: Sticky right sidebar ============ -->
+<!-- ============ DESKTOP: Compact right sidebar ============ -->
 <aside
   id="section-nav-desktop"
-  class="section-nav-desktop hidden lg:flex flex-col sticky top-24 self-start w-80 shrink-0 max-h-[calc(100vh-8rem)] overflow-y-auto border-l border-white/[0.06] bg-surface-container-low/30"
+  class="section-nav-desktop hidden lg:flex flex-col sticky top-20 self-start w-80 shrink-0 max-h-[calc(100vh-6rem)] overflow-y-auto border-r"
+  style="background: var(--reader-chrome-bg); border-color: var(--reader-border);"
 >
-  <div class="px-4 py-4 border-b border-white/[0.06]">
-    <h3 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-2">
-      <span class="material-symbols-outlined text-sm text-primary">format_list_numbered</span>
-      Đề mục
-    </h3>
-    <div class="mt-2.5 h-0.5 bg-surface-container-high rounded-full overflow-hidden">
-      <div class="section-nav-progress h-full rounded-full transition-all duration-300" style="width: 0%; background: var(--color-primary);"></div>
-    </div>
-  </div>
-  {attachmentCount > 0 ? (
-    <div class="px-4 py-3 border-b border-white/[0.06]">
-      <a href="#attachments-summary" class="flex items-center justify-between gap-2 rounded-2xl bg-surface-container-high px-3 py-2 text-[12px] font-semibold text-primary transition-all hover:bg-primary/10">
-        <span class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-sm">attachment</span>
-          Đính kèm
-        </span>
-        <span class="inline-flex h-6 items-center rounded-full bg-surface-container-low px-2 text-[10px] font-bold text-on-surface-variant">{attachmentCount}</span>
-      </a>
-    </div>
-  ) : null}
-
-  <div class="px-4 py-3">
-    <button
-      id="desktop-ask-author-btn"
-      class="w-full flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-[12px] font-semibold transition-all"
-      style="background: rgba(146,204,255,0.08); color: var(--color-primary); border: 1px solid rgba(146,204,255,0.2);"
-    >
-      <span class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-sm">support_agent</span>
-        Hỏi Tác Giả
-      </span>
-      <span class="material-symbols-outlined text-sm">chevron_right</span>
-    </button>
-  </div>
-
-  <!-- Desktop Ask Author Inline Form -->
-  <div id="desktop-ask-panel" class="hidden px-4 pb-3">
-    <div id="desktop-ask-logged-out" class="hidden text-center py-4">
-      <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">lock</span>
-      <p class="text-[11px] mb-3" style="color: var(--color-on-surface-variant);">Đăng nhập để đặt câu hỏi</p>
-      <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
-        <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
-      </a>
-    </div>
-    <form id="desktop-ask-form" class="flex flex-col gap-2">
-      <input type="hidden" name="chapter_id" value={chapterId} />
-      <input
-        type="text"
-        name="title"
-        placeholder="Tiêu đề câu hỏi..."
-        class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs outline-none focus:border-primary"
-        style="color: var(--color-on-surface);"
-        required
-        maxlength="200"
-      />
-      <textarea
-        name="body"
-        rows={3}
-        placeholder="Chi tiết câu hỏi..."
-        class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs outline-none focus:border-primary resize-none"
-        style="color: var(--color-on-surface);"
-        required
-      ></textarea>
-      <button
-        type="submit"
-        id="desktop-ask-submit"
-        class="w-full py-2 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
-      >
-        <span class="material-symbols-outlined text-base">send</span>
-        Gửi câu hỏi
-      </button>
-    </form>
-    <div id="desktop-ask-success" class="hidden text-center py-4">
-      <span class="material-symbols-outlined text-primary text-3xl mb-2 block">check_circle</span>
-      <p class="text-xs font-bold" style="color: var(--color-on-surface);">Đã gửi!</p>
+  <!-- Header: inline title + attachment link -->
+  <div class="px-3 pt-3 pb-1.5 sticky top-0 z-10 backdrop-blur-sm border-b" style="background: var(--reader-chrome-bg); border-color: var(--reader-border);">
+    <div class="flex items-center justify-between">
+      <h3 class="text-[13px] font-bold uppercase tracking-wider flex items-center gap-1.5" style="color: var(--reader-chrome-text-muted);">
+        <span class="material-symbols-outlined text-[15px] text-primary/70">format_list_numbered</span>
+        Đề mục
+      </h3>
+      {attachmentCount > 0 && (
+        <a href="#attachments-summary" class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold text-primary/70 hover:text-primary hover:bg-primary/5 transition-all" title={`${attachmentCount} tệp đính kèm`}>
+          <span class="material-symbols-outlined text-[12px]">attachment</span>
+          {attachmentCount}
+        </a>
+      )}
     </div>
   </div>
 
-  <nav class="flex-1 overflow-y-auto py-2 px-2">
+  <!-- Section links -->
+  <nav class="flex-1 overflow-y-auto py-1.5 px-1.5" id="section-nav-links">
     {numberedSections.map((section) => (
       <a
         href={`#${section.slug}`}
-        class:list={[
-          'section-nav-link group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200',
-          section.isH3 ? 'pl-8 text-on-surface-variant/70' : 'font-medium text-on-surface-variant',
-        ]}
+        class={section.linkCls}
+        style={section.linkStyle}
         data-section-link={section.slug}
       >
-        {!section.isH3 && (
-          <span class="text-[10px] font-bold text-on-surface-variant/40 tabular-nums w-5 shrink-0 group-hover:text-primary/60 transition-colors">{section.num}</span>
+        {section.num && (
+          <span class={section.numCls} style={section.numStyle}>{section.num}</span>
         )}
-        {section.isH3 && <span class="w-1 h-1 rounded-full bg-on-surface-variant/30 shrink-0"></span>}
         <span class="truncate">{section.title}</span>
       </a>
     ))}
   </nav>
-
-  {h2Count > 0 && (
-    <div class="px-4 py-3 border-t border-white/[0.06]">
-      <p class="text-[10px] text-on-surface-variant/50 font-semibold">{h2Count} mục</p>
-    </div>
-  )}
 </aside>
 
 <style>
-  /* Desktop: scroll-spy active link */
+  /* Active section highlight */
   .section-nav-link.section-nav-active {
-    background: rgba(146, 204, 255, 0.08);
+    background: rgba(146, 204, 255, 0.1);
+    color: var(--color-primary) !important;
+  }
+  .section-nav-link.section-nav-active .section-nav-num {
     color: var(--color-primary);
   }
   .section-nav-link:not(.section-nav-active):hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--color-on-surface);
+    background: var(--reader-chrome-surface);
+    color: var(--reader-chrome-text);
   }
 
-  /* Hide scrollbar for section nav */
-  .section-nav-desktop::-webkit-scrollbar,
-  .section-nav-desktop *::-webkit-scrollbar {
-    width: 2px;
-  }
-  .section-nav-desktop::-webkit-scrollbar-thumb,
-  .section-nav-desktop *::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 99px;
-  }
-  .section-nav-desktop::-webkit-scrollbar-track,
-  .section-nav-desktop *::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* Compact scrollbar */
+  .section-nav-desktop::-webkit-scrollbar { width: 2px; }
+  .section-nav-desktop::-webkit-scrollbar-thumb { background: var(--reader-scrollbar); border-radius: 99px; }
+  .section-nav-desktop::-webkit-scrollbar-track { background: transparent; }
 
-  /* Focus mode: hide section nav */
-  body.focus-mode .section-nav-desktop {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-  body.focus-mode:hover .section-nav-desktop {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  [data-section-link] {
-    scroll-margin-top: 6rem;
-  }
+  [data-section-link] { scroll-margin-top: 6rem; }
 </style>
 
 <script>
@@ -203,18 +126,6 @@ const numberedSections = sections.map((section) => {
 
       const sectionLinks = document.querySelectorAll('[data-section-link]');
       const headings = document.querySelectorAll('.reader-content h2[id], .reader-content h3[id]');
-      const progressBar = document.querySelector('.section-nav-progress');
-
-      function updateProgress() {
-        if (!progressBar) return;
-        const { scrollTop, scrollHeight, clientHeight } = readerScroll;
-        const maxScroll = scrollHeight - clientHeight;
-        const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
-        (progressBar as HTMLElement).style.width = `${pct}%`;
-      }
-
-      readerScroll.addEventListener('scroll', updateProgress);
-      updateProgress();
 
       if (headings.length > 0 && sectionLinks.length > 0) {
         let activeId: string | null = null;
@@ -223,9 +134,7 @@ const numberedSections = sections.map((section) => {
           (entries) => {
             const visible = entries
               .filter((e) => e.isIntersecting)
-              .sort((a, b) => {
-                return Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top);
-              });
+              .sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top));
 
             if (visible.length > 0) {
               const id = visible[0].target.id;
@@ -234,8 +143,17 @@ const numberedSections = sections.map((section) => {
                 sectionLinks.forEach((link) => {
                   const isActive = (link as HTMLElement).dataset.sectionLink === id;
                   link.classList.toggle('section-nav-active', isActive);
+                  // Auto-scroll active link into view within the nav
                   if (isActive) {
-                    link.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    const navLinks = document.getElementById('section-nav-links');
+                    if (navLinks) {
+                      const linkRect = link.getBoundingClientRect();
+                      const navRect = navLinks.getBoundingClientRect();
+                      // Only scroll if link is outside visible area
+                      if (linkRect.top < navRect.top + 40 || linkRect.bottom > navRect.bottom - 20) {
+                        link.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      }
+                    }
                   }
                 });
               }
@@ -247,7 +165,7 @@ const numberedSections = sections.map((section) => {
         headings.forEach((h) => observer.observe(h));
       }
 
-      // Desktop anchor links: smooth scroll within reader
+      // Click to scroll within reader
       sectionLinks.forEach((link) => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
@@ -257,87 +175,13 @@ const numberedSections = sections.map((section) => {
             if (target) {
               const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
               readerScroll.scrollTo({ top, behavior: 'smooth' });
+            } else {
+              // Heading was stripped from DOM (first heading removed to avoid dupe with BookHeader)
+              readerScroll.scrollTo({ top: 0, behavior: 'smooth' });
             }
             history.replaceState(null, '', hash);
           }
         });
-      });
-
-      // ---- Ask Author (desktop inline) ----
-      const askBtn = document.getElementById('desktop-ask-author-btn');
-      const askPanel = document.getElementById('desktop-ask-panel');
-      const loggedOut = document.getElementById('desktop-ask-logged-out');
-      const askForm = document.getElementById('desktop-ask-form') as HTMLFormElement;
-      const submitBtn = document.getElementById('desktop-ask-submit') as HTMLButtonElement;
-      const success = document.getElementById('desktop-ask-success');
-
-      let panelOpen = false;
-
-      async function checkAuth() {
-        if (!loggedOut || !askForm) return;
-        try {
-          const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
-          if (res.ok) {
-            loggedOut.classList.add('hidden');
-            askForm.classList.remove('hidden');
-          } else {
-            loggedOut.classList.remove('hidden');
-            askForm.classList.add('hidden');
-          }
-        } catch {
-          loggedOut.classList.remove('hidden');
-          askForm.classList.add('hidden');
-        }
-      }
-
-      askBtn?.addEventListener('click', async () => {
-        panelOpen = !panelOpen;
-        if (panelOpen) {
-          if (askPanel) askPanel.classList.remove('hidden');
-          await checkAuth();
-        } else {
-          if (askPanel) askPanel.classList.add('hidden');
-        }
-      });
-
-      askForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(askForm);
-        const title = (formData.get('title') as string)?.trim();
-        const body = (formData.get('body') as string)?.trim();
-        if (!title || !body) return;
-
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
-        }
-
-        try {
-          const res = await fetch('/api/questions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ chapter_id: chapterId, title, body }),
-          });
-
-          if (!res.ok) {
-            alert('Có lỗi xảy ra, vui lòng thử lại.');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
-            return;
-          }
-
-          askForm.classList.add('hidden');
-          success?.classList.remove('hidden');
-          setTimeout(() => {
-            askForm.reset();
-            askForm.classList.remove('hidden');
-            success?.classList.add('hidden');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
-          }, 2500);
-        } catch {
-          alert('Lỗi kết nối. Vui lòng thử lại.');
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
-        }
       });
     }
 

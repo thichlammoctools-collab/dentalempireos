@@ -1,0 +1,71 @@
+import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
+import { upsertCourseVideo, deleteCourseVideo } from '../../../../../lib/course-db';
+
+export const prerender = false;
+
+export const PUT: APIRoute = async ({ params, request }) => {
+  try {
+    const { videoId } = params;
+    if (!videoId) {
+      return new Response(JSON.stringify({ error: 'Thiếu video id' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await request.json();
+
+    if (!body.youtube_id || !body.title) {
+      return new Response(JSON.stringify({ error: 'Thiếu trường bắt buộc: youtube_id, title' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const video = await upsertCourseVideo(env.DB, {
+      id: videoId,
+      course_id: body.course_id,
+      youtube_id: body.youtube_id,
+      title: body.title,
+      description: body.description ?? null,
+      sort_order: body.sort_order ?? 0,
+      duration_seconds: body.duration_seconds ?? null,
+      is_published: body.is_published ?? 0,
+    });
+
+    return new Response(JSON.stringify({ success: true, video }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('Video PUT error:', err);
+    return new Response(JSON.stringify({ error: 'Lỗi server' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
+export const DELETE: APIRoute = async ({ params }) => {
+  try {
+    const { videoId } = params;
+    if (!videoId) {
+      return new Response(JSON.stringify({ error: 'Thiếu video id' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    await deleteCourseVideo(env.DB, videoId);
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('Video DELETE error:', err);
+    return new Response(JSON.stringify({ error: 'Lỗi server' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};

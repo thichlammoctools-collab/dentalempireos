@@ -15,32 +15,65 @@ interface Props {
 const { prev, next } = Astro.props;
 ---
 
-<div class="mt-12 pt-8 border-t border-outline-variant">
-  <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
-    {prev ? (
-      <a
-        href={`/book/${prev.id}`}
-        class="flex-1 group p-4 sm:p-4 min-h-[56px] bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all active:scale-[0.98]"
-      >
-        <div class="flex items-center gap-2 text-xs text-on-surface-variant mb-1">
-          <span class="material-symbols-outlined text-[16px]">arrow_back</span>
-          Chương trước
-        </div>
-        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">{prev.data.title}</p>
-      </a>
-    ) : <div class="flex-1" />}
+<style>
+  /* Desktop: hide chapter nav fixed bar */
+  @media (min-width: 1024px) {
+    #chapter-nav-fixed {
+      display: none !important;
+    }
+  }
 
-    {next ? (
-      <a
-        href={`/book/${next.id}`}
-        class="flex-1 group p-4 sm:p-4 min-h-[56px] bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant hover:border-primary/50 transition-all text-right sm:text-right active:scale-[0.98]"
-      >
-        <div class="flex items-center justify-end gap-2 text-xs text-on-surface-variant mb-1">
-          Chương tiếp
-          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-        </div>
-        <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">{next.data.title}</p>
-      </a>
-    ) : <div class="flex-1" />}
-  </div>
+  /* Theme-aware hover for prev/next links */
+  .ch-nav-link {
+    background: var(--reader-chrome-surface);
+    border: 1px solid var(--reader-border);
+    transition: all 0.2s ease;
+  }
+  .ch-nav-link:hover {
+    background: var(--reader-chrome-surface-high);
+    border-color: var(--reader-border-hover);
+  }
+  .ch-nav-link:active {
+    transform: scale(0.97);
+  }
+</style>
+
+<!-- Fixed bottom bar: chapter prev/next navigation -->
+<div
+  id="chapter-nav-fixed"
+  class="chapter-nav-fixed fixed bottom-0 left-0 right-0 z-[45] flex items-center justify-between px-3 py-2 gap-2 border-t"
+  style="
+    background: var(--reader-chrome-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-color: var(--reader-border);
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    display: flex;
+  "
+>
+  {prev ? (
+    <a
+      href={`/book/${prev.id}`}
+      class="flex-1 flex items-center gap-2 py-2.5 pl-2 pr-3 rounded-xl min-w-0 ch-nav-link"
+    >
+      <span class="material-symbols-outlined text-[18px] shrink-0" style="color: var(--reader-chrome-text-muted);">arrow_back</span>
+      <div class="flex flex-col min-w-0">
+        <span class="text-[10px] font-semibold leading-none mb-0.5" style="color: var(--reader-chrome-text-muted);">Chương trước</span>
+        <span class="text-xs font-bold leading-tight truncate group-hover:text-primary transition-colors" style="color: var(--reader-chrome-text);">{prev.data.title}</span>
+      </div>
+    </a>
+  ) : <div class="flex-1" />}
+
+  {next ? (
+    <a
+      href={`/book/${next.id}`}
+      class="flex-1 flex items-center justify-end gap-2 py-2.5 pl-3 pr-2 rounded-xl min-w-0 text-right ch-nav-link"
+    >
+      <div class="flex flex-col min-w-0">
+        <span class="text-[10px] font-semibold leading-none mb-0.5" style="color: var(--reader-chrome-text-muted);">Chương tiếp</span>
+        <span class="text-xs font-bold leading-tight truncate group-hover:text-primary transition-colors" style="color: var(--reader-chrome-text);">{next.data.title}</span>
+      </div>
+      <span class="material-symbols-outlined text-[18px] shrink-0" style="color: var(--reader-chrome-text-muted);">arrow_forward</span>
+    </a>
+  ) : <div class="flex-1" />}
 </div>

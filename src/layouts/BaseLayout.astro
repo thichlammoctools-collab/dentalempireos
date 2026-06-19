@@ -1,18 +1,28 @@
----
+﻿---
 import Header from '../components/layout/Header.astro';
 import Footer from '../components/layout/Footer.astro';
+import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
+import MobileSearchOverlay from '../components/mobile/MobileSearchOverlay.astro';
+import MobileUserMenu from '../components/mobile/MobileUserMenu.astro';
 import '../styles/global.css';
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  // Mobile nav context
+  isReading?: boolean;
+  currentSlug?: string;
+  groupedChapters?: any[];
 }
 
 const {
   title,
   description = 'Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.',
   ogImage = '/images/og-image.jpg',
+  isReading = false,
+  currentSlug = '',
+  groupedChapters = [],
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalempireos.com');
@@ -83,10 +93,21 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalem
   </head>
   <body class="min-h-screen flex flex-col bg-surface text-on-surface selection:bg-primary-container selection:text-white">
     <Header />
-    <main class="flex-1 pt-20">
+    <main class="flex-1 pt-20 lg:pt-20 pb-20 lg:pb-0">
       <slot />
     </main>
     <Footer />
+    
+    <!-- Mobile Navigation -->
+    <MobileBottomNav 
+      currentPath={Astro.url.pathname}
+      isReading={isReading}
+      currentSlug={currentSlug}
+      groupedChapters={groupedChapters}
+    />
+    <MobileSearchOverlay />
+    <MobileUserMenu />
+    
     <!-- Ripple effect: spawns expanding circle at click point -->
     <script is:inline>
       document.addEventListener('click', function (e) {

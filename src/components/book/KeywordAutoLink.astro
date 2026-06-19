@@ -118,5 +118,10 @@ const serializedMap = JSON.stringify(searchMap);
     }
   }
 
-  document.addEventListener('DOMContentLoaded', initKeywordLinks);
+  // Defer keyword processing until after first paint so content is visible immediately
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initKeywordLinks, { timeout: 1000 });
+  } else {
+    setTimeout(initKeywordLinks, 200);
+  }
 </script>

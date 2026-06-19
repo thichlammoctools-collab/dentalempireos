@@ -1,0 +1,1125 @@
+﻿---
+import BaseLayout from './BaseLayout.astro';
+import SectionNav from '../components/book/SectionNav.astro';
+import SectionNavMobile from '../components/book/SectionNavMobile.astro';
+import ChapterNav from '../components/book/ChapterNav.astro';
+import ReviewDrawer from '../components/book/ReviewDrawer.astro';
+import QuestionDrawer from '../components/book/QuestionDrawer.astro';
+import type { ReviewDisplay, ReviewStats } from '../lib/review-db';
+
+interface ChapterItem {
+  id: string;
+  data: { title: string; tier: number; chapter: number };
+}
+
+interface ModuleItem {
+  title: string;
+  slug: string;
+}
+
+interface SectionItem {
+  title: string;
+  slug: string;
+  level: number;
+}
+
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: ChapterItem[];
+}
+
+interface AttachmentItem {
+  id: string;
+  type: 'image' | 'file';
+  title: string;
+  url: string;
+  caption?: string;
+  filename?: string;
+  mime?: string | null;
+  mimeLabel?: string;
+  sectionSlug: string;
+  sectionTitle: string;
+  ext?: string;
+  previewable: boolean;
+}
+
+interface ChapterNavItem {
+  id: string;
+  data: { title: string; tier: number };
+}
+
+interface Props {
+  title: string;
+  description?: string;
+  groupedChapters: TierGroup[];
+  currentSlug: string;
+  currentModules: ModuleItem[];
+  sections?: SectionItem[];
+  attachments?: AttachmentItem[];
+  tier?: number;
+  tierLabel?: string;
+  chapterNo?: number;
+  prev?: ChapterNavItem | null;
+  next?: ChapterNavItem | null;
+  isLoggedIn?: boolean;
+  currentUserId?: string | null;
+  chapterId?: string;
+}
+
+const {
+  title,
+  description,
+  groupedChapters,
+  currentSlug,
+  currentModules,
+  sections = [],
+  attachments = [],
+  tier = 3,
+  tierLabel = 'Tier 3',
+  chapterNo = 1,
+  prev = null,
+  next = null,
+  isLoggedIn = false,
+  currentUserId = null,
+  chapterId = '',
+} = Astro.props;
+
+const currentTierLabel = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.label ?? 'Tier 3';
+const currentTier = groupedChapters.find((g) =>
+  g.chapters.some((c) => c.id === currentSlug)
+)?.tier ?? 3;
+---
+
+<BaseLayout title={`${title} - Dental Empire OS`} description={description}>
+  <!-- ==========================================
+       TOOLBAR (outside reader-app so z-index is relative to root stacking context)
+       ========================================== -->
+  <header id="reader-toolbar" class="fixed top-0 left-0 right-0 flex items-center justify-between px-4 lg:px-6 h-12 lg:h-14 glass-nav border-b border-white/[0.06] z-50" style="background: var(--reader-bg);">
+    <!-- Left: Back + breadcrumb -->
+    <div class="flex items-center gap-2 lg:gap-3 min-w-0">
+      <a href="/book" class="flex items-center gap-1 lg:gap-2 text-on-surface-variant hover:text-primary transition-colors flex-shrink-0">
+        <span class="material-symbols-outlined text-lg lg:text-xl">arrow_back</span>
+        <span class="hidden sm:inline text-xs lg:text-sm font-semibold">ThÆ° Viá»‡n</span>
+      </a>
+      <div class="w-px h-5 bg-outline-variant hidden sm:block"></div>
+      <!-- Mobile: "Äang Ä‘á»c" label + title -->
+      <div class="flex flex-col min-w-0 lg:hidden">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant leading-none">Äang Ä‘á»c</span>
+        <span class="text-xs font-bold text-on-surface truncate max-w-[140px] leading-tight">{title}</span>
+      </div>
+      <!-- Desktop: title only -->
+      <div class="hidden lg:flex items-center gap-2 min-w-0">
+        <span class="text-xs lg:text-sm font-bold text-on-surface truncate max-w-[200px]">{title}</span>
+      </div>
+    </div>
+
+    <!-- Center: Progress (desktop) -->
+    <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
+      <span id="progress-pct" class="text-[10px] text-on-surface-variant font-bold tabular-nums" style="min-width: 2.5ch; text-align: right;">0%</span>
+      <div class="w-32 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+        <div id="progress-bar" class="read-progress h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Right: Mobile = progress + bookmark + theme | Desktop = controls -->
+    <div class="flex lg:hidden items-center gap-1.5 flex-shrink-0">
+      <div class="flex items-center gap-1">
+        <div class="w-16 sm:w-20 h-1 bg-surface-container-high rounded-full overflow-hidden">
+          <div id="progress-bar-mobile" class="read-progress h-full rounded-r-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <span id="progress-pct-mobile" class="text-[10px] text-on-surface-variant font-bold tabular-nums shrink-0">0%</span>
+      </div>
+      <button id="mobile-bookmark-btn" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="ÄÃ¡nh dáº¥u">
+        <span class="material-symbols-outlined text-lg" id="mobile-bookmark-icon">bookmark_border</span>
+      </button>
+      <button id="mobile-theme-btn" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="Cháº¿ Ä‘á»™ ná»n">
+        <span class="material-symbols-outlined text-lg" id="mobile-theme-icon">dark_mode</span>
+      </button>
+    </div>
+
+    <!-- Right: Controls (desktop) -->
+    <div class="hidden lg:flex items-center gap-1 lg:gap-2">
+      <button id="theme-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all" title="Cháº¿ Ä‘á»™ Ä‘á»c">
+        <span class="material-symbols-outlined text-base" id="theme-icon">dark_mode</span>
+        <span class="text-[11px] font-semibold">Ná»n</span>
+      </button>
+
+      <button id="search-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="TÃ¬m kiáº¿m (Ctrl+K)">
+        <span class="material-symbols-outlined text-base">search</span>
+        <span class="hidden lg:inline text-[11px] font-semibold">TÃ¬m</span>
+      </button>
+
+      {attachments.length > 0 && (
+        <a
+          href="#attachments-summary"
+          id="attachments-btn"
+          class="relative items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+          title={`Xem ${attachments.length} tá»‡p Ä‘Ã­nh kÃ¨m`}
+          aria-label={`Xem ${attachments.length} tá»‡p Ä‘Ã­nh kÃ¨m`}
+        >
+          <span class="material-symbols-outlined text-base">attachment</span>
+          <span class="hidden lg:inline text-[11px] font-semibold">Tá»‡p</span>
+          <span class="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold px-2 py-0.5 border border-primary/20">{attachments.length}</span>
+        </a>
+      )}
+
+      <button id="bookmark-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all" title="ÄÃ¡nh dáº¥u">
+        <span class="material-symbols-outlined text-base" id="bookmark-icon">bookmark_border</span>
+      </button>
+
+      <button id="toc-toggle-btn" class="fab-control items-center gap-1 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all active-toc-btn" title="Má»¥c lá»¥c">
+        <span class="material-symbols-outlined text-base">list</span>
+        <span class="text-[11px] font-semibold">Má»¥c lá»¥c</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Search overlay (outside reader-app) -->
+  <div id="search-overlay" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
+    <div class="glass-panel-dark rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+        <span class="material-symbols-outlined text-on-surface-variant">search</span>
+        <input id="search-input" type="text" placeholder="TÃ¬m kiáº¿m trong chÆ°Æ¡ng..." class="flex-1 bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/50 text-sm" autofocus/>
+        <kbd class="hidden sm:inline px-2 py-1 rounded bg-surface-container-high text-[10px] text-on-surface-variant font-mono">ESC</kbd>
+      </div>
+      <div class="p-8 text-center text-sm text-on-surface-variant">
+        <span class="material-symbols-outlined text-4xl block mb-3 opacity-50">manage_search</span>
+        <p id="search-helper-text">Nháº­p tá»« khÃ³a Ä‘á»ƒ tÃ¬m kiáº¿m trong ná»™i dung</p>
+        <p id="search-result-count" class="mt-3 text-xs text-on-surface-variant/70"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       READER LAYOUT WRAPPER
+       ========================================== -->
+  <div id="reader-app" class="reader-app flex flex-col overflow-hidden">
+
+    <!-- ==========================================
+         MAIN BODY: Sidebar + Reader
+         ========================================== -->
+    <div class="flex flex-col flex-1 overflow-hidden relative pt-12 lg:pt-14 min-h-0">
+      <!-- Horizontal content row (sidebar + reader + section nav) -->
+      <div class="flex flex-1 overflow-hidden min-h-0">
+
+      <!-- Desktop Sidebar TOC -->
+      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-80 flex-shrink-0 h-full border-r border-white/[0.06] bg-surface-container-low/50 overflow-y-auto toc-sidebar">
+        <!-- TOC Header -->
+        <div class="px-4 py-4 border-b border-white/[0.06] sticky top-0 bg-surface-container-low z-10">
+          <h3 class="text-sm font-bold text-on-surface mb-1">Má»¥c lá»¥c</h3>
+          <p class="text-xs text-on-surface-variant">{currentTierLabel}</p>
+        </div>
+
+        <!-- Chapter navigation -->
+        <nav class="flex-1 px-3 py-3 space-y-1">
+          {groupedChapters.map((group) => {
+            const isCurrentTier = group.tier === currentTier;
+            return (
+              <div class="toc-group" data-tier={group.tier} data-current-tier={isCurrentTier ? 'true' : 'false'}>
+                <!-- Group header with collapse toggle -->
+                <button
+                  class="toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-lg text-left transition-all hover:bg-surface-container"
+                  aria-expanded="true"
+                  data-toc-toggle
+                >
+                  <span class="material-symbols-outlined text-primary text-[16px] toc-group-icon transition-transform duration-200">folder_open</span>
+                  <span class="text-sm font-bold text-on-surface-variant toc-group-label flex-1 truncate">{group.label}</span>
+                  <span class="text-xs text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded toc-group-count">{group.chapters.length}</span>
+                  <span class="material-symbols-outlined text-[16px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
+                </button>
+
+                <!-- Chapter list -->
+                <div class="toc-group-chapters space-y-0.5 overflow-hidden transition-all duration-300">
+                  {group.chapters.map((ch) => {
+                    const isCurrent = ch.id === currentSlug;
+                    return (
+                      <a
+                        href={`/book/${ch.id}`}
+                        class:list={[
+                          'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border-l-2',
+                          isCurrent
+                            ? 'toc-item-active border-primary text-primary'
+                            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container hover:border-white/20',
+                        ]}
+                        data-toc-chapter
+                      >
+                        <span class="shrink-0 text-xs w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                        <span class="truncate">{ch.data.title}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        <!-- Current section -->
+        <div class="px-4 py-4 border-t border-white/[0.06] sticky bottom-0 bg-surface-container-low">
+          <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Äang Ä‘á»c</p>
+          <p class="text-base font-bold text-on-surface leading-tight line-clamp-2">{title}</p>
+        </div>
+      </aside>
+
+
+      <!-- Reader Scroll Area -->
+      <main id="reader-scroll" class="flex-1 overflow-y-auto relative reader-main" tabindex="-1">
+        <!-- Content -->
+        <div
+          class="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-12 reader-content"
+          id="reader-content"
+          data-chapter-id={currentSlug}
+          data-chapter-title={title}
+          data-chapter-tier={tier}
+          data-chapter-tier-label={tierLabel}
+          data-chapter-no={chapterNo}
+          data-chapter-desc={description}
+        >
+          <slot />
+          <!-- Spacer: push content above fixed chapter nav bar -->
+          <div id="chapter-nav-spacer" style="height: 72px;"></div>
+        </div>
+      </main>
+
+      <!-- ==========================================
+           SECTION NAV (Desktop right sidebar + Mobile drawer)
+           ========================================== -->
+<SectionNav sections={sections} attachments={attachments} chapterId={chapterId} chapterTitle={title} />
+
+      </div><!-- end horizontal content row -->
+
+      <!-- ==========================================
+           STATUS BAR (Desktop)
+           ========================================== -->
+      <footer id="reader-status" class="hidden lg:flex items-center justify-between px-6 h-9 flex-shrink-0 glass-nav border-t border-white/[0.06] z-40">
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <span class="status-dot"></span>
+            <span class="text-[10px] text-on-surface-variant font-semibold">Online</span>
+          </div>
+          <div class="h-4 w-px bg-outline-variant"></div>
+          <span id="word-count" class="text-[10px] text-on-surface-variant">â€”</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-[10px] text-primary font-bold">Dental Empire OS</span>
+          <button id="fullscreen-btn" class="text-on-surface-variant hover:text-primary transition-colors">
+            <span class="material-symbols-outlined text-sm">fullscreen</span>
+          </button>
+        </div>
+      </footer>
+
+    </div>
+
+  </div>
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Section Nav Mobile (outside #reader-app, fixed positioned) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <SectionNavMobile
+    sections={sections}
+    groupedChapters={groupedChapters}
+    currentSlug={currentSlug}
+    attachments={attachments}
+    chapterId={chapterId || currentSlug}
+    chapterTitle={title}
+  />
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Chapter Nav Fixed Bottom Bar (outside #reader-app, fixed positioned) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <ChapterNav prev={prev} next={next} />
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Review Drawer (outside #reader-app, fixed positioned) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <ReviewDrawer
+    chapterId={currentSlug}
+    isLoggedIn={isLoggedIn}
+    currentUserId={currentUserId}
+  />
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• Question Drawer (outside #reader-app, fixed positioned) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <QuestionDrawer
+    chapterId={currentSlug}
+    chapterTitle={title}
+  />
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• File Preview Modal â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">
+    <div class="file-preview-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" id="preview-backdrop"></div>
+    <div class="file-preview-panel relative z-10 bg-surface-container rounded-2xl border border-outline-variant/30 shadow-2xl mx-4 my-4 flex flex-col w-full h-[90vh] sm:max-w-4xl sm:max-h-[85vh]">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-primary text-lg">visibility</span>
+          <p id="preview-filename" class="text-sm font-bold text-on-surface truncate"></p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button id="preview-open-external" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Má»Ÿ tab má»›i">
+            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+          </button>
+          <button id="preview-download" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" title="Táº£i file">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+          </button>
+          <button id="preview-close" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white hover:bg-error/20 transition-all" title="ÄÃ³ng">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      </div>
+      <div id="preview-body" class="flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center"></div>
+    </div>
+  </div>
+
+  <!-- Reader init script -->
+  <script>
+    (function () {
+      // ---- Reader state ----
+      const themes = ['dark', 'light', 'sepia'];
+      let currentThemeIdx = 0;
+      let bookmarked = false;
+      let tocOpen = true;
+
+      const doc = document;
+      const body = doc.body;
+      const readerApp = doc.getElementById('reader-app');
+      const readerScroll = doc.getElementById('reader-scroll');
+      const tocSidebar = doc.getElementById('toc-sidebar');
+      const sectionNav = doc.getElementById('section-nav-desktop');
+      const searchOverlay = doc.getElementById('search-overlay');
+      const searchInput = doc.getElementById('search-input');
+
+      // ---- Theme cycling ----
+      function applyTheme(idx) {
+        body.classList.remove('light-mode', 'sepia-mode');
+        if (idx === 1) body.classList.add('light-mode');
+        if (idx === 2) body.classList.add('sepia-mode');
+        const icons = ['dark_mode', 'light_mode', 'coffee'];
+        const labels = ['Tá»‘i', 'SÃ¡ng', 'Sepia'];
+        doc.getElementById('theme-icon')!.textContent = icons[idx];
+        const mobileIcon = doc.getElementById('mobile-theme-icon');
+        if (mobileIcon) mobileIcon.textContent = icons[idx];
+        const mobileLabel = doc.getElementById('mobile-theme-label');
+        if (mobileLabel) mobileLabel.textContent = labels[idx];
+        currentThemeIdx = idx;
+      }
+
+      doc.getElementById('theme-btn')?.addEventListener('click', () => {
+        applyTheme((currentThemeIdx + 1) % themes.length);
+      });
+      doc.getElementById('mobile-theme-btn')?.addEventListener('click', () => {
+        applyTheme((currentThemeIdx + 1) % themes.length);
+      });
+
+      // ---- Bookmark ----
+      const bookmarkButton = doc.getElementById('bookmark-btn');
+      const mobileBookmarkButton = doc.getElementById('mobile-bookmark-btn');
+      const bookmarkIcon = doc.getElementById('bookmark-icon');
+      const mobileBookmarkIcon = doc.getElementById('mobile-bookmark-icon');
+      const readerContent = doc.getElementById('reader-content');
+      const chapterId = readerContent?.getAttribute('data-chapter-id');
+
+      function updateBookmarkUi(active) {
+        const icon = active ? 'bookmark' : 'bookmark_border';
+        if (bookmarkIcon) {
+          bookmarkIcon.textContent = icon;
+          bookmarkButton!.classList.toggle('text-primary', active);
+          bookmarkButton!.classList.toggle('bg-primary/10', active);
+          bookmarkButton!.classList.toggle('border', active);
+          bookmarkButton!.classList.toggle('border-primary/30', active);
+          bookmarkButton!.setAttribute('aria-pressed', active ? 'true' : 'false');
+          bookmarkButton!.title = active ? 'Bá» dáº¥u' : 'ÄÃ¡nh dáº¥u';
+        }
+        if (mobileBookmarkIcon) {
+          mobileBookmarkIcon.textContent = icon;
+          mobileBookmarkButton!.classList.toggle('text-primary', active);
+        }
+      }
+
+      function loadBookmarkState() {
+        if (!chapterId) return false;
+        try {
+          const stored = localStorage.getItem('bookmarks') || '{}';
+          const parsed = JSON.parse(stored);
+          return Boolean(parsed[chapterId]);
+        } catch {
+          return false;
+        }
+      }
+
+      function saveBookmarkState(active) {
+        if (!chapterId) return;
+        try {
+          const stored = localStorage.getItem('bookmarks') || '{}';
+          const parsed = JSON.parse(stored);
+          parsed[chapterId] = active ? true : false;
+          localStorage.setItem('bookmarks', JSON.stringify(parsed));
+        } catch {
+          // ignore storage failures
+        }
+      }
+
+      function toggleBookmark() {
+        bookmarked = !bookmarked;
+        updateBookmarkUi(bookmarked);
+        saveBookmarkState(bookmarked);
+      }
+
+      if (bookmarkButton || mobileBookmarkButton) {
+        bookmarked = loadBookmarkState();
+        updateBookmarkUi(bookmarked);
+        bookmarkButton?.addEventListener('click', toggleBookmark);
+        mobileBookmarkButton?.addEventListener('click', toggleBookmark);
+      }
+
+
+      function toggleToc() {
+        tocOpen = !tocOpen;
+        if (tocSidebar) {
+          tocSidebar.style.transition = 'opacity 0.25s ease';
+          tocSidebar.style.opacity = tocOpen ? '1' : '0';
+          tocSidebar.style.pointerEvents = tocOpen ? '' : 'none';
+        }
+        const btn = doc.getElementById('toc-toggle-btn');
+        btn?.classList.toggle('bg-primary/10', tocOpen);
+        btn?.classList.toggle('text-primary', tocOpen);
+        btn?.classList.toggle('border', tocOpen);
+        btn?.classList.toggle('border-primary/30', tocOpen);
+      }
+
+      function toggleSectionNav() {
+        if (!sectionNav) return;
+        // sectionNav is "hidden" when opacity is explicitly '0'
+        const isCurrentlyHidden = sectionNav.style.opacity === '0';
+        const willBeHidden = !isCurrentlyHidden;
+        sectionNav.style.transition = 'opacity 0.25s ease';
+        sectionNav.style.opacity = willBeHidden ? '0' : '1';
+        sectionNav.style.pointerEvents = willBeHidden ? 'none' : '';
+      }
+
+      doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);
+      // ---- Search ----
+      const searchHelperText = doc.getElementById('search-helper-text');
+      const searchResultCount = doc.getElementById('search-result-count');
+      let searchMatches: Element[] = [];
+      let activeSearchIndex = 0;
+      const originalReaderHtml = readerContent?.innerHTML;
+
+      function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function clearSearchHighlights() {
+        if (!readerContent || !originalReaderHtml) return;
+        readerContent.innerHTML = originalReaderHtml;
+        searchMatches = [];
+        activeSearchIndex = 0;
+        if (searchResultCount) searchResultCount.textContent = '';
+        if (searchHelperText) searchHelperText.textContent = 'Nháº­p tá»« khÃ³a Ä‘á»ƒ tÃ¬m kiáº¿m trong ná»™i dung';
+      }
+
+      function highlightText(node, regex) {
+        const text = node.textContent || '';
+        if (!regex.test(text)) return;
+        const span = document.createDocumentFragment();
+        let lastIndex = 0;
+        regex.lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          const before = text.slice(lastIndex, match.index);
+          if (before) span.appendChild(document.createTextNode(before));
+          const mark = document.createElement('mark');
+          mark.className = 'search-highlight';
+          mark.textContent = match[0];
+          span.appendChild(mark);
+          lastIndex = regex.lastIndex;
+        }
+        const after = text.slice(lastIndex);
+        if (after) span.appendChild(document.createTextNode(after));
+        node.parentNode?.replaceChild(span, node);
+      }
+
+      function walkTextNodes(root, regex) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+            if (node.parentElement?.closest('script,style,mark')) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        const textNodes = [];
+        while (walker.nextNode()) {
+          textNodes.push(walker.currentNode);
+        }
+        textNodes.forEach((node) => highlightText(node, regex));
+      }
+
+      function selectSearchMatch(index) {
+        if (!searchMatches.length) return;
+        searchMatches.forEach((el, i) => el.classList.toggle('search-highlight-active', i === index));
+        const target = searchMatches[index] as HTMLElement;
+        if (target) {
+          if (readerScroll) {
+            const top = target.offsetTop - 120;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          } else {
+            const top = target.getBoundingClientRect().top + window.scrollY - 140;
+            window.scrollTo({ top, behavior: 'smooth' });
+          }
+        }
+      }
+
+      function updateSearch(query) {
+        clearSearchHighlights();
+        const trimmed = query.trim();
+        if (!trimmed || !readerContent) return;
+        const regex = new RegExp(escapeRegExp(trimmed), 'gi');
+        walkTextNodes(readerContent, regex);
+        searchMatches = Array.from(readerContent.querySelectorAll('.search-highlight'));
+        if (searchMatches.length > 0) {
+          activeSearchIndex = 0;
+          selectSearchMatch(activeSearchIndex);
+          if (searchResultCount) searchResultCount.textContent = `${searchMatches.length} káº¿t quáº£`;
+          if (searchHelperText) searchHelperText.textContent = `ÄÃ£ tÃ¬m tháº¥y ${searchMatches.length} káº¿t quáº£`;
+        } else {
+          if (searchResultCount) searchResultCount.textContent = 'KhÃ´ng tÃ¬m tháº¥y káº¿t quáº£';
+          if (searchHelperText) searchHelperText.textContent = 'KhÃ´ng tÃ¬m tháº¥y ná»™i dung phÃ¹ há»£p';
+        }
+      }
+
+      function openSearch() {
+        searchOverlay?.classList.remove('hidden');
+        searchInput?.focus();
+      }
+      function closeSearch() {
+        searchOverlay?.classList.add('hidden');
+        if (searchInput) {
+          searchInput.value = '';
+          updateSearch('');
+        }
+      }
+
+      doc.getElementById('search-btn')?.addEventListener('click', openSearch);
+      doc.getElementById('search-overlay')?.addEventListener('click', (e) => {
+        if (e.target === searchOverlay) closeSearch();
+      });
+
+      searchInput?.addEventListener('input', (event) => {
+        const query = (event.target as HTMLInputElement).value;
+        updateSearch(query);
+      });
+
+      searchInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (searchMatches.length > 0) {
+            activeSearchIndex = (activeSearchIndex + 1) % searchMatches.length;
+            selectSearchMatch(activeSearchIndex);
+          }
+        }
+      });
+
+      // Ctrl+K shortcut
+      doc.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          openSearch();
+        }
+        // Ctrl+Shift+L: toggle TOC sidebar
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'L') {
+          e.preventDefault();
+          toggleToc();
+        }
+        if (e.key === 'Escape') {
+          if (!searchOverlay?.classList.contains('hidden')) {
+            closeSearch();
+          }
+        }
+      });
+
+      // ---- Fullscreen ----
+      doc.getElementById('fullscreen-btn')?.addEventListener('click', () => {
+        if (!doc.fullscreenElement) {
+          doc.documentElement.requestFullscreen();
+        } else {
+          doc.exitFullscreen();
+        }
+      });
+
+      // ---- Reading progress ----
+      function updateProgress() {
+        if (!readerScroll) return;
+        const scrollTop = readerScroll.scrollTop;
+        const scrollHeight = readerScroll.scrollHeight - readerScroll.clientHeight;
+        const pct = scrollHeight > 0 ? Math.min(100, Math.round((scrollTop / scrollHeight) * 100)) : 0;
+        doc.querySelectorAll('.read-progress').forEach((el) => {
+          (el as HTMLElement).style.width = pct + '%';
+        });
+        doc.querySelectorAll('[id^="progress-pct"]').forEach((el) => {
+          el.textContent = pct + '%';
+        });
+      }
+
+      readerScroll?.addEventListener('scroll', updateProgress);
+      updateProgress();
+
+      // ---- Word count ----
+      const article = doc.querySelector('article, .reader-content');
+      if (article) {
+        const text = article.textContent || '';
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        doc.getElementById('word-count')!.textContent = words.toLocaleString('vi') + ' tá»«';
+      }
+
+      // ---- Mobile TOC (now unified via SectionNav floating trigger) ----
+      // The SectionNav's own #section-nav-trigger handles this; no separate handler needed.
+
+      // ---- Scroll to heading (smooth) ----
+      const HEADER_OFFSET = 80;
+      doc.querySelectorAll('a[href^="#"]').forEach((link) => {
+        link.addEventListener('click', (e) => {
+          const hash = link.getAttribute('href');
+          if (!hash || hash === '#') return;
+          e.preventDefault();
+          const target = doc.getElementById(hash.slice(1));
+          if (target && readerScroll) {
+            const top = target.getBoundingClientRect().top + readerScroll.scrollTop - HEADER_OFFSET;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          }
+          history.replaceState(null, '', hash);
+          // Close mobile TOC if open
+          (window as any).__closeSectionNav?.();
+        });
+      });
+
+      if (location.hash) {
+        requestAnimationFrame(() => {
+          const target = doc.getElementById(location.hash.slice(1));
+          if (target && readerScroll) {
+            const top = target.getBoundingClientRect().top + readerScroll.scrollTop - HEADER_OFFSET;
+            readerScroll.scrollTo({ top, behavior: 'smooth' });
+          }
+        });
+      }
+
+      // ---- TOC collapsible groups ----
+      const TOC_COLLAPSE_KEY = 'toc-collapsed-tiers';
+      function getCollapsedTiers(): Set<number> {
+        try {
+          const raw = localStorage.getItem(TOC_COLLAPSE_KEY);
+          if (!raw) return new Set();
+          return new Set(JSON.parse(raw) as number[]);
+        } catch {
+          return new Set();
+        }
+      }
+      function saveCollapsedTiers(set: Set<number>) {
+        try {
+          localStorage.setItem(TOC_COLLAPSE_KEY, JSON.stringify([...set]));
+        } catch { /* ignore */ }
+      }
+      function applyCollapsedState() {
+        const collapsed = getCollapsedTiers();
+        document.querySelectorAll<HTMLElement>('.toc-group').forEach((group) => {
+          const tier = Number(group.dataset.tier);
+          const isCollapsed = collapsed.has(tier);
+          group.dataset.collapsed = isCollapsed ? 'true' : 'false';
+          const header = group.querySelector<HTMLElement>('[data-toc-toggle]');
+          if (header) header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+          const chapters = group.querySelector<HTMLElement>('.toc-group-chapters');
+          if (chapters) {
+            chapters.style.maxHeight = isCollapsed ? '0px' : '';
+          }
+        });
+      }
+      function toggleGroup(tier: number) {
+        const collapsed = getCollapsedTiers();
+        const group = document.querySelector<HTMLElement>(`.toc-group[data-tier="${tier}"]`);
+        const chapters = group?.querySelector<HTMLElement>('.toc-group-chapters');
+
+        if (collapsed.has(tier)) {
+          // Expanding
+          collapsed.delete(tier);
+          saveCollapsedTiers(collapsed);
+          group!.dataset.collapsed = 'false';
+          const header = group!.querySelector<HTMLElement>('[data-toc-toggle]');
+          if (header) header.setAttribute('aria-expanded', 'true');
+          if (chapters) {
+            chapters.style.maxHeight = chapters.scrollHeight + 'px';
+            chapters.addEventListener('transitionend', function handler() {
+              chapters.style.maxHeight = '';
+              chapters.removeEventListener('transitionend', handler);
+            });
+          }
+        } else {
+          // Collapsing
+          collapsed.add(tier);
+          saveCollapsedTiers(collapsed);
+          group!.dataset.collapsed = 'true';
+          const header = group!.querySelector<HTMLElement>('[data-toc-toggle]');
+          if (header) header.setAttribute('aria-expanded', 'false');
+          if (chapters) {
+            chapters.style.maxHeight = chapters.scrollHeight + 'px';
+            requestAnimationFrame(() => {
+              chapters.style.maxHeight = '0px';
+            });
+          }
+        }
+      }
+      applyCollapsedState();
+      document.querySelectorAll<HTMLElement>('[data-toc-toggle]').forEach((btn) => {
+        const group = btn.closest<HTMLElement>('.toc-group');
+        const tier = group ? Number(group.dataset.tier) : NaN;
+        btn.addEventListener('click', () => {
+          if (!isNaN(tier)) toggleGroup(tier);
+        });
+      });
+
+      // ---- Init ----
+
+    })();
+  </script>
+
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• File Download / Preview Script â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <script>
+    (function () {
+      const MAX_FETCH_SIZE = 50 * 1024 * 1024; // 50 MB â€” above this, fallback to direct link
+
+      // â”€â”€ Helpers â”€â”€
+      function formatBytes(bytes: number): string {
+        if (bytes === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+      }
+
+      function escapeAttr(s: string): string {
+        return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      }
+
+      // â”€â”€ File size cache â”€â”€
+      const sizeCache = new Map<string, string>();
+
+      async function fetchFileSize(card: HTMLElement): Promise<void> {
+        const url = card.dataset.fileUrl;
+        if (!url) return;
+        if (sizeCache.has(url)) {
+          showSize(card, sizeCache.get(url)!);
+          return;
+        }
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          const total = Number(res.headers.get('Content-Length'));
+          if (total > 0) {
+            const formatted = formatBytes(total);
+            sizeCache.set(url, formatted);
+            showSize(card, formatted);
+          }
+        } catch { /* silent â€” size display is non-critical */ }
+      }
+
+      function showSize(card: HTMLElement, text: string): void {
+        const sizeEl = card.querySelector('.file-size-display') as HTMLElement | null;
+        const mimeEl = card.querySelector('.file-mime-label') as HTMLElement | null;
+        if (sizeEl && mimeEl) {
+          sizeEl.textContent = text;
+          sizeEl.classList.remove('hidden');
+          mimeEl.classList.add('hidden');
+        }
+      }
+
+      // â”€â”€ Intersection Observer for lazy size fetch â”€â”€
+      const sizeObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              fetchFileSize(entry.target as HTMLElement);
+              sizeObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: '200px' }
+      );
+
+      // Defer observing file cards until after first paint
+      function observeFileCards() {
+        document.querySelectorAll<HTMLElement>('[data-file-card]').forEach((card) => {
+          sizeObserver.observe(card);
+        });
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(observeFileCards, { timeout: 2000 });
+      } else {
+        setTimeout(observeFileCards, 300);
+      }
+
+      // â”€â”€ Download with progress â”€â”€
+      async function downloadFile(card: HTMLElement): Promise<void> {
+        const url = card.dataset.fileUrl;
+        const filename = card.dataset.fileName || 'download';
+        if (!url) return;
+
+        const overlay = card.querySelector('.file-progress-overlay') as HTMLElement | null;
+        const progressBar = card.querySelector('.file-progress-bar') as HTMLElement | null;
+        const pctText = card.querySelector('.file-progress-pct') as HTMLElement | null;
+        const statusText = card.querySelector('.file-progress-status') as HTMLElement | null;
+        const cancelBtn = card.querySelector('.file-cancel-btn') as HTMLElement | null;
+
+        if (!overlay || !progressBar || !pctText || !statusText) return;
+
+        // Check file size first â€” fallback to direct download for large files
+        let totalSize = 0;
+        if (sizeCache.has(url)) {
+          // Parse cached size back to bytes (rough check)
+          const cached = sizeCache.get(url)!;
+          if (cached.includes('GB')) {
+            directDownload(url, filename);
+            return;
+          }
+        } else {
+          try {
+            const headRes = await fetch(url, { method: 'GET' });
+            totalSize = Number(headRes.headers.get('Content-Length')) || 0;
+            // Don't consume the body â€” let it GC
+          } catch { /* proceed with fetch anyway */ }
+          if (totalSize > MAX_FETCH_SIZE) {
+            directDownload(url, filename);
+            return;
+          }
+        }
+
+        const controller = new AbortController();
+        const onAbort = () => controller.abort();
+        cancelBtn?.addEventListener('click', onAbort, { once: true });
+
+        // Show overlay
+        overlay.classList.remove('hidden');
+        progressBar.style.width = '0%';
+        pctText.textContent = '0';
+        statusText.textContent = 'Äang táº£i...';
+        statusText.classList.remove('text-error');
+        progressBar.classList.toggle('indeterminate', totalSize === 0);
+
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error('Download failed');
+
+          const total = totalSize || Number(response.headers.get('Content-Length')) || 0;
+          const reader = response.body!.getReader();
+          const chunks: Uint8Array[] = [];
+          let loaded = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.length;
+            if (total > 0) {
+              const pct = Math.round((loaded / total) * 100);
+              progressBar.style.width = pct + '%';
+              pctText.textContent = String(pct);
+              statusText.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+            } else {
+              statusText.textContent = `Äang táº£i... ${formatBytes(loaded)}`;
+            }
+          }
+
+          // Build blob and trigger download
+          const blob = new Blob(chunks);
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+          progressBar.classList.remove('indeterminate');
+          progressBar.style.width = '100%';
+          pctText.textContent = '100';
+          statusText.textContent = 'HoÃ n thÃ nh!';
+          setTimeout(() => overlay.classList.add('hidden'), 800);
+        } catch (e: any) {
+          progressBar.classList.remove('indeterminate');
+          if (e?.name !== 'AbortError') {
+            statusText.textContent = 'Lá»—i táº£i file';
+            statusText.classList.add('text-error');
+            setTimeout(() => overlay.classList.add('hidden'), 2000);
+          } else {
+            overlay.classList.add('hidden');
+          }
+        } finally {
+          cancelBtn?.removeEventListener('click', onAbort);
+        }
+      }
+
+      function directDownload(url: string, filename: string): void {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.click();
+      }
+
+      // â”€â”€ Preview modal â”€â”€
+      const previewModal = document.getElementById('file-preview-modal');
+      const previewBackdrop = document.getElementById('preview-backdrop');
+      const previewBody = document.getElementById('preview-body');
+      const previewFilename = document.getElementById('preview-filename');
+      const previewCloseBtn = document.getElementById('preview-close');
+      const previewOpenExt = document.getElementById('preview-open-external');
+      const previewDownloadBtn = document.getElementById('preview-download');
+      let previewUrl = '';
+      let previewFileName = '';
+
+      function openPreview(url: string, filename: string, mime: string): void {
+        if (!previewModal || !previewBody || !previewFilename) return;
+        previewUrl = url;
+        previewFileName = filename;
+        previewFilename.textContent = filename;
+        previewBody.innerHTML = '';
+
+        if (mime.includes('pdf')) {
+          previewBody.innerHTML = `<iframe src="${escapeAttr(url)}" class="w-full h-full rounded-xl border-none" style="min-height: 60vh" title="PDF Preview"></iframe>`;
+        } else if (mime.includes('image')) {
+          previewBody.innerHTML = `
+            <div class="relative flex items-center justify-center w-full h-full">
+              <img id="preview-img" class="max-w-full max-h-full object-contain rounded-xl" alt="${escapeAttr(filename)}" />
+              <div class="absolute inset-0 flex items-center justify-center preview-loading">
+                <span class="material-symbols-outlined text-4xl text-on-surface-variant" style="animation: spin 1s linear infinite;">progress_activity</span>
+              </div>
+            </div>`;
+          const img = document.getElementById('preview-img') as HTMLImageElement | null;
+          fetch(url).then(r => r.blob()).then(blob => {
+            if (img) img.src = URL.createObjectURL(blob);
+            previewBody?.querySelector('.preview-loading')?.remove();
+          }).catch(() => {
+            previewBody.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-8">KhÃ´ng thá»ƒ táº£i áº£nh</p>';
+          });
+        }
+
+        previewModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        // Focus trap
+        previewCloseBtn?.focus();
+      }
+
+      function closePreview(): void {
+        if (!previewModal) return;
+        previewModal.classList.add('hidden');
+        if (previewBody) previewBody.innerHTML = '';
+        document.body.style.overflow = '';
+        previewUrl = '';
+        previewFileName = '';
+      }
+
+      previewCloseBtn?.addEventListener('click', closePreview);
+      previewBackdrop?.addEventListener('click', closePreview);
+      previewOpenExt?.addEventListener('click', () => {
+        if (previewUrl) window.open(previewUrl, '_blank', 'noopener');
+      });
+      previewDownloadBtn?.addEventListener('click', () => {
+        if (previewUrl && previewFileName) {
+          directDownload(previewUrl, previewFileName);
+        }
+      });
+
+      // â”€â”€ Event delegation for file card buttons â”€â”€
+      document.addEventListener('click', (e) => {
+        const target = (e.target as HTMLElement).closest<HTMLElement>('.file-download-btn, .file-preview-btn');
+        if (!target) return;
+        const card = target.closest<HTMLElement>('[data-file-card]');
+        if (!card) return;
+
+        if (target.classList.contains('file-download-btn')) {
+          e.preventDefault();
+          downloadFile(card);
+        } else if (target.classList.contains('file-preview-btn')) {
+          e.preventDefault();
+          const url = card.dataset.fileUrl;
+          const name = card.dataset.fileName || 'preview';
+          const mime = card.dataset.fileMime || '';
+          if (url) openPreview(url, name, mime);
+        }
+      });
+
+      // Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) {
+          closePreview();
+        }
+      });
+    })();
+  </script>
+  <style>
+    /* Chapter nav fixed bottom bar */
+    .chapter-nav-fixed a:hover span:last-child {
+      color: var(--color-primary) !important;
+    }
+
+    /* TOC group collapse */
+    .toc-group-chapters {
+
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+    }
+    .toc-group[data-collapsed="true"] .toc-group-chapters {
+      max-height: 0;
+      opacity: 0;
+    }
+    .toc-group[data-collapsed="true"] .toc-group-chevron {
+      transform: rotate(-90deg);
+    }
+    .toc-group[data-collapsed="true"] .toc-group-icon {
+      transform: rotate(-15deg);
+    }
+    .toc-group-header[aria-expanded="false"] + .toc-group-chapters {
+      /* handled via data-collapsed */
+    }
+
+    /* TOC group header active tier highlight */
+    .toc-group[data-current-tier="true"] .toc-group-header {
+      background: rgba(146, 204, 255, 0.06);
+    }
+    .toc-group[data-current-tier="true"] .toc-group-label {
+      color: var(--color-on-surface);
+    }
+
+    /* Enhanced current chapter highlight */
+    .toc-item-active {
+      background: rgba(146, 204, 255, 0.1) !important;
+      border-color: var(--color-primary) !important;
+      color: var(--color-primary) !important;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(146, 204, 255, 0.15), 0 0 12px rgba(146, 204, 255, 0.08);
+    }
+    .toc-item-active::before {
+      content: '';
+      position: absolute;
+      left: -2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 60%;
+      background: var(--color-primary);
+      border-radius: 0 2px 2px 0;
+      box-shadow: 0 0 8px var(--color-primary);
+    }
+    .toc-item-active .shrink-0 {
+      color: var(--color-primary);
+    }
+
+    /* Scrollbar */
+    .toc-sidebar::-webkit-scrollbar,
+    .toc-sidebar *::-webkit-scrollbar {
+      width: 3px;
+    }
+    .toc-sidebar::-webkit-scrollbar-thumb,
+    .toc-sidebar *::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+    }
+  </style>
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</BaseLayout>
+

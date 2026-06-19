@@ -1,271 +1,457 @@
 ---
 import StarRating from './StarRating.astro';
 import ReviewForm from './ReviewForm.astro';
-import ReviewList from './ReviewList.astro';
-import type { ReviewDisplay, ReviewStats } from '../../lib/review-db';
 
 interface Props {
   chapterId: string;
-  reviews: ReviewDisplay[];
-  stats: ReviewStats;
   isLoggedIn: boolean;
   currentUserId?: string | null;
 }
 
-const { chapterId, reviews, stats, isLoggedIn, currentUserId = null } = Astro.props;
+const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
 ---
 
 <!-- Overlay -->
 <div
   id="review-overlay"
-  class="review-overlay fixed inset-0 z-[88] bg-black/50 backdrop-blur-sm transition-opacity duration-300"
-  style="opacity: 0;"
+  class="review-overlay fixed inset-0 z-[101] bg-black/50 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none"
   aria-hidden="true"
 ></div>
 
 <!-- Desktop: slide-in from right -->
 <aside
   id="review-drawer-desktop"
-  class="hidden lg:flex fixed right-0 top-0 bottom-0 z-[90] flex-col shadow-2xl"
-  style="width: 420px; background: var(--color-surface-container-low); transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); border-left: 1px solid rgba(255,255,255,0.06);"
+  class="hidden lg:flex fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl translate-x-full transition-transform duration-350"
+  style="width: 420px; background: var(--reader-chrome-bg);"
+  data-chapter-id={chapterId}
+  data-is-logged-in={isLoggedIn}
+  data-current-user-id={currentUserId}
 >
   <!-- Header -->
-  <div class="flex items-center justify-between px-5 py-4 shrink-0" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+  <div class="flex items-center justify-between px-5 py-4 shrink-0 border-b r-border">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary text-xl">reviews</span>
-      <h3 class="text-sm font-bold" style="color: var(--color-on-surface);">Đánh Giá</h3>
-      {stats.totalReviews > 0 && (
-        <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
-          {stats.totalReviews}
-        </span>
-      )}
+      <h3 class="text-sm font-bold r-text">��nh Gi�</h3>
+      <span id="review-badge-desktop" class="text-[10px] px-1.5 py-0.5 rounded-full font-bold r-surface-high r-text-muted hidden">0</span>
     </div>
-    <button id="review-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-container-high" title="Đóng">
-      <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+    <button id="review-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:r-surface-high" title="��ng">
+      <span class="material-symbols-outlined text-base r-text-muted">close</span>
     </button>
   </div>
 
   <!-- Scrollable content -->
   <div class="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-    {stats.totalReviews > 0 ? (
-      <div class="flex items-center gap-4 p-4 rounded-2xl" style="background: var(--color-surface-container); border: 1px solid rgba(255,255,255,0.06);">
-        <div class="text-center flex-shrink-0">
-          <p class="text-3xl font-bold" style="color: var(--color-on-surface);">{stats.avgRating}</p>
-          <StarRating name={`desk-stats-${chapterId}`} value={Math.round(stats.avgRating)} readonly size="sm" />
-        </div>
-        <div class="border-l pl-4" style="border-color: rgba(255,255,255,0.06);">
-          <p class="text-xs" style="color: var(--color-on-surface-variant);">
-            Dựa trên <span class="font-semibold" style="color: var(--color-on-surface);">{stats.totalReviews}</span> đánh giá
-          </p>
+    <!-- Skeleton Loading -->
+    <div id="review-skeleton-desktop" class="space-y-4">
+      <div class="animate-pulse flex items-center gap-4 p-4 rounded-2xl r-surface">
+        <div class="w-16 h-12 r-surface-high rounded-lg"></div>
+        <div class="flex-1 space-y-2">
+          <div class="h-4 r-surface-high rounded w-24"></div>
+          <div class="h-3 r-surface-high rounded w-16"></div>
         </div>
       </div>
-    ) : (
-      <div class="text-center py-4">
-        <span class="material-symbols-outlined text-3xl block mb-2" style="color: var(--color-on-surface-variant); opacity: 0.3;">rate_review</span>
-        <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+      <div class="animate-pulse space-y-3">
+        <div class="h-20 r-surface rounded-xl"></div>
+        <div class="h-20 r-surface rounded-xl"></div>
       </div>
-    )}
+    </div>
 
+    <!-- Content Container -->
+    <div id="review-content-desktop" class="hidden space-y-5">
+      <!-- Stats will be injected here -->
+    </div>
+
+    <!-- Static Form -->
     <ReviewForm chapterId={chapterId} isLoggedIn={isLoggedIn} />
 
-    <ReviewList
-      reviews={reviews}
-      stats={stats}
-      chapterId={chapterId}
-      currentUserId={currentUserId}
-    />
+    <!-- Reviews List Container -->
+    <div id="reviews-list-desktop" class="space-y-4">
+      <!-- Reviews will be injected here -->
+    </div>
   </div>
 </aside>
 
-<!-- Mobile: bottom sheet (always in DOM, controlled by transform) -->
+<!-- Mobile: bottom sheet -->
 <div
   id="review-drawer-mobile"
-  class="review-drawer-mobile fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden"
-  style="background: var(--color-surface-container-low); max-height: 88vh; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);"
+  class="fixed inset-x-0 bottom-0 z-[103] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden translate-y-full transition-transform duration-350"
+  style="background: var(--color-surface-container-low); max-height: 88vh;"
+  data-chapter-id={chapterId}
+  data-is-logged-in={isLoggedIn}
+  data-current-user-id={currentUserId}
 >
   <!-- Handle -->
-  <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="review-handle">
-    <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant);"></div>
+  <div class="flex justify-center pt-3 pb-2 cursor-grab select-none" id="review-handle">
+    <div class="w-10 h-1.5 rounded-full bg-outline-variant"></div>
   </div>
 
   <!-- Header -->
-  <div class="px-5 pb-3 flex items-center justify-between shrink-0" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+  <div class="px-5 pb-3 flex items-center justify-between shrink-0 border-b r-border">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary text-lg">reviews</span>
-      <h3 class="text-sm font-bold" style="color: var(--color-on-surface);">Đánh Giá</h3>
-      {stats.totalReviews > 0 && (
-        <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
-          {stats.totalReviews}
-        </span>
-      )}
+      <h3 class="text-sm font-bold r-text">��nh Gi�</h3>
+      <span id="review-badge-mobile" class="text-[10px] px-1.5 py-0.5 rounded-full font-bold r-surface-high r-text-muted hidden">0</span>
     </div>
-    <button id="review-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--color-surface-container-high);">
-      <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+    <button id="review-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center r-surface-high">
+      <span class="material-symbols-outlined text-base r-text-muted">close</span>
     </button>
   </div>
 
   <!-- Scrollable content -->
   <div class="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-    {stats.totalReviews > 0 ? (
-      <div class="flex items-center gap-4 p-4 rounded-2xl" style="background: var(--color-surface-container); border: 1px solid rgba(255,255,255,0.06);">
-        <div class="text-center flex-shrink-0">
-          <p class="text-3xl font-bold" style="color: var(--color-on-surface);">{stats.avgRating}</p>
-          <StarRating name={`mob-stats-${chapterId}`} value={Math.round(stats.avgRating)} readonly size="sm" />
-        </div>
-        <div class="border-l pl-4" style="border-color: rgba(255,255,255,0.06);">
-          <p class="text-xs" style="color: var(--color-on-surface-variant);">
-            Dựa trên <span class="font-semibold" style="color: var(--color-on-surface);">{stats.totalReviews}</span> đánh giá
-          </p>
+    <!-- Skeleton Loading -->
+    <div id="review-skeleton-mobile" class="space-y-4">
+      <div class="animate-pulse flex items-center gap-4 p-4 rounded-2xl r-surface">
+        <div class="w-16 h-12 r-surface-high rounded-lg"></div>
+        <div class="flex-1 space-y-2">
+          <div class="h-4 r-surface-high rounded w-24"></div>
+          <div class="h-3 r-surface-high rounded w-16"></div>
         </div>
       </div>
-    ) : (
-      <div class="text-center py-4">
-        <span class="material-symbols-outlined text-3xl block mb-2" style="color: var(--color-on-surface-variant); opacity: 0.3;">rate_review</span>
-        <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+      <div class="animate-pulse space-y-3">
+        <div class="h-20 r-surface rounded-xl"></div>
+        <div class="h-20 r-surface rounded-xl"></div>
       </div>
-    )}
+    </div>
 
+    <!-- Content Container -->
+    <div id="review-content-mobile" class="hidden space-y-5">
+      <!-- Stats will be injected here -->
+    </div>
+
+    <!-- Static Form -->
     <ReviewForm chapterId={chapterId} isLoggedIn={isLoggedIn} />
 
-    <ReviewList
-      reviews={reviews}
-      stats={stats}
-      chapterId={chapterId}
-      currentUserId={currentUserId}
-    />
+    <!-- Reviews List Container -->
+    <div id="reviews-list-mobile" class="space-y-4">
+      <!-- Reviews will be injected here -->
+    </div>
   </div>
 </div>
 
-<!-- review-trigger button is rendered in SectionNavMobile.astro -->
-
 <style>
-  /* Focus mode: hide trigger */
-  body.focus-mode #review-trigger {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-  body.focus-mode:hover #review-trigger {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Scrollbar styling inside drawers */
+  /* Scrollbar styling */
   #review-drawer-desktop ::-webkit-scrollbar,
   #review-drawer-mobile ::-webkit-scrollbar {
-    width: 3px;
+    width: 4px;
   }
   #review-drawer-desktop ::-webkit-scrollbar-thumb,
   #review-drawer-mobile ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--reader-scrollbar);
     border-radius: 99px;
+  }
+  
+  /* Animation utilities */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Transition duration */
+  .duration-350 {
+    transition-duration: 350ms;
+  }
+  
+  /* Drawer visible states */
+  #review-drawer-desktop.open {
+    transform: translateX(0);
+  }
+  #review-drawer-mobile.open {
+    transform: translateY(0);
+  }
+  #review-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
   }
 </style>
 
 <script>
   (function () {
-    const trigger = document.getElementById('review-trigger');
+    // Elements
     const overlay = document.getElementById('review-overlay');
     const desktop = document.getElementById('review-drawer-desktop');
     const mobile = document.getElementById('review-drawer-mobile');
+    const trigger = document.getElementById('review-trigger');
     const closeDesktop = document.getElementById('review-close-desktop');
     const closeMobile = document.getElementById('review-close-mobile');
     const handle = document.getElementById('review-handle');
-
-    if (!overlay) return;
-
+    
+    // State
     let isOpen = false;
     let isMobile = false;
-
+    let dataFetched = false;
+    let currentChapterId = '';
+    let isLoggedIn = false;
+    let currentUserId = null;
+    
+    // Get chapter data from data attributes
+    function getChapterData() {
+      const container = mobile || desktop;
+      if (container) {
+        currentChapterId = container.dataset.chapterId || '';
+        isLoggedIn = container.dataset.isLoggedIn === 'true';
+        currentUserId = container.dataset.currentUserId || null;
+      }
+    }
+    
+    // Fetch reviews
+    async function fetchReviews() {
+      if (!currentChapterId) return;
+      
+      try {
+        const response = await fetch(`/api/public/reviews?chapter_id=${encodeURIComponent(currentChapterId)}&limit=10&offset=0`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const data = await response.json();
+        renderReviews(data);
+        dataFetched = true;
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+        showError();
+      }
+    }
+    
+    // Render star rating
+    function renderStars(rating) {
+      const full = '?';
+      const empty = '?';
+      return full.repeat(rating) + empty.repeat(5 - rating);
+    }
+    
+    // Relative date
+    function relativeDate(iso) {
+      const now = Date.now();
+      const then = new Date(iso).getTime();
+      const diff = Math.floor((now - then) / 1000);
+      if (diff < 60) return 'V?a xong';
+      if (diff < 3600) return `${Math.floor(diff / 60)} ph�t tru?c`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} gi? tru?c`;
+      const days = Math.floor(diff / 86400);
+      if (days < 30) return `${days} ng�y tru?c`;
+      if (days < 365) return `${Math.floor(days / 30)} th�ng tru?c`;
+      return `${Math.floor(diff / 31536000)} nam tru?c`;
+    }
+    
+    // Render reviews data
+    function renderReviews({ reviews = [], stats = { avgRating: 0, totalReviews: 0 } }) {
+      const hasReviews = stats.totalReviews > 0;
+      
+      // Update badges
+      const badgeDesktop = document.getElementById('review-badge-desktop');
+      const badgeMobile = document.getElementById('review-badge-mobile');
+      
+      if (badgeDesktop) {
+        badgeDesktop.textContent = stats.totalReviews;
+        badgeDesktop.classList.toggle('hidden', !hasReviews);
+      }
+      if (badgeMobile) {
+        badgeMobile.textContent = stats.totalReviews;
+        badgeMobile.classList.toggle('hidden', !hasReviews);
+      }
+      
+      // Stats HTML
+      const statsHtml = hasReviews ? `
+        <div class="flex items-center gap-4 p-4 rounded-2xl r-surface border" style="border-color: var(--reader-border);">
+          <div class="text-center flex-shrink-0">
+            <p class="text-3xl font-bold r-text">${stats.avgRating}</p>
+            <div class="text-tertiary text-sm tracking-wider">${renderStars(Math.round(stats.avgRating))}</div>
+          </div>
+          <div class="border-l pl-4" style="border-color: var(--reader-border);">
+            <p class="text-xs r-text-muted">
+              D?a tr�n <span class="font-semibold r-text">${stats.totalReviews}</span> d�nh gi�
+            </p>
+          </div>
+        </div>
+      ` : `
+        <div class="text-center py-4">
+          <span class="material-symbols-outlined text-3xl block mb-2 r-text-muted opacity-30">rate_review</span>
+          <p class="text-xs r-text-muted">Chua c� d�nh gi� n�o. H�y l� ngu?i d?u ti�n!</p>
+        </div>
+      `;
+      
+      // Reviews HTML
+      const reviewsHtml = reviews.length > 0 ? reviews.map(review => `
+        <article class="review-card r-surface rounded-2xl border p-5 transition-all" style="border-color: var(--reader-border);" data-review-id="${review.id}">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3 min-w-0">
+              ${review.user_image 
+                ? `<img src="${review.user_image}" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0" loading="lazy">`
+                : `<div class="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm flex-shrink-0">${(review.user_name?.charAt(0) || '?').toUpperCase()}</div>`
+              }
+              <div class="min-w-0">
+                <p class="font-semibold r-text text-sm truncate">${review.user_name || review.author_name || '?n danh'}</p>
+                <time class="text-xs r-text-muted" datetime="${review.createdAt}">${relativeDate(review.createdAt)}</time>
+              </div>
+            </div>
+            ${currentUserId && review.user_id === currentUserId ? `
+              <button class="review-delete-btn flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-error hover:bg-error/10 transition-all" title="X�a" data-review-id="${review.id}">
+                <span class="material-symbols-outlined text-lg">delete</span>
+              </button>
+            ` : ''}
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-tertiary text-sm tracking-wider">${renderStars(review.rating)}</span>
+          </div>
+          ${review.title ? `<p class="font-semibold r-text text-sm mb-1">${review.title}</p>` : ''}
+          <p class="text-sm r-text-muted leading-relaxed whitespace-pre-line">${review.content}</p>
+        </article>
+      `).join('') : `
+        <div class="text-center py-4">
+          <span class="material-symbols-outlined text-3xl block mb-2 r-text-muted opacity-30">reviews</span>
+          <p class="text-xs r-text-muted">Chua c� d�nh gi�.</p>
+        </div>
+      `;
+      
+      // Update both desktop and mobile
+      ['desktop', 'mobile'].forEach(type => {
+        const skeleton = document.getElementById(`review-skeleton-${type}`);
+        const content = document.getElementById(`review-content-${type}`);
+        const list = document.getElementById(`reviews-list-${type}`);
+        
+        if (skeleton) skeleton.classList.add('hidden');
+        if (content) {
+          content.innerHTML = statsHtml;
+          content.classList.remove('hidden');
+        }
+        if (list) list.innerHTML = reviewsHtml;
+      });
+      
+      // Bind delete buttons
+      bindDeleteButtons();
+    }
+    
+    // Show error state
+    function showError() {
+      ['desktop', 'mobile'].forEach(type => {
+        const skeleton = document.getElementById(`review-skeleton-${type}`);
+        const content = document.getElementById(`review-content-${type}`);
+        
+        if (skeleton) skeleton.classList.add('hidden');
+        if (content) {
+          content.innerHTML = `
+            <div class="text-center py-4">
+              <span class="material-symbols-outlined text-3xl block mb-2 text-error">error</span>
+              <p class="text-xs r-text-muted">Kh�ng th? t?i d�nh gi�. Th? l?i sau.</p>
+            </div>
+          `;
+          content.classList.remove('hidden');
+        }
+      });
+    }
+    
+    // Bind delete buttons
+    function bindDeleteButtons() {
+      document.querySelectorAll('.review-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.reviewId;
+          if (!id || !confirm('B?n mu?n x�a review n�y?')) return;
+          
+          try {
+            const res = await fetch(`/api/public/reviews/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+              btn.closest('.review-card')?.remove();
+              // Refresh stats
+              dataFetched = false;
+              fetchReviews();
+            }
+          } catch (e) {
+            console.error('Delete failed:', e);
+          }
+        });
+      });
+    }
+    
+    // Open drawer
     function open() {
+      getChapterData();
       isOpen = true;
       isMobile = window.innerWidth < 1024;
-
-      // Show overlay (use class so CSS transitions work)
-      overlay.classList.remove('hidden');
-      // Force reflow then animate opacity
-      overlay.offsetHeight;
-      overlay.style.opacity = '1';
-
+      
+      overlay?.classList.add('open');
+      
       if (isMobile && mobile) {
         mobile.classList.remove('hidden');
-        // Force reflow before animating
-        mobile.offsetHeight;
-        mobile.style.transform = 'translateY(0)';
+        requestAnimationFrame(() => mobile.classList.add('open'));
       } else if (desktop) {
-        desktop.style.transform = 'translateX(0)';
+        desktop.classList.add('open');
+      }
+      
+      document.body.style.overflow = 'hidden';
+      
+      // Fetch data if not fetched
+      if (!dataFetched) {
+        fetchReviews();
       }
     }
-
+    
+    // Close drawer
     function close() {
       isOpen = false;
-
-      // Animate overlay out
-      overlay.style.opacity = '0';
-      setTimeout(() => {
-        overlay.classList.add('hidden');
-      }, 300);
-
+      overlay?.classList.remove('open');
+      
       if (desktop) {
-        desktop.style.transform = 'translateX(100%)';
+        desktop.classList.remove('open');
       }
       if (mobile) {
-        mobile.style.transform = 'translateY(100%)';
-        setTimeout(() => {
-          if (!isOpen) mobile!.classList.add('hidden');
-        }, 350);
+        mobile.classList.remove('open');
+        setTimeout(() => mobile.classList.add('hidden'), 350);
       }
+      
+      document.body.style.overflow = '';
     }
-
+    
+    // Event listeners
     trigger?.addEventListener('click', () => {
       isOpen ? close() : open();
     });
-
-    overlay.addEventListener('click', close);
+    
+    overlay?.addEventListener('click', close);
     closeDesktop?.addEventListener('click', close);
     closeMobile?.addEventListener('click', close);
-
-    // Expose globally for SectionNavMobile's review trigger
+    
+    // Expose globally
     (window as any).__openReview = open;
     (window as any).__closeReview = close;
-
-    // Escape key
+    
+    // Keyboard
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen) close();
     });
-
-    // Mobile: touch drag to close
+    
+    // Mobile touch drag
     let startY = 0;
-    let deltaY = 0;
-    let dragging = false;
-
-    handle?.addEventListener('touchstart', (e: Event) => {
-      startY = (e as TouchEvent).touches[0].clientY;
-      dragging = true;
-      if (mobile) mobile.style.transition = 'none';
+    let currentY = 0;
+    
+    handle?.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
     }, { passive: true });
-
-    document.addEventListener('touchmove', (e: Event) => {
-      if (!dragging) return;
-      deltaY = (e as TouchEvent).touches[0].clientY - startY;
-      if (deltaY > 0 && mobile) {
-        mobile.style.transform = `translateY(${deltaY}px)`;
+    
+    handle?.addEventListener('touchmove', (e) => {
+      if (!isOpen || !mobile) return;
+      currentY = e.touches[0].clientY;
+      const diff = currentY - startY;
+      if (diff > 0) {
+        mobile.style.transform = `translateY(${diff}px)`;
       }
     }, { passive: true });
-
-    document.addEventListener('touchend', () => {
-      if (!dragging) return;
-      dragging = false;
-      if (mobile) mobile.style.transition = '';
-      if (deltaY > 80) {
+    
+    handle?.addEventListener('touchend', () => {
+      const diff = currentY - startY;
+      if (diff > 80) {
         close();
       } else if (mobile) {
-        mobile.style.transform = isOpen ? 'translateY(0)' : 'translateY(100%)';
+        mobile.style.transform = '';
       }
-      deltaY = 0;
+      currentY = 0;
     });
-
-    // Resize: close on breakpoint change
+    
+    // Close on resize
     window.addEventListener('resize', () => {
       if (isOpen) close();
     });

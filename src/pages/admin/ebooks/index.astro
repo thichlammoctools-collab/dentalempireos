@@ -81,38 +81,46 @@ const tiers = [1, 2, 3];
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="tier-chapters grid grid-cols-1 md:grid-cols-2 gap-3" data-tier={tier}>
               {tierChapters.map((ch) => (
                 <article
-                  class="ebook-card glass-card rounded-xl p-4 flex items-start gap-4"
+                  class="ebook-card glass-card rounded-xl p-4 relative"
                   data-tier={`tier-${ch.tier}`}
                   data-status={ch.status}
+                  data-chapter-id={ch.id}
+                  draggable="true"
                 >
-                  <div class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/15 flex items-center justify-center shrink-0 text-on-surface-variant">
-                    <span class="text-sm font-bold">{String(ch.chapter_no).padStart(2, '0')}</span>
-                  </div>
+                  <!-- Delete button: top-right corner -->
+                  <button data-delete-chapter={ch.id} data-chapter-title={ch.title} class="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant/50 hover:text-error hover:bg-error/10 transition-colors z-10" title="Xóa chương">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
 
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                      {ch.status === 'draft' ? (
-                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-on-surface-variant bg-surface-variant">Draft</span>
-                      ) : (
-                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
-                      )}
+                  <div class="flex items-start gap-4 pr-8">
+                    <div class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/15 flex items-center justify-center shrink-0 text-on-surface-variant cursor-grab active:cursor-grabbing order-handle" title="Kéo để sắp xếp thứ tự">
+                      <span class="chapter-num text-sm font-bold">{String(ch.chapter_no).padStart(2, '0')}</span>
                     </div>
-                    <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
-                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
 
-                    <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
-                      <a href={`/admin/ebooks/${ch.id}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[16px]">edit</span> Sửa
-                      </a>
-                      {ch.status === 'published' && (
-                        <a href={`/book/${ch.id}`} target="_blank" class="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1">
-                          <span class="material-symbols-outlined text-[16px]">visibility</span> Xem
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        {ch.status === 'draft' ? (
+                          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-on-surface-variant bg-surface-variant">Draft</span>
+                        ) : (
+                          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
+                        )}
+                      </div>
+                      <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
+                      <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
+
+                      <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
+                        <a href={`/admin/ebooks/${ch.id}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[16px]">edit</span> Sửa
                         </a>
-                      )}
-                      <span class="text-[11px] text-on-surface-variant ml-auto font-mono">{ch.id}</span>
+                        {ch.status === 'published' && (
+                          <a href={`/book/${ch.id}`} target="_blank" class="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[16px]">visibility</span> Xem
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -133,6 +141,7 @@ const tiers = [1, 2, 3];
 
 
 <script>
+  // ── Filter chips ───────────────────────────────────────
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
   const cards = Array.from(document.querySelectorAll<HTMLElement>('.ebook-card'));
   const groups = Array.from(document.querySelectorAll<HTMLElement>('.ebook-tier-group'));
@@ -164,12 +173,10 @@ const tiers = [1, 2, 3];
       card.classList.toggle('hidden', !show);
       if (show) visible += 1;
     });
-
     groups.forEach((group) => {
       const anyVisible = group.querySelectorAll('.ebook-card:not(.hidden)').length > 0;
       group.classList.toggle('hidden', !anyVisible);
     });
-
     empty?.classList.toggle('hidden', visible !== 0);
   }
 
@@ -180,4 +187,184 @@ const tiers = [1, 2, 3];
       render();
     });
   });
+
+  // ── Delete chapter ─────────────────────────────────────
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-delete-chapter]');
+    if (!btn) return;
+    const chapterId = btn.dataset.deleteChapter;
+    const title = btn.dataset.chapterTitle || '';
+    if (!chapterId) return;
+    if (!confirm(`Xóa chương "${title}"?\n\nMọi đề mục và block bên trong sẽ bị xóa vĩnh viễn.`)) return;
+    try {
+      const res = await fetch(`/api/admin/chapters/${chapterId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Lỗi khi xóa chương.');
+      }
+    } catch {
+      alert('Lỗi khi xóa chương.');
+    }
+  });
+
+  // ── Drag-and-drop (cross-tier support) ─────────────────
+  let dragged: HTMLElement | null = null;
+  const allGrids = Array.from(document.querySelectorAll<HTMLElement>('.tier-chapters'));
+
+  // Delegated dragstart — capture from any grid
+  allGrids.forEach((grid) => {
+    grid.addEventListener('dragstart', (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>('.ebook-card');
+      if (!card) return;
+      dragged = card;
+      card.style.opacity = '0.4';
+      e.dataTransfer!.effectAllowed = 'move';
+    });
+
+    grid.addEventListener('dragend', () => {
+      if (dragged) dragged.style.opacity = '';
+      dragged = null;
+      clearDragIndicators();
+    });
+  });
+
+  // Delegated dragover — works across all grids
+  allGrids.forEach((grid) => {
+    grid.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!dragged) return;
+      e.dataTransfer!.dropEffect = 'move';
+
+      // Clear indicators in all grids
+      clearDragIndicators();
+
+      // Find the closest card in this grid
+      const card = (e.target as HTMLElement).closest<HTMLElement>('.ebook-card');
+      if (card && card !== dragged) {
+        const rect = card.getBoundingClientRect();
+        const after = e.clientY < rect.top + rect.height / 2;
+        card.classList.add(after ? 'drag-above' : 'drag-below');
+      } else {
+        // Empty grid or no card — show a "drop here" indicator on the grid itself
+        grid.classList.add('drag-grid-active');
+      }
+    });
+  });
+
+  // Delegated drop — handle cross-tier
+  allGrids.forEach((grid) => {
+    grid.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      clearDragIndicators();
+      if (!dragged) return;
+
+      const srcGrid = dragged.closest<HTMLElement>('.tier-chapters');
+      const srcTier = srcGrid ? parseInt(srcGrid.dataset.tier ?? '0') : 0;
+      const tgtTier = parseInt(grid.dataset.tier ?? '0');
+      const chapterId = dragged.dataset.chapterId!;
+      const isCrossTier = srcTier !== tgtTier;
+
+      if (isCrossTier) {
+        // 1. Update chapter tier via API
+        try {
+          const res = await fetch(`/api/admin/chapters/${chapterId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ tier: tgtTier }),
+          });
+          if (!res.ok) { alert('Lỗi khi di chuyển chương.'); location.reload(); return; }
+        } catch { alert('Lỗi khi di chuyển chương.'); location.reload(); return; }
+
+        // 2. Move card DOM into target grid
+        const card = dragged;
+        card.dataset.tier = `tier-${tgtTier}`;
+
+        const targetCard = (e.target as HTMLElement).closest<HTMLElement>('.ebook-card');
+        if (targetCard && targetCard !== card) {
+          const rect = targetCard.getBoundingClientRect();
+          const after = e.clientY < rect.top + rect.height / 2;
+          if (after) {
+            targetCard.after(card);
+          } else {
+            targetCard.before(card);
+          }
+        } else {
+          grid.appendChild(card);
+        }
+
+        // 3. Reorder both source and target grids
+        await reorderGrid(srcGrid);
+        await reorderGrid(grid);
+      } else {
+        // Same-tier reorder (original logic)
+        const targetCard = (e.target as HTMLElement).closest<HTMLElement>('.ebook-card');
+        if (!targetCard || targetCard === dragged) return;
+
+        const gridCards = Array.from(grid.querySelectorAll<HTMLElement>('.ebook-card'));
+        const fromIdx = gridCards.indexOf(dragged);
+        const toIdx = gridCards.indexOf(targetCard);
+        if (fromIdx < 0 || toIdx < 0) return;
+
+        const rect = targetCard.getBoundingClientRect();
+        const after = e.clientY < rect.top + rect.height / 2;
+        const insertIdx = after ? toIdx : toIdx + 1;
+
+        const moved = gridCards.splice(fromIdx, 1)[0];
+        const adjusted = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
+        gridCards.splice(adjusted, 0, moved);
+        gridCards.forEach((c) => grid.appendChild(c));
+
+        await reorderGrid(grid);
+      }
+
+      // Update chapter_no displays for both tiers
+      updateChapterNumbers(srcTier);
+      if (isCrossTier) updateChapterNumbers(tgtTier);
+    });
+  });
+
+  // Reorder a single grid via API
+  async function reorderGrid(grid: HTMLElement | null) {
+    if (!grid) return;
+    const tier = parseInt(grid.dataset.tier ?? '0');
+    const ids = Array.from(grid.querySelectorAll<HTMLElement>('.ebook-card')).map((c) => c.dataset.chapterId!);
+    try {
+      await fetch('/api/admin/chapters/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tier, ids }),
+      });
+    } catch { /* non-critical */ }
+  }
+
+  // Renumber chapter_no displays after reorder
+  function updateChapterNumbers(tier: number) {
+    const grid = document.querySelector<HTMLElement>(`.tier-chapters[data-tier="${tier}"]`);
+    if (!grid) return;
+    const tierCards = Array.from(grid.querySelectorAll<HTMLElement>('.ebook-card:not(.hidden)'));
+    tierCards.forEach((card, idx) => {
+      const numEl = card.querySelector<HTMLElement>('.chapter-num');
+      if (numEl) numEl.textContent = String(idx + 1).padStart(2, '0');
+    });
+  }
+
+  function clearDragIndicators() {
+    document.querySelectorAll('.drag-above, .drag-below, .drag-grid-active').forEach((el) =>
+      el.classList.remove('drag-above', 'drag-below', 'drag-grid-active'),
+    );
+  }
 </script>
+
+<style>
+  .drag-above { border-top: 2px solid var(--color-primary) !important; margin-top: 4px; }
+  .drag-below { border-bottom: 2px solid var(--color-primary) !important; margin-bottom: 4px; }
+  .drag-grid-active { border: 2px dashed var(--color-primary) !important; background: color-mix(in srgb, var(--color-primary) 5%, transparent) !important; }
+  .order-handle { cursor: grab; }
+  .order-handle:active { cursor: grabbing; }
+</style>

@@ -6,6 +6,7 @@ interface SectionItem {
   title: string;
   slug: string;
   level: number;
+  sectionNumber: string;
 }
 
 interface ChapterNavItem {
@@ -61,11 +62,10 @@ const {
 const h2Count = sections.filter((s) => s.level === 2).length;
 const attachmentCount = attachments.length;
 
-let h2Idx = 0;
 const numberedSections = sections.map((section) => {
-  const isH3 = section.level === 3;
-  const num = isH3 ? '' : String(++h2Idx).padStart(2, '0');
-  return { ...section, isH3, num };
+  const num = section.sectionNumber || '';
+  const depth = num ? num.split('.').length : 0;
+  return { ...section, num, depth };
 });
 
 const currentChapterTitle = groupedChapters
@@ -74,40 +74,38 @@ const currentChapterTitle = groupedChapters
 ---
 
 <!-- Floating trigger buttons (right side, above bottom bar) -->
-<div class="fixed right-4 bottom-[calc(9rem+env(safe-area-inset-bottom,0px))] z-[55] pointer-events-none flex flex-col gap-2 lg:bottom-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+<!-- Collapsed: icon-only circular buttons, lower position -->
+<div id="mobile-fab-container" class="lg:hidden fixed right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-[55] pointer-events-none flex flex-col gap-2">
   <!-- Section nav: mobile only (desktop has sidebar) -->
   <button
     id="section-nav-trigger"
-    class="pointer-events-auto flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95 lg:hidden"
-    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); color: var(--color-on-surface); backdrop-filter: blur(12px);"
+    class="mobile-fab-btn pointer-events-auto w-10 h-10 rounded-full shadow-lg transition-all active:scale-90"
+    style="background: var(--reader-chrome-surface-high); border: 1px solid var(--reader-border); color: var(--reader-chrome-text); backdrop-filter: blur(12px);"
     aria-label="Mở mục lục"
   >
-    <span class="material-symbols-outlined text-base">format_list_numbered</span>
-    <span class="text-[11px] font-bold">Đề mục</span>
-    <span class="text-[9px] text-on-surface-variant font-semibold">{sections.length}</span>
+    <span class="material-symbols-outlined text-lg">format_list_numbered</span>
+    <span class="sr-only">Đề mục ({sections.length})</span>
   </button>
-  <!-- Review: always visible -->
+  <!-- Review -->
   <button
     id="review-trigger"
-    class="pointer-events-auto flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
-    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); backdrop-filter: blur(12px);"
+    class="mobile-fab-btn pointer-events-auto relative w-10 h-10 rounded-full shadow-lg transition-all active:scale-90"
+    style="background: var(--reader-chrome-surface-high); border: 1px solid var(--reader-border); backdrop-filter: blur(12px);"
     aria-label="Mở đánh giá"
   >
-    <span class="material-symbols-outlined text-base" style="color: var(--color-primary);">reviews</span>
-    <span class="text-[11px] font-bold" style="color: var(--color-on-surface);">Đánh giá</span>
+    <span class="material-symbols-outlined text-lg" style="color: var(--color-primary);">reviews</span>
     {reviewStats.totalReviews > 0 && (
-      <span class="text-[9px] font-bold px-1 py-0.5 rounded-full" style="background: var(--color-primary); color: white;">{reviewStats.totalReviews}</span>
+      <span class="absolute -top-0.5 -right-0.5 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center" style="background: var(--color-primary); color: var(--color-on-primary);">{reviewStats.totalReviews > 9 ? '9+' : reviewStats.totalReviews}</span>
     )}
   </button>
-  <!-- Question: always visible -->
+  <!-- Question -->
   <button
     id="question-trigger"
-    class="pointer-events-auto flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg transition-all active:scale-95"
-    style="background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); backdrop-filter: blur(12px);"
+    class="mobile-fab-btn pointer-events-auto w-10 h-10 rounded-full shadow-lg transition-all active:scale-90"
+    style="background: var(--reader-chrome-surface-high); border: 1px solid var(--reader-border); backdrop-filter: blur(12px);"
     aria-label="Hỏi tác giả"
   >
-    <span class="material-symbols-outlined text-base" style="color: var(--color-primary);">support_agent</span>
-    <span class="text-[11px] font-bold" style="color: var(--color-on-surface);">Hỏi</span>
+    <span class="material-symbols-outlined text-lg" style="color: var(--color-primary);">support_agent</span>
   </button>
 </div>
 
@@ -122,28 +120,28 @@ const currentChapterTitle = groupedChapters
 <div
   id="section-nav-sheet"
   class="section-nav-sheet fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl"
-  style="background: var(--color-surface-container-low); max-height: 85vh;"
+  style="background: var(--reader-chrome-bg); max-height: 85vh;"
 >
   <!-- Handle -->
   <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="section-nav-handle">
-    <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant);"></div>
+    <div class="w-10 h-1 rounded-full" style="background: var(--reader-border);"></div>
   </div>
 
   <!-- Header -->
-  <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+  <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid var(--reader-border);">
     <div>
-      <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--color-on-surface);">
+      <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--reader-chrome-text);">
         <span class="material-symbols-outlined text-primary text-base">format_list_numbered</span>
         Đề mục
       </h3>
-      <p class="text-[10px] mt-0.5" style="color: var(--color-on-surface-variant);">{currentChapterTitle}</p>
+      <p class="text-[10px] mt-0.5" style="color: var(--reader-chrome-text-muted);">{currentChapterTitle}</p>
     </div>
     <div class="flex items-center gap-2">
-      <div class="w-20 h-1 rounded-full overflow-hidden" style="background: var(--color-surface-container-high);">
+      <div class="w-32 h-2 rounded-full overflow-hidden" style="background: var(--reader-chrome-surface-high);">
         <div id="section-nav-progress-mobile" class="h-full rounded-full" style="width: 0%; background: var(--color-tertiary); transition: width 0.3s;"></div>
       </div>
-      <button id="section-nav-close" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style="background: var(--color-surface-container-high);">
-        <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant);">close</span>
+      <button id="section-nav-close" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style="background: var(--reader-chrome-surface-high);">
+        <span class="material-symbols-outlined text-base" style="color: var(--reader-chrome-text-muted);">close</span>
       </button>
     </div>
   </div>
@@ -154,11 +152,11 @@ const currentChapterTitle = groupedChapters
       <span class="material-symbols-outlined text-sm align-middle mr-1">format_list_numbered</span>
       Đề mục ({sections.length})
     </button>
-    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="chapters" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
+    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="chapters" style="background: var(--reader-chrome-surface-high); color: var(--reader-chrome-text-muted);">
       <span class="material-symbols-outlined text-sm align-middle mr-1">menu_book</span>
       Chương ({groupedChapters.flatMap((g) => g.chapters).length})
     </button>
-    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="attachments" style="background: var(--color-surface-container-high); color: var(--color-on-surface-variant);">
+    <button class="section-nav-tab flex-1 py-2 rounded-xl text-xs font-bold transition-all" data-tab="attachments" style="background: var(--reader-chrome-surface-high); color: var(--reader-chrome-text-muted);">
       <span class="material-symbols-outlined text-sm align-middle mr-1">attachment</span>
       Đính kèm ({attachmentCount})
     </button>
@@ -166,28 +164,32 @@ const currentChapterTitle = groupedChapters
 
   <!-- Scrollable content: Section headings -->
   <nav class="flex-1 overflow-y-auto px-3 py-3 section-nav-panel" id="section-nav-panel-sections" data-panel="sections">
-    {numberedSections.map((section) => (
-      <a
-        href={`#${section.slug}`}
-        class:list={[
-          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
-          section.isH3 ? 'pl-8 border-transparent' : 'border-transparent',
-        ]}
-        style="color: var(--color-on-surface-variant);"
-        data-mobile-section-link={section.slug}
-      >
-        {!section.isH3 ? (
-          <span class="text-[11px] font-bold w-6 shrink-0" style="color: var(--color-on-surface-variant);">{section.num}</span>
-        ) : (
-          <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-on-surface-variant); opacity: 0.4;"></span>
-        )}
-        <span class="truncate text-xs font-medium">{section.title}</span>
-      </a>
-    ))}
+    {numberedSections.map((section) => {
+      const indentPx = (section.depth - 1) * 14;
+      const isChild = section.depth > 1;
+      return (
+        <a
+          href={`#${section.slug}`}
+          class:list={[
+            'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px]',
+            isChild ? 'border-transparent' : 'border-transparent',
+          ]}
+          style={`color: var(--reader-chrome-text-muted); padding-left: ${12 + indentPx}px`}
+          data-mobile-section-link={section.slug}
+        >
+          {section.num ? (
+            <span class="text-[11px] font-bold shrink-0" style="color: var(--reader-chrome-text-muted); min-width: 2.5em;">{section.num}</span>
+          ) : (
+            <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--reader-chrome-text-muted); opacity: 0.4;"></span>
+          )}
+          <span class="truncate text-xs font-medium">{section.title}</span>
+        </a>
+      );
+    })}
     {sections.length === 0 && (
       <div class="py-8 text-center">
-        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">article</span>
-        <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có đề mục</p>
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--reader-chrome-text-muted);">article</span>
+        <p class="text-xs" style="color: var(--reader-chrome-text-muted);">Chưa có đề mục</p>
       </div>
     )}
   </nav>
@@ -200,13 +202,13 @@ const currentChapterTitle = groupedChapters
         <div class="mobile-toc-group" data-tier={group.tier} data-current-tier={hasCurrent ? 'true' : 'false'}>
           <button
             class="mobile-toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-xl text-left transition-all border border-transparent"
-            style="background: var(--color-surface-container-high);"
+            style="background: var(--reader-chrome-surface-high);"
             data-mobile-toc-toggle
           >
             <span class="material-symbols-outlined text-primary text-[16px] mobile-toc-group-icon transition-transform duration-200">folder_open</span>
-            <span class="text-xs font-bold flex-1 truncate" style="color: var(--color-on-surface-variant);">{group.label}</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-surface-container-low); color: var(--color-on-surface-variant);">{group.chapters.length}</span>
-            <span class="material-symbols-outlined text-[16px] transition-transform duration-200" style="color: var(--color-on-surface-variant);">expand_more</span>
+            <span class="text-xs font-bold flex-1 truncate" style="color: var(--reader-chrome-text-muted);">{group.label}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--reader-chrome-bg); color: var(--reader-chrome-text-muted);">{group.chapters.length}</span>
+            <span class="material-symbols-outlined text-[16px] transition-transform duration-200" style="color: var(--reader-chrome-text-muted);">expand_more</span>
           </button>
           <div class="mobile-toc-group-chapters overflow-hidden transition-all duration-300">
             {group.chapters.map((ch) => {
@@ -220,10 +222,10 @@ const currentChapterTitle = groupedChapters
                   ]}
                   style={isCurrent
                     ? 'background: rgba(146,204,255,0.1); color: var(--color-primary); box-shadow: inset 0 0 0 1px rgba(146,204,255,0.15);'
-                    : 'color: var(--color-on-surface-variant);'}
+                    : 'color: var(--reader-chrome-text-muted);'}
                   data-section-nav-chapter-link
                 >
-                  <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
+                  <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--reader-chrome-text-muted);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                   <span class="truncate text-xs font-medium">{ch.data.title}</span>
                   {isCurrent && (
                     <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
@@ -242,33 +244,40 @@ const currentChapterTitle = groupedChapters
       attachments.map((item) => (
         <a
           href={`#attachment-${item.id}`}
-          class="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-surface-container-high px-3 py-3 text-sm transition-all hover:border-primary/40 hover:bg-primary/5"
+          class="flex items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-sm transition-all hover:border-primary/40 hover:bg-primary/5" style="border-color: var(--reader-border); background: var(--reader-chrome-surface-high);"
           data-mobile-attachment-link
         >
           <div class="min-w-0">
-            <p class="text-sm font-semibold text-white truncate">{item.title}</p>
-            <p class="text-[11px] text-on-surface-variant truncate">{item.sectionTitle}</p>
+            <p class="text-sm font-semibold r-text truncate">{item.title}</p>
+            <p class="text-[11px] r-text-muted truncate">{item.sectionTitle}</p>
           </div>
-          <span class="inline-flex h-6 items-center rounded-full bg-surface-container-low px-2 text-[10px] font-semibold text-on-surface-variant">{item.type === 'image' ? 'Hình' : item.ext ?? 'Tệp'}</span>
+          <span class="inline-flex h-6 items-center rounded-full px-2 text-[10px] font-semibold r-text-muted" style="background: var(--reader-chrome-bg);">{item.type === 'image' ? 'Hình' : item.ext ?? 'Tệp'}</span>
         </a>
       ))
     ) : (
       <div class="py-8 text-center">
-        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant);">attachment</span>
-        <p class="text-xs" style="color: var(--color-on-surface-variant);">Chưa có mục đính kèm trong chương này</p>
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--reader-chrome-text-muted);">attachment</span>
+        <p class="text-xs" style="color: var(--reader-chrome-text-muted);">Chưa có mục đính kèm trong chương này</p>
       </div>
     )}
   </nav>
 
   <!-- Footer -->
-  <div class="px-5 py-3 shrink-0" style="border-top: 1px solid rgba(255,255,255,0.06);">
-    <p class="text-[10px] font-semibold" style="color: var(--color-on-surface-variant);">
+  <div class="px-5 py-3 shrink-0" style="border-top: 1px solid var(--reader-border);">
+    <p class="text-[10px] font-semibold" style="color: var(--reader-chrome-text-muted);">
       {h2Count} mục chính · {sections.length - h2Count} mục con
     </p>
   </div>
 </div>
 
 <style>
+  /* Mobile FAB compact buttons */
+  .mobile-fab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   /* Mobile sheet: hidden by default, slides up when open */
   .section-nav-sheet {
     transform: translateY(100%);
@@ -295,19 +304,6 @@ const currentChapterTitle = groupedChapters
   }
   .mobile-toc-group[data-collapsed="true"] .mobile-toc-group-icon {
     transform: rotate(-15deg);
-  }
-
-  /* Focus mode: hide floating triggers */
-  body.focus-mode #section-nav-trigger,
-  body.focus-mode #review-trigger {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-  body.focus-mode:hover #section-nav-trigger,
-  body.focus-mode:hover #review-trigger {
-    opacity: 1;
-    pointer-events: auto;
   }
 
   [data-mobile-section-link],
@@ -458,8 +454,8 @@ const currentChapterTitle = groupedChapters
         tab.addEventListener('click', () => {
           const target = tab.dataset.tab;
           tabs.forEach((t) => {
-            t.style.background = 'var(--color-surface-container-high)';
-            t.style.color = 'var(--color-on-surface-variant)';
+            t.style.background = 'var(--reader-chrome-surface-high)';
+            t.style.color = 'var(--reader-chrome-text-muted)';
             t.style.border = 'none';
           });
           tab.style.background = 'rgba(146,204,255,0.1)';
@@ -486,6 +482,8 @@ const currentChapterTitle = groupedChapters
             if (target) {
               const top = target.getBoundingClientRect().top + readerScroll.scrollTop - READER_OFFSET;
               readerScroll.scrollTo({ top, behavior: 'smooth' });
+            } else {
+              readerScroll.scrollTo({ top: 0, behavior: 'smooth' });
             }
             history.replaceState(null, '', hash);
           }

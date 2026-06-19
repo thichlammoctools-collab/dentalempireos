@@ -1,0 +1,201 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listCategories, upsertCategory, deleteCategory } from '../../../lib/blog-db';
+
+export const prerender = false;
+
+// Handle form actions
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action') as string;
+
+  if (action === 'upsert') {
+    const id = form.get('id') as string;
+    const name = form.get('name') as string;
+    const slug = form.get('slug') as string;
+    if (id && name && slug) {
+      await upsertCategory(env.DB, {
+        id,
+        name,
+        slug,
+        description: form.get('description') as string || '',
+        icon: form.get('icon') as string || 'folder',
+        color: form.get('color') as string || '#0d9488',
+        sort_order: parseInt(form.get('sort_order') as string || '0', 10),
+      });
+    }
+  } else if (action === 'delete') {
+    const id = form.get('id') as string;
+    if (id) await deleteCategory(env.DB, id);
+  }
+  return Astro.redirect('/admin/blog/categories');
+}
+
+const categories = await listCategories(env.DB);
+---
+
+<AdminLayout title="Chuyên mục | Blog Admin">
+  <div class="max-w-[800px] w-full mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-3xl font-bold text-white">Chuyên mục</h2>
+        <p class="text-on-surface-variant text-sm mt-1">{categories.length} chuyên mục</p>
+      </div>
+      <a href="/admin/blog" class="px-4 py-2 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-bold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+        Quay lại blog
+      </a>
+    </div>
+
+    <!-- Add new form -->
+    <section class="glass-card rounded-xl p-5">
+      <h3 class="text-sm font-bold text-white mb-4">Thêm chuyên mục mới</h3>
+      <form method="post" class="flex flex-col gap-4">
+        <input type="hidden" name="_action" value="upsert" />
+        <input type="hidden" name="id" id="new-id" value="" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Tên <span class="text-red-400">*</span></label>
+            <input type="text" name="name" id="cat-name" required placeholder="VD: Quản trị" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Slug <span class="text-red-400">*</span></label>
+            <input type="text" name="slug" id="cat-slug" required placeholder="VD: quan-tri" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Icon (Material Symbol)</label>
+            <input type="text" name="icon" placeholder="folder" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Màu (hex)</label>
+            <input type="text" name="color" placeholder="#0d9488" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Thứ tự</label>
+            <input type="number" name="sort_order" value="0" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1">Mô tả</label>
+          <input type="text" name="description" placeholder="Mô tả ngắn về chuyên mục" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="px-6 py-2.5 bg-primary-container text-white rounded-xl font-bold hover:opacity-90 transition-all">Lưu</button>
+          <button type="button" onclick="resetForm()" class="px-4 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl font-bold hover:border-primary hover:text-primary transition-all">Hủy</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Categories list -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      {categories.length === 0 ? (
+        <div class="text-center py-12">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant/30">folder_open</span>
+          <p class="text-on-surface-variant mt-3">Chưa có chuyên mục nào</p>
+        </div>
+      ) : (
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-outline-variant/50">
+              <th class="text-left px-4 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Chuyên mục</th>
+              <th class="text-left px-4 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider hidden md:table-cell">Màu</th>
+              <th class="text-left px-4 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider hidden sm:table-cell">Bài viết</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/20">
+            {categories.map((cat) => (
+              <tr class="hover:bg-surface-container-high/50 transition-colors group">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <span class="w-3 h-3 rounded-full shrink-0" style={`background: ${cat.color}`}></span>
+                    <div>
+                      <p class="font-semibold text-white text-sm">{cat.name}</p>
+                      <p class="text-xs text-on-surface-variant/50">{cat.slug}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3 hidden md:table-cell">
+                  <code class="text-xs text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">{cat.color}</code>
+                </td>
+                <td class="px-4 py-3 hidden sm:table-cell">
+                  <span class="text-sm text-on-surface-variant">{cat.post_count}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onclick={`editCat('${cat.id}','${cat.name}','${cat.slug}','${cat.description}','${cat.icon}','${cat.color}',${cat.sort_order})`}
+                      class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">edit</span>
+                    </button>
+                    <form method="post" class="inline">
+                      <input type="hidden" name="_action" value="delete" />
+                      <input type="hidden" name="id" value={cat.id} />
+                      <button
+                        type="submit"
+                        onclick="return confirm('Xóa chuyên mục này? Bài viết trong chuyên mục sẽ không bị xóa.')"
+                        class="p-1.5 rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/10 transition-all"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const nameInput = document.getElementById('cat-name') as HTMLInputElement;
+  const slugInput = document.getElementById('cat-slug') as HTMLInputElement;
+  const idInput = document.getElementById('new-id') as HTMLInputElement;
+
+  nameInput?.addEventListener('input', () => {
+    if (!slugInput.dataset.manual) {
+      slugInput.value = nameInput.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+  });
+
+  slugInput?.addEventListener('input', () => { slugInput.dataset.manual = 'true'; });
+
+  function editCat(id: string, name: string, slug: string, desc: string, icon: string, color: string, sort: number) {
+    idInput.value = id;
+    (document.getElementById('cat-name') as HTMLInputElement).value = name;
+    (document.getElementById('cat-slug') as HTMLInputElement).value = slug;
+    (document.querySelector('[name="description"]') as HTMLInputElement).value = desc;
+    (document.querySelector('[name="icon"]') as HTMLInputElement).value = icon;
+    (document.querySelector('[name="color"]') as HTMLInputElement).value = color;
+    (document.querySelector('[name="sort_order"]') as HTMLInputElement).value = String(sort);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    idInput.value = '';
+    nameInput.value = '';
+    slugInput.value = '';
+    slugInput.dataset.manual = '';
+    (document.querySelector('[name="description"]') as HTMLInputElement).value = '';
+    (document.querySelector('[name="icon"]') as HTMLInputElement).value = '';
+    (document.querySelector('[name="color"]') as HTMLInputElement).value = '';
+    (document.querySelector('[name="sort_order"]') as HTMLInputElement).value = '0';
+  }
+</script>

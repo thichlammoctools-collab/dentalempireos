@@ -72,5 +72,5 @@ export const POST: APIRoute = async ({ request }) => {
     },
   });
 
-  return json({ r2_key: key, mime, filename: file.name }, 201);
+  return json({ r2_key: key, url: `/media/${key}`, mime, filename: file.name }, 201);
 };
