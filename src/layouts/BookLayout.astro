@@ -5,9 +5,6 @@ import SectionNavMobile from '../components/book/SectionNavMobile.astro';
 import ChapterNav from '../components/book/ChapterNav.astro';
 import ReviewDrawer from '../components/book/ReviewDrawer.astro';
 import QuestionDrawer from '../components/book/QuestionDrawer.astro';
-import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
-import MobileSearchOverlay from '../components/mobile/MobileSearchOverlay.astro';
-import MobileUserMenu from '../components/mobile/MobileUserMenu.astro';
 
 interface ChapterItem {
   id: string;
@@ -96,7 +93,13 @@ const currentTier = groupedChapters.find((g) =>
 )?.tier ?? 3;
 ---
 
-<BaseLayout title={`${title} - Dental Empire OS`} description={description}>
+<BaseLayout
+  title={`${title} - Dental Empire OS`}
+  description={description}
+  isReading={true}
+  currentSlug={currentSlug}
+  groupedChapters={groupedChapters}
+>
   <!-- ==========================================
        TOOLBAR (outside reader-app so z-index is relative to root stacking context)
        ========================================== -->
@@ -349,6 +352,25 @@ const currentTier = groupedChapters.find((g) =>
     chapterId={currentSlug}
     chapterTitle={title}
   />
+
+  <!-- ═══════════════ Image Lightbox (tap/click to zoom) ═══════════════ -->
+  <div id="image-lightbox" class="hidden fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Xem ảnh phóng to">
+    <div class="lb-backdrop absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+    <div class="lb-container absolute inset-0 flex items-center justify-center overflow-hidden">
+      <img class="lb-image select-none" draggable="false" alt="" />
+    </div>
+    <!-- Close button -->
+    <button class="lb-close absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors" title="Đóng (Esc)">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+    <!-- Zoom indicator -->
+    <div class="lb-zoom-badge absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-white/10 text-white text-xs font-semibold backdrop-blur-sm pointer-events-none opacity-0 transition-opacity duration-300"></div>
+    <!-- Hint (shown on first open) -->
+    <div class="lb-hint absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-white/10 text-white/80 text-xs font-medium backdrop-blur-sm pointer-events-none transition-opacity duration-500">
+      <span class="hidden sm:inline">Nhấn để zoom · Cuộn để phóng to · Esc để đóng</span>
+      <span class="sm:hidden">Chạm để zoom · 2 ngón để phóng to · Vuốt để di chuyển</span>
+    </div>
+  </div>
 
   <!-- ═══════════════ File Preview Modal ═══════════════ -->
   <div id="file-preview-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true">
@@ -833,6 +855,248 @@ function toggleToc() {
     })();
   </script>
 
+  <!-- ═══════════════ Image Lightbox Script ═══════════════ -->
+  <script>
+    (function () {
+      const lightbox = document.getElementById('image-lightbox');
+      if (!lightbox) return;
+      const lbContainer = lightbox.querySelector('.lb-container') as HTMLElement;
+      const lbImage = lightbox.querySelector('.lb-image') as HTMLImageElement;
+      const lbClose = lightbox.querySelector('.lb-close') as HTMLElement;
+      const lbBadge = lightbox.querySelector('.lb-zoom-badge') as HTMLElement;
+      const lbHint = lightbox.querySelector('.lb-hint') as HTMLElement;
+
+      let scale = 1;
+      let panX = 0, panY = 0;
+      let startPanX = 0, startPanY = 0;
+      let lastPanX = 0, lastPanY = 0;
+      let isPanning = false;
+      let hintShown = false;
+      let badgeTimeout: ReturnType<typeof setTimeout>;
+
+      const ZOOM_STEP = 0.35;
+      const MIN_SCALE = 1;
+      const MAX_SCALE = 5;
+
+      function applyTransform(animate = false) {
+        lbImage.classList.toggle('lb-animating', animate);
+        lbImage.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      }
+
+      function showBadge(text: string) {
+        lbBadge.textContent = text;
+        lbBadge.style.opacity = '1';
+        clearTimeout(badgeTimeout);
+        badgeTimeout = setTimeout(() => { lbBadge.style.opacity = '0'; }, 1200);
+      }
+
+      function resetZoom(animate = true) {
+        scale = 1; panX = 0; panY = 0;
+        applyTransform(animate);
+        lbContainer.classList.remove('zoomed');
+      }
+
+      function zoomTo(newScale: number, cx?: number, cy?: number) {
+        newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+        if (cx !== undefined && cy !== undefined && scale !== newScale) {
+          // Zoom toward pointer/touch point
+          const rect = lbImage.getBoundingClientRect();
+          const imgCx = cx - rect.left - rect.width / 2;
+          const imgCy = cy - rect.top - rect.height / 2;
+          const ratio = newScale / scale;
+          panX = imgCx - ratio * (imgCx - panX);
+          panY = imgCy - ratio * (imgCy - panY);
+        }
+        scale = newScale;
+        if (scale <= 1) {
+          panX = 0; panY = 0;
+          lbContainer.classList.remove('zoomed');
+        } else {
+          lbContainer.classList.add('zoomed');
+        }
+        applyTransform(false);
+        showBadge(`${Math.round(scale * 100)}%`);
+      }
+
+      function clampPan() {
+        if (scale <= 1) { panX = 0; panY = 0; return; }
+        const rect = lbImage.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const iw = rect.width / scale;
+        const ih = rect.height / scale;
+        const maxX = Math.max(0, (iw * scale - vw) / 2);
+        const maxY = Math.max(0, (ih * scale - vh) / 2);
+        panX = Math.max(-maxX, Math.min(maxX, panX));
+        panY = Math.max(-maxY, Math.min(maxY, panY));
+      }
+
+      // ── Open ──
+      function openLightbox(src: string, alt: string) {
+        resetZoom(false);
+        lbImage.src = src;
+        lbImage.alt = alt;
+        lbImage.classList.remove('lb-ready');
+        lightbox!.classList.remove('hidden', 'lb-hidden');
+        lightbox!.classList.add('lb-visible');
+        document.body.style.overflow = 'hidden';
+
+        // Wait for image to load before showing
+        const onLoad = () => {
+          lbImage.classList.add('lb-ready');
+          lbImage.removeEventListener('load', onLoad);
+          // Show hint on first use
+          if (!hintShown) {
+            hintShown = true;
+            lbHint.style.opacity = '1';
+            setTimeout(() => { lbHint.style.opacity = '0'; }, 4000);
+          }
+        };
+        if (lbImage.complete) onLoad();
+        else lbImage.addEventListener('load', onLoad, { once: true });
+      }
+
+      function closeLightbox() {
+        lightbox!.classList.add('lb-hidden');
+        lightbox!.classList.remove('lb-visible');
+        document.body.style.overflow = '';
+        resetZoom(false);
+        lbImage.classList.remove('lb-ready');
+      }
+
+      // ── Event: click images in reader ──
+      document.addEventListener('click', (e) => {
+        const img = (e.target as HTMLElement).closest('.reader-content img, figure img');
+        if (!img || img.closest('#image-lightbox')) return;
+        const htmlImg = img as HTMLImageElement;
+        e.preventDefault();
+        openLightbox(htmlImg.src, htmlImg.alt || '');
+      });
+
+      // ── Close ──
+      lbClose.addEventListener('click', closeLightbox);
+      lightbox!.addEventListener('click', (e) => {
+        if (e.target === lbContainer) closeLightbox();
+      });
+
+      // ── Mouse: wheel zoom ──
+      lbContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+        zoomTo(scale + delta, e.clientX, e.clientY);
+      }, { passive: false });
+
+      // ── Mouse: double-click toggle zoom ──
+      let lastClickTime = 0;
+      lbContainer.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.lb-close')) return;
+        const now = Date.now();
+        if (now - lastClickTime < 350) {
+          // Double click
+          if (scale > 1) {
+            resetZoom(true);
+          } else {
+            zoomTo(2.5, e.clientX, e.clientY);
+          }
+        }
+        lastClickTime = now;
+      });
+
+      // ── Mouse: drag to pan ──
+      lbContainer.addEventListener('mousedown', (e) => {
+        if (scale <= 1) return;
+        isPanning = true;
+        lastPanX = panX; lastPanY = panY;
+        startPanX = e.clientX; startPanY = e.clientY;
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        panX = lastPanX + (e.clientX - startPanX);
+        panY = lastPanY + (e.clientY - startPanY);
+        clampPan();
+        applyTransform(false);
+      });
+      document.addEventListener('mouseup', () => {
+        if (isPanning) {
+          isPanning = false;
+          // If pan didn't move much, treat as a click (not drag)
+          requestAnimationFrame(() => { isPanning = false; });
+        }
+      });
+
+      // ── Touch: pinch-to-zoom + pan ──
+      let lastTouchDist = 0;
+      let lastTouchCenter = { x: 0, y: 0 };
+      let touchPanning = false;
+      let touchStartPan = { x: 0, y: 0 };
+      let touchStartCenter = { x: 0, y: 0 };
+
+      function getTouchDist(t1: Touch, t2: Touch) {
+        return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      }
+      function getTouchCenter(t1: Touch, t2: Touch) {
+        return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+      }
+
+      lbContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          // Pinch start
+          lastTouchDist = getTouchDist(e.touches[0], e.touches[1]);
+          lastTouchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+          e.preventDefault();
+        } else if (e.touches.length === 1 && scale > 1) {
+          // Pan start
+          touchPanning = true;
+          touchStartCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          touchStartPan = { x: panX, y: panY };
+        }
+      }, { passive: false });
+
+      lbContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+          const dist = getTouchDist(e.touches[0], e.touches[1]);
+          const center = getTouchCenter(e.touches[0], e.touches[1]);
+          const pinchScale = dist / lastTouchDist;
+          zoomTo(scale * pinchScale, center.x, center.y);
+          // Pan with pinch movement
+          panX += center.x - lastTouchCenter.x;
+          panY += center.y - lastTouchCenter.y;
+          clampPan();
+          applyTransform(false);
+          lastTouchDist = dist;
+          lastTouchCenter = center;
+          e.preventDefault();
+        } else if (e.touches.length === 1 && touchPanning && scale > 1) {
+          panX = touchStartPan.x + (e.touches[0].clientX - touchStartCenter.x);
+          panY = touchStartPan.y + (e.touches[0].clientY - touchStartCenter.y);
+          clampPan();
+          applyTransform(false);
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      lbContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          lastTouchDist = 0;
+        }
+        if (e.touches.length === 0) {
+          touchPanning = false;
+          if (scale < 1.05) resetZoom(true);
+        }
+      });
+
+      // ── Keyboard ──
+      document.addEventListener('keydown', (e) => {
+        if (lightbox!.classList.contains('lb-hidden') || lightbox!.classList.contains('hidden')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === '+' || e.key === '=') zoomTo(scale + ZOOM_STEP, window.innerWidth / 2, window.innerHeight / 2);
+        if (e.key === '-') zoomTo(scale - ZOOM_STEP, window.innerWidth / 2, window.innerHeight / 2);
+        if (e.key === '0') resetZoom(true);
+      });
+    })();
+  </script>
+
   <!-- ═══════════════ File Download / Preview Script ═══════════════ -->
   <script>
     (function () {
@@ -1178,15 +1442,25 @@ function toggleToc() {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* ── Image Lightbox ── */
+    #image-lightbox { touch-action: none; }
+    #image-lightbox .lb-container { cursor: zoom-in; }
+    #image-lightbox .lb-container.zoomed { cursor: grab; }
+    #image-lightbox .lb-container.zoomed:active { cursor: grabbing; }
+    .lb-image {
+      max-width: 90vw;
+      max-height: 88vh;
+      object-fit: contain;
+      border-radius: 0.5rem;
+      transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease;
+      will-change: transform;
+      opacity: 0;
+    }
+    .lb-image.lb-ready { opacity: 1; }
+    .lb-image.lb-animating { transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1); }
+    #image-lightbox.lb-hidden { display: none; }
+    #image-lightbox.lb-visible { display: flex; }
   </style>
 
-  <!-- Mobile Navigation -->
-  <MobileBottomNav
-    currentPath={Astro.url.pathname}
-    isReading={true}
-    currentSlug={currentSlug}
-    groupedChapters={groupedChapters}
-  />
-  <MobileSearchOverlay />
-  <MobileUserMenu />
 </BaseLayout>

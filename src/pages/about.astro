@@ -64,6 +64,7 @@ const tierLetters: Record<number, string> = {
           alt="Dental Empire OS"
           class="relative rounded-3xl border border-outline-variant/20 shadow-2xl w-full object-cover"
           loading="lazy"
+          onerror="this.style.display='none'"
         />
       </div>
       <div class="space-y-6">
@@ -95,6 +96,7 @@ const tierLetters: Record<number, string> = {
           alt={`${s.about_founder_name} — ${s.about_founder_title}`}
           class="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
           loading="lazy"
+          onerror="this.style.display='none'"
         />
         <div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black to-transparent">
           <h3 class="text-headline-md text-white">{s.about_founder_name}</h3>

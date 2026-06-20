@@ -164,19 +164,19 @@ const badge = statusBadge(question.status);
     </div>
   </div>
 
-  <script define:vars={{ questionId: id }}>
+  <script is:inline define:vars={{ questionId: id }}>
     const form = document.getElementById('reply-form');
-    form?.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const bodyEl = document.getElementById('reply-body');
-      const body = bodyEl?.value?.trim();
+      const body = bodyEl && bodyEl.value ? bodyEl.value.trim() : '';
       if (!body) return;
 
       const btn = form.querySelector('button[type="submit"]');
-      if (btn) { btn.textContent = 'Đang gửi...'; (btn as HTMLButtonElement).disabled = true; }
+      if (btn) { btn.textContent = 'Đang gửi...'; btn.disabled = true; }
 
       try {
-        const res = await fetch(`/api/admin/questions/${questionId}/reply`, {
+        const res = await fetch('/api/admin/questions/' + questionId + '/reply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -191,7 +191,7 @@ const badge = statusBadge(question.status);
       } catch {
         alert('Lỗi kết nối');
       } finally {
-        if (btn) { btn.textContent = 'Gửi câu trả lời'; (btn as HTMLButtonElement).disabled = false; }
+        if (btn) { btn.textContent = 'Gửi câu trả lời'; btn.disabled = false; }
       }
     });
   </script>

@@ -10,7 +10,6 @@ interface Props {
 
 const { currentPath, groupedChapters = [], currentSlug = '', isReading = false } = Astro.props;
 
-// Determine active nav item
 const getNavState = () => {
   if (currentPath === '/') return 'home';
   if (currentPath.startsWith('/book') && !currentPath.includes('/book/')) return 'library';
@@ -21,13 +20,111 @@ const getNavState = () => {
 
 const activeNav = getNavState();
 
-// If reading a chapter, show back to library instead of home
 const homeConfig = isReading
   ? { href: '/book', icon: 'arrow_back', label: 'Thư viện', id: 'back' }
   : { href: '/', icon: 'home', label: 'Trang chủ', id: 'home' };
 ---
 
-<!-- Mobile Bottom Navigation -->
+<!-- ========== MENU DRAWER ========== -->
+<div id="menu-overlay" class="fixed inset-0 z-[104] bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden"></div>
+
+<div
+  id="menu-drawer"
+  class="fixed top-0 right-0 z-[105] w-[85vw] max-w-xs h-full bg-surface-container-lowest transform translate-x-full transition-transform duration-300 ease-out flex flex-col shadow-2xl lg:hidden"
+>
+  <!-- Header -->
+  <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: var(--color-outline-variant);">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary">menu</span>
+      <span class="text-sm font-medium text-on-surface">Menu</span>
+    </div>
+    <button id="menu-close" class="flex items-center justify-center w-9 h-9 rounded-full hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined text-on-surface-variant">close</span>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto">
+
+    <!-- Auth: Logged Out -->
+    <div id="menu-auth-logged-out" class="px-4 pt-4 pb-2 space-y-2">
+      <a href="/signin" class="flex items-center gap-3 p-3 rounded-xl bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors">
+        <span class="material-symbols-outlined text-sm">login</span>
+        <span>Đăng nhập</span>
+      </a>
+      <a href="/signup" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">person_add</span>
+        <span class="text-sm text-on-surface">Đăng ký</span>
+      </a>
+    </div>
+
+    <!-- Auth: Logged In -->
+    <div id="menu-auth-logged-in" class="hidden px-4 pt-4 pb-2">
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container mb-2">
+        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary">person</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p id="menu-user-name" class="text-sm font-medium text-on-surface truncate">Người dùng</p>
+          <p id="menu-user-email" class="text-xs text-on-surface-variant truncate"></p>
+        </div>
+      </div>
+      <a href="/my-questions" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">quiz</span>
+        <span class="text-sm text-on-surface">Câu hỏi của tôi</span>
+      </a>
+      <button id="menu-logout" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors text-left">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">logout</span>
+        <span class="text-sm text-on-surface">Đăng xuất</span>
+      </button>
+    </div>
+
+    <div class="mx-4 my-2 border-t" style="border-color: var(--color-outline-variant);"></div>
+
+    <!-- Navigation -->
+    <nav class="px-4 py-2 space-y-1">
+      <a href="/#courses" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">school</span>
+        <span class="text-sm text-on-surface">Khóa học</span>
+      </a>
+      <a href="/#resources" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">folder_special</span>
+        <span class="text-sm text-on-surface">Tài nguyên</span>
+      </a>
+      <a href="/#reviews" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">rate_review</span>
+        <span class="text-sm text-on-surface">Đánh giá</span>
+      </a>
+      <a href="/#about" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">info</span>
+        <span class="text-sm text-on-surface">Giới thiệu</span>
+      </a>
+    </nav>
+
+    <div class="mx-4 my-2 border-t" style="border-color: var(--color-outline-variant);"></div>
+
+    <!-- Bookmarks -->
+    <div id="menu-bookmarks" class="hidden px-4 py-2">
+      <p class="text-xs font-medium text-on-surface-variant uppercase tracking-wider px-3 mb-2">Đã lưu gần đây</p>
+      <div id="menu-bookmarks-list" class="space-y-1"></div>
+    </div>
+
+    <!-- Theme Toggle -->
+    <div class="px-4 py-3">
+      <button id="menu-theme-toggle" class="flex items-center justify-between w-full p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-sm text-on-surface-variant">dark_mode</span>
+          <span class="text-sm text-on-surface">Chế độ tối</span>
+        </div>
+        <div class="relative w-10 h-6 bg-surface-container-high rounded-full p-0.5">
+          <div id="menu-theme-knob" class="w-5 h-5 bg-on-surface-variant rounded-full transition-transform duration-200"></div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BOTTOM NAV ========== -->
 <nav
   id="mobile-bottom-nav"
   class="fixed bottom-0 left-0 right-0 z-[100] backdrop-blur-xl border-t lg:hidden"
@@ -39,9 +136,7 @@ const homeConfig = isReading
       href={homeConfig.href}
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'home' || isReading
-          ? 'text-primary'
-          : 'text-on-surface-variant hover:text-on-surface'
+        activeNav === 'home' || isReading ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
       ]}
     >
       <span class="material-symbols-outlined text-2xl">{homeConfig.icon}</span>
@@ -54,9 +149,7 @@ const homeConfig = isReading
         id="mobile-nav-library"
         class:list={[
           'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-          activeNav === 'library' || isReading
-            ? 'text-primary'
-            : 'text-on-surface-variant hover:text-on-surface'
+          activeNav === 'library' || isReading ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
         ]}
         aria-label="Thư viện"
       >
@@ -68,9 +161,7 @@ const homeConfig = isReading
         href="/book"
         class:list={[
           'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-          activeNav === 'library'
-            ? 'text-primary'
-            : 'text-on-surface-variant hover:text-on-surface'
+          activeNav === 'library' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
         ]}
       >
         <span class="material-symbols-outlined text-2xl">menu_book</span>
@@ -78,7 +169,7 @@ const homeConfig = isReading
       </a>
     )}
 
-    <!-- Search (FAB style center) -->
+    <!-- Search (FAB) -->
     <button
       id="mobile-nav-search"
       class="flex items-center justify-center w-14 h-14 -mt-6 rounded-full bg-primary text-on-primary shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300 hover:scale-105 active:scale-95"
@@ -92,18 +183,17 @@ const homeConfig = isReading
       href="/blog"
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'blog'
-          ? 'text-primary'
-          : 'text-on-surface-variant hover:text-on-surface'
+        activeNav === 'blog' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
       ]}
     >
       <span class="material-symbols-outlined text-2xl">article</span>
       <span class="text-[10px] font-medium">Blog</span>
     </a>
 
-    <!-- Menu / Profile -->
+    <!-- Menu -->
     <button
       id="mobile-nav-menu"
+      onclick="window.__menuOpen ? window.__menuClose() : window.__menuOpen()"
       class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-on-surface-variant hover:text-on-surface transition-all duration-200"
       aria-label="Menu"
     >
@@ -113,27 +203,19 @@ const homeConfig = isReading
   </div>
 </nav>
 
-<!-- Chapter Quick Drawer (Slide-up) -->
+<!-- ========== CHAPTER DRAWER ========== -->
 <div
   id="mobile-chapter-drawer"
   class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl shadow-2xl transform translate-y-full transition-transform duration-300 ease-out lg:hidden flex flex-col"
   style="background: var(--reader-chrome-bg, var(--color-surface-container-lowest)); max-height: 70vh;"
 >
-  <!-- Handle -->
-  <div
-    id="chapter-drawer-handle"
-    class="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-  >
+  <div id="chapter-drawer-handle" class="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
     <div class="w-12 h-1.5 rounded-full bg-outline-variant"></div>
   </div>
-
-  <!-- Header -->
   <div class="px-5 pb-3 border-b" style="border-color: var(--reader-border, var(--color-outline-variant));">
     <h3 class="text-lg font-bold r-text">Thư viện sách</h3>
     <p class="text-xs r-text-muted mt-1">Chọn chương để đọc</p>
   </div>
-
-  <!-- Chapter List -->
   <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2" id="chapter-drawer-content">
     {groupedChapters.map((group) => (
       <div class="tier-group" data-tier={group.tier}>
@@ -149,9 +231,7 @@ const homeConfig = isReading
             <span class="text-xs r-text-muted r-surface px-2 py-0.5 rounded-full">
               {group.chapters.length} chương
             </span>
-            <span class="material-symbols-outlined r-text-muted tier-chevron transition-transform">
-              expand_more
-            </span>
+            <span class="material-symbols-outlined r-text-muted tier-chevron transition-transform">expand_more</span>
           </div>
         </button>
         <div class="tier-chapters hidden space-y-1 mt-1 pl-2">
@@ -171,9 +251,7 @@ const homeConfig = isReading
                   Ch{String(ch.data.chapter).padStart(2, '0')}
                 </span>
                 <span class="flex-1 truncate">{ch.data.title}</span>
-                {isActive && (
-                  <span class="material-symbols-outlined text-primary text-lg">play_arrow</span>
-                )}
+                {isActive && <span class="material-symbols-outlined text-primary text-lg">play_arrow</span>}
               </a>
             );
           })}
@@ -183,136 +261,258 @@ const homeConfig = isReading
   </div>
 </div>
 
-<!-- Overlay for drawer -->
+<!-- Chapter drawer overlay -->
 <div
   id="mobile-drawer-overlay"
   class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden"
 ></div>
 
 <style>
-  /* Prevent body scroll when drawer open */
-  body.drawer-open {
-    overflow: hidden;
-  }
-
-  /* Active tier expansion */
-  .tier-group[data-expanded="true"] .tier-chapters {
-    display: block;
-  }
-  .tier-group[data-expanded="true"] .tier-chevron {
-    transform: rotate(180deg);
-  }
-
-  /* Custom scrollbar */
-  #chapter-drawer-content::-webkit-scrollbar {
-    width: 4px;
-  }
-  #chapter-drawer-content::-webkit-scrollbar-thumb {
-    background: var(--reader-scrollbar);
-    border-radius: 4px;
-  }
-
-  /* Bottom nav safe area */
+  body.drawer-open { overflow: hidden; }
+  .tier-group[data-expanded="true"] .tier-chapters { display: block; }
+  .tier-group[data-expanded="true"] .tier-chevron { transform: rotate(180deg); }
+  #chapter-drawer-content::-webkit-scrollbar { width: 4px; }
+  #chapter-drawer-content::-webkit-scrollbar-thumb { background: var(--reader-scrollbar); border-radius: 4px; }
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    #mobile-bottom-nav {
-      padding-bottom: env(safe-area-inset-bottom);
-    }
+    #mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
   }
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const drawer = document.getElementById('mobile-chapter-drawer');
-    const overlay = document.getElementById('mobile-drawer-overlay');
-    const libraryBtn = document.getElementById('mobile-nav-library');
-    const handle = document.getElementById('chapter-drawer-handle');
+  (function() {
+    // ====== MENU DRAWER ======
+    var menuOverlay = document.getElementById('menu-overlay');
+    var menuDrawer = document.getElementById('menu-drawer');
+    var menuClose = document.getElementById('menu-close');
+    var menuBtn = document.getElementById('mobile-nav-menu');
+    var authLoggedOut = document.getElementById('menu-auth-logged-out');
+    var authLoggedIn = document.getElementById('menu-auth-logged-in');
+    var userNameEl = document.getElementById('menu-user-name');
+    var userEmailEl = document.getElementById('menu-user-email');
+    var logoutBtn = document.getElementById('menu-logout');
+    var bookmarksSection = document.getElementById('menu-bookmarks');
+    var bookmarksList = document.getElementById('menu-bookmarks-list');
+    var themeToggle = document.getElementById('menu-theme-toggle');
+    var themeKnob = document.getElementById('menu-theme-knob');
+    var isMenuOpen = false;
 
-    let isOpen = false;
-    let startY = 0;
-    let currentY = 0;
+    function openMenu() {
+      isMenuOpen = true;
+      if (menuOverlay) menuOverlay.classList.add('opacity-100', 'pointer-events-auto');
+      if (menuOverlay) menuOverlay.classList.remove('opacity-0', 'pointer-events-none');
+      if (menuDrawer) menuDrawer.style.transform = 'translateX(0)';
+      document.body.style.overflow = 'hidden';
+      loadUserState();
+      loadBookmarks();
+      initThemeKnob();
+    }
 
-    function openDrawer() {
-      isOpen = true;
-      drawer?.classList.remove('translate-y-full');
-      drawer?.classList.add('translate-y-0');
-      overlay?.classList.remove('opacity-0', 'pointer-events-none');
-      overlay?.classList.add('opacity-100', 'pointer-events-auto');
+    function closeMenu() {
+      isMenuOpen = false;
+      if (menuOverlay) menuOverlay.classList.remove('opacity-100', 'pointer-events-auto');
+      if (menuOverlay) menuOverlay.classList.add('opacity-0', 'pointer-events-none');
+      if (menuDrawer) menuDrawer.style.transform = 'translateX(100%)';
+      document.body.style.overflow = '';
+    }
+
+    async function loadUserState() {
+      try {
+        var res = await fetch('/api/auth/get-session', { credentials: 'include' });
+        var session = await res.json().catch(function() { return null; });
+        if (session && session.user) {
+          if (authLoggedIn) authLoggedIn.classList.remove('hidden');
+          if (authLoggedOut) authLoggedOut.classList.add('hidden');
+          if (userNameEl) userNameEl.textContent = session.user.name || 'Người dùng';
+          if (userEmailEl) userEmailEl.textContent = session.user.email || '';
+        } else {
+          if (authLoggedIn) authLoggedIn.classList.add('hidden');
+          if (authLoggedOut) authLoggedOut.classList.remove('hidden');
+        }
+      } catch (e) {
+        if (authLoggedIn) authLoggedIn.classList.add('hidden');
+        if (authLoggedOut) authLoggedOut.classList.remove('hidden');
+      }
+    }
+
+    function loadBookmarks() {
+      if (!bookmarksSection || !bookmarksList) return;
+      var items = [];
+      try {
+        var bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
+        bookmarks.forEach(function(b) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
+      } catch(e) {}
+      try {
+        var rp = JSON.parse(localStorage.getItem('deos_read_progress') || '{}');
+        var currentPath = location.pathname;
+        Object.keys(rp).forEach(function(id) {
+          var d = rp[id];
+          if (d.url && d.url !== currentPath && d.pct > 0 && !items.some(function(i){return i.id===id;})) {
+            items.push({id:id, title:d.title, url:d.url, scrollPct:d.pct, type:'progress', ts:d.ts});
+          }
+        });
+      } catch(e) {}
+      items.sort(function(a,b){ return (b.savedAt||b.ts||0) - (a.savedAt||b.ts||0); });
+      if (items.length > 0) {
+        bookmarksSection.classList.remove('hidden');
+        var html = '';
+        items.slice(0, 8).forEach(function(b) {
+          var icon = b.type === 'bookmark' ? 'bookmark' : 'auto_stories';
+          var pctBadge = b.scrollPct ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary shrink-0">'+b.scrollPct+'%</span>' : '';
+          html += '<a href="'+b.url+'" class="flex items-center gap-2 p-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors group">'
+            + '<span class="material-symbols-outlined text-sm text-on-surface-variant/60 group-hover:text-primary shrink-0">'+icon+'</span>'
+            + '<span class="flex-1 text-sm truncate text-on-surface-variant group-hover:text-on-surface">'+(b.title||'Chương')+'</span>'
+            + pctBadge + '</a>';
+        });
+        bookmarksList.innerHTML = html;
+      } else {
+        bookmarksSection.classList.add('hidden');
+      }
+    }
+
+    function initThemeKnob() {
+      if (!themeKnob) return;
+      var isDark = document.documentElement.classList.contains('dark');
+      themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+    }
+
+    menuBtn && menuBtn.addEventListener('click', function() {
+      isMenuOpen ? closeMenu() : openMenu();
+    });
+    menuClose && menuClose.addEventListener('click', closeMenu);
+    menuOverlay && menuOverlay.addEventListener('click', closeMenu);
+
+    logoutBtn && logoutBtn.addEventListener('click', function() {
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+        .then(function() { window.location.reload(); })
+        .catch(function() { window.location.href = '/'; });
+    });
+
+    themeToggle && themeToggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.toggle('dark');
+      if (themeKnob) {
+        themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+      }
+    });
+
+    // Swipe drawer left to close
+    var menuStartX = 0;
+    menuDrawer && menuDrawer.addEventListener('touchstart', function(e) {
+      menuStartX = e.touches[0].clientX;
+    }, { passive: true });
+    menuDrawer && menuDrawer.addEventListener('touchmove', function(e) {
+      if (!isMenuOpen) return;
+      var diff = e.touches[0].clientX - menuStartX;
+      if (diff > 0) {
+        menuDrawer.style.transform = 'translateX(' + diff + 'px)';
+      }
+    }, { passive: true });
+    menuDrawer && menuDrawer.addEventListener('touchend', function(e) {
+      var diff = e.changedTouches[0].clientX - menuStartX;
+      if (diff > 80) {
+        closeMenu();
+      } else if (isMenuOpen) {
+        menuDrawer.style.transform = 'translateX(0)';
+      }
+    });
+
+    // ====== CHAPTER DRAWER ======
+    var chapterDrawer = document.getElementById('mobile-chapter-drawer');
+    var chapterOverlay = document.getElementById('mobile-drawer-overlay');
+    var libraryBtn = document.getElementById('mobile-nav-library');
+    var chapterHandle = document.getElementById('chapter-drawer-handle');
+    var isChapterOpen = false;
+    var startY = 0, currentY = 0;
+
+    function openChapter() {
+      isChapterOpen = true;
+      if (chapterDrawer) {
+        chapterDrawer.classList.remove('translate-y-full');
+        chapterDrawer.classList.add('translate-y-0');
+      }
+      if (chapterOverlay) {
+        chapterOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        chapterOverlay.classList.add('opacity-100', 'pointer-events-auto');
+      }
       document.body.classList.add('drawer-open');
-
-      // Auto-expand current tier if any
-      const currentLink = drawer?.querySelector('a[href*="' + location.pathname + '"]');
+      var currentLink = chapterDrawer && chapterDrawer.querySelector('a[href*="' + location.pathname + '"]');
       if (currentLink) {
-        const tierGroup = currentLink.closest('.tier-group');
+        var tierGroup = currentLink.closest('.tier-group');
         if (tierGroup) {
           tierGroup.setAttribute('data-expanded', 'true');
-          setTimeout(() => currentLink.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+          setTimeout(function() { currentLink.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
         }
       }
     }
 
-    function closeDrawer() {
-      isOpen = false;
-      drawer?.classList.add('translate-y-full');
-      drawer?.classList.remove('translate-y-0');
-      overlay?.classList.add('opacity-0', 'pointer-events-none');
-      overlay?.classList.remove('opacity-100', 'pointer-events-auto');
+    function closeChapter() {
+      isChapterOpen = false;
+      if (chapterDrawer) {
+        chapterDrawer.classList.add('translate-y-full');
+        chapterDrawer.classList.remove('translate-y-0');
+      }
+      if (chapterOverlay) {
+        chapterOverlay.classList.add('opacity-0', 'pointer-events-none');
+        chapterOverlay.classList.remove('opacity-100', 'pointer-events-auto');
+      }
       document.body.classList.remove('drawer-open');
     }
 
-    libraryBtn?.addEventListener('click', () => {
-      isOpen ? closeDrawer() : openDrawer();
+    libraryBtn && libraryBtn.addEventListener('click', function() {
+      isChapterOpen ? closeChapter() : openChapter();
     });
+    chapterOverlay && chapterOverlay.addEventListener('click', closeChapter);
 
-    overlay?.addEventListener('click', closeDrawer);
-
-    // Tier toggle
-    document.querySelectorAll('.tier-toggle').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tier = btn.closest('.tier-group');
-        const isExpanded = tier?.getAttribute('data-expanded') === 'true';
-        tier?.setAttribute('data-expanded', String(!isExpanded));
+    document.querySelectorAll('.tier-toggle').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tier = btn.closest('.tier-group');
+        var isExpanded = tier && tier.getAttribute('data-expanded') === 'true';
+        if (tier) tier.setAttribute('data-expanded', String(!isExpanded));
       });
     });
 
-    // Swipe to close
-    handle?.addEventListener('touchstart', (e) => {
+    chapterHandle && chapterHandle.addEventListener('touchstart', function(e) {
       startY = e.touches[0].clientY;
     }, { passive: true });
-
-    handle?.addEventListener('touchmove', (e) => {
-      if (!isOpen) return;
+    chapterHandle && chapterHandle.addEventListener('touchmove', function(e) {
+      if (!isChapterOpen) return;
       currentY = e.touches[0].clientY;
-      const diff = currentY - startY;
-      if (diff > 0) {
-        drawer?.style.setProperty('transform', `translateY(${diff}px)`);
+      var diff = currentY - startY;
+      if (diff > 0 && chapterDrawer) {
+        chapterDrawer.style.transform = 'translateY(' + diff + 'px)';
       }
     }, { passive: true });
-
-    handle?.addEventListener('touchend', () => {
-      const diff = currentY - startY;
+    chapterHandle && chapterHandle.addEventListener('touchend', function() {
+      var diff = currentY - startY;
       if (diff > 100) {
-        closeDrawer();
-      } else {
-        drawer?.style.removeProperty('transform');
+        closeChapter();
+      } else if (chapterDrawer) {
+        chapterDrawer.style.removeProperty('transform');
       }
       currentY = 0;
     });
 
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen) closeDrawer();
+    // ====== SHARED ======
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (isMenuOpen) closeMenu();
+        if (isChapterOpen) closeChapter();
+      }
     });
 
-    // Double tap nav to scroll to top
-    let lastTap = 0;
-    document.querySelectorAll('#mobile-bottom-nav a, #mobile-bottom-nav button').forEach(el => {
-      el.addEventListener('click', () => {
-        const now = Date.now();
+    // Expose for inline onclick
+    window.__menuOpen = openMenu;
+    window.__menuClose = closeMenu;
+
+    // Double-tap nav buttons to scroll to top
+    var lastTap = 0;
+    document.querySelectorAll('#mobile-bottom-nav a, #mobile-bottom-nav button').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var now = Date.now();
         if (now - lastTap < 300) {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         lastTap = now;
       });
     });
-  });
+  })();
 </script>

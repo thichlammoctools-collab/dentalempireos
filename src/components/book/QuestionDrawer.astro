@@ -380,9 +380,17 @@ const { chapterId, chapterTitle = '' } = Astro.props;
       currentY = 0;
     });
 
-    // Resize: close on breakpoint change
+    // Resize: close only on WIDTH change (keyboard height change should not close)
+    var lastWidth = window.innerWidth;
+    var resizeTimer: ReturnType<typeof setTimeout>;
     window.addEventListener('resize', () => {
-      if (isOpen) close();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (Math.abs(window.innerWidth - lastWidth) > 50) {
+          lastWidth = window.innerWidth;
+          if (isOpen) close();
+        }
+      }, 250);
     });
   })();
 </script>

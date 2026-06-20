@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import BlogSectionNav from '../../components/blog/BlogSectionNav.astro';
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
@@ -326,30 +327,13 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
         )}
       </article>
 
-      <!-- Mobile TOC toggle -->
-      {tocItems.length > 2 && (
-        <div class="lg:hidden">
-          <details class="glass-card rounded-2xl overflow-hidden">
-            <summary class="p-4 text-sm font-bold text-white cursor-pointer flex items-center gap-2">
-              <span class="material-symbols-outlined text-primary text-[18px]">list</span>
-              Mục lục ({tocItems.length})
-            </summary>
-            <nav class="px-4 pb-4 space-y-1">
-              {tocItems.map((item) => (
-                <a
-                  href={`#${item.id}`}
-                  class="block text-sm py-2 text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-lg"
-                  style={item.level === 3 ? 'padding-left: 1.5rem' : ''}
-                >
-                  {item.text}
-                </a>
-              ))}
-            </nav>
-          </details>
-        </div>
-      )}
     </div>
   </section>
+
+  <!-- Mobile section navigation (FAB + bottom sheet) -->
+  {tocItems.length > 2 && (
+    <BlogSectionNav items={tocItems} postTitle={post.title} />
+  )}
 </BaseLayout>
 
 <script>

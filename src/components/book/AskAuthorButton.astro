@@ -107,8 +107,8 @@ const { chapterId, chapterTitle } = Astro.props;
   const modal = document.getElementById('ask-author-modal');
   const backdrop = document.getElementById('ask-author-backdrop');
   const closeBtn = document.getElementById('ask-author-close');
-  const form = document.getElementById('ask-author-form') as HTMLFormElement;
-  const submitBtn = document.getElementById('ask-author-submit') as HTMLButtonElement;
+  const form = document.getElementById('ask-author-form');
+  const submitBtn = document.getElementById('ask-author-submit');
   const hint = document.getElementById('ask-author-hint');
   const success = document.getElementById('ask-author-success');
 
@@ -117,13 +117,13 @@ const { chapterId, chapterTitle } = Astro.props;
     document.body.style.overflow = 'hidden';
     // Focus first input
     setTimeout(() => {
-      const input = modal?.querySelector('input[name="title"]') as HTMLInputElement;
-      input?.focus();
+      const input = modal?.querySelector('input[name="title"]');
+      if (input) input.focus();
     }, 100);
   }
 
   // Expose globally for mobile question trigger
-  (window as any).__openAskAuthor = openModal;
+  window.__openAskAuthor = openModal;
 
   function closeModal() {
     modal?.classList.add('hidden');
@@ -151,8 +151,8 @@ const { chapterId, chapterTitle } = Astro.props;
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
-    const title = (formData.get('title') as string)?.trim();
-    const body = (formData.get('body') as string)?.trim();
+    const title = (formData.get('title') ?? '').toString().trim();
+    const body = (formData.get('body') ?? '').toString().trim();
 
     if (!title || !body) return;
 

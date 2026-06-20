@@ -59,7 +59,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
             <input type="text" id="f-hero_image_url" value={settings.hero_image_url}
               class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
             <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
-              <img id="hero-img-preview" src={settings.hero_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+              <img id="hero-img-preview" src={settings.hero_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" loading="lazy" />
             </div>
           </div>
           <p class="text-xs text-on-surface-variant mt-1.5">Hoặc nhập đường dẫn URL trực tiếp.</p>
@@ -279,7 +279,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
             <input type="text" id="f-founder_image_url" value={settings.founder_image_url}
               class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
             <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
-              <img id="founder-img-preview" src={settings.founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+              <img id="founder-img-preview" src={settings.founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" loading="lazy" />
             </div>
           </div>
           <p class="text-xs text-on-surface-variant mt-1.5">Hoặc nhập đường dẫn URL trực tiếp.</p>
@@ -393,7 +393,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
             <input type="text" id="f-about_story_image_url" value={settings.about_story_image_url}
               class="flex-1 px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
             <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
-              <img id="about-story-preview" src={settings.about_story_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+              <img id="about-story-preview" src={settings.about_story_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" loading="lazy" />
             </div>
           </div>
         </div>
@@ -443,7 +443,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
             <input type="text" id="f-about_founder_image_url" value={settings.about_founder_image_url}
               class="flex-1 px-3 py-2 bg-surface border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono" />
             <div class="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-outline-variant">
-              <img id="about-founder-preview" src={settings.about_founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+              <img id="about-founder-preview" src={settings.about_founder_image_url} alt="preview" class="w-full h-full object-cover" onerror="this.style.display='none'" loading="lazy" />
             </div>
           </div>
         </div>

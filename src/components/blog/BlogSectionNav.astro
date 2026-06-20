@@ -1,0 +1,295 @@
+---
+interface TocItem {
+  level: number;
+  text: string;
+  id: string;
+}
+
+interface Props {
+  items: TocItem[];
+  postTitle?: string;
+}
+
+const { items, postTitle = '' } = Astro.props;
+
+const h2Count = items.filter((s) => s.level === 2).length;
+const h3Count = items.filter((s) => s.level === 3).length;
+---
+
+<!-- Floating trigger button (mobile only, above bottom nav) -->
+<div
+  id="blog-section-fab"
+  class="lg:hidden fixed right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-[55] pointer-events-none"
+>
+  <button
+    id="blog-section-nav-trigger"
+    class="pointer-events-auto w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-90 bg-surface border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary"
+    aria-label="Mở mục lục"
+  >
+    <span class="material-symbols-outlined text-lg">format_list_numbered</span>
+  </button>
+</div>
+
+<!-- Overlay -->
+<div
+  id="blog-section-nav-overlay"
+  class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity"
+  aria-hidden="true"
+></div>
+
+<!-- Bottom Sheet Drawer -->
+<div
+  id="blog-section-nav-sheet"
+  class="blog-section-sheet fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl"
+  style="background: var(--color-surface-container-lowest, #1a1a2e); max-height: 80vh;"
+>
+  <!-- Handle -->
+  <div class="flex justify-center pt-3 pb-2 cursor-pointer select-none" id="blog-section-nav-handle">
+    <div class="w-10 h-1 rounded-full" style="background: var(--color-outline-variant, #333);"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="px-5 pb-3 flex items-center justify-between" style="border-bottom: 1px solid var(--color-outline-variant, #333);">
+    <div>
+      <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--color-on-surface, #fff);">
+        <span class="material-symbols-outlined text-primary text-base">format_list_numbered</span>
+        Mục lục
+      </h3>
+      {postTitle && <p class="text-[10px] mt-0.5 truncate max-w-[200px]" style="color: var(--color-on-surface-variant, #aaa);">{postTitle}</p>}
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="w-24 h-1.5 rounded-full overflow-hidden" style="background: var(--color-surface-container-high, #252540);">
+        <div id="blog-section-nav-progress" class="h-full rounded-full" style="width: 0%; background: var(--color-primary, #92ccff); transition: width 0.3s;"></div>
+      </div>
+      <button
+        id="blog-section-nav-close"
+        class="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+        style="background: var(--color-surface-container-high, #252540);"
+      >
+        <span class="material-symbols-outlined text-base" style="color: var(--color-on-surface-variant, #aaa);">close</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Scrollable section list -->
+  <nav id="blog-section-nav-panel" class="flex-1 overflow-y-auto px-3 py-3">
+    {items.map((item) => {
+      const indentPx = (item.level - 2) * 16;
+      return (
+        <a
+          href={`#${item.id}`}
+          class="flex items-center gap-3 py-2.5 rounded-xl text-sm transition-all border-l-[3px] border-transparent hover:border-primary"
+          style={`padding-left: ${12 + indentPx}px; color: var(--color-on-surface-variant, #aaa);`}
+          data-blog-section-link={item.id}
+        >
+          <span
+            class="shrink-0 text-[11px] font-bold w-5 h-5 rounded flex items-center justify-center text-[10px]"
+            style={`background: var(--color-surface-container-high, #252540); color: var(--color-on-surface-variant, #aaa);`}
+          >
+            {item.level}
+          </span>
+          <span class="text-xs font-medium">{item.text}</span>
+        </a>
+      );
+    })}
+    {items.length === 0 && (
+      <div class="py-8 text-center">
+        <span class="material-symbols-outlined text-3xl block mb-2 opacity-30" style="color: var(--color-on-surface-variant, #aaa);">article</span>
+        <p class="text-xs" style="color: var(--color-on-surface-variant, #aaa);">Chưa có đề mục</p>
+      </div>
+    )}
+  </nav>
+
+  <!-- Footer -->
+  <div class="px-5 py-3 shrink-0" style="border-top: 1px solid var(--color-outline-variant, #333);">
+    <p class="text-[10px] font-semibold" style="color: var(--color-on-surface-variant, #aaa);">
+      {h2Count} mục chính · {h3Count} mục con
+    </p>
+  </div>
+</div>
+
+<style>
+  .blog-section-sheet {
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .blog-section-sheet.blog-section-open {
+    transform: translateY(0) !important;
+  }
+
+  [data-blog-section-link].blog-section-active {
+    border-color: var(--color-primary, #92ccff) !important;
+    background: rgba(146, 204, 255, 0.08) !important;
+    color: var(--color-primary, #92ccff) !important;
+  }
+
+  [data-blog-section-link] {
+    scroll-margin-top: 5rem;
+  }
+</style>
+
+<script>
+  (function () {
+    const OFFSET = 80;
+
+    function initBlogSectionNav() {
+      const trigger = document.getElementById('blog-section-nav-trigger');
+      const overlay = document.getElementById('blog-section-nav-overlay');
+      const sheetEl = document.getElementById('blog-section-nav-sheet');
+      const handle = document.getElementById('blog-section-nav-handle');
+      const closeBtn = document.getElementById('blog-section-nav-close');
+      const links = document.querySelectorAll<HTMLAnchorElement>('[data-blog-section-link]');
+      const progressBar = document.getElementById('blog-section-nav-progress');
+
+      if (!trigger || !sheetEl) return;
+      const sheet = sheetEl;
+
+      function getActiveId(): string | null {
+        const activeLink = document.querySelector<HTMLAnchorElement>('[data-blog-section-link].blog-section-active');
+        if (activeLink) return activeLink.dataset.blogSectionLink ?? null;
+
+        const content = document.getElementById('article-content');
+        if (!content) return null;
+
+        const headings = content.querySelectorAll<HTMLElement>('h2[id], h3[id]');
+        if (!headings.length) return null;
+
+        let bestId: string | null = null;
+        let bestDist = Infinity;
+        headings.forEach((h) => {
+          const rect = h.getBoundingClientRect();
+          const dist = Math.abs(rect.top - OFFSET);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestId = h.id;
+          }
+        });
+        return bestId;
+      }
+
+      function openSheet() {
+        sheet.classList.add('blog-section-open');
+        if (overlay) overlay.classList.remove('hidden');
+
+        const currentId = getActiveId();
+        if (currentId) {
+          links.forEach((link) => {
+            const isActive = link.dataset.blogSectionLink === currentId;
+            link.classList.toggle('blog-section-active', isActive);
+            if (isActive) {
+              setTimeout(() => link.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+            }
+          });
+        }
+        syncProgress();
+      }
+
+      function closeSheet() {
+        sheet.classList.remove('blog-section-open');
+        if (overlay) overlay.classList.add('hidden');
+      }
+
+      function syncProgress() {
+        if (!progressBar) return;
+        const scrollEl = document.scrollingElement;
+        if (!scrollEl) return;
+        const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+        const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollEl.scrollTop / maxScroll) * 100)) : 0;
+        progressBar.style.width = `${pct}%`;
+      }
+
+      // Scroll-spy via IntersectionObserver
+      const content = document.getElementById('article-content');
+      if (content) {
+        const headingEls: HTMLElement[] = [];
+        content.querySelectorAll<HTMLElement>('h2[id], h3[id]').forEach((h) => {
+          headingEls.push(h);
+        });
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              const id = entry.target.id;
+              const link = document.querySelector<HTMLAnchorElement>(`[data-blog-section-link="${id}"]`);
+              if (!link) return;
+              if (entry.isIntersecting) {
+                document.querySelectorAll('[data-blog-section-link]').forEach((l) => l.classList.remove('blog-section-active'));
+                link.classList.add('blog-section-active');
+              }
+            });
+          },
+          { rootMargin: '-15% 0px -75% 0px' },
+        );
+        headingEls.forEach((el) => observer.observe(el));
+      }
+
+      // Sync progress on scroll
+      window.addEventListener('scroll', syncProgress, { passive: true });
+
+      // Trigger button
+      trigger.addEventListener('click', () => {
+        sheet.classList.contains('blog-section-open') ? closeSheet() : openSheet();
+      });
+      overlay?.addEventListener('click', closeSheet);
+      closeBtn?.addEventListener('click', closeSheet);
+
+      // Section link click → smooth scroll + close
+      links.forEach((link) => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const hash = link.getAttribute('href');
+          if (hash && hash !== '#') {
+            const target = document.getElementById(hash.slice(1));
+            if (target) {
+              const top = target.getBoundingClientRect().top + window.scrollY - OFFSET;
+              window.scrollTo({ top, behavior: 'smooth' });
+            }
+            history.replaceState(null, '', hash);
+          }
+          closeSheet();
+        });
+      });
+
+      // Touch drag to close
+      let startY = 0;
+      let deltaY = 0;
+      let dragging = false;
+
+      handle?.addEventListener('touchstart', (e: Event) => {
+        startY = (e as TouchEvent).touches[0].clientY;
+        dragging = true;
+        sheet.style.transition = 'none';
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e: Event) => {
+        if (!dragging) return;
+        deltaY = (e as TouchEvent).touches[0].clientY - startY;
+        if (deltaY > 0) {
+          sheet.style.transform = `translateY(${deltaY}px)`;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', () => {
+        if (!dragging) return;
+        dragging = false;
+        sheet.style.transition = '';
+        if (deltaY > 80) closeSheet();
+        sheet.style.transform = '';
+        deltaY = 0;
+      });
+
+      // Keyboard: Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sheet.classList.contains('blog-section-open')) {
+          closeSheet();
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initBlogSectionNav);
+    } else {
+      initBlogSectionNav();
+    }
+  })();
+</script>
