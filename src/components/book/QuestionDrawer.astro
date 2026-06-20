@@ -257,7 +257,9 @@ const { chapterId, chapterTitle = '' } = Astro.props;
     }
 
     /* ── Event bindings ── */
-    trigger?.addEventListener('click', () => { isOpen ? close() : open(); });
+    // NOTE: Mobile #question-trigger click is handled by SectionNavMobile.astro
+    // (it calls window.__openQuestionDrawer). Do NOT add a click listener on
+    // trigger here — it would double-toggle (open then immediately close).
     toolbarBtn?.addEventListener('click', () => { isOpen ? close() : open(); });
     overlay?.addEventListener('click', close);
     closeBtn?.addEventListener('click', close);
