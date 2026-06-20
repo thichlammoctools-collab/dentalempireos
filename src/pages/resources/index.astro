@@ -1,0 +1,49 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DevNotice from '../../components/ui/DevNotice.astro';
+---
+
+<BaseLayout
+  title="Tài Nguyên | Dental Empire OS"
+  description="Kho tài nguyên miễn phí và hữu ích dành cho quản trị phòng khám nha khoa — mẫu form, checklist, biểu mẫu, và nhiều hơn nữa."
+>
+  <DevNotice
+    title="Khu tài nguyên đang hoàn thiện"
+    description="Chúng tôi đang xây dựng thư viện tài nguyên — bao gồm mẫu form, checklist, biểu mẫu và nhiều vật liệu hữu ích khác. Sớm ra mắt!"
+  />
+
+  <!-- Hero -->
+  <section class="relative py-20 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent"></div>
+    <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[100px] pointer-events-none"></div>
+    <div class="relative max-w-[1200px] mx-auto px-6 text-center space-y-6">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-semibold">
+        <span class="material-symbols-outlined text-[16px]">folder_open</span>
+        Tài Nguyên
+      </div>
+      <h1 class="text-headline-large font-bold text-white">
+        Kho <span class="text-primary">Tài Nguyên</span>
+      </h1>
+      <p class="text-on-surface-variant max-w-2xl mx-auto">
+        Các mẫu form, checklist, biểu mẫu và vật liệu hữu ích giúp bạn vận hành phòng khám hiệu quả hơn.
+      </p>
+    </div>
+  </section>
+
+  <!-- Placeholder Content -->
+  <section class="max-w-[1200px] mx-auto px-6 pb-20">
+    <div class="glass-card rounded-2xl p-10 text-center max-w-lg mx-auto">
+      <div class="w-20 h-20 rounded-full bg-surface-container mx-auto flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-4xl text-primary/40">construction</span>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-3">Đang trong quá trình hoàn thiện</h2>
+      <p class="text-on-surface-variant mb-6">
+        Khu tài nguyên sẽ sớm được ra mắt với nhiều mẫu form, checklist và vật liệu hữu ích dành cho quản trị nha khoa.
+      </p>
+      <a href="/" class="inline-flex items-center gap-2 bg-primary-container text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity">
+        <span class="material-symbols-outlined text-[20px]">home</span>
+        Về trang chủ
+      </a>
+    </div>
+  </section>
+</BaseLayout>

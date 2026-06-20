@@ -1,0 +1,74 @@
+---
+/**
+ * DevNotice — Full-page overlay that signals a section is under construction.
+ * The page content is still rendered underneath (SEO-friendly) but visually hidden
+ * behind a semi-transparent backdrop with a centered info card.
+ */
+interface Props {
+  /** Short title shown inside the card */
+  title?: string;
+  /** Longer description (optional) */
+  description?: string;
+}
+
+const {
+  title = 'Tính năng đang phát triển',
+  description = 'Chúng tôi đang hoàn thiện trang này. Hãy quay lại sau nhé!',
+} = Astro.props;
+---
+
+<div class="dev-notice-overlay">
+  <div class="dev-notice-card">
+    <div class="dev-notice-icon">
+      <span class="material-symbols-outlined text-5xl text-primary">construction</span>
+    </div>
+    <h2 class="text-2xl font-bold text-white mb-2">{title}</h2>
+    <p class="text-on-surface-variant mb-6 max-w-sm text-center leading-relaxed">{description}</p>
+    <a href="/" class="inline-flex items-center gap-2 bg-primary-container text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity">
+      <span class="material-symbols-outlined text-[20px]">home</span>
+      Về trang chủ
+    </a>
+  </div>
+</div>
+
+<style>
+  .dev-notice-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(18, 19, 23, 0.88);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .dev-notice-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 3rem 2.5rem;
+    margin: 1rem;
+    max-width: 28rem;
+    width: 100%;
+    background: rgba(30, 31, 35, 0.95);
+    border: 1px solid rgba(146, 204, 255, 0.15);
+    border-radius: 1.5rem;
+    box-shadow: 0 0 60px rgba(146, 204, 255, 0.06);
+    text-align: center;
+  }
+
+  .dev-notice-icon {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(146, 204, 255, 0.1);
+    border: 1px solid rgba(146, 204, 255, 0.2);
+    margin-bottom: 1rem;
+  }
+</style>

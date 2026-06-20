@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listCourses, getCourseVideos } from '../../lib/course-db';
 
@@ -43,6 +44,7 @@ const isActivated = (user as any)?.is_active === 1;
 ---
 
 <BaseLayout title="Video Học Tập | Dental Empire OS" description="Thư viện video bài giảng YouTube từ Dental Empire OS, sắp xếp theo khóa học chuyên sâu.">
+  <DevNotice />
   <!-- Hero -->
   <section class="relative py-20 overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent"></div>

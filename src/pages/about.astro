@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import DevNotice from '../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
 import { tiers } from '../data/modules';
@@ -24,6 +25,7 @@ const tierLetters: Record<number, string> = {
   title="Về Chúng Tôi | Dental Empire OS"
   description="Sứ mệnh chuyên nghiệp hóa ngành nha. Dental Empire OS tái định nghĩa cách phòng khám vận hành qua sự kết hợp giữa y đức truyền thống và công nghệ tự động hóa."
 >
+  <DevNotice />
 
   <!-- Hero Section -->
   <section class="relative px-6 py-20 overflow-hidden min-h-[70vh] flex flex-col justify-center">
