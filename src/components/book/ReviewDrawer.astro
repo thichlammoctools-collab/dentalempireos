@@ -14,15 +14,15 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
 <!-- Overlay -->
 <div
   id="review-overlay"
-  class="review-overlay fixed inset-0 z-[101] bg-black/50 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none"
+  class="review-overlay fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity duration-300"
   aria-hidden="true"
 ></div>
 
 <!-- Desktop: slide-in from right -->
 <aside
   id="review-drawer-desktop"
-  class="lg:flex fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl"
-  style="width: 420px; background: var(--reader-chrome-bg);"
+  class="fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl"
+  style="width: 420px; background: var(--reader-chrome-bg); transform: translateX(100%); transition: transform 0.3s ease;"
   data-chapter-id={chapterId}
   data-is-logged-in={isLoggedIn}
   data-current-user-id={currentUserId}
@@ -31,10 +31,10 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
   <div class="flex items-center justify-between px-5 py-4 shrink-0 border-b r-border">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary text-xl">reviews</span>
-      <h3 class="text-sm font-bold r-text">��nh Gi�</h3>
+      <h3 class="text-sm font-bold r-text">Đánh Giá</h3>
       <span id="review-badge-desktop" class="text-[10px] px-1.5 py-0.5 rounded-full font-bold r-surface-high r-text-muted hidden">0</span>
     </div>
-    <button id="review-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:r-surface-high" title="��ng">
+    <button id="review-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:r-surface-high" title="Đóng">
       <span class="material-symbols-outlined text-base r-text-muted">close</span>
     </button>
   </div>
@@ -74,7 +74,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
 <!-- Mobile: bottom sheet -->
 <div
   id="review-drawer-mobile"
-  class="fixed inset-x-0 bottom-0 z-[103] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden translate-y-full transition-transform duration-350"
+  class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden"
   style="background: var(--color-surface-container-low); max-height: 88vh;"
   data-chapter-id={chapterId}
   data-is-logged-in={isLoggedIn}
@@ -89,7 +89,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
   <div class="px-5 pb-3 flex items-center justify-between shrink-0 border-b r-border">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary text-lg">reviews</span>
-      <h3 class="text-sm font-bold r-text">��nh Gi�</h3>
+      <h3 class="text-sm font-bold r-text">Đánh Giá</h3>
       <span id="review-badge-mobile" class="text-[10px] px-1.5 py-0.5 rounded-full font-bold r-surface-high r-text-muted hidden">0</span>
     </div>
     <button id="review-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center r-surface-high">
@@ -140,7 +140,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
     background: var(--reader-scrollbar);
     border-radius: 99px;
   }
-  
+
   /* Animation utilities */
   @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -149,18 +149,19 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
   .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
-  
+
   /* Transition duration */
   .duration-350 {
     transition-duration: 350ms;
   }
-  
-  /* Drawer visible states */
-  #review-drawer-desktop.open {
-    transform: translateX(0);
+
+  /* Drawer visible states — mobile bottom-sheet pattern (matches SectionNavMobile) */
+  #review-drawer-mobile {
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  #review-drawer-mobile.open {
-    transform: translateY(0);
+  #review-drawer-mobile.review-open {
+    transform: translateY(0) !important;
   }
   #review-overlay.open {
     opacity: 1;
@@ -175,10 +176,11 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
     const desktop = document.getElementById('review-drawer-desktop');
     const mobile = document.getElementById('review-drawer-mobile');
     const trigger = document.getElementById('review-trigger');
+    const desktopReviewBtn = document.getElementById('review-btn-desktop');
     const closeDesktop = document.getElementById('review-close-desktop');
     const closeMobile = document.getElementById('review-close-mobile');
     const handle = document.getElementById('review-handle');
-    
+
     // State
     let isOpen = false;
     let isMobile = false;
@@ -186,7 +188,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
     let currentChapterId = '';
     let isLoggedIn = false;
     let currentUserId = null;
-    
+
     // Get chapter data from data attributes
     function getChapterData() {
       const container = mobile || desktop;
@@ -196,18 +198,18 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         currentUserId = container.dataset.currentUserId || null;
       }
     }
-    
+
     // Fetch reviews
     async function fetchReviews() {
       if (!currentChapterId) return;
-      
+
       try {
         const response = await fetch(`/api/public/reviews?chapter_id=${encodeURIComponent(currentChapterId)}&limit=10&offset=0`, {
           credentials: 'include'
         });
-        
+
         if (!response.ok) throw new Error('Failed to fetch');
-        
+
         const data = await response.json();
         renderReviews(data);
         dataFetched = true;
@@ -216,36 +218,36 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         showError();
       }
     }
-    
+
     // Render star rating
     function renderStars(rating) {
-      const full = '?';
-      const empty = '?';
+      const full = '★';
+      const empty = '☆';
       return full.repeat(rating) + empty.repeat(5 - rating);
     }
-    
+
     // Relative date
     function relativeDate(iso) {
       const now = Date.now();
       const then = new Date(iso).getTime();
       const diff = Math.floor((now - then) / 1000);
-      if (diff < 60) return 'V?a xong';
-      if (diff < 3600) return `${Math.floor(diff / 60)} ph�t tru?c`;
-      if (diff < 86400) return `${Math.floor(diff / 3600)} gi? tru?c`;
+      if (diff < 60) return 'Vừa xong';
+      if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
       const days = Math.floor(diff / 86400);
-      if (days < 30) return `${days} ng�y tru?c`;
-      if (days < 365) return `${Math.floor(days / 30)} th�ng tru?c`;
-      return `${Math.floor(diff / 31536000)} nam tru?c`;
+      if (days < 30) return `${days} ngày trước`;
+      if (days < 365) return `${Math.floor(days / 30)} tháng trước`;
+      return `${Math.floor(diff / 31536000)} năm trước`;
     }
-    
+
     // Render reviews data
     function renderReviews({ reviews = [], stats = { avgRating: 0, totalReviews: 0 } }) {
       const hasReviews = stats.totalReviews > 0;
-      
+
       // Update badges
       const badgeDesktop = document.getElementById('review-badge-desktop');
       const badgeMobile = document.getElementById('review-badge-mobile');
-      
+
       if (badgeDesktop) {
         badgeDesktop.textContent = stats.totalReviews;
         badgeDesktop.classList.toggle('hidden', !hasReviews);
@@ -254,7 +256,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         badgeMobile.textContent = stats.totalReviews;
         badgeMobile.classList.toggle('hidden', !hasReviews);
       }
-      
+
       // Stats HTML
       const statsHtml = hasReviews ? `
         <div class="flex items-center gap-4 p-4 rounded-2xl r-surface border" style="border-color: var(--reader-border);">
@@ -264,33 +266,33 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
           </div>
           <div class="border-l pl-4" style="border-color: var(--reader-border);">
             <p class="text-xs r-text-muted">
-              D?a tr�n <span class="font-semibold r-text">${stats.totalReviews}</span> d�nh gi�
+              Dựa trên <span class="font-semibold r-text">${stats.totalReviews}</span> đánh giá
             </p>
           </div>
         </div>
       ` : `
         <div class="text-center py-4">
           <span class="material-symbols-outlined text-3xl block mb-2 r-text-muted opacity-30">rate_review</span>
-          <p class="text-xs r-text-muted">Chua c� d�nh gi� n�o. H�y l� ngu?i d?u ti�n!</p>
+          <p class="text-xs r-text-muted">Chưa có đánh giá nào. Hãy là người đâu tiên!</p>
         </div>
       `;
-      
+
       // Reviews HTML
       const reviewsHtml = reviews.length > 0 ? reviews.map(review => `
         <article class="review-card r-surface rounded-2xl border p-5 transition-all" style="border-color: var(--reader-border);" data-review-id="${review.id}">
           <div class="flex items-start justify-between gap-3 mb-3">
             <div class="flex items-center gap-3 min-w-0">
-              ${review.user_image 
+              ${review.user_image
                 ? `<img src="${review.user_image}" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0" loading="lazy">`
                 : `<div class="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm flex-shrink-0">${(review.user_name?.charAt(0) || '?').toUpperCase()}</div>`
               }
               <div class="min-w-0">
-                <p class="font-semibold r-text text-sm truncate">${review.user_name || review.author_name || '?n danh'}</p>
+                <p class="font-semibold r-text text-sm truncate">${review.user_name || review.author_name || 'Ánh danh'}</p>
                 <time class="text-xs r-text-muted" datetime="${review.createdAt}">${relativeDate(review.createdAt)}</time>
               </div>
             </div>
             ${currentUserId && review.user_id === currentUserId ? `
-              <button class="review-delete-btn flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-error hover:bg-error/10 transition-all" title="X�a" data-review-id="${review.id}">
+              <button class="review-delete-btn flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg r-text-muted hover:text-error hover:bg-error/10 transition-all" title="Xóa" data-review-id="${review.id}">
                 <span class="material-symbols-outlined text-lg">delete</span>
               </button>
             ` : ''}
@@ -304,16 +306,16 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
       `).join('') : `
         <div class="text-center py-4">
           <span class="material-symbols-outlined text-3xl block mb-2 r-text-muted opacity-30">reviews</span>
-          <p class="text-xs r-text-muted">Chua c� d�nh gi�.</p>
+          <p class="text-xs r-text-muted">Chưa có đánh giá.</p>
         </div>
       `;
-      
+
       // Update both desktop and mobile
       ['desktop', 'mobile'].forEach(type => {
         const skeleton = document.getElementById(`review-skeleton-${type}`);
         const content = document.getElementById(`review-content-${type}`);
         const list = document.getElementById(`reviews-list-${type}`);
-        
+
         if (skeleton) skeleton.classList.add('hidden');
         if (content) {
           content.innerHTML = statsHtml;
@@ -321,37 +323,37 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         }
         if (list) list.innerHTML = reviewsHtml;
       });
-      
+
       // Bind delete buttons
       bindDeleteButtons();
     }
-    
+
     // Show error state
     function showError() {
       ['desktop', 'mobile'].forEach(type => {
         const skeleton = document.getElementById(`review-skeleton-${type}`);
         const content = document.getElementById(`review-content-${type}`);
-        
+
         if (skeleton) skeleton.classList.add('hidden');
         if (content) {
           content.innerHTML = `
             <div class="text-center py-4">
               <span class="material-symbols-outlined text-3xl block mb-2 text-error">error</span>
-              <p class="text-xs r-text-muted">Kh�ng th? t?i d�nh gi�. Th? l?i sau.</p>
+              <p class="text-xs r-text-muted">Không thể tải đánh giá. Thử lại sau.</p>
             </div>
           `;
           content.classList.remove('hidden');
         }
       });
     }
-    
+
     // Bind delete buttons
     function bindDeleteButtons() {
       document.querySelectorAll('.review-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.reviewId;
-          if (!id || !confirm('B?n mu?n x�a review n�y?')) return;
-          
+          if (!id || !confirm('Bạn muốn xóa review này?')) return;
+
           try {
             const res = await fetch(`/api/public/reviews/${id}`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) {
@@ -366,72 +368,84 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         });
       });
     }
-    
+
     // Open drawer
     function open() {
       getChapterData();
       isOpen = true;
       isMobile = window.innerWidth < 1024;
-      
-      overlay?.classList.add('open');
-      
+
       if (isMobile && mobile) {
+        // Close other mobile sheets first
+        (window as any).__closeSectionNav?.();
+        (window as any).__closeQuestionDrawer?.();
+
         mobile.classList.remove('hidden');
-        requestAnimationFrame(() => mobile.classList.add('open'));
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => mobile!.classList.add('review-open'));
+        });
+        overlay?.classList.remove('hidden');
       } else if (desktop) {
-        desktop.classList.add('open');
+        overlay?.classList.add('open');
+        desktop.style.transform = 'translateX(0)';
       }
-      
+
       document.body.style.overflow = 'hidden';
-      
+
       // Fetch data if not fetched
       if (!dataFetched) {
         fetchReviews();
       }
     }
-    
+
     // Close drawer
     function close() {
       isOpen = false;
-      overlay?.classList.remove('open');
-      
-      if (desktop) {
-        desktop.classList.remove('open');
+
+      if (isMobile) {
+        if (mobile) {
+          mobile.classList.remove('review-open');
+          setTimeout(() => mobile?.classList.add('hidden'), 350);
+        }
+        overlay?.classList.add('hidden');
+      } else {
+        if (desktop) desktop.style.transform = 'translateX(100%)';
+        overlay?.classList.remove('open');
       }
-      if (mobile) {
-        mobile.classList.remove('open');
-        setTimeout(() => mobile.classList.add('hidden'), 350);
-      }
-      
+
       document.body.style.overflow = '';
     }
-    
+
     // Event listeners
     trigger?.addEventListener('click', () => {
       isOpen ? close() : open();
     });
-    
+    desktopReviewBtn?.addEventListener('click', () => {
+      isOpen ? close() : open();
+    });
+
     overlay?.addEventListener('click', close);
     closeDesktop?.addEventListener('click', close);
     closeMobile?.addEventListener('click', close);
-    
+
     // Expose globally
     (window as any).__openReview = open;
     (window as any).__closeReview = close;
-    
+
     // Keyboard
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen) close();
     });
-    
-    // Mobile touch drag
+
+    // Mobile touch drag (matches SectionNavMobile pattern)
     let startY = 0;
     let currentY = 0;
-    
+
     handle?.addEventListener('touchstart', (e) => {
       startY = e.touches[0].clientY;
+      if (mobile) mobile.style.transition = 'none';
     }, { passive: true });
-    
+
     handle?.addEventListener('touchmove', (e) => {
       if (!isOpen || !mobile) return;
       currentY = e.touches[0].clientY;
@@ -440,8 +454,9 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
         mobile.style.transform = `translateY(${diff}px)`;
       }
     }, { passive: true });
-    
+
     handle?.addEventListener('touchend', () => {
+      if (mobile) mobile.style.transition = '';
       const diff = currentY - startY;
       if (diff > 80) {
         close();
@@ -450,7 +465,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
       }
       currentY = 0;
     });
-    
+
     // Close on resize
     window.addEventListener('resize', () => {
       if (isOpen) close();

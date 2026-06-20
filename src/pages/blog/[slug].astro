@@ -182,16 +182,16 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
         <aside class="hidden lg:block w-64 shrink-0">
           <div class="sticky top-28">
             <div class="glass-card rounded-2xl p-4">
-              <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                <span class="material-symbols-outlined text-[14px]">list</span>
+              <h3 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]">list</span>
                 Mục lục
               </h3>
               <nav class="space-y-1">
                 {tocItems.map((item) => (
                   <a
                     href={`#${item.id}`}
-                    class="block text-xs py-1.5 border-l-2 border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all toc-item"
-                    style={item.level === 3 ? 'padding-left: 1rem' : 'padding-left: 0.75rem'}
+                    class="block text-sm py-2 border-l-2 border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary hover:bg-primary/5 transition-all duration-200 toc-item"
+                    style={item.level === 3 ? 'padding-left: 1.5rem' : 'padding-left: 0.75rem'}
                     data-id={item.id}
                   >
                     {item.text}
@@ -338,8 +338,8 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
               {tocItems.map((item) => (
                 <a
                   href={`#${item.id}`}
-                  class="block text-xs py-1.5 text-on-surface-variant hover:text-primary transition-colors"
-                  style={item.level === 3 ? 'padding-left: 1rem' : ''}
+                  class="block text-sm py-2 text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-lg"
+                  style={item.level === 3 ? 'padding-left: 1.5rem' : ''}
                 >
                   {item.text}
                 </a>

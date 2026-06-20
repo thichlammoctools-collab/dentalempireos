@@ -9,11 +9,10 @@ interface Props {
 const { chapterId, chapterTitle } = Astro.props;
 ---
 
-<!-- FAB Button -->
+<!-- FAB Button — hidden: mobile uses #question-trigger in SectionNavMobile, desktop uses toolbar -->
 <button
   id="ask-author-btn"
-  class="fixed right-4 z-[60] w-14 h-14 rounded-full btn-primary-metallic flex items-center justify-center shadow-lg hover:scale-105 transition-transform hidden"
-  style="bottom: calc(5rem + env(safe-area-inset-bottom, 0px));"
+  class="hidden"
   title="Hỏi Tác Giả"
 >
   <span class="material-symbols-outlined text-2xl">support_agent</span>
@@ -97,6 +96,7 @@ const { chapterId, chapterTitle } = Astro.props;
       if (res.ok) {
         document.getElementById('ask-author-btn')?.classList.remove('hidden');
         document.getElementById('toolbar-ask-btn')?.classList.remove('hidden');
+        document.getElementById('question-trigger')?.classList.remove('hidden');
       }
     } catch { /* not logged in — keep hidden */ }
   }
@@ -121,6 +121,9 @@ const { chapterId, chapterTitle } = Astro.props;
       input?.focus();
     }, 100);
   }
+
+  // Expose globally for mobile question trigger
+  (window as any).__openAskAuthor = openModal;
 
   function closeModal() {
     modal?.classList.add('hidden');

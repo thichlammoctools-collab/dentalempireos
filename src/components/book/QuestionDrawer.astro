@@ -7,38 +7,28 @@ interface Props {
 const { chapterId, chapterTitle = '' } = Astro.props;
 ---
 
-<!-- Desktop FAB (right-bottom floating, same style as mobile FABs) -->
-<button
-  id="question-desktop-fab"
-  class="hidden lg:flex fixed right-4 z-[60] w-12 h-12 rounded-full shadow-lg items-center justify-center transition-all hover:scale-110 active:scale-95"
-  style="bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); background: var(--reader-chrome-surface-high); border: 1px solid var(--reader-border); color: var(--color-primary); backdrop-filter: blur(12px);"
-  title="Hỏi Tác Giả"
->
-  <span class="material-symbols-outlined text-xl">support_agent</span>
-</button>
+<!-- Desktop FAB: REMOVED — use toolbar #toolbar-ask-btn instead to avoid duplicates -->
 
 <!-- Overlay -->
 <div
   id="question-overlay"
-  class="question-overlay fixed inset-0 z-[101] bg-black/50 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none"
+  class="question-overlay fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity duration-300"
   aria-hidden="true"
 ></div>
 
 <!-- Floating card: same markup for both desktop & mobile, only size differs -->
 <div
   id="question-drawer"
-  class="fixed z-[102] rounded-2xl overflow-hidden flex flex-col shadow-2xl"
+  class="fixed rounded-2xl overflow-hidden flex flex-col shadow-2xl"
   style="
     background: var(--reader-chrome-bg);
-    transform: translateY(100%) scale(0.95);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
 
-    /* Desktop: centered floating */
-    left: 50%; top: 50%; width: 400px; max-width: 90vw;
-    max-height: 80vh; transform-origin: center center;
-    margin-left: -200px; margin-top: min(40vh, 300px);
+    /* Desktop: slide-in from right (like ReviewDrawer) */
+    right: 0; top: 0; bottom: 0; left: auto;
+    width: 420px; max-width: 90vw;
+    max-height: 100vh; transform-origin: right center;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
   "
 >
   <!-- Handle (mobile visual cue) -->
@@ -122,49 +112,37 @@ const { chapterId, chapterTitle = '' } = Astro.props;
     to { transform: rotate(360deg); }
   }
 
-    /* ── Mobile: bottom-sheet style ── */
-    @media (max-width: 1023px) {
-      #question-drawer {
-        left: 0; right: 0; bottom: 0; top: auto;
-        width: 100%; max-width: 100%;
-        /* Use dvh for dynamic viewport accounting for mobile keyboard */
-        max-height: min(85dvh, calc(100dvh - 80px));
-        max-height: min(85vh, calc(100vh - 80px)); /* fallback */
-        margin: 0;
-        border-radius: 1.5rem 1.5rem 0 0;
-        transform: translateY(100%);
-        transform-origin: bottom center;
-        /* Account for iOS safe area */
-        padding-bottom: env(safe-area-inset-bottom, 16px);
-      }
-
-      /* When open on mobile: sit above keyboard with enough scroll space */
-      #question-drawer.question-open {
-        bottom: 0;
-        transform: translateY(0) !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        /* Ensure we have room to scroll when keyboard opens */
-        max-height: min(90dvh, calc(100dvh - 40px));
-      }
-
-      /* Form content needs extra padding for mobile keyboard */
-      #question-drawer .overflow-y-auto {
-        padding-bottom: max(env(safe-area-inset-bottom, 16px), 120px);
-      }
-    }
-
-  /* ── Desktop: centered floating card ── */
-  @media (min-width: 1024px) {
+  /* ── Mobile: bottom-sheet pattern (matches SectionNavMobile) ── */
+  @media (max-width: 1023px) {
     #question-drawer {
-      border-radius: 1rem;
-      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+      left: 0; right: 0; bottom: 0; top: auto;
+      width: 100%; max-width: 100%;
+      max-height: min(85dvh, calc(100dvh - 80px));
+      max-height: min(85vh, calc(100vh - 80px));
+      margin: 0;
+      border-radius: 1.5rem 1.5rem 0 0;
+      transform: translateY(100%);
+      transform-origin: bottom center;
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 95;
     }
 
     #question-drawer.question-open {
-      transform: translateY(0) scale(1);
-      opacity: 1;
-      pointer-events: auto;
+      transform: translateY(0) !important;
+    }
+
+    #question-drawer .overflow-y-auto {
+      padding-bottom: max(env(safe-area-inset-bottom, 16px), 120px);
+    }
+  }
+
+  /* ── Desktop: slide-in from right ── */
+  @media (min-width: 1024px) {
+    #question-drawer {
+      border-radius: 0;
+      border-left: 1px solid var(--reader-border);
+      z-index: 102;
     }
   }
 </style>
@@ -175,7 +153,6 @@ const { chapterId, chapterTitle = '' } = Astro.props;
     const drawer = document.getElementById('question-drawer');
     const closeBtn = document.getElementById('question-close');
     const handle = document.getElementById('question-handle');
-    const desktopFab = document.getElementById('question-desktop-fab');
     const toolbarBtn = document.getElementById('toolbar-ask-btn');
 
     let isOpen = false;
@@ -187,8 +164,6 @@ const { chapterId, chapterTitle = '' } = Astro.props;
         if (res.ok) {
           // Mobile: show the question-trigger FAB in SectionNavMobile
           trigger?.classList.remove('hidden');
-          // Desktop: show floating FAB
-          desktopFab?.classList.remove('hidden');
           // Desktop: show toolbar button
           toolbarBtn?.classList.remove('hidden');
         }
@@ -248,48 +223,48 @@ const { chapterId, chapterTitle = '' } = Astro.props;
     /* ── Open / Close ── */
     function open() {
       isOpen = true;
-      overlay?.classList.remove('hidden');
-      overlay?.classList.remove('opacity-0', 'pointer-events-none');
-      overlay?.classList.add('opacity-100', 'pointer-events-auto');
 
-      if (drawer) {
-        drawer.classList.add('question-open');
-        if (isMobile()) {
-          drawer.style.transform = 'translateY(0)';
-          applyMobileKeyboardOffset();
-        }
-        // Focus first input
-        setTimeout(() => {
-          const input = drawer?.querySelector('input[name="title"]') as HTMLInputElement;
-          input?.focus();
-        }, 350);
+      if (isMobile()) {
+        // Close other mobile sheets first (mutual exclusion)
+        (window as any).__closeSectionNav?.();
+        (window as any).__closeReview?.();
+
+        overlay?.classList.remove('hidden');
+        drawer?.classList.add('question-open');
+        applyMobileKeyboardOffset();
+      } else {
+        overlay?.classList.remove('hidden');
+        if (drawer) drawer.style.transform = 'translateX(0)';
       }
+
+      // Focus first input
+      setTimeout(() => {
+        const input = drawer?.querySelector('input[name="title"]') as HTMLInputElement;
+        input?.focus();
+      }, 350);
     }
 
     function close() {
       isOpen = false;
-      if (overlay) {
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        overlay.classList.remove('opacity-100', 'pointer-events-auto');
-        setTimeout(() => overlay!.classList.add('hidden'), 300);
-      }
-      if (drawer) {
-        drawer.classList.remove('question-open');
-        if (isMobile()) {
-          drawer.style.transform = 'translateY(100%)';
-        } else {
-          // Desktop: reset transform back to default
-          drawer.style.transform = 'translateY(100%) scale(0.95)';
-        }
+
+      if (isMobile()) {
+        drawer?.classList.remove('question-open');
+        overlay?.classList.add('hidden');
+      } else {
+        overlay?.classList.add('hidden');
+        if (drawer) drawer.style.transform = 'translateX(100%)';
       }
     }
 
     /* ── Event bindings ── */
     trigger?.addEventListener('click', () => { isOpen ? close() : open(); });
-    desktopFab?.addEventListener('click', () => { isOpen ? close() : open(); });
     toolbarBtn?.addEventListener('click', () => { isOpen ? close() : open(); });
     overlay?.addEventListener('click', close);
     closeBtn?.addEventListener('click', close);
+
+    // Expose globally for mutual exclusion with SectionNavMobile / ReviewDrawer
+    (window as any).__openQuestionDrawer = open;
+    (window as any).__closeQuestionDrawer = close;
 
     // Escape
     document.addEventListener('keydown', (e) => {

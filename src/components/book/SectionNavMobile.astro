@@ -401,6 +401,10 @@ const currentChapterTitle = groupedChapters
       }
 
       function openSheet() {
+        // Close other mobile sheets first (mutual exclusion)
+        (window as any).__closeReview?.();
+        (window as any).__closeQuestionDrawer?.();
+
         sheet.classList.add('section-nav-open');
         if (overlay) overlay.classList.remove('hidden');
 
@@ -444,6 +448,13 @@ const currentChapterTitle = groupedChapters
 
       // ---- Review trigger ----
       // review-trigger click is handled by ReviewDrawer.astro script directly
+
+      // ---- Question trigger (mobile) ----
+      const questionTrigger = document.getElementById('question-trigger');
+      questionTrigger?.addEventListener('click', () => {
+        closeSheet();
+        (window as any).__openQuestionDrawer?.();
+      });
       closeBtn?.addEventListener('click', closeSheet);
 
       // ---- Tab switching ----

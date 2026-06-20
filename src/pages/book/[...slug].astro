@@ -36,12 +36,14 @@ const _CHAPTER_TTL_MS = 60_000;
 const dbFetchStart = Date.now();
 
 // Fire ALL data fetches in parallel — no sequential dependencies
-const [tree, autoKeywords, allPublished, supportSettings] = await Promise.all([
+// Non-critical queries are wrapped individually so missing tables/columns don't crash the page
+const [tree, autoKeywordsResult, allPublished, supportSettings] = await Promise.all([
   getChapterTree(db, slug),
-  listAllSections(db),
+  listAllSections(db).catch(() => [] as AutoKeyword[]),
   listPublishedChapters(db),
-  getSupportSettings(db),
+  getSupportSettings(db).catch(() => null),
 ]);
+const autoKeywords = autoKeywordsResult ?? [];
 
 if (!tree) {
   return new Response('Không tìm thấy chương', { status: 404 });
@@ -247,12 +249,20 @@ const sectionNavItems = flattenSections(sections);
 
 const dbFetchMs = Date.now() - dbFetchStart;
 
-// Reviews — parallel fetch
+// Reviews — parallel fetch (wrapped in try-catch: table may not exist yet)
 const reviewLimit = 10;
-const [reviews, reviewStats] = await Promise.all([
-  listReviewsByChapter(db, slug, reviewLimit, 0),
-  getReviewStats(db, slug),
-]);
+let reviews: Awaited<ReturnType<typeof listReviewsByChapter>> = [];
+let reviewStats: Awaited<ReturnType<typeof getReviewStats>> = { avgRating: 0, totalReviews: 0 };
+try {
+  [reviews, reviewStats] = await Promise.all([
+    listReviewsByChapter(db, slug, reviewLimit, 0),
+    getReviewStats(db, slug),
+  ]);
+} catch {
+  // review table may not exist in D1 yet — gracefully degrade
+  reviews = [];
+  reviewStats = { avgRating: 0, totalReviews: 0 };
+}
 const currentUser = Astro.locals.user;
 ---
 

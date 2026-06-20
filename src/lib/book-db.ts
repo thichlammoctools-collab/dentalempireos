@@ -291,15 +291,32 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
     return cached.data;
   }
 
-  const { results } = await db
-    .prepare(
-      `SELECT s."title", s."slug", s."level", s."keywords", c."id" as chapter_id
-       FROM "section" s
-       JOIN "chapter" c ON c."id" = s."chapter_id"
-       WHERE c."status" = 'published'
-       ORDER BY c."tier", c."order", s."order"`,
-    )
-    .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
+  let results: { title: string; slug: string; level: number; keywords: string; chapter_id: string }[];
+
+  try {
+    const res = await db
+      .prepare(
+        `SELECT s."title", s."slug", s."level", s."keywords", c."id" as chapter_id
+         FROM "section" s
+         JOIN "chapter" c ON c."id" = s."chapter_id"
+         WHERE c."status" = 'published'
+         ORDER BY c."tier", c."order", s."order"`,
+      )
+      .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
+    results = res.results;
+  } catch {
+    // keywords column may not exist yet (migration 0013 not applied) — fallback query
+    const res = await db
+      .prepare(
+        `SELECT s."title", s."slug", s."level", '' as "keywords", c."id" as chapter_id
+         FROM "section" s
+         JOIN "chapter" c ON c."id" = s."chapter_id"
+         WHERE c."status" = 'published'
+         ORDER BY c."tier", c."order", s."order"`,
+      )
+      .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
+    results = res.results;
+  }
 
   const data: AutoKeyword[] = [];
 
