@@ -506,7 +506,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       if (b.type === 'text') {
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               <textarea data-field="text_md" rows="12" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-3 text-white text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[200px]" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
@@ -516,7 +516,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (b.type === 'image') {
         const url = b.r2_key ? `/media/${b.r2_key}` : '';
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
@@ -539,7 +539,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
       // file
       return `
-        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
           ${header}
           <div class="block-content" style="${collapsed ? 'display:none' : ''}">
             ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
@@ -671,26 +671,20 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Block drag-and-drop reorder inside modal ─────────
     let blockDragSrc: HTMLElement | null = null;
+    let dragHandleDown = false;
 
-    // Enable dragging only when grabbing the handle; disable on release.
+    // Track whether drag started from the handle grip
     modalBody.addEventListener('mousedown', (e) => {
-      if ((e.target as HTMLElement).closest('.block-drag-handle')) {
-        const item = (e.target as HTMLElement).closest<HTMLElement>('.block-item');
-        if (item) item.setAttribute('draggable', 'true');
-      }
+      dragHandleDown = !!(e.target as HTMLElement).closest('.block-drag-handle');
     });
-    modalBody.addEventListener('mouseup', () => {
-      modalBody.querySelectorAll<HTMLElement>('.block-item[draggable="true"]').forEach((el) =>
-        el.removeAttribute('draggable'),
-      );
-    });
+    modalBody.addEventListener('mouseup', () => { dragHandleDown = false; });
 
     modalBody.addEventListener('dragstart', (e) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.block-drag-handle')) {
+      if (!dragHandleDown) {
         e.preventDefault();
         return;
       }
+      const target = e.target as HTMLElement;
       const item = target.closest<HTMLElement>('.block-item');
       if (!item) return;
       blockDragSrc = item;
