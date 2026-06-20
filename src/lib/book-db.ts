@@ -21,6 +21,7 @@ export interface SectionRow {
   title: string;
   slug: string;
   order: number;
+  keywords: string; // JSON array of keyword strings, e.g. '["CRM","quản trị"]'
 }
 
 export type BlockType = 'text' | 'image' | 'file';
@@ -126,19 +127,22 @@ export interface SectionInput {
   title: string;
   slug: string;
   order: number;
+  keywords?: string; // JSON array of keyword strings
 }
 
 export async function upsertSection(db: D1Database, input: SectionInput): Promise<void> {
+  const keywordsJson = input.keywords ?? '[]';
   await db
     .prepare(
-      `INSERT INTO "section" ("id","chapter_id","parent_id","level","title","slug","order")
-       VALUES (?,?,?,?,?,?,?)
+      `INSERT INTO "section" ("id","chapter_id","parent_id","level","title","slug","order","keywords")
+       VALUES (?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "parent_id"=excluded."parent_id",
          "level"=excluded."level",
          "title"=excluded."title",
          "slug"=excluded."slug",
-         "order"=excluded."order"`,
+         "order"=excluded."order",
+         "keywords"=excluded."keywords"`,
     )
     .bind(
       input.id,
@@ -148,6 +152,7 @@ export async function upsertSection(db: D1Database, input: SectionInput): Promis
       input.title,
       input.slug,
       input.order,
+      keywordsJson,
     )
     .run();
 }
@@ -276,6 +281,7 @@ const _SECTION_TTL_MS = 30_000; // 30 seconds — stale-while-revalidate
 /**
  * Fetches all sections from published chapters.
  * Each section title becomes an auto-keyword linking to its chapter + anchor.
+ * Custom keywords (comma-separated or JSON array in DB) are also expanded into separate entries.
  * Result is cached in-memory for 30s to avoid repeated scans across chapter navigations.
  */
 export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
@@ -287,19 +293,48 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
 
   const { results } = await db
     .prepare(
-      `SELECT s."title", s."slug", s."level", c."id" as chapter_id
+      `SELECT s."title", s."slug", s."level", s."keywords", c."id" as chapter_id
        FROM "section" s
        JOIN "chapter" c ON c."id" = s."chapter_id"
        WHERE c."status" = 'published'
        ORDER BY c."tier", c."order", s."order"`,
     )
-    .all<{ title: string; slug: string; level: number; chapter_id: string }>();
+    .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
 
-  const data: AutoKeyword[] = results.map((r) => ({
-    pattern: r.title,
-    target: `/book/${r.chapter_id}#${r.slug}`,
-    label: r.title,
-  }));
+  const data: AutoKeyword[] = [];
+
+  for (const r of results) {
+    const target = `/book/${r.chapter_id}#${r.slug}`;
+
+    // Always add the section title as an auto-keyword
+    data.push({ pattern: r.title, target, label: r.title });
+
+    // Parse custom keywords from DB (JSON array or comma-separated)
+    if (r.keywords) {
+      try {
+        let parsed: string[];
+        const trimmed = r.keywords.trim();
+        if (trimmed.startsWith('[')) {
+          parsed = JSON.parse(trimmed);
+        } else {
+          parsed = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        for (const kw of parsed) {
+          if (kw && kw.toLowerCase() !== r.title.toLowerCase()) {
+            data.push({ pattern: kw, target, label: kw });
+          }
+        }
+      } catch {
+        // Fallback: comma-separated
+        const parts = r.keywords.split(',').map(s => s.trim()).filter(Boolean);
+        for (const kw of parts) {
+          if (kw && kw.toLowerCase() !== r.title.toLowerCase()) {
+            data.push({ pattern: kw, target, label: kw });
+          }
+        }
+      }
+    }
+  }
 
   _sectionCache.set(key, { data, ts: Date.now() });
   return data;
@@ -352,4 +387,33 @@ export async function getChapterTree(db: D1Database, id: string): Promise<Chapte
   }
 
   return { chapter, sections: roots };
+}
+
+// ── Tier Stats (for homepage) ─────────────────────────────
+
+export interface TierStats {
+  chapterCount: number;
+  sectionCount: number;
+}
+
+export async function getTierStats(db: D1Database, tier: number): Promise<TierStats> {
+  const chapterRow = await db
+    .prepare('SELECT COUNT(*) as cnt FROM "chapter" WHERE "tier" = ? AND "status" = ?')
+    .bind(tier, 'published')
+    .first<{ cnt: number }>();
+
+  const sectionRow = await db
+    .prepare(
+      `SELECT COUNT(*) as cnt
+       FROM "section" s
+       JOIN "chapter" c ON c."id" = s."chapter_id"
+       WHERE c."tier" = ? AND c."status" = 'published'`,
+    )
+    .bind(tier)
+    .first<{ cnt: number }>();
+
+  return {
+    chapterCount: chapterRow?.cnt ?? 0,
+    sectionCount: sectionRow?.cnt ?? 0,
+  };
 }

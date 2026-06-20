@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null);
   if (!body) return badRequest('Invalid JSON body');
 
-  const { id, chapter_id, parent_id, level, title, slug, order } = body as {
+  const { id, chapter_id, parent_id, level, title, slug, order, keywords } = body as {
     id?: string;
     chapter_id?: string;
     parent_id?: string | null;
@@ -18,6 +18,7 @@ export const POST: APIRoute = async ({ request }) => {
     title?: string;
     slug?: string;
     order?: number;
+    keywords?: string;
   };
 
   if (!chapter_id || !title) {
@@ -33,6 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
     title,
     slug: slug || slugify(title),
     order: order ?? 0,
+    keywords: keywords ?? '[]',
   });
 
   return json({ id: sectionId }, 201);

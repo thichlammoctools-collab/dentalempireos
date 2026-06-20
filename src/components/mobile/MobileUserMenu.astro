@@ -124,8 +124,10 @@
 
   <!-- Bookmarks section (if reading) -->
   <div id="bookmarks-section" class="hidden border-t border-outline-variant/20 p-4">
-    <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">
-      Đánh dấu gần đây</h3>
+    <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-[14px]">history</span>
+      Đọc dở
+    </h3>
     <div id="bookmarks-list" class="space-y-2">
       <!-- Populated by JS -->
     </div>
@@ -219,25 +221,42 @@
 	      }
 	    }
 
-	    function loadBookmarks() {
-	      try {
-	        const bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
-	        const section = document.getElementById('bookmarks-section');
-	        const list = document.getElementById('bookmarks-list');
-
-	        if (bookmarks.length > 0 && section && list) {
-	          section.classList.remove('hidden');
-	          list.innerHTML = bookmarks.slice(0, 5).map(b => `
-	            <a href="${b.url}" class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors text-sm text-on-surface-variant hover:text-on-surface">
-	              <span class="material-symbols-outlined text-xs">bookmark</span>
-	              <span class="flex-1 truncate">${b.title}</span>
-	            </a>
-	          `).join('');
-	        }
-	      } catch {
-	        // Ignore errors
-	      }
-	    }
+    function loadBookmarks() {
+      var section = document.getElementById('bookmarks-section');
+      var list = document.getElementById('bookmarks-list');
+      if (!section || !list) return;
+      var items = [];
+      try {
+        var bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
+        bookmarks.forEach(function(b) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
+      } catch(e) {}
+      try {
+        var rp = JSON.parse(localStorage.getItem('deos_read_progress') || '{}');
+        var currentPath = location.pathname;
+        Object.keys(rp).forEach(function(id) {
+          var d = rp[id];
+          if (d.url && d.url !== currentPath && d.pct > 0 && !items.some(function(i){return i.id===id;})) {
+            items.push({id:id, title:d.title, url:d.url, scrollPct:d.pct, type:'progress', ts:d.ts});
+          }
+        });
+      } catch(e) {}
+      items.sort(function(a,b){ return (b.savedAt||b.ts||0) - (a.savedAt||a.ts||0); });
+      if (items.length > 0) {
+        section.classList.remove('hidden');
+        var html = '';
+        items.slice(0, 8).forEach(function(b) {
+          var icon = b.type === 'bookmark' ? 'bookmark' : 'auto_stories';
+          var pctBadge = b.scrollPct ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary shrink-0">'+b.scrollPct+'%</span>' : '';
+          html += '<a href="'+b.url+'" class="flex items-center gap-2 p-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors group">'
+            + '<span class="material-symbols-outlined text-sm text-on-surface-variant/60 group-hover:text-primary shrink-0">'+icon+'</span>'
+            + '<span class="flex-1 text-sm truncate text-on-surface-variant group-hover:text-on-surface">'+(b.title||'Chương')+'</span>'
+            + pctBadge + '</a>';
+        });
+        list.innerHTML = html;
+      } else {
+        section.classList.add('hidden');
+      }
+    }
 
 	    menuBtn?.addEventListener('click', () => {
 	      isOpen ? close() : open();

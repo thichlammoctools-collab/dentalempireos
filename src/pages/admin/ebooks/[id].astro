@@ -44,7 +44,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           }`}>{ch.status === 'published' ? 'Đã xuất bản' : 'Bản nháp'}</span>
         </div>
         <h2 class="text-3xl font-bold text-white">{ch.title}</h2>
-        <p class="text-on-surface-variant mt-1">{ch.description}</p>
       </div>
       <div class="flex gap-2">
         <a
@@ -102,7 +101,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         </div>
         <div class="sm:col-span-2">
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Mô tả</label>
-          <input name="description" value={ch.description ?? ''} class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none" />
+          <textarea name="description" rows="3"
+            class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[60px]"
+            placeholder="Mô tả nội dung chương...">{ch.description ?? ''}</textarea>
         </div>
         <div class="sm:col-span-2 flex justify-end">
           <button type="submit" class="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-90 transition-all">
@@ -129,7 +130,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       ) : (
         <ul id="section-tree" data-section-list class="flex flex-col gap-1">
           {tree.sections.map((s) => (
-            <SectionItem section={s} flatSections={flatSections} selectedId={selectedSectionId} />
+            <SectionItem section={s} selectedId={selectedSectionId} depth={0} />
           ))}
         </ul>
       )}
@@ -760,6 +761,146 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
     });
 
+    // ── Inline edit section title ───────────────────────
+    let inlineInput: HTMLInputElement | null = null;
+
+    function showToast(msg: string, ok = true) {
+      const t = document.createElement('div');
+      t.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-opacity duration-300 ${ok ? 'bg-primary/90 text-white' : 'bg-error/90 text-white'}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; }, 1800);
+      setTimeout(() => t.remove(), 2200);
+    }
+
+    function makeTitleSpan(text: string, level: number): HTMLSpanElement {
+      const sp = document.createElement('span');
+      sp.setAttribute('data-section-title', '');
+      sp.className = `flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors ${level === 3 ? 'text-on-surface-variant' : 'text-white font-semibold'}`;
+      sp.title = 'Nhấp đôi để sửa tên';
+      sp.textContent = text;
+      return sp;
+    }
+
+    function startInlineEdit(sectionItem: HTMLElement) {
+      // If another edit is active, commit it first
+      if (inlineInput) finishInlineEdit();
+
+      const id = sectionItem.dataset.sectionId!;
+      const titleEl = sectionItem.querySelector<HTMLElement>('[data-section-title]');
+      if (!titleEl || !currentTree) return;
+
+      const section = findSection(currentTree.sections, id);
+      const level = section?.level ?? 2;
+      const origTitle = titleEl.textContent?.trim() || '';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = origTitle;
+      input.className = 'flex-1 text-sm bg-surface-container-high border border-primary/40 rounded px-2 py-0.5 outline-none ring-1 ring-primary/30 focus:ring-primary/60 transition-all';
+      input.style.minWidth = '80px';
+      // Store metadata
+      (input as any).__sectionId = id;
+      (input as any).__origTitle = origTitle;
+
+      titleEl.replaceWith(input);
+      inlineInput = input;
+      input.focus();
+      input.select();
+
+      // Save on blur
+      input.addEventListener('blur', () => finishInlineEdit(), { once: true });
+
+      // Enter = save, Escape = cancel
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          // Directly call save — don't rely on blur
+          finishInlineEdit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelInlineEdit();
+        }
+        // Stop propagation so parent handlers (click delegation) don't interfere
+        e.stopPropagation();
+      });
+
+      // Prevent clicks inside input from bubbling to section-tree click handler
+      input.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    async function finishInlineEdit() {
+      const input = inlineInput;
+      if (!input) return;
+      inlineInput = null;
+
+      const id = (input as any).__sectionId as string;
+      const origTitle = (input as any).__origTitle as string;
+      const newTitle = input.value.trim();
+      const section = currentTree ? findSection(currentTree.sections, id) : null;
+      const level = section?.level ?? 2;
+
+      // Restore span
+      const span = makeTitleSpan(newTitle || origTitle, level);
+      input.replaceWith(span);
+
+      // No change → skip API
+      if (!newTitle || newTitle === origTitle) return;
+
+      // Optimistic update in tree
+      if (section) section.title = newTitle;
+
+      try {
+        const res = await fetch(`/api/admin/sections/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: section?.parent_id ?? null,
+            level: section?.level ?? 2,
+            title: newTitle,
+            slug: section?.slug ?? '',
+            order: section?.order ?? 0,
+          }),
+        });
+        if (res.ok) {
+          showToast('Đã lưu');
+        } else {
+          throw new Error('API error');
+        }
+      } catch {
+        // Revert
+        if (section) section.title = origTitle;
+        span.textContent = origTitle;
+        showToast('Lỗi khi lưu', false);
+      }
+    }
+
+    function cancelInlineEdit() {
+      const input = inlineInput;
+      if (!input) return;
+      inlineInput = null;
+
+      const origTitle = (input as any).__origTitle as string;
+      const id = (input as any).__sectionId as string;
+      const section = currentTree ? findSection(currentTree.sections, id) : null;
+      const level = section?.level ?? 2;
+
+      input.replaceWith(makeTitleSpan(origTitle, level));
+    }
+
+    // ── Double-click title → inline edit ──────────────────
+    document.getElementById('section-tree')?.addEventListener('dblclick', (e) => {
+      const target = e.target as HTMLElement;
+      const titleEl = target.closest<HTMLElement>('[data-section-title]');
+      if (!titleEl) return;
+      const sectionItem = titleEl.closest<HTMLElement>('[data-section-item]');
+      if (sectionItem && currentTree) {
+        startInlineEdit(sectionItem);
+      }
+    });
+
     // ── Section tree: event delegation ────────────────────
     document.getElementById('section-tree')?.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -780,7 +921,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         return;
       }
 
-      // Click title → open modal
+      // Single click title → open modal; double click → inline edit (handled by dblclick listener below)
       const titleEl = target.closest<HTMLElement>('[data-section-title]');
       if (titleEl) {
         const sectionItem = target.closest<HTMLElement>('[data-section-item]');
@@ -790,28 +931,12 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         return;
       }
 
-      // Edit button → rename
+      // Edit button → inline rename
       const editBtn = target.closest<HTMLElement>('[data-section-edit]');
       if (editBtn) {
-        const sectionItem = target.closest<HTMLElement>('[data-section-item]');
-        if (!sectionItem || !currentTree) return;
-        const id = sectionItem.dataset.sectionId!;
-        const section = findSection(currentTree.sections, id);
-        const title = prompt('Tên đề mục:', sectionItem.querySelector('[data-section-title]')?.textContent || '');
-        if (!title) return;
-        fetch(`/api/admin/sections/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            parent_id: section?.parent_id ?? null,
-            level: section?.level ?? 2,
-            title,
-            slug: section?.slug ?? '',
-            order: section?.order ?? 0,
-          }),
-        }).then(() => location.reload());
+        const sectionItem = editBtn.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem) return;
+        startInlineEdit(sectionItem);
         return;
       }
 
@@ -823,6 +948,38 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         if (!confirm('Xoá đề mục (kèm blocks bên trong)?')) return;
         fetch(`/api/admin/sections/${sectionItem.dataset.sectionId!}`, { method: 'DELETE', credentials: 'include' })
           .then(() => location.reload());
+        return;
+      }
+
+      // Edit keywords
+      const kwBtn = target.closest<HTMLElement>('[data-section-keywords]');
+      if (kwBtn) {
+        const sectionItem = kwBtn.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem || !currentTree) return;
+        const id = sectionItem.dataset.sectionId!;
+        const section = findSection(currentTree.sections, id);
+        const currentKw = sectionItem.dataset.keywordsValue || '[]';
+        let parsed: string[] = [];
+        try {
+          parsed = currentKw.startsWith('[') ? JSON.parse(currentKw) : currentKw.split(',').map((s: string) => s.trim()).filter(Boolean);
+        } catch { parsed = []; }
+        const input = prompt('Keywords (phân tách bằng dấu phẩy):', parsed.join(', '));
+        if (input === null) return;
+        const keywords = JSON.stringify(input.split(',').map((s: string) => s.trim()).filter(Boolean));
+        fetch(`/api/admin/sections/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: section?.parent_id ?? null,
+            level: section?.level ?? 2,
+            title: section?.title ?? '',
+            slug: section?.slug ?? '',
+            order: section?.order ?? 0,
+            keywords,
+          }),
+        }).then(() => location.reload());
         return;
       }
 
@@ -853,12 +1010,16 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     // ── Section drag-and-drop (reorder + reparent) ─────────
     const sectionTree = document.getElementById('section-tree');
     let sectionDragSrc: HTMLElement | null = null;
+    let dragPlaceholder: HTMLElement | null = null;
+    let dragFakeUl: HTMLElement | null = null;
+    let lastDropKey = '';
+
+    const SECTION_LIST_CLASSES = 'flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20';
 
     function isDragHandle(el: HTMLElement) {
       return el.closest('.section-drag-handle') !== null;
     }
 
-    // Check if `candidate` is a descendant of `ancestor` in the DOM tree
     function isDescendantOf(candidate: HTMLElement, ancestor: HTMLElement): boolean {
       let el = candidate.parentElement;
       while (el) {
@@ -868,179 +1029,409 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       return false;
     }
 
-    // Count nesting depth from the item up to the root section-tree
-    function getNestingDepth(item: HTMLElement): number {
-      let depth = 0;
-      let el: HTMLElement | null = item;
-      while (el) {
-        if (el.classList.contains('section-nestable')) depth++;
-        el = el.parentElement;
-      }
-      return depth;
+    function getItemDepth(item: HTMLElement): number {
+      return parseInt(item.dataset.sectionDepth ?? '0', 10);
     }
 
-    // Determine drop zone: 'above' (top 25%), 'into' (middle 50%), 'below' (bottom 25%)
     function getDropZone(e: DragEvent, item: HTMLElement): 'above' | 'into' | 'below' {
       const rect = item.getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
-      if (ratio < 0.25) return 'above';
-      if (ratio > 0.75) return 'below';
+      if (ratio < 0.3) return 'above';
+      if (ratio > 0.7) return 'below';
       return 'into';
     }
 
-    // Get the DB level from DOM nesting (section-nestable depth 1 → level 2, depth 2 → level 3)
-    function getItemLevel(item: HTMLElement): number {
-      return getNestingDepth(item) + 1;
+    // ── Placeholder management ─────────────────────────────
+    function createPlaceholder(zone: 'above' | 'into' | 'below'): HTMLElement {
+      const li = document.createElement('li');
+      li.setAttribute('data-drag-placeholder', '');
+      li.style.listStyle = 'none';
+      li.style.pointerEvents = 'none';
+      if (zone === 'into') {
+        li.classList.add('drag-placeholder-box');
+      } else {
+        li.classList.add('drag-placeholder-line');
+      }
+      return li;
     }
 
+    function ensureChildUl(item: HTMLElement): HTMLElement {
+      let ul = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+      if (ul) return ul;
+      ul = document.createElement('ul');
+      ul.setAttribute('data-section-list', '');
+      ul.className = SECTION_LIST_CLASSES;
+      item.appendChild(ul);
+      dragFakeUl = ul;
+      return ul;
+    }
+
+    function removePlaceholder() {
+      if (dragPlaceholder) {
+        dragPlaceholder.remove();
+        dragPlaceholder = null;
+      }
+      if (dragFakeUl && dragFakeUl.children.length === 0) {
+        dragFakeUl.remove();
+        dragFakeUl = null;
+      }
+      lastDropKey = '';
+    }
+
+    function showDndError(msg: string) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 rounded-lg bg-error/90 text-white text-sm font-medium shadow-lg transition-opacity duration-300';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function flashMovedItem(el: HTMLElement) {
+      el.classList.add('reorder-success');
+      el.addEventListener('animationend', () => el.classList.remove('reorder-success'), { once: true });
+    }
+
+    // ── In-memory tree sync ────────────────────────────────
+    function syncTreeAfterMove(srcId: string, tgtId: string | null, zone: 'above' | 'into' | 'below') {
+      if (!currentTree) return;
+      let moved: SectionNode | null = null;
+      function extract(nodes: SectionNode[]): SectionNode | null {
+        for (let i = 0; i < nodes.length; i++) {
+          if (nodes[i].id === srcId) return nodes.splice(i, 1)[0];
+          const found = extract(nodes[i].children);
+          if (found) return found;
+        }
+        return null;
+      }
+      moved = extract(currentTree.sections);
+      if (!moved) return;
+
+      if (zone === 'into') {
+        const tgtNode = findSection(currentTree.sections, tgtId!);
+        if (tgtNode) {
+          tgtNode.children.push(moved);
+        } else {
+          currentTree.sections.push(moved);
+        }
+      } else {
+        function findParentOf(nodes: SectionNode[], targetId: string): SectionNode | null {
+          for (const n of nodes) {
+            if (n.children.some(c => c.id === targetId)) return n;
+            const found = findParentOf(n.children, targetId);
+            if (found) return found;
+          }
+          return null;
+        }
+        if (!tgtId) {
+          if (zone === 'above') {
+            currentTree.sections.unshift(moved);
+          } else {
+            currentTree.sections.push(moved);
+          }
+        } else {
+          const tgtParent = findParentOf(currentTree.sections, tgtId);
+          if (tgtParent) {
+            const idx = tgtParent.children.findIndex(c => c.id === tgtId);
+            const insertIdx = zone === 'above' ? idx : idx + 1;
+            tgtParent.children.splice(insertIdx, 0, moved);
+          } else {
+            currentTree.sections.push(moved);
+          }
+        }
+      }
+    }
+
+    // ── DOM reorder helpers ────────────────────────────────
+    function getSiblingIds(ul: HTMLElement): string[] {
+      return Array.from(ul.querySelectorAll<HTMLElement>(':scope > [data-section-item]'))
+        .map(li => li.dataset.sectionId!);
+    }
+
+    async function reorderSiblings(ul: HTMLElement): Promise<boolean> {
+      const ids = getSiblingIds(ul);
+      try {
+        const res = await fetch('/api/admin/sections/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids }),
+        });
+        return res.ok;
+      } catch { return false; }
+    }
+
+    // ── Drag events ────────────────────────────────────────
     sectionTree?.addEventListener('dragstart', (e) => {
       const target = e.target as HTMLElement;
-      if (!isDragHandle(target)) {
-        e.preventDefault();
-        return;
-      }
+      if (!isDragHandle(target)) { e.preventDefault(); return; }
       const item = target.closest<HTMLElement>('[data-section-item]');
       if (!item) return;
       sectionDragSrc = item;
       item.classList.add('dragging');
       (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+      (e as DragEvent).dataTransfer!.dropEffect = 'move';
     });
 
     sectionTree?.addEventListener('dragend', () => {
       if (sectionDragSrc) sectionDragSrc.classList.remove('dragging');
       sectionDragSrc = null;
-      clearAllDragIndicators();
+      removePlaceholder();
     });
 
     sectionTree?.addEventListener('dragover', (e) => {
       e.preventDefault();
+      if (!sectionDragSrc) return;
       const target = e.target as HTMLElement;
       const item = target.closest<HTMLElement>('[data-section-item]');
-      if (!item || item === sectionDragSrc || !sectionDragSrc) return;
-
-      // Prevent circular: can't drop into self or descendant
+      if (!item || item === sectionDragSrc) return;
       if (isDescendantOf(item, sectionDragSrc)) return;
 
-      // Prevent depth overflow: max 3 levels. If source is at depth 2, can't 'into' if target is also at depth 2+
-      const tgtLevel = getItemLevel(item);
+      const tgtDepth = getItemDepth(item);
       const zone = getDropZone(e as DragEvent, item);
+      if (zone === 'into' && tgtDepth >= 1) return;
 
-      if (zone === 'into' && tgtLevel >= 3) return; // level 3 can't have children
+      const key = `${item.dataset.sectionId}:${zone}`;
+      if (key === lastDropKey) return;
+      lastDropKey = key;
 
       (e as DragEvent).dataTransfer!.dropEffect = 'move';
+      removePlaceholder();
 
-      clearAllDragIndicators();
-      item.classList.add(`drag-zone-${zone}`);
+      dragPlaceholder = createPlaceholder(zone);
+
+      if (zone === 'above') {
+        item.parentElement?.insertBefore(dragPlaceholder, item);
+      } else if (zone === 'below') {
+        item.parentElement?.insertBefore(dragPlaceholder, item.nextSibling);
+      } else {
+        let childUl = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+        if (!childUl) {
+          childUl = ensureChildUl(item);
+          dragFakeUl = childUl;
+        }
+        if (childUl.style.display === 'none') {
+          childUl.style.display = '';
+        }
+        childUl.insertBefore(dragPlaceholder, childUl.firstChild);
+      }
     });
 
     sectionTree?.addEventListener('drop', async (e) => {
       e.preventDefault();
-      clearAllDragIndicators();
+      removePlaceholder();
+      if (!sectionDragSrc) return;
 
       const target = e.target as HTMLElement;
       const item = target.closest<HTMLElement>('[data-section-item]');
-      if (!item || !sectionDragSrc || item === sectionDragSrc) return;
+      if (!item || item === sectionDragSrc) return;
 
       const srcId = sectionDragSrc.dataset.sectionId!;
       const tgtId = item.dataset.sectionId!;
       if (isDescendantOf(item, sectionDragSrc)) return;
 
       const zone = getDropZone(e as DragEvent, item);
-      const tgtLevel = getItemLevel(item);
-
-      if (zone === 'into' && tgtLevel >= 3) return;
+      const tgtDepth = getItemDepth(item);
+      if (zone === 'into' && tgtDepth >= 1) return;
 
       if (zone === 'into') {
-        // Reparent: move sectionDragSrc to become a child of `item`
-        await reparentSection(srcId, tgtId, tgtLevel + 1);
+        await doReparentAsChild(srcId, sectionDragSrc, item, tgtId);
       } else {
-        // Same-parent reorder or cross-parent as sibling
         const srcParentUl = sectionDragSrc.closest<HTMLElement>('ul[data-section-list]');
         const tgtParentUl = item.closest<HTMLElement>('ul[data-section-list]');
         if (!srcParentUl || !tgtParentUl) return;
 
         if (srcParentUl === tgtParentUl) {
-          // Same parent — reorder in place
-          const items = Array.from(srcParentUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]'));
-          const fromIdx = items.indexOf(sectionDragSrc);
-          const toIdx = items.indexOf(item);
-          if (fromIdx < 0 || toIdx < 0) return;
-
-          const rect = item.getBoundingClientRect();
-          const after = e.clientY < rect.top + rect.height / 2;
-          const insertIdx = after ? toIdx : toIdx + 1;
-
-          const moved = items.splice(fromIdx, 1)[0];
-          const adjusted = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
-          items.splice(adjusted, 0, moved);
-          items.forEach((li) => srcParentUl.appendChild(li));
-
-          const ids = items.map((li) => li.dataset.sectionId!);
-          try {
-            const res = await fetch('/api/admin/sections/reorder', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ ids }),
-            });
-            if (!res.ok) { location.reload(); }
-          } catch { location.reload(); }
+          await doSameParentReorder(sectionDragSrc, srcParentUl, zone, e as DragEvent);
         } else {
-          // Cross-parent: reparent as sibling of `item`
-          const tgtParentItem = tgtParentUl?.closest<HTMLElement>('.section-nestable[data-section-item]');
-          const newParentId = tgtParentItem?.dataset.sectionId ?? null;
-          const newLevel = tgtLevel;
-          await reparentSection(srcId, newParentId, newLevel);
+          await doCrossParentMove(srcId, sectionDragSrc, item, tgtParentUl, zone, e as DragEvent);
         }
       }
+      sectionDragSrc = null;
     });
 
-    // Reparent a section and reload
-    async function reparentSection(sectionId: string, newParentId: string | null, newLevel: number) {
-      if (!currentTree) return;
-      const section = findSection(currentTree.sections, sectionId);
-      if (!section) return;
+    // ── Same-parent reorder ────────────────────────────────
+    async function doSameParentReorder(
+      srcEl: HTMLElement,
+      parentUl: HTMLElement,
+      zone: 'above' | 'below',
+      e: DragEvent,
+    ) {
+      const items = Array.from(parentUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]'));
+      const fromIdx = items.indexOf(srcEl);
+      const item = (e.target as HTMLElement).closest<HTMLElement>('[data-section-item]');
+      if (!item) return;
+      const toIdx = items.indexOf(item);
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
 
-      // Find sibling order at the target parent
-      let siblingIds: string[] = [];
-      if (newParentId) {
-        const parentNode = findSection(currentTree.sections, newParentId);
-        if (parentNode) siblingIds = parentNode.children.map((c) => c.id);
-      } else {
-        siblingIds = currentTree.sections.map((c) => c.id);
-      }
-      // Put the moved section last among siblings
-      siblingIds = siblingIds.filter((id) => id !== sectionId);
-      siblingIds.push(sectionId);
+      const rect = item.getBoundingClientRect();
+      const dropBefore = zone === 'above' || e.clientY < rect.top + rect.height / 2;
+      let insertIdx = dropBefore ? toIdx : toIdx + 1;
+      if (fromIdx < insertIdx) insertIdx--;
+      if (fromIdx === insertIdx) return;
 
-      const order = Date.now(); // append at end
+      const moved = items.splice(fromIdx, 1)[0];
+      items.splice(insertIdx, 0, moved);
+      items.forEach(li => parentUl.appendChild(li));
+      flashMovedItem(moved);
 
-      try {
-        const res = await fetch(`/api/admin/sections/${sectionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            parent_id: newParentId,
-            level: newLevel,
-            title: section.title,
-            slug: section.slug,
-            order,
-          }),
-        });
-        if (!res.ok) { alert('Lỗi khi di chuyển đề mục.'); }
-        location.reload();
-      } catch {
-        alert('Lỗi khi di chuyển đề mục.');
-        location.reload();
-      }
+      const ok = await reorderSiblings(parentUl);
+      if (!ok) { showDndError('Lỗi lưu thứ tự. Đang tải lại...'); location.reload(); }
     }
 
-    function clearAllDragIndicators() {
-      sectionTree?.querySelectorAll('.drag-zone-above, .drag-zone-into, .drag-zone-below').forEach((el) =>
-        el.classList.remove('drag-zone-above', 'drag-zone-into', 'drag-zone-below'),
-      );
+    // ── Cross-parent move (above/below) ────────────────────
+    async function doCrossParentMove(
+      srcId: string,
+      srcEl: HTMLElement,
+      tgtItem: HTMLElement,
+      tgtParentUl: HTMLElement,
+      zone: 'above' | 'below',
+      e: DragEvent,
+    ) {
+      const tgtParentItem = tgtParentUl.closest<HTMLElement>('.section-nestable[data-section-item]');
+      const newParentId = tgtParentItem?.dataset.sectionId ?? null;
+      const newDepth = tgtParentItem ? getItemDepth(tgtParentItem) + 1 : 0;
+      const newLevel = newDepth + 2;
+
+      const oldParentUl = srcEl.closest<HTMLElement>('ul[data-section-list]');
+      if (!currentTree) return;
+      const section = findSection(currentTree.sections, srcId);
+      if (!section) return;
+
+      // DOM: remove + insert
+      srcEl.remove();
+      const rect = tgtItem.getBoundingClientRect();
+      const dropBefore = zone === 'above' || e.clientY < rect.top + rect.height / 2;
+      if (dropBefore) {
+        tgtParentUl.insertBefore(srcEl, tgtItem);
+      } else {
+        tgtParentUl.insertBefore(srcEl, tgtItem.nextSibling);
+      }
+
+      // Update data attributes
+      srcEl.dataset.sectionDepth = String(newDepth);
+      srcEl.dataset.sectionParentId = newParentId ?? '';
+
+      // Update level icon
+      const iconSpans = srcEl.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
+      iconSpans.forEach(span => {
+        const text = span.textContent?.trim();
+        if (text === 'menu_book' || text === 'subdirectory_arrow_right') {
+          span.textContent = newLevel === 2 ? 'menu_book' : 'subdirectory_arrow_right';
+          span.className = `material-symbols-outlined text-[16px] ${newLevel === 3 ? 'text-on-surface-variant' : 'text-primary'}`;
+        }
+      });
+
+      flashMovedItem(srcEl);
+
+      // API: reorder old parent siblings
+      if (oldParentUl) await reorderSiblings(oldParentUl);
+
+      // API: update section + reorder new parent siblings
+      const newSiblingIds = getSiblingIds(tgtParentUl);
+      const res = await fetch(`/api/admin/sections/${srcId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          chapter_id: chapterId,
+          parent_id: newParentId,
+          level: newLevel,
+          title: section.title,
+          slug: section.slug,
+          order: 0,
+          sibling_ids: newSiblingIds,
+        }),
+      });
+      if (!res.ok) { showDndError('Lỗi khi di chuyển đề mục.'); location.reload(); return; }
+
+      const tgtItemId = tgtItem.dataset.sectionId ?? null;
+      syncTreeAfterMove(srcId, tgtItemId, zone);
+    }
+
+    // ── Reparent as child (into zone) ──────────────────────
+    async function doReparentAsChild(
+      srcId: string,
+      srcEl: HTMLElement,
+      tgtItem: HTMLElement,
+      tgtId: string,
+    ) {
+      if (!currentTree) return;
+      const section = findSection(currentTree.sections, srcId);
+      if (!section) return;
+
+      const newDepth = getItemDepth(tgtItem) + 1;
+      const newLevel = newDepth + 2;
+
+      let childUl = tgtItem.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+      if (!childUl) childUl = ensureChildUl(tgtItem);
+      if (childUl.style.display === 'none') childUl.style.display = '';
+
+      // Add toggle button if target had no children before
+      const toggleBtn = tgtItem.querySelector<HTMLElement>('[data-section-toggle]');
+      if (!toggleBtn) {
+        const handleSpan = tgtItem.querySelector<HTMLElement>('.section-drag-handle');
+        if (handleSpan) {
+          const btn = document.createElement('button');
+          btn.setAttribute('data-section-toggle', '');
+          btn.className = 'section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0';
+          btn.title = 'Thu gọn / Mở rộng';
+          btn.innerHTML = '<span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span>';
+          handleSpan.parentElement?.insertBefore(btn, handleSpan.nextSibling);
+        }
+      }
+
+      // DOM: remove + append
+      const oldParentUl = srcEl.closest<HTMLElement>('ul[data-section-list]');
+      srcEl.remove();
+      childUl.appendChild(srcEl);
+
+      // Update count
+      const countSpan = tgtItem.querySelector<HTMLElement>(':scope > div > span:last-of-type');
+      if (countSpan && countSpan.textContent?.includes('mục')) {
+        const currentCount = childUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]').length;
+        countSpan.textContent = `${currentCount} mục`;
+      }
+
+      // Update data attributes
+      srcEl.dataset.sectionDepth = String(newDepth);
+      srcEl.dataset.sectionParentId = tgtId;
+
+      // Update level icon
+      const iconSpans = srcEl.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
+      iconSpans.forEach(span => {
+        const text = span.textContent?.trim();
+        if (text === 'menu_book' || text === 'subdirectory_arrow_right') {
+          span.textContent = newLevel === 2 ? 'menu_book' : 'subdirectory_arrow_right';
+          span.className = `material-symbols-outlined text-[16px] ${newLevel === 3 ? 'text-on-surface-variant' : 'text-primary'}`;
+        }
+      });
+
+      flashMovedItem(srcEl);
+      setTimeout(() => { srcEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
+
+      // API: reorder old parent siblings
+      if (oldParentUl) await reorderSiblings(oldParentUl);
+
+      // API: update section + reorder new parent siblings
+      const newSiblingIds = getSiblingIds(childUl);
+      const res = await fetch(`/api/admin/sections/${srcId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          chapter_id: chapterId,
+          parent_id: tgtId,
+          level: newLevel,
+          title: section.title,
+          slug: section.slug,
+          order: newSiblingIds.length - 1,
+          sibling_ids: newSiblingIds,
+        }),
+      });
+      if (!res.ok) { showDndError('Lỗi khi di chuyển đề mục.'); location.reload(); return; }
+
+      syncTreeAfterMove(srcId, tgtId, 'into');
     }
 
     // ── Init ──────────────────────────────────────────────
@@ -1057,47 +1448,47 @@ const selectedSectionId = flatSections[0]?.id ?? '';
   [data-section-item] {
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
                 box-shadow 0.25s ease,
-                opacity 0.2s ease,
+                opacity 0.25s ease,
                 background-color 0.15s ease,
                 border-color 0.15s ease;
-    will-change: transform, opacity;
   }
 
   /* While being dragged */
   [data-section-item].dragging {
-    opacity: 0.35;
-    transform: scale(1.01);
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
   }
 
-  /* Drop zone indicators — with animated glow via box-shadow */
-  .drag-zone-above::before {
-    content: '';
-    position: absolute;
-    left: 0; right: 0;
-    top: -2px;
-    height: 3px;
+  /* ── Placeholder indicators ── */
+  [data-drag-placeholder].drag-placeholder-line {
+    height: 4px;
     background: var(--color-primary);
-    border-radius: 3px;
-    animation: zone-line-expand 0.2s ease-out;
+    border-radius: 2px;
+    margin: -2px 0;
+    box-shadow: 0 0 8px var(--color-primary);
+    animation: placeholder-pulse 1s ease-in-out infinite alternate;
+    pointer-events: none;
+    list-style: none;
   }
-  .drag-zone-below::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0;
-    bottom: -2px;
-    height: 3px;
-    background: var(--color-primary);
-    border-radius: 3px;
-    animation: zone-line-expand 0.2s ease-out;
+
+  [data-drag-placeholder].drag-placeholder-box {
+    border: 2px dashed var(--color-primary);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 12px;
+    color: var(--color-primary);
+    opacity: 0.8;
+    pointer-events: none;
+    animation: placeholder-pulse 1s ease-in-out infinite alternate;
   }
-  .drag-zone-above,
-  .drag-zone-below {
-    position: relative;
-  }
-  .drag-zone-into {
-    box-shadow: inset 0 0 0 2px var(--color-primary) !important;
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
-    animation: zone-pulse 0.3s ease;
+
+  @keyframes placeholder-pulse {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
   }
 
   @keyframes zone-line-expand {
@@ -1111,11 +1502,16 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
   /* Smooth expand/collapse for nested lists */
   [data-section-list] {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
   }
 
   .section-nestable {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease,
+                box-shadow 0.25s ease,
+                background-color 0.25s ease,
+                border-color 0.25s ease;
   }
 
   /* Highlight flash after successful reorder */

@@ -410,13 +410,30 @@ const currentTier = groupedChapters.find((g) =>
         applyTheme((currentThemeIdx + 1) % themes.length);
       });
 
-      // ---- Bookmark ----
+      // ---- Bookmark & Reading Progress ----
+      const BM_KEY = 'deos_bookmarks';
+      const RP_KEY = 'deos_read_progress';
       const bookmarkButton = doc.getElementById('bookmark-btn');
       const mobileBookmarkButton = doc.getElementById('mobile-bookmark-btn');
       const bookmarkIcon = doc.getElementById('bookmark-icon');
       const mobileBookmarkIcon = doc.getElementById('mobile-bookmark-icon');
       const readerContent = doc.getElementById('reader-content');
       const chapterId = readerContent?.getAttribute('data-chapter-id');
+      const chapterTitleText = readerContent?.getAttribute('data-chapter-title');
+
+      // -- Helpers --
+      function getBookmarks() { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
+      function setBookmarks(arr) { localStorage.setItem(BM_KEY, JSON.stringify(arr)); }
+      function getReadProgress() { try { return JSON.parse(localStorage.getItem(RP_KEY) || '{}'); } catch { return {}; } }
+      function setReadProgress(obj) { localStorage.setItem(RP_KEY, JSON.stringify(obj)); }
+      function getScrollPct() {
+        if (!readerScroll) return 0;
+        const max = readerScroll.scrollHeight - readerScroll.clientHeight;
+        return max > 0 ? Math.round((readerScroll.scrollTop / max) * 100) : 0;
+      }
+
+      // -- Manual bookmark (save position) --
+      function isBookmarked() { return getBookmarks().some(b => b.id === chapterId); }
 
       function updateBookmarkUi(active) {
         const icon = active ? 'bookmark' : 'bookmark_border';
@@ -427,7 +444,7 @@ const currentTier = groupedChapters.find((g) =>
           bookmarkButton!.classList.toggle('border', active);
           bookmarkButton!.classList.toggle('border-primary/30', active);
           bookmarkButton!.setAttribute('aria-pressed', active ? 'true' : 'false');
-          bookmarkButton!.title = active ? 'Bỏ dấu' : 'Đánh dấu';
+          bookmarkButton!.title = active ? 'Bỏ đánh dấu' : 'Ghi nhớ vị trí đọc';
         }
         if (mobileBookmarkIcon) {
           mobileBookmarkIcon.textContent = icon;
@@ -435,44 +452,76 @@ const currentTier = groupedChapters.find((g) =>
         }
       }
 
-      function loadBookmarkState() {
-        if (!chapterId) return false;
-        try {
-          const stored = localStorage.getItem('bookmarks') || '{}';
-          const parsed = JSON.parse(stored);
-          return Boolean(parsed[chapterId]);
-        } catch {
-          return false;
-        }
-      }
-
-      function saveBookmarkState(active) {
-        if (!chapterId) return;
-        try {
-          const stored = localStorage.getItem('bookmarks') || '{}';
-          const parsed = JSON.parse(stored);
-          parsed[chapterId] = active ? true : false;
-          localStorage.setItem('bookmarks', JSON.stringify(parsed));
-        } catch {
-          // ignore storage failures
-        }
-      }
-
       function toggleBookmark() {
-        bookmarked = !bookmarked;
-        updateBookmarkUi(bookmarked);
-        saveBookmarkState(bookmarked);
+        if (!chapterId) return;
+        const bookmarks = getBookmarks();
+        const idx = bookmarks.findIndex(b => b.id === chapterId);
+        if (idx >= 0) {
+          bookmarks.splice(idx, 1); // remove
+        } else {
+          bookmarks.unshift({
+            id: chapterId,
+            title: chapterTitleText || '',
+            url: location.pathname,
+            scrollPct: getScrollPct(),
+            savedAt: Date.now(),
+          });
+        }
+        setBookmarks(bookmarks);
+        updateBookmarkUi(isBookmarked());
       }
 
       if (bookmarkButton || mobileBookmarkButton) {
-        bookmarked = loadBookmarkState();
-        updateBookmarkUi(bookmarked);
+        updateBookmarkUi(isBookmarked());
         bookmarkButton?.addEventListener('click', toggleBookmark);
         mobileBookmarkButton?.addEventListener('click', toggleBookmark);
       }
 
+      // -- Auto-save reading progress (every 5s) --
+      if (chapterId && readerScroll) {
+        let lastAutoPct = -1;
+        setInterval(() => {
+          const pct = getScrollPct();
+          if (pct === lastAutoPct) return;
+          lastAutoPct = pct;
+          const rp = getReadProgress();
+          rp[chapterId] = { pct, title: chapterTitleText || '', url: location.pathname, ts: Date.now() };
+          // Keep only last 20 chapters
+          const keys = Object.keys(rp).sort((a, b) => (rp[b].ts || 0) - (rp[a].ts || 0));
+          if (keys.length > 20) keys.slice(20).forEach(k => delete rp[k]);
+          setReadProgress(rp);
+        }, 5000);
 
-      function toggleToc() {
+        // -- Restore scroll position on load --
+        const rp = getReadProgress();
+        const saved = rp[chapterId];
+        if (saved && saved.pct > 5 && saved.pct < 95) {
+          const toast = doc.createElement('div');
+          toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl transition-all duration-300';
+          toast.style.cssText = 'background: var(--reader-chrome-bg); border: 1px solid var(--reader-border); opacity: 0; transform: translate(-50%, 20px);';
+          toast.innerHTML = '<span class="material-symbols-outlined text-primary text-lg">history</span>' +
+            '<span class="text-sm font-semibold" style="color: var(--reader-chrome-text);">Bạn đọc đến ' + saved.pct + '%</span>' +
+            '<button id="bm-restore-btn" class="ml-2 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:opacity-90">Đọc tiếp</button>' +
+            '<button id="bm-dismiss-btn" class="px-2 py-1.5 rounded-lg text-xs" style="color: var(--reader-chrome-text-muted);">Đóng</button>';
+          doc.body.appendChild(toast);
+          requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translate(-50%, 0)'; });
+
+          doc.getElementById('bm-restore-btn')?.addEventListener('click', () => {
+            const max = readerScroll.scrollHeight - readerScroll.clientHeight;
+            readerScroll.scrollTo({ top: (saved.pct / 100) * max, behavior: 'smooth' });
+            toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)';
+            setTimeout(() => toast.remove(), 300);
+          });
+          doc.getElementById('bm-dismiss-btn')?.addEventListener('click', () => {
+            toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)';
+            setTimeout(() => toast.remove(), 300);
+          });
+          setTimeout(() => { if (toast.parentNode) { toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)'; setTimeout(() => toast.remove(), 300); } }, 6000);
+        }
+      }
+
+
+function toggleToc() {
         tocOpen = !tocOpen;
         if (tocSidebar) {
           tocSidebar.style.transition = 'opacity 0.25s ease';

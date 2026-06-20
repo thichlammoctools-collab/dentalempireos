@@ -21,7 +21,7 @@ const { chapterId, isLoggedIn, currentUserId = null } = Astro.props;
 <!-- Desktop: slide-in from right -->
 <aside
   id="review-drawer-desktop"
-  class="hidden lg:flex fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl translate-x-full transition-transform duration-350"
+  class="lg:flex fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl"
   style="width: 420px; background: var(--reader-chrome-bg);"
   data-chapter-id={chapterId}
   data-is-logged-in={isLoggedIn}

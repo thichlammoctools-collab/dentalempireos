@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
 import DonateWidget from '../components/book/DonateWidget.astro';
-import { getSupportSettings } from '../lib/book-db';
+import { getSupportSettings, getTierStats } from '../lib/book-db';
 
 export const prerender = false;
 
@@ -22,6 +22,16 @@ const tiers = [
   { tier: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, icon: homepage.tier2_icon },
   { tier: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, icon: homepage.tier3_icon },
 ];
+
+// Fetch chapter + section counts per tier
+const [tier1Stats, tier2Stats, tier3Stats] = await Promise.all([
+  getTierStats(env.DB, 1),
+  getTierStats(env.DB, 2),
+  getTierStats(env.DB, 3),
+]);
+const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number }> = {
+  1: tier1Stats, 2: tier2Stats, 3: tier3Stats,
+};
 
 const testimonialsData = [
   {
@@ -91,33 +101,55 @@ const testimonialsData = [
         <p class="text-on-surface-variant max-w-2xl mx-auto">{homepage.tier_section_subheading}</p>
       </div>
       <div class="flex flex-col gap-8 max-w-4xl mx-auto">
-        {tiers.map((mod, index) => (
-          <div class:list={[
-            'group relative p-8 rounded-[2rem] border transition-all duration-500',
-            index === 0
-              ? 'bg-surface-container border-primary/30 hover:border-primary shadow-[0_0_30px_rgba(146,204,255,0.1)]'
-              : 'bg-surface-container border-outline-variant hover:border-primary/50',
-          ]}>
-            <div class:list={[
-              'absolute top-0 right-0 p-6 transition-opacity',
-              index === 0 ? 'opacity-20 group-hover:opacity-100' : 'opacity-10 group-hover:opacity-50',
-            ]}>
-              <span class="material-symbols-outlined text-6xl text-primary">{mod.icon}</span>
-            </div>
-            <div class="relative z-10">
+        {tiers.map((mod, index) => {
+          const stats = tierStatsMap[mod.tier];
+          return (
+            <a
+              href="/book"
+              class:list={[
+                'group relative p-8 rounded-[2rem] border transition-all duration-500 block',
+                index === 0
+                  ? 'bg-surface-container border-primary/30 hover:border-primary hover:shadow-[0_0_40px_rgba(146,204,255,0.15)] shadow-[0_0_30px_rgba(146,204,255,0.1)]'
+                  : 'bg-surface-container border-outline-variant hover:border-primary/50 hover:shadow-[0_0_30px_rgba(146,204,255,0.08)]',
+              ]}
+            >
               <div class:list={[
-                'inline-block px-4 py-1 rounded-full font-semibold text-sm tracking-wider mb-4',
-                index === 0 ? 'bg-primary/10 text-primary' : 'bg-white/5 text-on-surface-variant',
+                'absolute top-0 right-0 p-6 transition-opacity',
+                index === 0 ? 'opacity-20 group-hover:opacity-100' : 'opacity-10 group-hover:opacity-50',
               ]}>
-                TẦNG {mod.tier}
+                <span class="material-symbols-outlined text-6xl text-primary">{mod.icon}</span>
               </div>
-              <h3 class="text-headline-md text-white mb-4">{mod.name}</h3>
-              <p class="text-on-surface-variant leading-relaxed max-w-2xl">
-                {mod.subtitle}
-              </p>
-            </div>
-          </div>
-        ))}
+              <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class:list={[
+                    'inline-block px-4 py-1 rounded-full font-semibold text-sm tracking-wider',
+                    index === 0 ? 'bg-primary/10 text-primary' : 'bg-white/5 text-on-surface-variant',
+                  ]}>
+                    TẦNG {mod.tier}
+                  </div>
+                  <div class="flex items-center gap-3 text-xs text-on-surface-variant">
+                    <span class="flex items-center gap-1">
+                      <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                      {stats.chapterCount} chương
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <span class="material-symbols-outlined text-[16px]">toc</span>
+                      {stats.sectionCount} đề mục
+                    </span>
+                  </div>
+                </div>
+                <h3 class="text-headline-md text-white mb-2 group-hover:text-primary transition-colors">{mod.name}</h3>
+                <p class="text-on-surface-variant leading-relaxed max-w-2xl">
+                  {mod.subtitle}
+                </p>
+                <div class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  Xem sách
+                  <span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </div>
+              </div>
+            </a>
+          );
+        })}
       </div>
     </div>
   </section>
