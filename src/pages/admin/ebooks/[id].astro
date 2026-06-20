@@ -285,6 +285,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           title: fd.get('title'),
           description: fd.get('description'),
           status: fd.get('status'),
+          chapter_no: fd.get('chapter_no') ? parseInt(fd.get('chapter_no') as string) : undefined,
         }),
       });
       if (res.ok) {

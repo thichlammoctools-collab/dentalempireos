@@ -34,15 +34,40 @@ export const PUT: APIRoute = async ({ params, request }) => {
     status?: string;
   };
 
+  // Resolve final values (fall back to existing)
+  const newTier = tier ?? existing.chapter.tier;
+  const newChapterNo = chapter_no ?? existing.chapter.chapter_no;
+  const newOrder = order ?? existing.chapter.order;
+
   await upsertChapter(env.DB, {
     id,
-    tier: tier ?? existing.chapter.tier,
-    chapter_no: chapter_no ?? existing.chapter.chapter_no,
+    tier: newTier,
+    chapter_no: newChapterNo,
     title: title ?? existing.chapter.title,
     description: description ?? existing.chapter.description,
-    order: order ?? existing.chapter.order,
+    order: newOrder,
     status: (['draft', 'published'].includes(status!) ? (status as 'draft' | 'published') : existing.chapter.status),
   });
+
+  // If chapter_no changed, re-sort all chapters in the same tier
+  // so that order stays consistent with chapter_no
+  if (chapter_no !== undefined && chapter_no !== existing.chapter.chapter_no) {
+    const allInTier = await env.DB
+      .prepare('SELECT "id", "chapter_no" FROM "chapter" WHERE "tier" = ? ORDER BY "chapter_no", "createdAt"')
+      .bind(newTier)
+      .all<{ id: string; chapter_no: number }>();
+
+    if (allInTier.results.length > 0) {
+      const ts = Date.now();
+      await env.DB.batch(
+        allInTier.results.map((ch, idx) =>
+          env.DB
+            .prepare('UPDATE "chapter" SET "order" = ?, "updatedAt" = ? WHERE "id" = ?')
+            .bind(idx, ts, ch.id),
+        ),
+      );
+    }
+  }
 
   return json({ ok: true });
 };
