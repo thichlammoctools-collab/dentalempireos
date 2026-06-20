@@ -212,7 +212,7 @@ const newVideoId = nanoid();
       btn.classList.add('text-green-400');
       setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-400'); }, 2000);
     } else {
-      alert('Lỗi khi lưu');
+      showToast('Lỗi khi lưu', 'error');
     }
   });
 
@@ -234,7 +234,7 @@ const newVideoId = nanoid();
     const duration_seconds = parseInt((document.getElementById('video-duration') as HTMLInputElement).value) || null;
 
     if (!youtube_id || !title) {
-      alert('YouTube ID và tiêu đề là bắt buộc');
+      showToast('YouTube ID và tiêu đề là bắt buộc', 'error');
       return;
     }
 
@@ -249,7 +249,7 @@ const newVideoId = nanoid();
       window.location.reload();
     } else {
       const err = await res.json();
-      alert('Lỗi: ' + (err.error ?? 'Không rõ'));
+      showToast('Lỗi: ' + (err.error ?? 'Không rõ'), 'error');
     }
   });
 
@@ -262,7 +262,7 @@ const newVideoId = nanoid();
       if (res.ok) {
         btn.closest('.video-row')?.remove();
       } else {
-        alert('Xóa thất bại');
+        showToast('Xóa thất bại', 'error');
       }
     });
   });

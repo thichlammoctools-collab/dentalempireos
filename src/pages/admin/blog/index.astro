@@ -275,7 +275,7 @@ const draftCount = posts.filter((p) => p.status === 'draft').length;
       if (res.ok) {
         btn.closest('tr')?.remove();
       } else {
-        alert('Xóa thất bại');
+        showToast('Xóa thất bại', 'error');
       }
     });
   });

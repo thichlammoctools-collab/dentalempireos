@@ -310,51 +310,48 @@ def convert_to_webp(manifest: list, quality: int = 80) -> dict:
     if not manifest:
         return {}
 
-    # Write manifest for Node.js
     tmpdir = os.path.dirname(manifest[0]["local"])
-    input_file = os.path.join(tmpdir, "convert_input.json")
+    js_file = os.path.join(tmpdir, "_convert_webp.cjs")
     output_file = os.path.join(tmpdir, "convert_output.json")
 
-    with open(input_file, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, ensure_ascii=False)
-
-    proj_dir = str(Path(__file__).parent.parent).replace(chr(92), "/")
-    node_script = f"""
-const path = require('path');
-const sharp = require(path.join('{proj_dir}'.replace(/\\//g, '/'), 'node_modules', 'sharp'));
+    # Write a .cjs file to avoid escaping hell
+    js_content = f"""
+const sharp = require('sharp');
 const fs = require('fs');
-const manifest = JSON.parse(fs.readFileSync('{input_file.replace(chr(92), "/")}', 'utf8'));
+const path = require('path');
+const manifest = {json.dumps(manifest)};
 const results = {{}};
 let totalBefore = 0, totalAfter = 0;
 
-async function convert() {{
+(async () => {{
   for (const img of manifest) {{
-    const src = img.local.replace(/\\\\/g, '/');
+    const src = path.resolve(img.local);
     const dst = src.replace('.png', '.webp');
     try {{
       const before = fs.statSync(src).size;
       await sharp(src).webp({{ quality: {quality} }}).toFile(dst);
       const after = fs.statSync(dst).size;
-      results[img.src] = dst.replace(/\\\\/g, '/');
+      results[img.src] = dst;
       totalBefore += before;
       totalAfter += after;
       const pct = before > 0 ? Math.round((1 - after/before) * 100) : 0;
-      console.log('  [' + img.index + '] ' + (before/1024).toFixed(0) + 'KB -> ' + (after/1024).toFixed(0) + 'KB (-' + pct + '%)');
+      console.log(`  [$${{img.index}}] ${{(before/1024).toFixed(0)}}KB -> ${{(after/1024).toFixed(0)}}KB (-$${{pct}}%)`);
     }} catch (e) {{
-      console.error('  [' + img.index + '] WARN: ' + e.message);
+      console.error(`  [$${{img.index}}] WARN: ${{e.message}}`);
       results[img.src] = src;
     }}
   }}
-  fs.writeFileSync('{output_file.replace(chr(92), "/")}', JSON.stringify(results));
+  fs.writeFileSync('{output_file}', JSON.stringify(results));
   const pct = totalBefore > 0 ? Math.round((1 - totalAfter/totalBefore) * 100) : 0;
-  console.log('  Total: ' + (totalBefore/1024/1024).toFixed(1) + 'MB -> ' + (totalAfter/1024/1024).toFixed(1) + 'MB (-' + pct + '%)');
-}}
-convert().catch(e => {{ console.error(e.message); process.exit(1); }});
+  console.log(`  Total: ${{(totalBefore/1024/1024).toFixed(1)}}MB -> ${{(totalAfter/1024/1024).toFixed(1)}}MB (-$${{pct}}%)`);
+}})().catch(e => {{ console.error(e.message); process.exit(1); }});
 """
+    with open(js_file, "w", encoding="utf-8") as f:
+        f.write(js_content)
 
     print("  Converting to WebP...")
     result = run_cmd(
-        ["node", "-e", node_script],
+        ["node", js_file],
         capture_output=True, text=True, timeout=120,
         cwd=str(Path(__file__).parent.parent),
     )
@@ -362,7 +359,6 @@ convert().catch(e => {{ console.error(e.message); process.exit(1); }});
         print(result.stdout.strip())
     else:
         print(f"  WARN: WebP conversion failed: {result.stderr[:200]}")
-        # Fallback: use original PNGs
         return {img["src"]: img["local"] for img in manifest}
 
     if os.path.exists(output_file):
@@ -376,6 +372,8 @@ convert().catch(e => {{ console.error(e.message); process.exit(1); }});
 # ════════════════════════════════════════════════════════════════
 def parse_lark_xml(content: str) -> list:
     """Parse Lark XML into flat list of nodes."""
+    if not hasattr(parse_lark_xml, "_first_h1_done"):
+        parse_lark_xml._first_h1_done = False
     nodes = []
     pos = 0
     while pos < len(content):
@@ -397,9 +395,23 @@ def parse_lark_xml(content: str) -> list:
             pos = after_open
             continue
 
-        if tag in ("title", "h1"):
+        if tag in ("title",):
             end = re.search(rf"</{tag}>", content[after_open:])
             pos = after_open + (end.end() if end else 0)
+            continue
+
+        if tag == "h1":
+            end = re.search(r"</h1>", content[after_open:])
+            if end:
+                inner = content[after_open:after_open + end.start()]
+                text = re.sub(r"<[^>]+>", "", inner).strip()
+                pos = after_open + end.end()
+                if text and not parse_lark_xml._first_h1_done:
+                    parse_lark_xml._first_h1_done = True
+                elif text:
+                    nodes.append({"type": "heading", "level": 1, "text": text})
+                continue
+            pos = after_open
             continue
 
         if tag in ("h2", "h3", "h4", "h5", "h6"):
@@ -528,34 +540,44 @@ def esc_sql(s: str) -> str:
 
 
 def build_section_tree(nodes: list) -> list:
-    sections = []
-    h2 = h3 = None
-    preamble = []
+    """Build a hierarchical section tree supporting h1–h5.
+
+    Each section: {id, text, level, children: [...], content: [...]}
+    Headings create sections; text/images go into the deepest open section.
+    """
+    root: list = []
+    # stack[i] = (level, section_node) — tracks the currently open ancestor chain
+    stack: list = []
+    preamble: list = []
+
     for node in nodes:
         if node["type"] == "heading":
             lv = node["level"]
-            if lv == 2:
-                h2 = {"id": str(uuid.uuid4()), "text": node["text"], "children": [], "content": list(preamble)}
+            sec = {"id": str(uuid.uuid4()), "text": node["text"], "level": lv, "children": [], "content": []}
+
+            # Pop sections from stack that are >= current level (they're closed)
+            while stack and stack[-1][0] >= lv:
+                stack.pop()
+
+            if stack:
+                stack[-1][1]["children"].append(sec)
+            else:
+                root.append(sec)
+
+            stack.append((lv, sec))
+
+            # Flush preamble into this section if it's the first real heading
+            if preamble and not root[0].get("content"):
+                sec["content"] = list(preamble)
                 preamble = []
-                h3 = None
-                sections.append(h2)
-            elif lv == 3:
-                h3 = {"id": str(uuid.uuid4()), "text": node["text"], "content": []}
-                if h2:
-                    h2["children"].append(h3)
-                else:
-                    sections.append(h3)
-            elif lv in (4, 5, 6):
-                tgt = h3 or h2
-                if tgt:
-                    tgt["content"].append({"type": "heading", "level": min(lv, 3), "text": node["text"]})
+
         elif node["type"] in ("text", "image"):
-            tgt = h3 or h2
-            if tgt:
-                tgt["content"].append(node)
+            if stack:
+                stack[-1][1]["content"].append(node)
             else:
                 preamble.append(node)
-    return sections
+
+    return root
 
 
 def generate_sql(chapter_id: str, tier: int, chapter_no: int, title: str,
@@ -596,22 +618,24 @@ def generate_sql(chapter_id: str, tier: int, chapter_no: int, title: str,
                     )
                     bo[0] += 1
 
-    for h2 in sections:
-        h2id = h2["id"]
+    def insert_section(sec, parent_id):
+        nonlocal so
+        sid = sec["id"]
+        lv = sec["level"]
+        slug = slugify(sec["text"])
+        pid = f"'{parent_id}'" if parent_id else "NULL"
         sql.append(
             f"INSERT OR IGNORE INTO section (id,chapter_id,parent_id,level,title,slug,`order`,keywords) "
-            f"VALUES ('{h2id}','{chapter_id}',NULL,2,'{esc_sql(h2['text'])}','{slugify(h2['text'])}',{so},'[]');"
+            f"VALUES ('{sid}','{chapter_id}',{pid},"
+            f"{lv},'{esc_sql(sec['text'])}','{slug}',{so},'[]');"
         )
         so += 1
-        add_blocks(h2id, h2.get("content", []))
-        for h3 in h2.get("children", []):
-            h3id = h3["id"]
-            sql.append(
-                f"INSERT OR IGNORE INTO section (id,chapter_id,parent_id,level,title,slug,`order`,keywords) "
-                f"VALUES ('{h3id}','{chapter_id}','{h2id}',3,'{esc_sql(h3['text'])}','{slugify(h3['text'])}',{so},'[]');"
-            )
-            so += 1
-            add_blocks(h3id, h3.get("content", []))
+        add_blocks(sid, sec.get("content", []))
+        for child in sec.get("children", []):
+            insert_section(child, sid)
+
+    for h in sections:
+        insert_section(h, None)
 
     return "\n".join(sql), so, bo[0]
 

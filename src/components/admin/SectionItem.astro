@@ -93,7 +93,7 @@ if (section.keywords) {
   )}
 
   {hasChildren && (
-    <ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20">
+    <ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20" style="display: none">
       {section.children.map((child) => (
         <SectionItem section={child} selectedId={selectedId} depth={depth + 1} />
       ))}

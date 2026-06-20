@@ -200,12 +200,12 @@ const settings = await getSupportSettings(env.DB);
   async function handleFileUpload(file: File) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file ảnh');
+      showToast('Vui lòng chọn file ảnh', 'error');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File quá lớn (tối đa 10MB)');
+      showToast('File quá lớn (tối đa 10MB)', 'error');
       return;
     }
 
@@ -245,7 +245,7 @@ const settings = await getSupportSettings(env.DB);
       }, 2000);
     } catch (err) {
       progressContainer.classList.add('hidden');
-      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      showToast(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   }
 

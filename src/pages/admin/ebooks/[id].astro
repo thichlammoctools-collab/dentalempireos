@@ -139,6 +139,11 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     </section>
   </div>
 
+  <!-- Hidden data for section list (used by block move feature) -->
+  <script is:inline define:vars={{ flatSections }}>
+    window.__flatSections = flatSections;
+  </script>
+
   <!-- ═══════════════ Block editor modal ═══════════════ -->
   <div id="section-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
     <!-- Backdrop -->
@@ -498,6 +503,18 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             <button data-action="save-block" class="text-on-surface-variant hover:text-primary transition-colors opacity-0 pointer-events-none" title="Lưu block">
               <span class="material-symbols-outlined text-[18px]">save</span>
             </button>
+            <div class="relative" data-move-wrap>
+              <button data-action="move-block" class="text-on-surface-variant hover:text-primary transition-colors" title="Di chuyển sang đề mục khác">
+                <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
+              </button>
+              <div data-move-menu class="move-menu hidden">
+                <div class="move-menu-search">
+                  <span class="material-symbols-outlined text-[14px] text-on-surface-variant/60 shrink-0">search</span>
+                  <input data-move-search type="text" placeholder="Tìm đề mục..." class="bg-transparent text-white text-xs outline-none w-full" />
+                </div>
+                <div data-move-list class="move-menu-list"></div>
+              </div>
+            </div>
             <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
@@ -772,6 +789,111 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         showLocalToast('Lỗi khi lưu thứ tự block. Đang tải lại...', false);
         location.reload();
       }
+    });
+
+    // ── Block: move to another section ─────────────────
+    let sectionListData: { id: string; label: string; level: number }[] = [];
+    try {
+      sectionListData = (window as any).__flatSections ?? [];
+    } catch { sectionListData = []; }
+
+    function populateMoveMenu(menu: HTMLElement, blockId: string, currentSectionId: string, searchQuery = '') {
+      const listEl = menu.querySelector<HTMLElement>('[data-move-list]')!;
+      const q = searchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const filtered = sectionListData.filter(s => s.id !== currentSectionId && (
+        !q || s.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)
+      ));
+      listEl.innerHTML = filtered.length === 0
+        ? '<div class="move-menu-empty">Không tìm thấy</div>'
+        : filtered.map(s => `
+            <button data-move-target="${s.id}" class="move-menu-item ${s.level === 3 ? 'move-menu-item-sub' : ''}">
+              <span class="material-symbols-outlined text-[14px] ${s.level === 3 ? 'text-on-surface-variant' : 'text-primary'}">${s.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}</span>
+              <span class="truncate">${escapeHtml(s.label)}</span>
+            </button>
+          `).join('');
+    }
+
+    // Close open move menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('[data-move-wrap]')) {
+        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // Add move-block and move-target handling into the existing modalBody click handler
+    // We inject before the delete handler by adding it via a separate listener
+    // that stops propagation for move actions
+
+    modalBody.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      // Move button → open/close dropdown
+      const moveBtn = target.closest<HTMLElement>('[data-action="move-block"]');
+      if (moveBtn) {
+        e.stopPropagation();
+        const wrap = moveBtn.closest<HTMLElement>('[data-move-wrap]')!;
+        const menu = wrap.querySelector<HTMLElement>('[data-move-menu]')!;
+        const isOpen = !menu.classList.contains('hidden');
+        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
+        if (!isOpen) {
+          menu.classList.remove('hidden');
+          const item = moveBtn.closest<HTMLElement>('.block-item');
+          const blockId = item?.dataset.blockId ?? '';
+          populateMoveMenu(menu, blockId, modalSectionId);
+          const searchInput = menu.querySelector<HTMLInputElement>('[data-move-search]');
+          if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+        }
+        return;
+      }
+
+      // Move target → execute move
+      const moveTarget = target.closest<HTMLElement>('[data-move-target]');
+      if (moveTarget) {
+        e.stopPropagation();
+        const targetSectionId = moveTarget.dataset.moveTarget!;
+        const blockItem = moveTarget.closest<HTMLElement>('.block-item');
+        const blockId = blockItem?.dataset.blockId;
+        if (!blockId) return;
+        const targetSection = sectionListData.find(s => s.id === targetSectionId);
+        const targetLabel = targetSection?.label ?? 'đề mục mới';
+        if (!confirm(`Di chuyển block này sang "${targetLabel}"?`)) return;
+
+        fetch(`/api/admin/blocks/${blockId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ section_id: targetSectionId }),
+        }).then(res => {
+          if (res.ok) {
+            blockItem?.remove();
+            showLocalToast(`Đã chuyển sang "${targetLabel}"`);
+            if (!modalBody.querySelector('.block-item')) {
+              modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
+            }
+            // Update in-memory tree
+            if (currentTree) {
+              const srcSection = findSection(currentTree.sections, modalSectionId);
+              if (srcSection) {
+                srcSection.blocks = srcSection.blocks.filter(b => b.id !== blockId);
+              }
+            }
+          } else {
+            showLocalToast('Lỗi khi di chuyển block', false);
+          }
+        }).catch(() => showLocalToast('Lỗi mạng', false));
+        return;
+      }
+    });
+
+    // Filter move menu on search input
+    modalBody.addEventListener('input', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.matches('[data-move-search]')) return;
+      const menu = target.closest<HTMLElement>('[data-move-menu]')!;
+      const wrap = menu.closest<HTMLElement>('[data-move-wrap]')!;
+      const blockItem = wrap.closest<HTMLElement>('.block-item');
+      const blockId = blockItem?.dataset.blockId ?? '';
+      populateMoveMenu(menu, blockId, modalSectionId, target.value);
     });
 
     // ── Inline edit section title ───────────────────────
@@ -1728,5 +1850,66 @@ const selectedSectionId = flatSections[0]?.id ?? '';
   :global(.drag-above),
   :global(.drag-below) {
     position: relative;
+  }
+
+  /* ==========================================
+     MOVE BLOCK — Section dropdown menu
+     ========================================== */
+  .move-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 100;
+    width: 260px;
+    max-height: 320px;
+    background: var(--color-surface-container, #1e1e1e);
+    border: 1px solid var(--color-outline-variant, #444);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .move-menu-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-outline-variant, #444);
+  }
+  .move-menu-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px;
+  }
+  .move-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-on-surface, #fff);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .move-menu-item:hover {
+    background: var(--color-surface-container-high, #2a2a2a);
+  }
+  .move-menu-item-sub {
+    padding-left: 22px;
+    font-weight: 400;
+    color: var(--color-on-surface-variant, #aaa);
+  }
+  .move-menu-empty {
+    padding: 12px 8px;
+    font-size: 12px;
+    color: var(--color-on-surface-variant, #888);
+    text-align: center;
   }
 </style>

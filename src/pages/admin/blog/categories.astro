@@ -564,7 +564,7 @@ function countRoots(nodes: BlogCategoryNode[]): number {
       location.reload();
     } catch (err) {
       console.error('Reparent error:', err);
-      alert('Lỗi khi di chuyển chuyên mục. Trang sẽ tải lại.');
+      showToast('Lỗi khi di chuyển chuyên mục. Trang sẽ tải lại.', 'error');
       location.reload();
     }
   }

@@ -8,21 +8,18 @@ interface Props {
   isReading?: boolean;
 }
 
-const { currentPath, groupedChapters = [], currentSlug = '', isReading = false } = Astro.props;
+const { currentPath, groupedChapters = [], currentSlug = '' } = Astro.props;
 
 const getNavState = () => {
   if (currentPath === '/') return 'home';
   if (currentPath.startsWith('/book') && !currentPath.includes('/book/')) return 'library';
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
-  return 'menu';
+  if (currentPath.startsWith('/videos')) return 'videos';
+  return '';
 };
 
 const activeNav = getNavState();
-
-const homeConfig = isReading
-  ? { href: '/book', icon: 'arrow_back', label: 'Thư viện', id: 'back' }
-  : { href: '/', icon: 'home', label: 'Trang chủ', id: 'home' };
 ---
 
 <!-- ========== MENU DRAWER ========== -->
@@ -131,75 +128,65 @@ const homeConfig = isReading
   style="background: var(--reader-chrome-bg, var(--color-surface-container-lowest)); border-color: var(--reader-border, var(--color-outline-variant)); padding-bottom: env(safe-area-inset-bottom, 0px);"
 >
   <div class="flex items-center justify-around h-16">
-    <!-- Home / Back -->
+    <!-- Trang chủ -->
     <a
-      href={homeConfig.href}
+      href="/"
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'home' || isReading ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
+        activeNav === 'home' ? 'text-primary' : 'text-on-surface-variant'
       ]}
     >
-      <span class="material-symbols-outlined text-2xl">{homeConfig.icon}</span>
-      <span class="text-[10px] font-medium">{homeConfig.label}</span>
+      <span class="material-symbols-outlined text-2xl">home</span>
+      <span class="text-[10px] font-medium">Trang chủ</span>
     </a>
-
-    <!-- Library / Chapters -->
-    {isReading && groupedChapters.length > 0 ? (
-      <button
-        id="mobile-nav-library"
-        class:list={[
-          'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-          activeNav === 'library' || isReading ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-        ]}
-        aria-label="Thư viện"
-      >
-        <span class="material-symbols-outlined text-2xl">menu_book</span>
-        <span class="text-[10px] font-medium">Thư viện</span>
-      </button>
-    ) : (
-      <a
-        href="/book"
-        class:list={[
-          'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-          activeNav === 'library' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-        ]}
-      >
-        <span class="material-symbols-outlined text-2xl">menu_book</span>
-        <span class="text-[10px] font-medium">Thư viện</span>
-      </a>
-    )}
-
-    <!-- Search (FAB) -->
-    <button
-      id="mobile-nav-search"
-      class="flex items-center justify-center w-14 h-14 -mt-6 rounded-full bg-primary text-on-primary shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300 hover:scale-105 active:scale-95"
-      aria-label="Tìm kiếm"
-    >
-      <span class="material-symbols-outlined text-2xl">search</span>
-    </button>
 
     <!-- Blog -->
     <a
       href="/blog"
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'blog' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
+        activeNav === 'blog' ? 'text-primary' : 'text-on-surface-variant'
       ]}
     >
       <span class="material-symbols-outlined text-2xl">article</span>
       <span class="text-[10px] font-medium">Blog</span>
     </a>
 
-    <!-- Menu -->
-    <button
-      id="mobile-nav-menu"
-      onclick="window.__menuOpen ? window.__menuClose() : window.__menuOpen()"
-      class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-on-surface-variant hover:text-on-surface transition-all duration-200"
-      aria-label="Menu"
+    <!-- Đọc sách -->
+    <a
+      href="/book"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'library' ? 'text-primary' : 'text-on-surface-variant'
+      ]}
     >
-      <span class="material-symbols-outlined text-2xl">menu</span>
-      <span class="text-[10px] font-medium">Menu</span>
-    </button>
+      <span class="material-symbols-outlined text-2xl">menu_book</span>
+      <span class="text-[10px] font-medium">Đọc sách</span>
+    </a>
+
+    <!-- Tài nguyên -->
+    <a
+      href="/resources"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'resources' ? 'text-primary' : 'text-on-surface-variant'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">folder_special</span>
+      <span class="text-[10px] font-medium">Tài nguyên</span>
+    </a>
+
+    <!-- Video -->
+    <a
+      href="/videos"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'videos' ? 'text-primary' : 'text-on-surface-variant'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">play_circle</span>
+      <span class="text-[10px] font-medium">Video</span>
+    </a>
   </div>
 </nav>
 

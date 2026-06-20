@@ -112,7 +112,7 @@ const currentChapterTitle = groupedChapters
 <!-- Overlay -->
 <div
   id="section-nav-overlay"
-  class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity"
+  class="fixed inset-0 z-[101] bg-black/50 backdrop-blur-sm hidden transition-opacity"
   aria-hidden="true"
 ></div>
 
@@ -361,10 +361,16 @@ const currentChapterTitle = groupedChapters
           }
         });
       }
-      function toggleMobileGroup(tier: number) {
+      function toggleMobileGroup(tier: number, forceOpen?: boolean) {
         const collapsed = getMobileCollapsed();
-        if (collapsed.has(tier)) collapsed.delete(tier);
-        else collapsed.add(tier);
+        if (forceOpen === true) {
+          collapsed.delete(tier);
+        } else if (forceOpen === false) {
+          collapsed.add(tier);
+        } else {
+          if (collapsed.has(tier)) collapsed.delete(tier);
+          else collapsed.add(tier);
+        }
         saveMobileCollapsed(collapsed);
         applyMobileCollapsed();
       }
@@ -381,46 +387,32 @@ const currentChapterTitle = groupedChapters
       const sheet = sheetEl;
 
       function getActiveId(): string | null {
-        // Read from desktop scroll-spy state or detect manually
         const activeLink = document.querySelector('[data-mobile-section-link].section-nav-active-mobile');
         if (activeLink) return (activeLink as HTMLElement).dataset.mobileSectionLink;
-
-        // Fallback: find the heading closest to current scroll position
         const headings = document.querySelectorAll('.reader-content h2[id], .reader-content h3[id]');
         let bestId: string | null = null;
         let bestDist = Infinity;
         headings.forEach((h) => {
           const rect = h.getBoundingClientRect();
           const dist = Math.abs(rect.top - READER_OFFSET);
-          if (dist < bestDist) {
-            bestDist = dist;
-            bestId = h.id;
-          }
+          if (dist < bestDist) { bestDist = dist; bestId = h.id; }
         });
         return bestId;
       }
 
       function openSheet() {
-        // Close other mobile sheets first (mutual exclusion)
         (window as any).__closeReview?.();
         (window as any).__closeQuestionDrawer?.();
-
         sheet.classList.add('section-nav-open');
         if (overlay) overlay.classList.remove('hidden');
-
-        // Highlight current section
         const currentId = getActiveId();
         if (currentId) {
           mobileLinks.forEach((link) => {
             const isActive = (link as HTMLElement).dataset.mobileSectionLink === currentId;
             link.classList.toggle('section-nav-active-mobile', isActive);
-            // Scroll active link into view
-            if (isActive) {
-              setTimeout(() => link.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
-            }
+            if (isActive) setTimeout(() => link.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
           });
         }
-
         syncMobileProgress();
       }
 
@@ -437,7 +429,6 @@ const currentChapterTitle = groupedChapters
         mobileProgressBar.style.width = `${pct}%`;
       }
 
-      // Expose globally
       (window as any).__openSectionNav = openSheet;
       (window as any).__closeSectionNav = closeSheet;
 
@@ -446,10 +437,7 @@ const currentChapterTitle = groupedChapters
       });
       overlay?.addEventListener('click', closeSheet);
 
-      // ---- Review trigger ----
-      // review-trigger click is handled by ReviewDrawer.astro script directly
-
-      // ---- Question trigger (mobile) ----
+      // Question trigger (mobile)
       const questionTrigger = document.getElementById('question-trigger');
       questionTrigger?.addEventListener('click', () => {
         closeSheet();
@@ -457,10 +445,9 @@ const currentChapterTitle = groupedChapters
       });
       closeBtn?.addEventListener('click', closeSheet);
 
-      // ---- Tab switching ----
+      // Tab switching
       const tabs = document.querySelectorAll<HTMLElement>('.section-nav-tab');
       const panels = document.querySelectorAll<HTMLElement>('.section-nav-panel');
-
       tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
           const target = tab.dataset.tab;
@@ -472,18 +459,13 @@ const currentChapterTitle = groupedChapters
           tab.style.background = 'rgba(146,204,255,0.1)';
           tab.style.color = 'var(--color-primary)';
           tab.style.border = '1px solid rgba(146,204,255,0.3)';
-
           panels.forEach((panel) => {
-            if (panel.dataset.panel === target) {
-              panel.classList.remove('hidden');
-            } else {
-              panel.classList.add('hidden');
-            }
+            panel.classList.toggle('hidden', panel.dataset.panel !== target);
           });
         });
       });
 
-      // Close on mobile section link click + smooth scroll
+      // Section links — expand parent group if collapsed on touchstart
       mobileLinks.forEach((link) => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
@@ -502,13 +484,11 @@ const currentChapterTitle = groupedChapters
         });
       });
 
-      // Close on chapter link click
+      // Chapter / attachment link clicks
       sheet.querySelectorAll<HTMLElement>('[data-section-nav-chapter-link]').forEach((link) => {
         link.addEventListener('click', () => closeSheet());
       });
-
-      const attachmentLinks = sheet.querySelectorAll<HTMLElement>('[data-mobile-attachment-link]');
-      attachmentLinks.forEach((link) => {
+      sheet.querySelectorAll<HTMLElement>('[data-mobile-attachment-link]').forEach((link) => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           const hash = (link as HTMLAnchorElement).getAttribute('href');
@@ -524,34 +504,84 @@ const currentChapterTitle = groupedChapters
         });
       });
 
-      // Touch drag to close
+      // === IMPROVED SWIPE TO CLOSE ===
       let startY = 0;
       let deltaY = 0;
+      let startTime = 0;
+      let startX = 0;
+      let velocity = 0;
+      let lastY = 0;
+      let lastTime = 0;
       let dragging = false;
+      let rafId: number | null = null;
 
-      handle?.addEventListener('touchstart', (e: Event) => {
-        startY = (e as TouchEvent).touches[0].clientY;
+      handle?.addEventListener('touchstart', (e: TouchEvent) => {
+        if ((e.target as HTMLElement).closest('[data-mobile-section-link]')) return;
+        startY = lastY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+        startTime = lastTime = Date.now();
+        velocity = 0;
+        deltaY = 0;
         dragging = true;
         sheet.style.transition = 'none';
+        overlay.style.transition = 'none';
+        hoveredGroupTier = null;
       }, { passive: true });
 
-      document.addEventListener('touchmove', (e: Event) => {
+      document.addEventListener('touchmove', (e: TouchEvent) => {
         if (!dragging) return;
-        deltaY = (e as TouchEvent).touches[0].clientY - startY;
-        if (deltaY > 0) {
-          sheet.style.transform = `translateY(${deltaY}px)`;
-        }
+        const now = Date.now();
+        const currentY = e.touches[0].clientY;
+        const currentX = e.touches[0].clientX;
+        const dx = currentX - startX;
+        const dy = currentY - startY;
+
+        // Only drag down (not left/right)
+        if (dy < 0) { deltaY = 0; return; }
+
+        // If primarily horizontal swipe, ignore
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) return;
+
+        deltaY = dy;
+        const dt = now - lastTime;
+        if (dt > 0) velocity = (currentY - lastY) / dt;
+        lastY = currentY;
+        lastTime = now;
+
+        // Resistance: slower at the start, faster as you drag more
+        const resistance = 1 - Math.min(0.5, deltaY / (sheet.offsetHeight * 0.6));
+        const adjustedDelta = deltaY * resistance;
+
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          sheet.style.transform = `translateY(${adjustedDelta}px)`;
+          // Opacity of overlay fades based on drag distance
+          const maxDelta = sheet.offsetHeight * 0.4;
+          const opacity = Math.max(0, 1 - deltaY / maxDelta) * 0.5;
+          overlay.style.opacity = String(opacity);
+        });
       }, { passive: true });
 
       document.addEventListener('touchend', () => {
         if (!dragging) return;
+        if (rafId) cancelAnimationFrame(rafId);
+        if (expandTimer) clearTimeout(expandTimer);
         dragging = false;
         sheet.style.transition = '';
-        if (deltaY > 80) {
+        overlay.style.transition = '';
+        overlay.style.opacity = '';
+
+        const shouldClose = deltaY > 80 || (deltaY > 40 && velocity > 0.5);
+        if (shouldClose) {
+          sheet.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1), opacity 0.2s ease';
+          overlay.style.transition = 'opacity 0.25s ease';
           closeSheet();
+        } else if (deltaY > 5) {
+          sheet.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
         }
         sheet.style.transform = '';
         deltaY = 0;
+        velocity = 0;
       });
 
       // Keyboard: Escape to close

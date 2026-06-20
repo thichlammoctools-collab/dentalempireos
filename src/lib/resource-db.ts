@@ -34,13 +34,53 @@ function now(): string {
   return new Date().toISOString();
 }
 
+export interface ListResourcesOptions {
+  search?: string;
+  category?: string;
+}
+
 // ── List ─────────────────────────────────────────────────────
 
-export async function listResources(db: D1Database): Promise<ResourceRow[]> {
+export async function listResources(db: D1Database, opts: ListResourcesOptions = {}): Promise<ResourceRow[]> {
+  const conditions: string[] = [];
+  const binds: (string | number)[] = [];
+
+  if (opts.search) {
+    conditions.push('("title" LIKE ? OR "description" LIKE ?)');
+    binds.push(`%${opts.search}%`, `%${opts.search}%`);
+  }
+  if (opts.category && opts.category !== 'all') {
+    conditions.push('"category" = ?');
+    binds.push(opts.category);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const { results } = await db
-    .prepare('SELECT * FROM "resource" ORDER BY "sort_order", "id" DESC')
+    .prepare(`SELECT * FROM "resource" ${where} ORDER BY "sort_order", "id" DESC`)
+    .bind(...binds)
     .all<ResourceRow>();
   return results;
+}
+
+export async function countResources(db: D1Database, opts: ListResourcesOptions = {}): Promise<number> {
+  const conditions: string[] = [];
+  const binds: (string | number)[] = [];
+
+  if (opts.search) {
+    conditions.push('("title" LIKE ? OR "description" LIKE ?)');
+    binds.push(`%${opts.search}%`, `%${opts.search}%`);
+  }
+  if (opts.category && opts.category !== 'all') {
+    conditions.push('"category" = ?');
+    binds.push(opts.category);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const { count } = await db
+    .prepare(`SELECT COUNT(*) as count FROM "resource" ${where}`)
+    .bind(...binds)
+    .first<{ count: number }>();
+  return count ?? 0;
 }
 
 // ── Get ──────────────────────────────────────────────────────

@@ -88,7 +88,7 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
   <div id="read-progress" class="fixed top-20 left-0 h-0.5 read-progress z-50" style="width: 0"></div>
 
   <!-- Article Header -->
-  <section class="relative py-12 overflow-hidden">
+  <section class="relative py-8 sm:py-12 overflow-hidden">
     {post.cover_url && (
       <div class="absolute inset-0">
         <img src={post.cover_url} alt={post.cover_alt} class="w-full h-full object-cover opacity-20" />
@@ -135,24 +135,24 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
       <p class="text-on-surface-variant text-base mb-6">{post.description}</p>
 
       <!-- Meta -->
-      <div class="flex items-center justify-center gap-4 text-sm text-on-surface-variant">
+      <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-on-surface-variant">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
             <span class="text-xs font-bold text-primary">{post.author_name.charAt(0)}</span>
           </div>
           <span class="font-semibold text-white">{post.author_name}</span>
         </div>
-        <span class="opacity-40">·</span>
+        <span class="opacity-40 hidden sm:inline">·</span>
         <span class="flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">calendar_today</span>
           {formatDate(post.published_at)}
         </span>
-        <span class="opacity-40">·</span>
+        <span class="opacity-40 hidden sm:inline">·</span>
         <span class="flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">schedule</span>
           {post.read_time_minutes} phút đọc
         </span>
-        <span class="opacity-40">·</span>
+        <span class="opacity-40 hidden sm:inline">·</span>
         <span class="flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">visibility</span>
           {post.view_count.toLocaleString()}
@@ -205,8 +205,8 @@ const ogImage = post.cover_url || '/images/og-image.jpg';
       )}
 
       <!-- Content -->
-      <article class="flex-1 min-w-0 max-w-[800px]">
-        <div class="glass-card rounded-2xl p-6 md:p-10">
+      <article class="flex-1 min-w-0 max-w-[760px]">
+        <div class="glass-card rounded-2xl px-5 sm:px-8 lg:px-10 py-6 sm:py-8 lg:py-10">
           <div class="reader-content" id="article-content">
             {blocks.length > 0 ? (
               <div class="blocks-render flex flex-col gap-6" id="blocks-container" data-post-id={post.id}>

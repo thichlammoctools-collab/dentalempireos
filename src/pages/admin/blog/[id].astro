@@ -257,7 +257,7 @@ function formatDate(iso: string | null): string {
           coverPreview!.classList.remove('hidden'); coverPlaceholder!.classList.add('hidden');
           coverRemove!.classList.remove('hidden');
         }
-      } catch { alert('Tải ảnh thất bại'); }
+      } catch { showToast('Tải ảnh thất bại', 'error'); }
       finally {
         uploadBtn.innerHTML = '<span class="material-symbols-outlined text-[16px] align-middle mr-1">upload</span>Tải ảnh lên';
         uploadBtn.removeAttribute('disabled');
@@ -414,7 +414,7 @@ function formatDate(iso: string | null): string {
               imgPreview.classList.remove('hidden'); imgPlaceholder.classList.add('hidden'); imgRemoveBtn.classList.remove('hidden');
               block.content = JSON.stringify({ url: data.url, alt: imgAltInput.value }); syncBlocks();
             }
-          } catch { alert('Tải ảnh thất bại'); }
+          } catch { showToast('Tải ảnh thất bại', 'error'); }
           finally { imgUploadBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] align-middle mr-1">upload</span>Tải ảnh'; imgUploadBtn.removeAttribute('disabled'); }
         }; input.click();
       });
@@ -647,7 +647,7 @@ function formatDate(iso: string | null): string {
       submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check</span> Đã lưu!';
       setTimeout(() => { window.location.href = '/admin/blog'; }, 1000);
     } catch {
-      alert('Lưu thất bại');
+      showToast('Lưu thất bại', 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span> Lưu thay đổi';
     }

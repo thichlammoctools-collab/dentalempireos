@@ -204,10 +204,10 @@ const tiers = [1, 2, 3];
       if (res.ok) {
         location.reload();
       } else {
-        alert('Lỗi khi xóa chương.');
+        showToast('Lỗi khi xóa chương.', 'error');
       }
     } catch {
-      alert('Lỗi khi xóa chương.');
+      showToast('Lỗi khi xóa chương.', 'error');
     }
   });
 
@@ -277,8 +277,8 @@ const tiers = [1, 2, 3];
             credentials: 'include',
             body: JSON.stringify({ tier: tgtTier }),
           });
-          if (!res.ok) { alert('Lỗi khi di chuyển chương.'); location.reload(); return; }
-        } catch { alert('Lỗi khi di chuyển chương.'); location.reload(); return; }
+          if (!res.ok) { showToast('Lỗi khi di chuyển chương.', 'error'); location.reload(); return; }
+        } catch { showToast('Lỗi khi di chuyển chương.', 'error'); location.reload(); return; }
 
         // 2. Move card DOM into target grid
         const card = dragged;

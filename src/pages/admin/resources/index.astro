@@ -537,7 +537,7 @@ import { resourceCategories } from '../../../data/resources';
       clearInterval(iv);
       bar.style.width = '0%';
       spinner.classList.add('hidden');
-      alert('Lỗi tải lên: ' + err.message);
+      showToast('Lỗi tải lên: ' + err.message, 'error');
       hideUploadUI();
     }
   }

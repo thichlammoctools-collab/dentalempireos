@@ -175,7 +175,7 @@ const { chapterId, chapterTitle } = Astro.props;
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Có lỗi xảy ra, vui lòng thử lại.');
+        showToast(err.error || 'Có lỗi xảy ra, vui lòng thử lại.', 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
         return;
       }
@@ -192,7 +192,7 @@ const { chapterId, chapterTitle } = Astro.props;
       // Close after 2s
       setTimeout(closeModal, 2500);
     } catch {
-      alert('Lỗi kết nối. Vui lòng thử lại.');
+      showToast('Lỗi kết nối. Vui lòng thử lại.', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi';

@@ -209,7 +209,7 @@ const newId = nanoid();
       window.location.href = `/admin/courses/${body.id}`;
     } else {
       const err = await res.json();
-      alert('Lỗi: ' + (err.error ?? 'Không rõ'));
+      showToast('Lỗi: ' + (err.error ?? 'Không rõ'), 'error');
     }
   });
 
@@ -230,7 +230,7 @@ const newId = nanoid();
       if (res.ok) {
         btn.closest('tr')?.remove();
       } else {
-        alert('Xóa thất bại');
+        showToast('Xóa thất bại', 'error');
       }
     });
   });

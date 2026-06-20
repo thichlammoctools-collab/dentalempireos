@@ -184,12 +184,12 @@ const badge = statusBadge(question.status);
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          alert(err.error || 'Có lỗi xảy ra');
+          showToast(err.error || 'Có lỗi xảy ra', 'error');
           return;
         }
         window.location.reload();
       } catch {
-        alert('Lỗi kết nối');
+        showToast('Lỗi kết nối', 'error');
       } finally {
         if (btn) { btn.textContent = 'Gửi câu trả lời'; btn.disabled = false; }
       }

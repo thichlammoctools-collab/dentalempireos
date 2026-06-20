@@ -109,18 +109,61 @@
     }
 
     container.innerHTML = notifs.map(n => `
-      <a href="${n.link || '#'}" data-notif-id="${n.id}" class="notif-item flex items-start gap-3 px-4 py-3 hover:bg-surface-container transition-colors ${n.read ? '' : 'bg-primary/5'}">
-        <div class="w-8 h-8 rounded-full ${n.read ? 'bg-surface-container-high' : 'bg-primary/15'} flex items-center justify-center flex-shrink-0 mt-0.5">
+      <a
+        href="${n.link || '#'}"
+        data-notif-id="${n.id}"
+        data-notif-read="${n.read ? '1' : '0'}"
+        class="notif-item flex items-start gap-3 px-4 py-2.5 hover:bg-surface-container transition-colors ${n.read ? '' : 'bg-primary/5'}"
+      >
+        <div class="w-8 h-8 rounded-full ${n.read ? 'bg-surface-container-high' : 'bg-primary/15'} flex items-center justify-center shrink-0 mt-0.5">
           <span class="material-symbols-outlined text-sm ${n.read ? 'text-on-surface-variant' : 'text-primary'}">chat</span>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold ${n.read ? 'text-on-surface-variant' : 'text-white'} leading-snug">${n.title}</p>
-          <p class="text-[11px] text-on-surface-variant/70 mt-0.5 line-clamp-2">${n.body}</p>
-          <p class="text-[10px] text-on-surface-variant/50 mt-1">${new Date(n.createdAt).toLocaleDateString('vi-VN')}</p>
+          <div class="flex items-baseline gap-2">
+            <p class="text-xs font-bold ${n.read ? 'text-on-surface-variant' : 'text-white'} leading-snug truncate">${n.title}</p>
+            <span class="text-[10px] text-on-surface-variant/40 shrink-0">${new Date(n.createdAt).toLocaleDateString('vi-VN')}</span>
+          </div>
+          <p class="text-[11px] text-on-surface-variant/60 mt-0.5 line-clamp-2">${n.body}</p>
         </div>
-        ${!n.read ? '<div class="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2"></div>' : ''}
+        ${!n.read ? '<div class="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5"></div>' : ''}
       </a>
     `).join('');
+
+    // Click handler: mark unread as read before navigating
+    container.querySelectorAll('.notif-item[data-notif-read="0"]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        const id = el.getAttribute('data-notif-id');
+        e.preventDefault();
+        if (id) {
+          try {
+            await fetch('/api/notifications/read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ id }),
+            });
+            // Decrement badge
+            const badge = document.getElementById('notif-badge');
+            const badgeMobile = document.getElementById('notif-badge-mobile');
+            [badge, badgeMobile].forEach(b => {
+              if (b && !b.classList.contains('hidden')) {
+                const n = parseInt(b.textContent || '0') - 1;
+                if (n <= 0) { b.classList.add('hidden'); }
+                else { b.textContent = String(n); }
+              }
+            });
+            el.removeAttribute('data-notif-read');
+            el.setAttribute('data-notif-read', '1');
+            el.classList.remove('bg-primary/5');
+            el.querySelector('.rounded-full.bg-primary')?.remove();
+          } catch { /* non-critical */ }
+        }
+        const link = el.getAttribute('href');
+        if (link && link !== '#') {
+          setTimeout(() => { window.location.href = link; }, 50);
+        }
+      });
+    });
   }
 
   // ── Dropdown toggle ──

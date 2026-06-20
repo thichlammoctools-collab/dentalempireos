@@ -215,6 +215,7 @@ const { chapterId, chapterTitle = '' } = Astro.props;
 
     /* ── Mobile keyboard handling ── */
     const viewportIsMobile = () => window.innerWidth < 1024;
+    var keyboardOpenFired = false;
 
     function applyMobileKeyboardOffset() {
       if (!isMobile || !mobile || !isOpen) return;
@@ -224,14 +225,19 @@ const { chapterId, chapterTitle = '' } = Astro.props;
         if (keyboardHeight > 50) {
           const newMaxHeight = Math.max(40, (vv.height / window.innerHeight) * 100);
           mobile.style.maxHeight = `${newMaxHeight}dvh`;
-          setTimeout(() => {
-            const activeElement = document.activeElement as HTMLElement;
-            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-              activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 100);
+          // Only scroll once when keyboard first opens — typing should not keep scrolling
+          if (!keyboardOpenFired) {
+            keyboardOpenFired = true;
+            setTimeout(() => {
+              const activeElement = document.activeElement as HTMLElement;
+              if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                activeElement.scrollIntoView({ behavior: 'instant', block: 'center' });
+              }
+            }, 150);
+          }
         } else {
           mobile.style.maxHeight = '';
+          keyboardOpenFired = false;
         }
       }
     }
@@ -243,6 +249,7 @@ const { chapterId, chapterTitle = '' } = Astro.props;
 
     /* ── Open / Close (same pattern as ReviewDrawer) ── */
     function open() {
+      keyboardOpenFired = false;
       isOpen = true;
       isMobile = window.innerWidth < 1024;
 
@@ -263,15 +270,17 @@ const { chapterId, chapterTitle = '' } = Astro.props;
         desktop.style.transform = 'translateX(0)';
       }
 
-      // Focus first input
-      setTimeout(() => {
-        const target = isMobile ? mobile : desktop;
-        const input = target?.querySelector('input[name="title"]') as HTMLInputElement;
-        input?.focus();
-      }, 350);
+      // Desktop: focus first input. Mobile: let user tap to focus (avoids auto-opening keyboard).
+      if (!isMobile) {
+        setTimeout(() => {
+          const input = desktop?.querySelector('input[name="title"]') as HTMLInputElement;
+          input?.focus();
+        }, 350);
+      }
     }
 
     function close() {
+      keyboardOpenFired = false;
       isOpen = false;
 
       if (isMobile) {
@@ -329,7 +338,7 @@ const { chapterId, chapterTitle = '' } = Astro.props;
           });
 
           if (!res.ok) {
-            alert('Có lỗi xảy ra, vui lòng thử lại.');
+            showToast('Có lỗi xảy ra, vui lòng thử lại.', 'error');
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
             return;
           }
@@ -345,7 +354,7 @@ const { chapterId, chapterTitle = '' } = Astro.props;
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
           }, 2500);
         } catch {
-          alert('Lỗi kết nối. Vui lòng thử lại.');
+          showToast('Lỗi kết nối. Vui lòng thử lại.', 'error');
           if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
         }
       });

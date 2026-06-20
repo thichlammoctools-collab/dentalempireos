@@ -60,6 +60,9 @@ const {
         <slot />
       </div>
 
+      <!-- Toast container -->
+      <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="true"></div>
+
       <footer class="mt-auto p-6 border-t border-outline-variant/15 flex flex-col md:flex-row justify-between items-center gap-3 bg-surface">
         <span class="text-sm text-on-surface-variant/50">
           © {new Date().getFullYear()} Dental Empire Knowledge Hub — Admin Control Unit
@@ -71,5 +74,84 @@ const {
         </div>
       </footer>
     </main>
+
+    <!-- Toast notification system -->
+    <style>
+      @keyframes toast-in {
+        from { opacity: 0; transform: translateX(100%); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes toast-out {
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(100%); }
+      }
+      @keyframes toast-progress {
+        from { width: 100%; }
+        to { width: 0%; }
+      }
+      .toast {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 280px;
+        max-width: 380px;
+        padding: 12px 16px;
+        background: #1c1c28;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        animation: toast-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        pointer-events: auto;
+        position: relative;
+        overflow: hidden;
+      }
+      .toast.toast-success { border-left: 3px solid #4ade80; }
+      .toast.toast-error   { border-left: 3px solid #f87171; }
+      .toast.toast-info    { border-left: 3px solid #60a5fa; }
+      .toast.toast-out {
+        animation: toast-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      .toast-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        background: rgba(255,255,255,0.15);
+        animation: toast-progress linear forwards;
+      }
+      .toast.toast-success .toast-progress { background: #4ade80; }
+      .toast.toast-error   .toast-progress { background: #f87171; }
+      .toast.toast-info    .toast-progress { background: #60a5fa; }
+    </style>
+    <script is:inline>
+      function showToast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 4000;
+        var container = document.getElementById('toast-container');
+        if (!container) return;
+        var icons = {
+          success: 'check_circle',
+          error:   'error',
+          info:    'info'
+        };
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML =
+          '<span class="material-symbols-outlined text-base flex-shrink-0" style="color:' +
+          (type === 'success' ? '#4ade80' : type === 'error' ? '#f87171' : '#60a5fa') +
+          '">' + icons[type] + '</span>' +
+          '<span class="text-sm text-white flex-1 leading-snug">' + message + '</span>' +
+          '<div class="toast-progress" style="animation-duration:' + duration + 'ms"></div>';
+        container.appendChild(toast);
+        toast.addEventListener('mouseenter', function() { toast.querySelector('.toast-progress').style.animationPlayState = 'paused'; });
+        toast.addEventListener('mouseleave', function() { toast.querySelector('.toast-progress').style.animationPlayState = 'running'; });
+        setTimeout(function() {
+          toast.classList.add('toast-out');
+          setTimeout(function() { toast.remove(); }, 300);
+        }, duration);
+      }
+      window.showToast = showToast;
+    </script>
   </body>
 </html>

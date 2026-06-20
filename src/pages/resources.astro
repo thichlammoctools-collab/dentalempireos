@@ -2,16 +2,28 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import DownloadForm from '../components/sections/DownloadForm.astro';
 import { resourceCategories as categories } from '../data/resources';
-import { listResources } from '../lib/resource-db';
+import { listResources, countResources } from '../lib/resource-db';
 import DonateWidget from '../components/book/DonateWidget.astro';
 import { getSupportSettings } from '../lib/book-db';
 import type { ResourceRow } from '../lib/resource-db';
 
+export const prerender = false;
+
+const search = Astro.url.searchParams.get('q') ?? '';
+const activeCategory = Astro.url.searchParams.get('cat') ?? 'all';
+
+const listOpts = {
+  search: search || undefined,
+  category: activeCategory || undefined,
+};
+
 // Fetch from D1 — falls back to empty array if DB unavailable (e.g. local dev)
 let resources: ResourceRow[] = [];
+let totalCount = 0;
 try {
   const { env } = await import('cloudflare:workers');
-  resources = await listResources(env.DB);
+  resources = await listResources(env.DB, listOpts);
+  totalCount = await countResources(env.DB);
   // Fetch support settings for the compact donate widget
   var supportSettings = (await getSupportSettings(env.DB)) ?? {
     enabled: 0,
@@ -57,7 +69,7 @@ const iconColors: Record<string, string> = {
         <span class="text-xs font-bold uppercase tracking-[0.2em] text-primary/70">Library</span>
         <div class="flex items-center gap-2 text-xs text-on-surface-variant">
           <span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#2b98dd]"></span>
-          <span>{resources.length} tài nguyên</span>
+          <span>{totalCount} tài nguyên</span>
         </div>
       </div>
       <h1 class="text-headline-lg text-white mb-2">DentalLibrary</h1>
@@ -69,42 +81,54 @@ const iconColors: Record<string, string> = {
 
   <!-- Search & Filters -->
   <section class="sticky top-20 z-40 bg-surface/90 backdrop-blur border-b border-outline-variant">
-    <div class="px-6 max-w-[1200px] mx-auto py-4">
+    <form method="get" class="px-6 max-w-[1200px] mx-auto py-4">
       <div class="relative group mb-4">
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">search</span>
         <input
-          id="library-search"
           type="text"
+          name="q"
+          value={search}
           placeholder="Tìm kiếm tài nguyên..."
           class="w-full pl-11 pr-10 py-3 bg-surface-container border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
         />
-        <button
-          id="library-search-clear"
-          type="button"
-          class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-surface-container-high text-on-surface-variant items-center justify-center hover:text-primary"
-          aria-label="Xóa tìm kiếm"
-        >
-          <span class="material-symbols-outlined text-[18px]">close</span>
-        </button>
+        {search && (
+          <a
+            href="/resources"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
+            aria-label="Xóa tìm kiếm"
+          >
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </a>
+        )}
       </div>
 
-      <div class="flex overflow-x-auto gap-2 pb-1 -mx-6 px-6 no-scrollbar" id="library-filters">
-        {categories.map((c, i) => (
-          <button
-            type="button"
-            data-filter={c.id}
+      <div class="flex overflow-x-auto gap-2 pb-1 -mx-6 px-6 no-scrollbar">
+        <a
+          href="/resources"
+          class:list={[
+            'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition-all active:scale-95',
+            activeCategory === 'all'
+              ? 'bg-primary text-on-primary border-primary'
+              : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary',
+          ]}
+        >
+          Tất cả
+        </a>
+        {categories.map((c) => (
+          <a
+            href={`/resources${search ? `?q=${encodeURIComponent(search)}&cat=` : '?cat='}${c.id}`}
             class:list={[
-              'filter-chip px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition-all active:scale-95',
-              i === 0
+              'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition-all active:scale-95',
+              activeCategory === c.id
                 ? 'bg-primary text-on-primary border-primary'
-                : 'bg-surface-container-high text-on-surface-variant border-outline-variant',
+                : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary',
             ]}
           >
             {c.label}
-          </button>
+          </a>
         ))}
       </div>
-    </div>
+    </form>
   </section>
 
   <!-- Featured Bestseller -->
@@ -166,13 +190,18 @@ const iconColors: Record<string, string> = {
       <span class="text-sm text-on-surface-variant" id="library-count">{resources.length} tài nguyên</span>
     </div>
 
+    {search && (
+      <p class="text-sm text-on-surface-variant mb-4">
+        Kết quả cho "<strong class="text-white">{search}</strong>" — {resources.length} tài nguyên
+      </p>
+    )}
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="library-list">
       {resources.map((r) => (
         <article
           class="library-card group bg-surface-container/80 backdrop-blur border border-outline-variant rounded-2xl p-5 hover:border-primary/50 transition-all"
           data-category={r.category}
           data-tier={r.tier}
-          data-search={`${r.title} ${r.description} ${r.tag}`.toLowerCase()}
         >
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-xl bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0">
@@ -237,11 +266,6 @@ const iconColors: Record<string, string> = {
       ))}
     </div>
 
-    <!-- Empty state -->
-    <div id="library-empty" class="hidden text-center py-16">
-      <span class="material-symbols-outlined text-6xl text-on-surface-variant/40">search_off</span>
-      <p class="text-on-surface-variant mt-3">Không tìm thấy tài nguyên phù hợp</p>
-    </div>
   </section>
 
   <!-- Stats / Social Proof -->
@@ -278,70 +302,3 @@ const iconColors: Record<string, string> = {
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
-
-<script>
-  const search = document.getElementById('library-search') as HTMLInputElement | null;
-  const clearBtn = document.getElementById('library-search-clear');
-  const cards = Array.from(document.querySelectorAll<HTMLElement>('.library-card'));
-  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
-  const empty = document.getElementById('library-empty');
-  const list = document.getElementById('library-list');
-  const count = document.getElementById('library-count');
-
-  let activeFilter = 'all';
-  let activeQuery = '';
-
-  function applyChipStyles() {
-    chips.forEach((chip) => {
-      const isActive = chip.dataset.filter === activeFilter;
-      chip.classList.toggle('bg-primary', isActive);
-      chip.classList.toggle('text-on-primary', isActive);
-      chip.classList.toggle('border-primary', isActive);
-      chip.classList.toggle('bg-surface-container-high', !isActive);
-      chip.classList.toggle('text-on-surface-variant', !isActive);
-      chip.classList.toggle('border-outline-variant', !isActive);
-    });
-  }
-
-  function render() {
-    let visible = 0;
-    cards.forEach((card) => {
-      const cat = card.dataset.category ?? '';
-      const haystack = card.dataset.search ?? '';
-      const matchesFilter = activeFilter === 'all' || cat === activeFilter;
-      const matchesQuery = !activeQuery || haystack.includes(activeQuery);
-      const show = matchesFilter && matchesQuery;
-      card.classList.toggle('hidden', !show);
-      if (show) visible += 1;
-    });
-
-    if (count) count.textContent = `${visible} tài nguyên`;
-    empty?.classList.toggle('hidden', visible !== 0);
-    list?.classList.toggle('hidden', visible === 0);
-  }
-
-  chips.forEach((chip) => {
-    chip.addEventListener('click', () => {
-      activeFilter = chip.dataset.filter ?? 'all';
-      applyChipStyles();
-      render();
-    });
-  });
-
-  search?.addEventListener('input', () => {
-    activeQuery = search.value.trim().toLowerCase();
-    clearBtn?.classList.toggle('hidden', !activeQuery);
-    clearBtn?.classList.toggle('flex', !!activeQuery);
-    render();
-  });
-
-  clearBtn?.addEventListener('click', () => {
-    if (!search) return;
-    search.value = '';
-    activeQuery = '';
-    clearBtn.classList.add('hidden');
-    clearBtn.classList.remove('flex');
-    render();
-    search.focus();
-  });
-</script>

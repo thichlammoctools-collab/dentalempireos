@@ -673,12 +673,12 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
   async function handleHeroImageUpload(file: File) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file ảnh');
+      showToast('Vui lòng chọn file ảnh', 'error');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File quá lớn (tối đa 10MB)');
+      showToast('File quá lớn (tối đa 10MB)', 'error');
       return;
     }
 
@@ -728,19 +728,19 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       }, 2500);
     } catch (err) {
       heroProgressContainer.classList.add('hidden');
-      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      showToast(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   }
 
   async function handleFounderImageUpload(file: File) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file ảnh');
+      showToast('Vui lòng chọn file ảnh', 'error');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File quá lớn (tối đa 10MB)');
+      showToast('File quá lớn (tối đa 10MB)', 'error');
       return;
     }
 
@@ -790,7 +790,7 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       }, 2500);
     } catch (err) {
       founderProgressContainer.classList.add('hidden');
-      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      showToast(`Lỗi upload: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   }
 

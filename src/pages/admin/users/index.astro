@@ -102,10 +102,10 @@ const inactiveCount = total - activeCount;
             window.location.reload();
           } else {
             const data = await res.json();
-            alert(data.error || 'Lỗi khi cập nhật');
+            showToast(data.error || 'Lỗi khi cập nhật', 'error');
           }
         } catch {
-          alert('Lỗi kết nối');
+          showToast('Lỗi kết nối', 'error');
         } finally {
           (btn as HTMLButtonElement).disabled = false;
         }

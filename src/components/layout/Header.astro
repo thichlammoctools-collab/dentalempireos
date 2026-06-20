@@ -43,14 +43,14 @@ const currentPath = Astro.url.pathname;
       })}
     </div>
 
-    <!-- Mobile: hamburger menu (top-right) -->
-    <button
-      id="header-mobile-menu"
-      class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"
-      aria-label="Menu"
+    <!-- Mobile: search input (top-right) -->
+    <a
+      href="/search"
+      class="md:hidden flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
     >
-      <span class="material-symbols-outlined text-2xl">menu</span>
-    </button>
+      <span class="material-symbols-outlined text-xl">search</span>
+      <span class="truncate">Tìm kiếm...</span>
+    </a>
 
     <!-- Right side (desktop only) -->
     <div class="hidden md:flex items-center gap-4">

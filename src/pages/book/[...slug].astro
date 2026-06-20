@@ -131,7 +131,7 @@ function renderMarkdown(text: string): string {
 }
 
 function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNumber = ''): string {
-  const tag = s.level === 2 ? 'h2' : 'h3';
+  const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
   let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
   for (const block of s.blocks) {
@@ -227,7 +227,7 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 } else {
   const localAttachments: AttachmentItem[] = [];
   const sectionsHtml = sections.map((s, i) => renderSection(s, localAttachments, `${i + 1}`)).join('');
-  strippedContent = sectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+  strippedContent = sectionsHtml.replace(/<\/?(?:h[2-5])[^>]*>.*?<\/(?:h[2-5])>/i, '', 1);
   attachments = localAttachments;
   _chapterCache.set(slug, { html: strippedContent, attachments, ts: Date.now(), ch });
 }
@@ -236,7 +236,7 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
   const freshSectionsHtml = sections.map((s, i) => renderSection(s, staleAttachments, `${i + 1}`)).join('');
-  const freshHtml = freshSectionsHtml.replace(/<\/?(?:h2|h3)[^>]*>.*?<\/(?:h2|h3)>/i, '', 1);
+  const freshHtml = freshSectionsHtml.replace(/<\/?(?:h[2-5])[^>]*>.*?<\/(?:h[2-5])>/i, '', 1);
   _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, ts: Date.now(), ch });
 }
 
