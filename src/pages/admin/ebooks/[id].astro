@@ -128,10 +128,12 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           Chưa có đề mục nào. Bấm "Thêm đề mục chính" để bắt đầu.
         </p>
       ) : (
-        <ul id="section-tree" data-section-list class="flex flex-col gap-1">
+        <ul id="section-tree" data-section-list class="flex flex-col gap-1 relative">
+          <li data-drop-root="first" class="h-1 w-full rounded-sm opacity-0 transition-opacity duration-150"></li>
           {tree.sections.map((s) => (
             <SectionItem section={s} selectedId={selectedSectionId} depth={0} />
           ))}
+          <li data-drop-root="last" class="h-1 w-full rounded-sm opacity-0 transition-opacity duration-150"></li>
         </ul>
       )}
     </section>
@@ -504,7 +506,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       if (b.type === 'text') {
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               <textarea data-field="text_md" rows="12" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-3 text-white text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[200px]" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
@@ -514,7 +516,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (b.type === 'image') {
         const url = b.r2_key ? `/media/${b.r2_key}` : '';
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
@@ -537,7 +539,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
       // file
       return `
-        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
           ${header}
           <div class="block-content" style="${collapsed ? 'display:none' : ''}">
             ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
@@ -669,6 +671,19 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Block drag-and-drop reorder inside modal ─────────
     let blockDragSrc: HTMLElement | null = null;
+
+    // Enable dragging only when grabbing the handle; disable on release.
+    modalBody.addEventListener('mousedown', (e) => {
+      if ((e.target as HTMLElement).closest('.block-drag-handle')) {
+        const item = (e.target as HTMLElement).closest<HTMLElement>('.block-item');
+        if (item) item.setAttribute('draggable', 'true');
+      }
+    });
+    modalBody.addEventListener('mouseup', () => {
+      modalBody.querySelectorAll<HTMLElement>('.block-item[draggable="true"]').forEach((el) =>
+        el.removeAttribute('draggable'),
+      );
+    });
 
     modalBody.addEventListener('dragstart', (e) => {
       const target = e.target as HTMLElement;
@@ -1050,7 +1065,13 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (zone === 'into') {
         li.classList.add('drag-placeholder-box');
       } else {
-        li.classList.add('drag-placeholder-line');
+        li.classList.add('drag-placeholder-spacer');
+        // Trigger expand animation after insertion
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            li.classList.add('drag-placeholder-visible');
+          });
+        });
       }
       return li;
     }
@@ -1183,13 +1204,40 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       e.preventDefault();
       if (!sectionDragSrc) return;
       const target = e.target as HTMLElement;
+
+      // Root drop zone: top or bottom of entire tree
+      const rootZone = target.closest<HTMLElement>('[data-drop-root]');
+      if (rootZone) {
+        (e as DragEvent).dataTransfer!.dropEffect = 'move';
+        const pos = rootZone.dataset.dropRoot;
+        const key = `__root__:${pos}`;
+        if (key === lastDropKey) return;
+        lastDropKey = key;
+        removePlaceholder();
+        dragPlaceholder = createPlaceholder(pos === 'first' ? 'above' : 'below');
+        if (pos === 'first') {
+          sectionTree.insertBefore(dragPlaceholder, rootZone);
+        } else {
+          sectionTree.insertBefore(dragPlaceholder, rootZone.nextSibling);
+        }
+        return;
+      }
+
       const item = target.closest<HTMLElement>('[data-section-item]');
       if (!item || item === sectionDragSrc) return;
       if (isDescendantOf(item, sectionDragSrc)) return;
 
       const tgtDepth = getItemDepth(item);
-      const zone = getDropZone(e as DragEvent, item);
-      if (zone === 'into' && tgtDepth >= 1) return;
+      let zone = getDropZone(e as DragEvent, item);
+      if (zone === 'into' && tgtDepth >= 2) return;
+
+      // Fallback: collapsed parent → "below" thay vì "into" (phải expand thủ công)
+      if (zone === 'into') {
+        const childUl = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+        if (childUl && childUl.style.display === 'none') {
+          zone = 'below';
+        }
+      }
 
       const key = `${item.dataset.sectionId}:${zone}`;
       if (key === lastDropKey) return;
@@ -1210,9 +1258,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           childUl = ensureChildUl(item);
           dragFakeUl = childUl;
         }
-        if (childUl.style.display === 'none') {
-          childUl.style.display = '';
-        }
         childUl.insertBefore(dragPlaceholder, childUl.firstChild);
       }
     });
@@ -1223,6 +1268,69 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (!sectionDragSrc) return;
 
       const target = e.target as HTMLElement;
+
+      // Root drop zone
+      const rootZone = target.closest<HTMLElement>('[data-drop-root]');
+      if (rootZone) {
+        const pos = rootZone.dataset.dropRoot;
+        const srcId = sectionDragSrc.dataset.sectionId!;
+        // Move to root level (parent_id = null)
+        const srcParentUl = sectionDragSrc.closest<HTMLElement>('ul[data-section-list]');
+        const oldDepth = getItemDepth(sectionDragSrc);
+        const oldLevel = oldDepth + 2;
+        sectionDragSrc.remove();
+        const lastMarker = sectionTree.querySelector('[data-drop-root="last"]');
+        const firstMarker = sectionTree.querySelector('[data-drop-root="first"]');
+        if (pos === 'first') {
+          // Insert right after the first marker (before all section-items)
+          sectionTree.insertBefore(sectionDragSrc, firstMarker?.nextSibling ?? lastMarker);
+        } else {
+          // Insert right before the last marker (after all section-items)
+          sectionTree.insertBefore(sectionDragSrc, lastMarker);
+        }
+        // Update data attributes
+        sectionDragSrc.dataset.sectionDepth = '0';
+        sectionDragSrc.dataset.sectionParentId = '';
+        // Update level icon
+        const iconSpans = sectionDragSrc.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
+        iconSpans.forEach(span => {
+          const text = span.textContent?.trim();
+          if (text === 'menu_book' || text === 'subdirectory_arrow_right') {
+            span.textContent = 'menu_book';
+            span.className = 'material-symbols-outlined text-[16px] text-primary';
+          }
+        });
+        flashMovedItem(sectionDragSrc);
+        // Recursive depth update for descendants
+        const depthDelta = 0 - oldDepth;
+        sectionDragSrc.querySelectorAll<HTMLElement>('[data-section-item]').forEach(child => {
+          const cd = getItemDepth(child) + depthDelta;
+          child.dataset.sectionDepth = String(cd);
+        });
+        // API calls
+        if (srcParentUl) await reorderSiblings(srcParentUl);
+        const section = findSection(currentTree.sections, srcId);
+        const newSiblingIds = getSiblingIds(sectionTree);
+        const res = await fetch(`/api/admin/sections/${srcId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: null,
+            level: 2,
+            title: section?.title ?? '',
+            slug: section?.slug ?? '',
+            order: pos === 'first' ? 0 : newSiblingIds.length - 1,
+            sibling_ids: newSiblingIds,
+          }),
+        });
+        if (!res.ok) { showDndError('Lỗi khi di chuyển đề mục.'); location.reload(); return; }
+        syncTreeAfterMove(srcId, null, pos === 'first' ? 'above' : 'below');
+        sectionDragSrc = null;
+        return;
+      }
+
       const item = target.closest<HTMLElement>('[data-section-item]');
       if (!item || item === sectionDragSrc) return;
 
@@ -1232,9 +1340,18 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       const zone = getDropZone(e as DragEvent, item);
       const tgtDepth = getItemDepth(item);
-      if (zone === 'into' && tgtDepth >= 1) return;
+      if (zone === 'into' && tgtDepth >= 2) return;
 
-      if (zone === 'into') {
+      // Fallback: collapsed parent → "below" (consistent with dragover)
+      const finalZone = (() => {
+        if (zone === 'into') {
+          const childUl = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+          if (childUl && childUl.style.display === 'none') return 'below' as const;
+        }
+        return zone;
+      })();
+
+      if (finalZone === 'into') {
         await doReparentAsChild(srcId, sectionDragSrc, item, tgtId);
       } else {
         const srcParentUl = sectionDragSrc.closest<HTMLElement>('ul[data-section-list]');
@@ -1242,9 +1359,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         if (!srcParentUl || !tgtParentUl) return;
 
         if (srcParentUl === tgtParentUl) {
-          await doSameParentReorder(sectionDragSrc, srcParentUl, zone, e as DragEvent);
+          await doSameParentReorder(sectionDragSrc, srcParentUl, finalZone, e as DragEvent);
         } else {
-          await doCrossParentMove(srcId, sectionDragSrc, item, tgtParentUl, zone, e as DragEvent);
+          await doCrossParentMove(srcId, sectionDragSrc, item, tgtParentUl, finalZone, e as DragEvent);
         }
       }
       sectionDragSrc = null;
@@ -1308,9 +1425,17 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         tgtParentUl.insertBefore(srcEl, tgtItem.nextSibling);
       }
 
-      // Update data attributes
+      // Update data attributes (recursive: children too)
+      const oldDepth = getItemDepth(srcEl);
+      const depthDelta = newDepth - oldDepth;
       srcEl.dataset.sectionDepth = String(newDepth);
       srcEl.dataset.sectionParentId = newParentId ?? '';
+      if (depthDelta !== 0) {
+        srcEl.querySelectorAll<HTMLElement>('[data-section-item]').forEach(child => {
+          const cd = getItemDepth(child);
+          child.dataset.sectionDepth = String(cd + depthDelta);
+        });
+      }
 
       // Update level icon
       const iconSpans = srcEl.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
@@ -1393,9 +1518,17 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         countSpan.textContent = `${currentCount} mục`;
       }
 
-      // Update data attributes
+      // Update data attributes (recursive: children too)
+      const oldDepth = getItemDepth(srcEl);
+      const depthDelta = newDepth - oldDepth;
       srcEl.dataset.sectionDepth = String(newDepth);
       srcEl.dataset.sectionParentId = tgtId;
+      if (depthDelta !== 0) {
+        srcEl.querySelectorAll<HTMLElement>('[data-section-item]').forEach(child => {
+          const cd = getItemDepth(child);
+          child.dataset.sectionDepth = String(cd + depthDelta);
+        });
+      }
 
       // Update level icon
       const iconSpans = srcEl.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
@@ -1469,6 +1602,44 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     animation: placeholder-pulse 1s ease-in-out infinite alternate;
     pointer-events: none;
     list-style: none;
+  }
+
+  /* Animated spacer — expands from 0 to 48px with accent line */
+  [data-drag-placeholder].drag-placeholder-spacer {
+    height: 0;
+    max-height: 0;
+    margin: 0;
+    opacity: 0;
+    position: relative;
+    list-style: none;
+    pointer-events: none;
+    overflow: hidden;
+    transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.15s ease;
+  }
+
+  [data-drag-placeholder].drag-placeholder-spacer.drag-placeholder-visible {
+    height: 48px;
+    max-height: 48px;
+    margin: 4px 0;
+    opacity: 1;
+  }
+
+  /* Accent line inside spacer */
+  [data-drag-placeholder].drag-placeholder-spacer::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 50%, transparent);
+    animation: placeholder-pulse 1s ease-in-out infinite alternate;
   }
 
   [data-drag-placeholder].drag-placeholder-box {
