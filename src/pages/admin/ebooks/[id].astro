@@ -282,9 +282,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       });
       if (res.ok) {
         updateMetaSummary();
-        alert('Đã lưu');
+        showLocalToast('Đã lưu', true);
       } else {
-        alert('Lỗi khi lưu');
+        showLocalToast('Lỗi khi lưu', false);
       }
     });
 
@@ -504,7 +504,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       if (b.type === 'text') {
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               <textarea data-field="text_md" rows="12" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-3 text-white text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none resize-y min-h-[200px]" placeholder="Markdown...">${escapeHtml(b.text_md ?? '')}</textarea>
@@ -514,7 +514,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (b.type === 'image') {
         const url = b.r2_key ? `/media/${b.r2_key}` : '';
         return `
-          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+          <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
             ${header}
             <div class="block-content" style="${collapsed ? 'display:none' : ''}">
               ${url ? `<img src="${url}" alt="${escapeHtml(b.alt ?? '')}" class="max-h-56 rounded-lg" />` : '<p class="text-xs text-error">Chưa có ảnh</p>'}
@@ -537,7 +537,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
       // file
       return `
-        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
+        <div class="block-item relative flex flex-col gap-2 p-4 bg-surface-container-low border border-outline-variant/40 rounded-lg mb-3" draggable="true" data-block-id="${b.id}" data-collapsed="${collapsed ? '1' : '0'}">
           ${header}
           <div class="block-content" style="${collapsed ? 'display:none' : ''}">
             ${b.r2_key ? `<p class="text-sm text-white">📎 <a href="/media/${b.r2_key}" class="underline hover:text-primary" target="_blank">${escapeHtml(b.filename ?? 'Tải file')}</a></p>` : '<p class="text-xs text-error">Chưa có file</p>'}
@@ -650,7 +650,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
               renderModalBlocks(section);
             }
           } else {
-            alert('Lỗi khi tạo block');
+            showLocalToast('Lỗi khi tạo block', false);
           }
         } finally {
           btn.disabled = false;
@@ -742,7 +742,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           body: JSON.stringify({ ids }),
         });
         if (!res.ok) {
-          alert('Lỗi khi lưu thứ tự block. Đang tải lại...');
+          showLocalToast('Lỗi khi lưu thứ tự block. Đang tải lại...', false);
           location.reload();
         }
         // Update order in current section's blocks array
@@ -756,7 +756,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           }
         }
       } catch {
-        alert('Lỗi khi lưu thứ tự block. Đang tải lại...');
+        showLocalToast('Lỗi khi lưu thứ tự block. Đang tải lại...', false);
         location.reload();
       }
     });
@@ -764,7 +764,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     // ── Inline edit section title ───────────────────────
     let inlineInput: HTMLInputElement | null = null;
 
-    function showToast(msg: string, ok = true) {
+    function showLocalToast(msg: string, ok = true) {
       const t = document.createElement('div');
       t.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-opacity duration-300 ${ok ? 'bg-primary/90 text-white' : 'bg-error/90 text-white'}`;
       t.textContent = msg;
