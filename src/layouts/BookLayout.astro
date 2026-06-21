@@ -529,26 +529,28 @@ const currentTier = groupedChapters.find((g) =>
         const saved = rp[chapterId];
         if (saved && saved.pct > 5 && saved.pct < 95) {
           const toast = doc.createElement('div');
-          toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl transition-all duration-300';
-          toast.style.cssText = 'background: var(--reader-chrome-bg); border: 1px solid var(--reader-border); opacity: 0; transform: translate(-50%, 20px);';
-          toast.innerHTML = '<span class="material-symbols-outlined text-primary text-lg">history</span>' +
-            '<span class="text-sm font-semibold" style="color: var(--reader-chrome-text);">Bạn đọc đến ' + saved.pct + '%</span>' +
-            '<button id="bm-restore-btn" class="ml-2 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:opacity-90">Đọc tiếp</button>' +
-            '<button id="bm-dismiss-btn" class="px-2 py-1.5 rounded-lg text-xs" style="color: var(--reader-chrome-text-muted);">Đóng</button>';
+          toast.className = 'fixed bottom-20 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-auto z-[80] flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 px-4 py-3 rounded-2xl shadow-2xl transition-all duration-300';
+          toast.style.cssText = 'background: #ffffff; border: 1px solid rgba(0,0,0,0.08); opacity: 0; transform: translateY(20px);';
+          toast.innerHTML = '<span class="material-symbols-outlined text-primary text-base shrink-0">history</span>' +
+            '<span class="text-sm font-semibold text-gray-800 leading-tight">Bạn đọc đến ' + saved.pct + '%</span>' +
+            '<div class="flex items-center gap-2 sm:ml-auto">' +
+            '<button id="bm-restore-btn" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 shrink-0">Đọc tiếp</button>' +
+            '<button id="bm-dismiss-btn" class="px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-700 shrink-0">Đóng</button>' +
+            '</div>';
           doc.body.appendChild(toast);
-          requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translate(-50%, 0)'; });
+          requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
 
           doc.getElementById('bm-restore-btn')?.addEventListener('click', () => {
             const max = readerScroll.scrollHeight - readerScroll.clientHeight;
             readerScroll.scrollTo({ top: (saved.pct / 100) * max, behavior: 'smooth' });
-            toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)';
+            toast.style.opacity = '0'; toast.style.transform = 'translateY(20px)';
             setTimeout(() => toast.remove(), 300);
           });
           doc.getElementById('bm-dismiss-btn')?.addEventListener('click', () => {
-            toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)';
+            toast.style.opacity = '0'; toast.style.transform = 'translateY(20px)';
             setTimeout(() => toast.remove(), 300);
           });
-          setTimeout(() => { if (toast.parentNode) { toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)'; setTimeout(() => toast.remove(), 300); } }, 6000);
+          setTimeout(() => { if (toast.parentNode) { toast.style.opacity = '0'; toast.style.transform = 'translateY(20px)'; setTimeout(() => toast.remove(), 300); } }, 6000);
         }
       }
 
@@ -883,6 +885,9 @@ function toggleToc() {
       const MIN_SCALE = 1;
       const MAX_SCALE = 5;
 
+      // Cache image dimensions to avoid getBoundingClientRect in clampPan
+      let imgNaturalW = 0, imgNaturalH = 0;
+
       function applyTransform(animate = false) {
         lbImage.classList.toggle('lb-animating', animate);
         lbImage.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
@@ -923,13 +928,38 @@ function toggleToc() {
         showBadge(`${Math.round(scale * 100)}%`);
       }
 
+      // Internal: update scale/pan without rendering (caller must applyTransform)
+      // Uses cached rect from pinch start to avoid reflow during gesture
+      let pinchRect: DOMRect | null = null;
+      function computePinchZoom(newScale: number, cx: number, cy: number) {
+        newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+        if (scale !== newScale && pinchRect) {
+          const imgCx = cx - pinchRect.left - pinchRect.width / 2;
+          const imgCy = cy - pinchRect.top - pinchRect.height / 2;
+          const ratio = newScale / scale;
+          panX = imgCx - ratio * (imgCx - panX);
+          panY = imgCy - ratio * (imgCy - panY);
+        }
+        scale = newScale;
+        if (scale <= 1) {
+          panX = 0; panY = 0;
+          lbContainer.classList.remove('zoomed');
+        } else {
+          lbContainer.classList.add('zoomed');
+        }
+      }
+
       function clampPan() {
         if (scale <= 1) { panX = 0; panY = 0; return; }
-        const rect = lbImage.getBoundingClientRect();
+        // Use cached dimensions (updated on image load / open) to avoid forced reflow
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        const iw = rect.width / scale;
-        const ih = rect.height / scale;
+        // Fit image into container like CSS max-width:90vw max-height:88vh
+        const fitW = vw * 0.9;
+        const fitH = vh * 0.88;
+        const displayScale = Math.min(fitW / imgNaturalW, fitH / imgNaturalH, 1);
+        const iw = imgNaturalW * displayScale;
+        const ih = imgNaturalH * displayScale;
         const maxX = Math.max(0, (iw * scale - vw) / 2);
         const maxY = Math.max(0, (ih * scale - vh) / 2);
         panX = Math.max(-maxX, Math.min(maxX, panX));
@@ -948,6 +978,9 @@ function toggleToc() {
 
         // Wait for image to load before showing
         const onLoad = () => {
+          // Cache natural dimensions for clampPan
+          imgNaturalW = lbImage.naturalWidth;
+          imgNaturalH = lbImage.naturalHeight;
           lbImage.classList.add('lb-ready');
           lbImage.removeEventListener('load', onLoad);
           // Show hint on first use
@@ -1046,9 +1079,11 @@ function toggleToc() {
 
       lbContainer.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
-          // Pinch start
+          // Pinch start — cache rect once to avoid reflow during gesture
           lastTouchDist = getTouchDist(e.touches[0], e.touches[1]);
           lastTouchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+          pinchRect = lbImage.getBoundingClientRect();
+          lbImage.classList.add('lb-pinching');
           e.preventDefault();
         } else if (e.touches.length === 1 && scale > 1) {
           // Pan start
@@ -1063,8 +1098,8 @@ function toggleToc() {
           const dist = getTouchDist(e.touches[0], e.touches[1]);
           const center = getTouchCenter(e.touches[0], e.touches[1]);
           const pinchScale = dist / lastTouchDist;
-          zoomTo(scale * pinchScale, center.x, center.y);
-          // Pan with pinch movement
+          // Compute zoom + pan in one pass, single applyTransform at the end
+          computePinchZoom(scale * pinchScale, center.x, center.y);
           panX += center.x - lastTouchCenter.x;
           panY += center.y - lastTouchCenter.y;
           clampPan();
@@ -1084,6 +1119,8 @@ function toggleToc() {
       lbContainer.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) {
           lastTouchDist = 0;
+          pinchRect = null;
+          lbImage.classList.remove('lb-pinching');
         }
         if (e.touches.length === 0) {
           touchPanning = false;
@@ -1461,6 +1498,9 @@ function toggleToc() {
       transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease;
       will-change: transform;
       opacity: 0;
+    }
+    .lb-image.lb-pinching {
+      transition: none !important;
     }
     .lb-image.lb-ready { opacity: 1; }
     .lb-image.lb-animating { transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1); }

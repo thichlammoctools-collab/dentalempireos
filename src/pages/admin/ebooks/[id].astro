@@ -158,6 +158,10 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           <h3 id="modal-section-title" class="text-base font-bold text-white truncate"></h3>
         </div>
         <div class="flex items-center gap-3 shrink-0">
+          <button id="modal-beautify-btn" class="px-2.5 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-bold hover:bg-accent/20 border border-accent/30 transition-all flex items-center gap-1" title="Tự động định dạng Markdown cho tất cả text blocks">
+            <span class="text-[14px]">✨</span>
+            Beautify
+          </button>
           <span id="modal-save-status" class="text-xs text-on-surface-variant"></span>
           <button id="modal-close-btn" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white hover:bg-surface-container-high transition-all" title="Đóng (tự lưu)">
             <span class="material-symbols-outlined text-[20px]">close</span>
@@ -685,6 +689,40 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
         closeModal();
       }
+    });
+
+    // ── Beautify button ──────────────────────────────────
+    document.getElementById('modal-beautify-btn')?.addEventListener('click', async () => {
+      const items = modalBody.querySelectorAll<HTMLElement>('.block-item[data-block-id]');
+      let count = 0;
+      for (const item of items) {
+        const ta = item.querySelector<HTMLTextAreaElement>('[data-field="text_md"]');
+        if (!ta || !ta.value.trim()) continue;
+        try {
+          const res = await fetch('/api/admin/beautify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ text_md: ta.value }),
+          });
+          if (res.ok) {
+            const { text_md } = await res.json() as { text_md: string };
+            if (text_md !== ta.value) {
+              ta.value = text_md;
+              autoResize(ta);
+              item.setAttribute('data-dirty', '1');
+              count++;
+            }
+          }
+        } catch { /* skip failed blocks */ }
+      }
+      if (count > 0) {
+        dirty = true;
+        updateSaveStatus(`✨ Đã beautify ${count} block(s) — nhấn Lưu để lưu`);
+      } else {
+        updateSaveStatus('✨ Không có block nào cần beautify');
+      }
+      setTimeout(() => { if (!dirty) updateSaveStatus(''); }, 3000);
     });
 
     // ── Block drag-and-drop reorder inside modal ─────────

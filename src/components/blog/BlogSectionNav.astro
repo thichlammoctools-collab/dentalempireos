@@ -128,6 +128,14 @@ const h3Count = items.filter((s) => s.level === 3).length;
   }
 </style>
 
+<style is:global>
+  /* Hide mobile bottom nav when blog TOC drawer is open */
+  body.blog-toc-open #mobile-bottom-nav {
+    transform: translateY(100%) !important;
+    pointer-events: none !important;
+  }
+</style>
+
 <script>
   (function () {
     const OFFSET = 80;
@@ -169,6 +177,7 @@ const h3Count = items.filter((s) => s.level === 3).length;
 
       function openSheet() {
         sheet.classList.add('blog-section-open');
+        document.body.classList.add('blog-toc-open');
         if (overlay) overlay.classList.remove('hidden');
 
         const currentId = getActiveId();
@@ -186,6 +195,7 @@ const h3Count = items.filter((s) => s.level === 3).length;
 
       function closeSheet() {
         sheet.classList.remove('blog-section-open');
+        document.body.classList.remove('blog-toc-open');
         if (overlay) overlay.classList.add('hidden');
       }
 
