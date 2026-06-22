@@ -439,28 +439,48 @@ body.sepia-mode {
   --fs: 1.1rem;
   font-size: clamp(1rem, var(--fs), 1.9rem);
   line-height: 1.8;
-  /* Mobile: tighter spacing for better reading */
   word-break: break-word;
   overflow-wrap: break-word;
-  /* Prevent accidental horizontal swipe back on mobile */
   touch-action: pan-y;
 }
+
+/* Paragraphs */
 .reader-content p {
   color: var(--reader-text-muted, var(--color-on-surface-variant));
-  margin-bottom: 1em;
+  font-size: 0.95em;
+  margin-bottom: 0.9em;
 }
-.reader-content h1,
-.reader-content h2,
-.reader-content h3 {
-  color: var(--reader-text, var(--color-on-surface));
+
+/* Section headings (from renderSection) — keep visible with hierarchy
+   Uses !important to beat Tailwind Typography prose overrides */
+.section-heading {
+  font-weight: 700 !important;
+  margin: 1.8em 0 0.6em !important;
+  letter-spacing: 0.02em;
 }
-/* Scale down headings from pasted markdown to match reader typography */
-.reader-content h1 { font-size: 1.35em; margin: 1.2em 0 0.6em; }
-.reader-content h2 { font-size: 1.2em; margin: 1.1em 0 0.5em; }
-.reader-content h3 { font-size: 1.05em; margin: 1em 0 0.4em; }
-.reader-content h4,
-.reader-content h5,
-.reader-content h6 { font-size: 1em; margin: 0.8em 0 0.4em; }
+h2.section-heading {
+  font-size: 1.35em !important;
+  color: var(--color-on-surface) !important;
+  line-height: 1.35 !important;
+}
+h3.section-heading {
+  font-size: 1.15em !important;
+  color: var(--color-on-surface) !important;
+  line-height: 1.4 !important;
+}
+h4.section-heading {
+  font-size: 1.15em !important;
+  color: var(--color-on-surface) !important;
+}
+
+/* Headings inside block content (from marked.parse) — flatten to body text
+   since section tree already provides real headings. */
+.reader-content :not(.section-heading):is(h1,h2,h3,h4,h5,h6) {
+  font-size: 1em !important;
+  font-weight: inherit !important;
+  color: inherit !important;
+  margin: 0.5em 0 0.3em !important;
+}
 
 /* Section numbers: hierarchical 1, 1.1, 1.1.1 */
 .section-number {
@@ -475,7 +495,7 @@ body.sepia-mode {
 .reader-content h2 .section-number { font-size: 0.65em; }
 .reader-content h3 .section-number { font-size: 0.7em; }
 
-/* Lists: better spacing on mobile */
+/* Lists */
 .reader-content ul,
 .reader-content ol {
   padding-left: 1.5em;
@@ -493,7 +513,25 @@ body.sepia-mode {
 }
 .reader-content img[src=""] { display: none; }
 
-/* Mobile content improvements */
+/* Bold: primary emphasis — prominent accent color */
+.reader-content strong {
+  color: var(--reader-accent, var(--color-primary));
+  font-weight: 700;
+}
+
+/* Italic: secondary emphasis — muted */
+.reader-content em {
+  color: var(--reader-text-muted, var(--color-on-surface-variant));
+  font-style: italic;
+}
+
+/* Blockquote */
+.reader-content blockquote {
+  color: var(--reader-text-muted, var(--color-on-surface-variant));
+  border-left-color: var(--reader-accent, var(--color-primary));
+}
+
+/* Mobile adjustments */
 @media (max-width: 639px) {
   .reader-content {
     line-height: 1.75;
@@ -501,16 +539,6 @@ body.sepia-mode {
   .reader-content p {
     margin-bottom: 0.8em;
   }
-  .reader-content h1 { font-size: 1.2em; }
-  .reader-content h2 { font-size: 1.1em; }
-}
-
-.reader-content strong {
-  color: var(--reader-accent, var(--color-primary));
-}
-.reader-content blockquote {
-  color: var(--reader-text-muted, var(--color-on-surface-variant));
-  border-left-color: var(--reader-accent, var(--color-primary));
 }
 
 .search-highlight {

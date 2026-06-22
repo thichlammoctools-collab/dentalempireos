@@ -227,7 +227,7 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 } else {
   const localAttachments: AttachmentItem[] = [];
   const sectionsHtml = sections.map((s, i) => renderSection(s, localAttachments, `${i + 1}`)).join('');
-  strippedContent = sectionsHtml.replace(/<\/?(?:h[2-5])[^>]*>.*?<\/(?:h[2-5])>/i, '', 1);
+  strippedContent = sectionsHtml;
   attachments = localAttachments;
   _chapterCache.set(slug, { html: strippedContent, attachments, ts: Date.now(), ch });
 }
@@ -236,7 +236,7 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
   const freshSectionsHtml = sections.map((s, i) => renderSection(s, staleAttachments, `${i + 1}`)).join('');
-  const freshHtml = freshSectionsHtml.replace(/<\/?(?:h[2-5])[^>]*>.*?<\/(?:h[2-5])>/i, '', 1);
+  const freshHtml = freshSectionsHtml;
   _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, ts: Date.now(), ch });
 }
 
