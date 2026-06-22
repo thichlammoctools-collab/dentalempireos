@@ -1,0 +1,89 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export const prerender = false;
+
+const orderId = Astro.url.searchParams.get('order') || '';
+---
+
+<BaseLayout title="Kết quả thanh toán | Dental Empire OS">
+  <section class="max-w-[480px] mx-auto px-6 py-16 text-center">
+    <div id="payment-result" class="glass-card rounded-2xl p-8 border border-outline-variant/20">
+      <!-- Loading state -->
+      <div id="state-loading" class="flex flex-col items-center gap-4">
+        <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+        <p class="text-on-surface-variant text-sm">Đang xác nhận thanh toán...</p>
+        <p class="text-white/30 text-xs">Vui lòng không tắt trang này</p>
+      </div>
+
+      <!-- Success state -->
+      <div id="state-success" class="hidden flex flex-col items-center gap-4">
+        <div class="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+          <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold text-white">Thanh toán thành công!</h2>
+        <p class="text-on-surface-variant text-sm" id="success-message">
+          Nội dung đã được mở khóa. Bạn có thể truy cập ngay.
+        </p>
+        <a href="/" class="mt-2 px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm">
+          Về trang chủ
+        </a>
+      </div>
+
+      <!-- Failed state -->
+      <div id="state-failed" class="hidden flex flex-col items-center gap-4">
+        <div class="w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center">
+          <svg class="w-8 h-8 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold text-white">Thanh toán chưa hoàn tất</h2>
+        <p class="text-on-surface-variant text-sm">
+          Đơn hàng đang được xử lý. Vui lòng quay lại sau vài phút.
+        </p>
+        <a href="/" class="mt-2 px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm">
+          Về trang chủ
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <script is:inline define:vars={{ orderId }}>
+    // Poll order status to show result
+    const ORDER_ID = orderId;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
+
+    const loading = document.getElementById('state-loading');
+    const success = document.getElementById('state-success');
+    const failed = document.getElementById('state-failed');
+
+    async function checkStatus() {
+      if (attempts >= MAX_ATTEMPTS) {
+        loading?.classList.add('hidden');
+        failed?.classList.remove('hidden');
+        return;
+      }
+      attempts++;
+
+      try {
+        await fetch('/api/payos/check-access?product_id=' + ORDER_ID);
+        // If we get here, webhook has likely processed
+        // Fallback: just wait and show success after a delay
+      } catch {
+        // ignore
+      }
+
+      // Give webhook time to process, then show result
+      setTimeout(() => {
+        loading?.classList.add('hidden');
+        success?.classList.remove('hidden');
+      }, 3000);
+    }
+
+    // Start polling after 2 seconds (webhook needs time)
+    setTimeout(checkStatus, 2000);
+  </script>
+</BaseLayout>

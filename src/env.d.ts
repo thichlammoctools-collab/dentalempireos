@@ -12,6 +12,10 @@ declare namespace Cloudflare {
     ADMIN_EMAILS: string;
     CF_API_TOKEN: string;
     CF_ZONE_ID: string;
+    PAYOS_CLIENT_ID: string;
+    PAYOS_API_KEY: string;
+    PAYOS_CHECKSUM_KEY: string;
+    PAYOS_WEBHOOK_URL: string;
   }
 }
 

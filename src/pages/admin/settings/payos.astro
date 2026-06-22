@@ -1,0 +1,266 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getPayosSettings } from '../../../lib/payos-db';
+
+export const prerender = false;
+
+const settings = await getPayosSettings(env.DB);
+
+function maskKey(key: string): string {
+  if (!key || key.length < 14) return '••••••••••';
+  return key.slice(0, 6) + '••••••' + key.slice(-4);
+}
+
+const apiKeyMasked = settings?.api_key ? maskKey(settings.api_key) : '';
+const checksumKeyMasked = settings?.checksum_key ? maskKey(settings.checksum_key) : '';
+---
+
+<AdminLayout title="Cài đặt PayOS | Admin">
+  <div class="max-w-2xl w-full">
+    <!-- Header -->
+    <div class="mb-6">
+      <h2 class="text-3xl font-bold text-white mb-1">Cài đặt PayOS</h2>
+      <p class="text-on-surface-variant text-sm">
+        Cấu hình cổng thanh toán PayOS cho hệ thống.
+      </p>
+    </div>
+
+    <form id="payos-form" class="flex flex-col gap-5">
+      <!-- Toggle enabled -->
+      <div class="glass-card rounded-xl p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-white mb-0.5">Kích hoạt PayOS</h3>
+            <p class="text-xs text-on-surface-variant">Bật/tắt cổng thanh toán tự động</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              id="field-is_active"
+              class="sr-only peer"
+              checked={settings?.is_active === 1}
+            />
+            <div class="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4.5 rtl:peer-checked:after:-translate-x-4.5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-on-surface-variant after:border after:border-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Credentials -->
+      <div class="glass-card rounded-xl p-5 flex flex-col gap-4" id="credentials-fields">
+        <!-- Sandbox mode -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-sm font-semibold text-on-surface-variant">Chế độ Sandbox</label>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="field-sandbox_mode"
+                class="sr-only peer"
+                checked={settings?.sandbox_mode === 1}
+              />
+              <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-on-surface-variant after:border after:border-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+            </label>
+          </div>
+          <p class="text-xs text-on-surface-variant">
+            Bật = sandbox (test), Tắt = production (thật).
+          </p>
+        </div>
+
+        <!-- Client ID -->
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5" for="field-client_id">
+            Client ID <span class="text-red-400">*</span>
+          </label>
+          <input
+            type="text"
+            id="field-client_id"
+            value={settings?.client_id ?? ''}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono"
+            placeholder="Nhập Client ID từ PayOS dashboard"
+          />
+        </div>
+
+        <!-- API Key -->
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5" for="field-api_key">
+            API Key <span class="text-red-400">*</span>
+          </label>
+          <input
+            type="password"
+            id="field-api_key"
+            value={settings?.api_key ?? ''}
+            data-masked={apiKeyMasked}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono"
+            placeholder="Nhập API Key từ PayOS dashboard"
+          />
+          {apiKeyMasked && (
+            <p class="text-xs text-on-surface-variant mt-1" id="api-key-hint">
+              Hiện tại: <span class="font-mono">{apiKeyMasked}</span>
+            </p>
+          )}
+        </div>
+
+        <!-- Checksum Key -->
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5" for="field-checksum_key">
+            Checksum Key <span class="text-red-400">*</span>
+          </label>
+          <input
+            type="password"
+            id="field-checksum_key"
+            value={settings?.checksum_key ?? ''}
+            data-masked={checksumKeyMasked}
+            class="w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono"
+            placeholder="Nhập Checksum Key từ PayOS dashboard"
+          />
+          {checksumKeyMasked && (
+            <p class="text-xs text-on-surface-variant mt-1" id="checksum-key-hint">
+              Hiện tại: <span class="font-mono">{checksumKeyMasked}</span>
+            </p>
+          )}
+        </div>
+
+        <!-- Webhook URL -->
+        <div>
+          <label class="block text-xs font-semibold text-on-surface-variant mb-1.5" for="field-webhook_url">
+            Webhook URL
+          </label>
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              id="field-webhook_url"
+              value={settings?.webhook_url ?? 'https://dentalempireos.com/api/payos/webhook'}
+              class="flex-1 px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono"
+              placeholder="https://dentalempireos.com/api/payos/webhook"
+            />
+            <button
+              type="button"
+              id="btn-register-webhook"
+              class="shrink-0 px-4 py-2.5 bg-surface-container-high border border-outline-variant rounded-lg text-xs font-semibold text-on-surface-variant hover:bg-white/10 transition-colors"
+            >
+              Đăng ký
+            </button>
+          </div>
+          <p class="text-xs text-on-surface-variant mt-1">
+            Nhấn "Đăng ký" để gửi URL này tới PayOS dashboard.
+          </p>
+        </div>
+      </div>
+
+      <!-- Save button -->
+      <div class="flex items-center gap-3">
+        <button
+          type="submit"
+          class="px-6 py-2.5 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-90 transition-all flex items-center gap-2"
+        >
+          <span class="material-symbols-outlined text-[18px]">save</span>
+          Lưu thay đổi
+        </button>
+        <span id="save-status" class="text-sm text-on-surface-variant"></span>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  const form = document.getElementById('payos-form') as HTMLFormElement;
+  const is_activeCheckbox = document.getElementById('field-is_active') as HTMLInputElement;
+  const sandboxCheckbox = document.getElementById('field-sandbox_mode') as HTMLInputElement;
+  const credentialsFields = document.getElementById('credentials-fields')!;
+  const saveStatus = document.getElementById('save-status')!;
+  const registerBtn = document.getElementById('btn-register-webhook')!;
+
+  // Toggle credentials fields based on active state
+  function updateCredentialsFields() {
+    if (is_activeCheckbox.checked) {
+      credentialsFields.classList.remove('opacity-40', 'pointer-events-none');
+    } else {
+      credentialsFields.classList.add('opacity-40', 'pointer-events-none');
+    }
+  }
+  is_activeCheckbox.addEventListener('change', updateCredentialsFields);
+  updateCredentialsFields();
+
+  // Mask password fields on focus
+  document.querySelectorAll('input[type="password"]').forEach((input) => {
+    const el = input as HTMLInputElement;
+    const masked = el.dataset.masked;
+    if (masked && masked !== '' && el.value === masked) {
+      el.value = '';
+    }
+    el.addEventListener('focus', () => {
+      if (masked && masked !== '' && el.value === '') {
+        el.placeholder = `Đang giữ giá trị: ${masked}`;
+      }
+    });
+    el.addEventListener('blur', () => {
+      el.placeholder = el.defaultValue ? '' : 'Nhập mới để thay đổi';
+    });
+  });
+
+  // Save form
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    saveStatus.textContent = 'Đang lưu...';
+
+    const client_id = (document.getElementById('field-client_id') as HTMLInputElement).value;
+    const api_key = (document.getElementById('field-api_key') as HTMLInputElement).value;
+    const checksum_key = (document.getElementById('field-checksum_key') as HTMLInputElement).value;
+    const webhook_url = (document.getElementById('field-webhook_url') as HTMLInputElement).value;
+
+    // Only send keys if user actually typed new ones (non-masked)
+    const body: Record<string, unknown> = {
+      client_id,
+      webhook_url,
+      sandbox_mode: sandboxCheckbox.checked ? 1 : 0,
+      is_active: is_activeCheckbox.checked ? 1 : 0,
+    };
+    // Only overwrite keys if field is non-empty and doesn't look like a mask
+    if (api_key && !api_key.includes('•')) body.api_key = api_key;
+    if (checksum_key && !checksum_key.includes('•')) body.checksum_key = checksum_key;
+
+    try {
+      const res = await fetch('/api/admin/payos-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        saveStatus.textContent = '✓ Đã lưu';
+        setTimeout(() => { saveStatus.textContent = ''; }, 3000);
+      } else {
+        const data = await res.json() as Record<string, unknown>;
+        saveStatus.textContent = (data.error as string) || '✗ Lỗi khi lưu';
+      }
+    } catch {
+      saveStatus.textContent = '✗ Lỗi kết nối';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Register webhook
+  registerBtn.addEventListener('click', async () => {
+    registerBtn.textContent = 'Đang đăng ký...';
+    registerBtn.setAttribute('disabled', 'true');
+    try {
+      const res = await fetch('/api/admin/payos-settings', { method: 'POST', credentials: 'include' });
+      const data = await res.json() as Record<string, unknown>;
+      if (res.ok) {
+        saveStatus.textContent = `✓ Webhook đã đăng ký: ${data.webhookUrl}`;
+      } else {
+        saveStatus.textContent = (data.error as string) || '✗ Lỗi đăng ký webhook';
+      }
+    } catch {
+      saveStatus.textContent = '✗ Lỗi kết nối';
+    } finally {
+      registerBtn.textContent = 'Đăng ký';
+      registerBtn.removeAttribute('disabled');
+    }
+  });
+</script>

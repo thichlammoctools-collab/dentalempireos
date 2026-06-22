@@ -1,0 +1,95 @@
+---
+/**
+ * PaymentButton — "Mua ngay" button that initiates PayOS payment flow.
+ *
+ * Usage:
+ *   <PaymentButton productId="course-premium" productName="Khóa học Premium" price={500000} />
+ *
+ * Props:
+ *   productId  — ID of the product to purchase
+ *   productName — Display name (shown on button if no slot)
+ *   price      — Price in VND (display only, real price from DB)
+ *   class      — Additional CSS classes
+ */
+
+interface Props {
+  productId: string;
+  productName?: string;
+  price?: number;
+  class?: string;
+}
+
+const { productId, productName, price, class: className = '' } = Astro.props;
+
+const user = Astro.locals.user;
+---
+
+{user ? (
+  <button
+    data-product-id={productId}
+    class={`payos-pay-btn group relative px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+  >
+    <span class="payos-btn-text">
+      {price ? `Mua ngay — ${price.toLocaleString('vi-VN')}₫` : 'Mua ngay'}
+    </span>
+    <span class="payos-btn-loading hidden">
+      <svg class="animate-spin inline w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      Đang xử lý...
+    </span>
+  </button>
+) : (
+  <a
+    href={`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`}
+    class={`inline-block px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all ${className}`}
+  >
+    Đăng nhập để mua
+  </a>
+)}
+
+<script>
+  document.querySelectorAll('.payos-pay-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const productId = target.dataset.productId;
+      if (!productId) return;
+
+      const textEl = target.querySelector('.payos-btn-text') as HTMLElement;
+      const loadingEl = target.querySelector('.payos-btn-loading') as HTMLElement;
+
+      target.disabled = true;
+      textEl?.classList.add('hidden');
+      loadingEl?.classList.remove('hidden');
+
+      try {
+        const resp = await fetch('/api/payos/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId }),
+        });
+
+        const data = await resp.json() as Record<string, unknown>;
+
+        if (!resp.ok || data.error) {
+          alert((data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.');
+          target.disabled = false;
+          textEl?.classList.remove('hidden');
+          loadingEl?.classList.add('hidden');
+          return;
+        }
+
+        // Redirect to PayOS checkout
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl as string;
+        }
+      } catch {
+        alert('Lỗi kết nối. Vui lòng thử lại.');
+        target.disabled = false;
+        textEl?.classList.remove('hidden');
+        loadingEl?.classList.add('hidden');
+      }
+    });
+  });
+</script>
