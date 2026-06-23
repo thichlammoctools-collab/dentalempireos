@@ -63,7 +63,7 @@ if (section.keywords) {
       {section.title}
     </span>
     {hasChildren && (
-      <span class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">{section.children.length} mục</span>
+      <span data-section-count class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">{section.children.length} mục</span>
     )}
     <button data-section-keywords class:list={[
       'p-1 rounded transition-colors',
