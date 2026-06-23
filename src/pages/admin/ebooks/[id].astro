@@ -130,7 +130,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             Thêm nhiều
           </button>
           <button id="btn-add-section" type="button" class="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-all flex items-center gap-1" title="Thêm đề mục chính (Ctrl+Shift+S)">
-            <span class="material-symbols-outlined text-[16px]">add</span>
+            <span class="material-symbols-outlined text-[16px]">playlist_add</span>
             Thêm đề mục chính
           </button>
         </div>
@@ -388,17 +388,17 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           ${toggleBtn}
           <span data-section-title class="flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors ${titleClass}" title="Nhấp đôi để sửa tên">${escapeHtml(s.title)}</span>
           ${countBadge}
-          <button data-section-keywords class="p-1 rounded ${kwArr.length > 0 ? 'text-primary hover:text-primary/80' : 'text-on-surface-variant hover:text-primary'} transition-colors" title="${kwArr.length > 0 ? 'Keywords: ' + kwArr.join(', ') : 'Thêm keywords'}">
-            <span class="material-symbols-outlined text-[14px]">sell</span>
-          </button>
           <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
             <span class="material-symbols-outlined text-[14px]">edit</span>
           </button>
           <button data-section-add-sub class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm đề mục phụ">
-            <span class="material-symbols-outlined text-[14px]">add</span>
+            <span class="material-symbols-outlined text-[14px]">playlist_add</span>
           </button>
           <button data-section-delete class="p-1 rounded text-on-surface-variant hover:text-error transition-colors" title="Xoá">
             <span class="material-symbols-outlined text-[14px]">delete</span>
+          </button>
+          <button data-section-keywords class="p-1 rounded ${kwArr.length > 0 ? 'text-primary hover:text-primary/80' : 'text-on-surface-variant hover:text-primary'} transition-colors" title="${kwArr.length > 0 ? 'Keywords: ' + kwArr.join(', ') : 'Thêm keywords'}">
+            <span class="material-symbols-outlined text-[14px]">sell</span>
           </button>
         </div>
         ${kwChips}
