@@ -33,26 +33,6 @@ const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number 
   1: tier1Stats, 2: tier2Stats, 3: tier3Stats,
 };
 
-const testimonialsData = [
-  {
-    quote: homepage.testimonial1_quote,
-    name: homepage.testimonial1_name,
-    role: homepage.testimonial1_role,
-    avatar: homepage.testimonial1_avatar,
-  },
-  {
-    quote: homepage.testimonial2_quote,
-    name: homepage.testimonial2_name,
-    role: homepage.testimonial2_role,
-    avatar: homepage.testimonial2_avatar,
-  },
-  {
-    quote: homepage.testimonial3_quote,
-    name: homepage.testimonial3_name,
-    role: homepage.testimonial3_role,
-    avatar: homepage.testimonial3_avatar,
-  },
-];
 ---
 
 <BaseLayout title="Dental Empire OS - Hệ Điều Hành Quản Trị Nha Khoa Toàn Diện">
@@ -154,47 +134,6 @@ const testimonialsData = [
       </div>
     </div>
   </section>
-
-  <!-- Social Proof / Testimonials — hidden (2026-06-21) -->
-  <!--
-  <section class="py-20 overflow-hidden bg-surface">
-    <div class="px-6 max-w-[1200px] mx-auto">
-      <div class="flex flex-col md:flex-row justify-between items-end gap-6 mb-16">
-        <div class="max-w-xl">
-          <h2 class="text-headline-lg text-white mb-4">{homepage.testimonial_section_heading}</h2>
-          <p class="text-on-surface-variant">{homepage.testimonial_section_subheading}</p>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {testimonialsData.map((t) => (
-          <div class="bg-surface-container-low p-8 rounded-2xl border border-outline-variant shadow-sm relative">
-            <span class="absolute top-6 right-8 text-6xl text-primary/10">&ldquo;</span>
-            <div class="flex items-center gap-1 text-primary mb-4">
-              {[1, 2, 3, 4, 5].map(() => (
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
-              ))}
-            </div>
-            <p class="text-on-surface-variant mb-8 italic leading-relaxed">
-              &ldquo;{t.quote}&rdquo;
-            </p>
-            <div class="flex items-center gap-4">
-              <img
-                class="w-12 h-12 rounded-full object-cover"
-                src={t.avatar}
-                alt={t.name}
-                loading="lazy"
-              />
-              <div>
-                <p class="font-bold text-white">{t.name}</p>
-                <p class="text-xs text-on-surface-variant">{t.role}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-  -->
 
   <!-- Authority / Founder Section -->
   <section class="py-20 bg-surface-container-lowest text-on-surface overflow-hidden">

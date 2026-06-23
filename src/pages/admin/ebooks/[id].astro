@@ -1153,7 +1153,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
 
       // Edit keywords — inline input (no prompt)
-      const kwBtn = target.closest<HTMLElement>('[data-section-keywords]');
+      const kwBtn = target.closest<HTMLElement>('button[data-section-keywords]');
       if (kwBtn) {
         const sectionItem = kwBtn.closest<HTMLElement>('[data-section-item]');
         if (!sectionItem) return;
