@@ -7,116 +7,45 @@ interface Props {
 const { chapterId, chapterTitle = '' } = Astro.props;
 ---
 
-<!-- Overlay -->
+<!-- Mobile: Bottom sheet only (desktop uses ReviewDrawer's question tab) -->
 <div
-  id="question-overlay"
-  class="question-overlay fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden transition-opacity duration-300"
-  aria-hidden="true"
-></div>
-
-<!-- Desktop: slide-in from right (matches ReviewDrawer) -->
-<div
-  id="question-drawer-desktop"
-  class="fixed right-0 top-0 bottom-0 z-[102] flex-col shadow-2xl overflow-hidden"
-  style="width: 420px; background: var(--reader-chrome-bg); transform: translateX(100%); transition: transform 0.3s ease;"
+  id="question-drawer-mobile"
+  class="fixed z-[102] rounded-t-3xl overflow-hidden flex-col shadow-2xl hidden"
+  style="
+    background: var(--reader-chrome-bg);
+    left: 0; right: 0; bottom: 0;
+    width: 100%; max-width: 100%;
+    max-height: min(95vh, calc(100dvh - 20px));
+    transform-origin: bottom center;
+    transform: translateY(100%);
+    opacity: 0; pointer-events: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  "
 >
+  <!-- Handle -->
+  <div class="flex justify-center pt-3 pb-1 cursor-pointer select-none" id="question-handle">
+    <div class="w-10 h-1 rounded-full" style="background: var(--reader-border);"></div>
+  </div>
+
   <!-- Header -->
-  <div class="flex items-center justify-between px-5 py-4 shrink-0" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+  <div class="flex items-center justify-between px-5 py-3 shrink-0" style="border-bottom: 1px solid var(--reader-border);">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-primary text-xl">support_agent</span>
       <div>
         <h3 class="text-sm font-bold" style="color: var(--reader-chrome-text);">Hỏi Tác Giả</h3>
         {chapterTitle && (
-          <p class="text-[11px] truncate max-w-[220px]" style="color: var(--reader-chrome-text-muted);">{chapterTitle}</p>
+          <p class="text-[11px] truncate max-w-[200px]" style="color: var(--reader-chrome-text-muted);">{chapterTitle}</p>
         )}
       </div>
     </div>
-    <button id="question-close-desktop" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-container-high" title="Đóng">
+    <button id="question-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-container-high" title="Đóng">
       <span class="material-symbols-outlined text-base" style="color: var(--reader-chrome-text-muted);">close</span>
     </button>
   </div>
 
   <!-- Content -->
   <div class="flex-1 overflow-y-auto px-5 py-4">
-    <div id="question-logged-out-desktop" class="hidden text-center py-10">
-      <span class="material-symbols-outlined text-5xl block mb-4 opacity-30" style="color: var(--reader-chrome-text-muted);">lock</span>
-      <p class="text-xs mb-4" style="color: var(--reader-chrome-text-muted);">Đăng nhập để đặt câu hỏi cho tác giả</p>
-      <a href="/login" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold">
-        <span class="material-symbols-outlined text-sm">login</span> Đăng nhập
-      </a>
-    </div>
-
-    <form id="question-form-desktop" class="flex flex-col gap-3" data-question-form="desktop">
-      <input type="hidden" name="chapter_id" value={chapterId} />
-      <div>
-        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--reader-chrome-text-muted);">Tiêu đề</label>
-        <input
-          type="text"
-          name="title"
-          placeholder="Tóm tắt câu hỏi..."
-          class="w-full r-surface border rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary" style="border-color: var(--reader-border); color: var(--reader-chrome-text);"
-          required
-          maxlength="200"
-        />
-      </div>
-      <div>
-        <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--reader-chrome-text-muted);">Chi tiết</label>
-        <textarea
-          name="body"
-          rows={4}
-          placeholder="Mô tả chi tiết câu hỏi..."
-          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
-          style="color: var(--reader-chrome-text);"
-          required
-        ></textarea>
-      </div>
-      <button
-        type="submit"
-        class="question-submit w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-      >
-        <span class="material-symbols-outlined text-base">send</span>
-        Gửi câu hỏi
-      </button>
-      <p class="text-[10px] text-center" style="color: var(--reader-chrome-text-muted);">Tác giả sẽ nhận thông báo và trả lời sớm nhất có thể.</p>
-    </form>
-
-    <div id="question-success-desktop" class="hidden text-center py-8">
-      <span class="material-symbols-outlined text-primary text-5xl mb-4 block">check_circle</span>
-      <p class="text-xs font-bold mb-1" style="color: var(--reader-chrome-text);">Câu hỏi đã được gửi!</p>
-      <p class="text-[11px]" style="color: var(--reader-chrome-text-muted);">Tác giả sẽ trả lời trong thời gian sớm nhất.</p>
-    </div>
-  </div>
-</div>
-
-<!-- Mobile: bottom sheet (matches ReviewDrawer / SectionNavMobile pattern) -->
-<div
-  id="question-drawer-mobile"
-  class="fixed inset-x-0 bottom-0 z-[95] rounded-t-3xl overflow-hidden flex flex-col shadow-2xl hidden"
-  style="background: var(--color-surface-container-low); max-height: 85vh;"
->
-  <!-- Handle -->
-  <div class="flex justify-center pt-3 pb-2 cursor-grab select-none" id="question-handle-mobile">
-    <div class="w-10 h-1.5 rounded-full bg-outline-variant"></div>
-  </div>
-
-  <!-- Header -->
-  <div class="px-5 pb-3 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--reader-border);">
-    <div class="flex items-center gap-2">
-      <span class="material-symbols-outlined text-primary text-lg">support_agent</span>
-      <div>
-        <h3 class="text-sm font-bold" style="color: var(--reader-chrome-text);">Hỏi Tác Giả</h3>
-        {chapterTitle && (
-          <p class="text-[11px] truncate max-w-[220px]" style="color: var(--reader-chrome-text-muted);">{chapterTitle}</p>
-        )}
-      </div>
-    </div>
-    <button id="question-close-mobile" class="w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--reader-chrome-surface-high);">
-      <span class="material-symbols-outlined text-base" style="color: var(--reader-chrome-text-muted);">close</span>
-    </button>
-  </div>
-
-  <!-- Content -->
-  <div class="flex-1 overflow-y-auto px-5 py-4" style="padding-bottom: max(env(safe-area-inset-bottom, 16px), 120px);">
     <div id="question-logged-out-mobile" class="hidden text-center py-10">
       <span class="material-symbols-outlined text-5xl block mb-4 opacity-30" style="color: var(--reader-chrome-text-muted);">lock</span>
       <p class="text-xs mb-4" style="color: var(--reader-chrome-text-muted);">Đăng nhập để đặt câu hỏi cho tác giả</p>
@@ -125,7 +54,7 @@ const { chapterId, chapterTitle = '' } = Astro.props;
       </a>
     </div>
 
-    <form id="question-form-mobile" class="flex flex-col gap-3" data-question-form="mobile">
+    <form id="question-form-mobile" class="flex flex-col gap-3">
       <input type="hidden" name="chapter_id" value={chapterId} />
       <div>
         <label class="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style="color: var(--reader-chrome-text-muted);">Tiêu đề</label>
@@ -133,7 +62,8 @@ const { chapterId, chapterTitle = '' } = Astro.props;
           type="text"
           name="title"
           placeholder="Tóm tắt câu hỏi..."
-          class="w-full r-surface border rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary" style="border-color: var(--reader-border); color: var(--reader-chrome-text);"
+          class="w-full rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary"
+          style="background: var(--reader-chrome-surface); border: 1px solid var(--reader-border); color: var(--reader-chrome-text);"
           required
           maxlength="200"
         />
@@ -144,14 +74,15 @@ const { chapterId, chapterTitle = '' } = Astro.props;
           name="body"
           rows={4}
           placeholder="Mô tả chi tiết câu hỏi..."
-          class="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
-          style="color: var(--reader-chrome-text);"
+          class="w-full rounded-xl px-3 py-2.5 text-xs outline-none focus:border-primary resize-y"
+          style="background: var(--reader-chrome-surface); border: 1px solid var(--reader-border); color: var(--reader-chrome-text);"
           required
         ></textarea>
       </div>
       <button
         type="submit"
-        class="question-submit w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+        id="question-submit-mobile"
+        class="w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
       >
         <span class="material-symbols-outlined text-base">send</span>
         Gửi câu hỏi
@@ -168,238 +99,112 @@ const { chapterId, chapterTitle = '' } = Astro.props;
 </div>
 
 <style>
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  /* Mobile bottom-sheet visible state (matches ReviewDrawer exactly) */
-  #question-drawer-mobile {
-    transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  #question-drawer-mobile.question-open {
-    transform: translateY(0) !important;
-  }
-
-  /* Desktop scrollbar */
-  #question-drawer-desktop ::-webkit-scrollbar { width: 4px; }
-  #question-drawer-desktop ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 
 <script>
   (function () {
     const trigger = document.getElementById('question-trigger');
-    const overlay = document.getElementById('question-overlay');
-    const desktop = document.getElementById('question-drawer-desktop');
-    const mobile = document.getElementById('question-drawer-mobile');
-    const handleMobile = document.getElementById('question-handle-mobile');
-    const closeDesktop = document.getElementById('question-close-desktop');
-    const closeMobile = document.getElementById('question-close-mobile');
-    const toolbarBtn = document.getElementById('toolbar-ask-btn');
+    const mobileDrawer = document.getElementById('question-drawer-mobile');
+    const closeBtn = document.getElementById('question-close-mobile');
+    const handle = document.getElementById('question-handle');
 
     let isOpen = false;
     let isMobile = false;
 
-    /* ── Auth check: show triggers if logged in ── */
+    /* ── Auth check: show mobile trigger ── */
     async function checkAuth() {
       try {
         const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
-        if (res.ok) {
-          trigger?.classList.remove('hidden');
-          toolbarBtn?.classList.remove('hidden');
-        }
-      } catch { /* not logged in — keep hidden */ }
+        trigger?.classList.toggle('hidden', !res.ok);
+      } catch { trigger?.classList.remove('hidden'); }
     }
     checkAuth();
 
-    /* ── Mobile keyboard handling ── */
-    const viewportIsMobile = () => window.innerWidth < 1024;
-    var keyboardOpenFired = false;
-
-    function applyMobileKeyboardOffset() {
-      if (!isMobile || !mobile || !isOpen) return;
-      const vv = window.visualViewport;
-      if (vv) {
-        const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
-        if (keyboardHeight > 50) {
-          const newMaxHeight = Math.max(40, (vv.height / window.innerHeight) * 100);
-          mobile.style.maxHeight = `${newMaxHeight}dvh`;
-          // Only scroll once when keyboard first opens — typing should not keep scrolling
-          if (!keyboardOpenFired) {
-            keyboardOpenFired = true;
-            setTimeout(() => {
-              const activeElement = document.activeElement as HTMLElement;
-              if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-                activeElement.scrollIntoView({ behavior: 'instant', block: 'center' });
-              }
-            }, 150);
-          }
-        } else {
-          mobile.style.maxHeight = '';
-          keyboardOpenFired = false;
-        }
-      }
-    }
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', applyMobileKeyboardOffset);
-      window.visualViewport.addEventListener('scroll', applyMobileKeyboardOffset);
-    }
-
-    /* ── Open / Close (same pattern as ReviewDrawer) ── */
+    /* ── Open / Close (mobile only) ── */
     function open() {
-      keyboardOpenFired = false;
+      if (!mobileDrawer) return;
       isOpen = true;
-      isMobile = window.innerWidth < 1024;
-
-      if (isMobile && mobile) {
-        // Close other mobile sheets first (mutual exclusion)
-        (window as any).__closeSectionNav?.();
-        (window as any).__closeReview?.();
-
-        mobile.classList.remove('hidden');
-        // Double rAF ensures the browser paints 'hidden' removal before adding animation class
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => mobile!.classList.add('question-open'));
-        });
-        overlay?.classList.remove('hidden');
-        applyMobileKeyboardOffset();
-      } else if (desktop) {
-        overlay?.classList.remove('hidden');
-        desktop.style.transform = 'translateX(0)';
-      }
-
-      // Desktop: focus first input. Mobile: let user tap to focus (avoids auto-opening keyboard).
-      if (!isMobile) {
-        setTimeout(() => {
-          const input = desktop?.querySelector('input[name="title"]') as HTMLInputElement;
-          input?.focus();
-        }, 350);
-      }
+      mobileDrawer.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        mobileDrawer.style.opacity = '1';
+        mobileDrawer.style.pointerEvents = 'auto';
+        mobileDrawer.style.transform = 'translateY(0)';
+      });
     }
 
     function close() {
-      keyboardOpenFired = false;
+      if (!mobileDrawer) return;
       isOpen = false;
-
-      if (isMobile) {
-        if (mobile) {
-          mobile.classList.remove('question-open');
-          setTimeout(() => mobile?.classList.add('hidden'), 350);
-        }
-        overlay?.classList.add('hidden');
-      } else {
-        overlay?.classList.add('hidden');
-        if (desktop) desktop.style.transform = 'translateX(100%)';
-      }
+      mobileDrawer.style.opacity = '0';
+      mobileDrawer.style.pointerEvents = 'none';
+      mobileDrawer.style.transform = 'translateY(100%)';
+      setTimeout(() => mobileDrawer.classList.add('hidden'), 350);
     }
 
-    /* ── Event bindings ── */
-    // NOTE: Mobile #question-trigger click is handled by SectionNavMobile.astro
-    // (it calls window.__openQuestionDrawer). Do NOT add a click listener on
-    // trigger here — it would double-toggle (open then immediately close).
-    toolbarBtn?.addEventListener('click', () => { isOpen ? close() : open(); });
-    overlay?.addEventListener('click', close);
-    closeDesktop?.addEventListener('click', close);
-    closeMobile?.addEventListener('click', close);
+    trigger?.addEventListener('click', () => isOpen ? close() : open());
+    closeBtn?.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) close(); });
 
-    // Expose globally for mutual exclusion with SectionNavMobile / ReviewDrawer
-    (window as any).__openQuestionDrawer = open;
-    (window as any).__closeQuestionDrawer = close;
+    /* ── Submit ── */
+    const form = document.getElementById('question-form-mobile') as HTMLFormElement;
+    const submitBtn = document.getElementById('question-submit-mobile') as HTMLButtonElement;
+    const successEl = document.getElementById('question-success-mobile');
 
-    // Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen) close();
-    });
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const title = (formData.get('title') as string)?.trim();
+      const body = (formData.get('body') as string)?.trim();
+      const chapterId = formData.get('chapter_id') as string;
+      if (!title || !body) return;
 
-    /* ── Form submission (delegated for both mobile & desktop) ── */
-    document.querySelectorAll<HTMLFormElement>('[data-question-form]').forEach((form) => {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const title = (formData.get('title') as string)?.trim();
-        const body = (formData.get('body') as string)?.trim();
-        const chapterIdVal = formData.get('chapter_id') as string;
-        if (!title || !body) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
+      }
 
-        const submitBtn = form.querySelector<HTMLButtonElement>('.question-submit');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Đang gửi...';
-        }
-
-        try {
-          const res = await fetch('/api/questions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ chapter_id: chapterIdVal, title, body }),
-          });
-
-          if (!res.ok) {
-            showToast('Có lỗi xảy ra, vui lòng thử lại.', 'error');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
-            return;
-          }
-
-          const type = form.dataset.questionForm; // 'mobile' or 'desktop'
-          form.classList.add('hidden');
-          const successEl = document.getElementById(`question-success-${type}`);
-          successEl?.classList.remove('hidden');
-          setTimeout(() => {
-            form.reset();
-            form.classList.remove('hidden');
-            successEl?.classList.add('hidden');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
-          }, 2500);
-        } catch {
-          showToast('Lỗi kết nối. Vui lòng thử lại.', 'error');
+      try {
+        const res = await fetch('/api/questions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ chapter_id: chapterId, title, body }),
+        });
+        if (!res.ok) {
+          if (res.status === 401) { window.location.href = '/login'; return; }
+          alert('Có lỗi xảy ra, vui lòng thử lại.');
           if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+          return;
         }
-      });
-    });
-
-    /* ── Mobile: touch drag to dismiss (matches ReviewDrawer pattern) ── */
-    let startY = 0;
-    let currentY = 0;
-
-    handleMobile?.addEventListener('touchstart', (e) => {
-      startY = e.touches[0].clientY;
-      if (mobile) mobile.style.transition = 'none';
-    }, { passive: true });
-
-    handleMobile?.addEventListener('touchmove', (e) => {
-      if (!isOpen || !mobile) return;
-      currentY = e.touches[0].clientY;
-      const diff = currentY - startY;
-      if (diff > 0) {
-        mobile.style.transform = `translateY(${diff}px)`;
+        form.classList.add('hidden'); successEl?.classList.remove('hidden');
+        setTimeout(() => {
+          form.reset(); form.classList.remove('hidden'); successEl?.classList.add('hidden');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
+        }, 2500);
+      } catch {
+        alert('Lỗi kết nối. Vui lòng thử lại.');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Gửi câu hỏi'; }
       }
+    });
+
+    /* ── Touch drag to dismiss ── */
+    let startY = 0, deltaY = 0, dragging = false;
+    handle?.addEventListener('touchstart', (e: Event) => {
+      startY = (e as TouchEvent).touches[0].clientY; dragging = true;
+      if (mobileDrawer) mobileDrawer.style.transition = 'none';
     }, { passive: true });
-
-    handleMobile?.addEventListener('touchend', () => {
-      if (mobile) mobile.style.transition = '';
-      const diff = currentY - startY;
-      if (diff > 80) {
-        close();
-      } else if (mobile) {
-        mobile.style.transform = '';
-      }
-      currentY = 0;
+    document.addEventListener('touchmove', (e: Event) => {
+      if (!dragging) return;
+      deltaY = (e as TouchEvent).touches[0].clientY - startY;
+      if (deltaY > 0 && mobileDrawer) mobileDrawer.style.transform = `translateY(${deltaY}px)`;
+    }, { passive: true });
+    document.addEventListener('touchend', () => {
+      if (!dragging) return; dragging = false;
+      if (mobileDrawer) mobileDrawer.style.transition = '';
+      if (deltaY > 80) close();
+      else if (mobileDrawer) mobileDrawer.style.transform = isOpen ? 'translateY(0)' : 'translateY(100%)';
+      deltaY = 0;
     });
 
-    // Resize: close only on WIDTH change (keyboard height change should not close)
-    var lastWidth = window.innerWidth;
-    var resizeTimer: ReturnType<typeof setTimeout>;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (Math.abs(window.innerWidth - lastWidth) > 50) {
-          lastWidth = window.innerWidth;
-          if (isOpen) close();
-        }
-      }, 250);
-    });
+    window.addEventListener('resize', () => { if (isOpen) close(); });
   })();
 </script>

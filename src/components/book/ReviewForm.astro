@@ -13,90 +13,104 @@ const { chapterId, isLoggedIn } = Astro.props;
   class="review-form-container bg-surface-container rounded-2xl border border-outline-variant/40 p-6 mb-8"
   data-chapter-id={chapterId}
 >
-  <!-- Header -->
-  <div class="flex items-center gap-2 mb-4">
-    <span class="material-symbols-outlined text-primary text-xl">rate_review</span>
-    <h3 class="font-bold text-white">Gửi cảm nhận của bạn</h3>
-  </div>
-
-  <!-- Form -->
-  <form id="review-form" class="space-y-4">
-    <input type="hidden" name="chapter_id" value={chapterId} />
-
-    {/* Name field — only for anonymous */}
-    {!isLoggedIn && (
-      <div>
-        <label for="review-author" class="block text-sm font-medium text-on-surface-variant mb-1.5">
-          Tên của bạn <span class="text-error">*</span>
-        </label>
-        <input
-          type="text"
-          id="review-author"
-          name="author_name"
-          required
-          placeholder="Tên hiển thị..."
-          class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
-        />
+  {!isLoggedIn ? (
+    <!-- Logged out state - Login prompt -->
+    <div class="text-center py-8">
+      <div class="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style="background: var(--color-surface-container-high);">
+        <span class="material-symbols-outlined text-3xl" style="color: var(--color-on-surface-variant);">lock</span>
       </div>
-    )}
-
-    {/* Rating */}
-    <div>
-      <label class="block text-sm font-medium text-on-surface-variant mb-1.5">
-        Đánh giá <span class="text-error">*</span>
-      </label>
-      <StarRating name="rating" size="lg" />
+      <h3 class="font-bold text-white mb-2">Đăng nhập để đánh giá</h3>
+      <p class="text-sm text-on-surface-variant mb-5 max-w-xs mx-auto">
+        Bạn cần đăng nhập để gửi đánh giá và chia sẻ cảm nhận với tác giả.
+      </p>
+      <div class="flex items-center justify-center gap-3">
+        <a 
+          href="/login" 
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold hover:opacity-90 transition-opacity"
+        >
+          <span class="material-symbols-outlined text-base">login</span>
+          Đăng nhập
+        </a>
+        <a 
+          href="/register" 
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-outline-variant text-on-surface-variant text-sm font-bold hover:border-primary hover:text-primary transition-all"
+        >
+          <span class="material-symbols-outlined text-base">person_add</span>
+          Đăng ký
+        </a>
+      </div>
     </div>
+  ) : (
+    <>
+      <!-- Header -->
+      <div class="flex items-center gap-2 mb-4">
+        <span class="material-symbols-outlined text-primary text-xl">rate_review</span>
+        <h3 class="font-bold text-white">Gửi cảm nhận của bạn</h3>
+      </div>
 
-    {/* Title (optional) */}
-    <div>
-      <label for="review-title" class="block text-sm font-medium text-on-surface-variant mb-1.5">
-        Tiêu đề <span class="text-on-surface-variant/50">(tùy chọn)</span>
-      </label>
-      <input
-        type="text"
-        id="review-title"
-        name="title"
-        placeholder="Tóm tắt cảm nhận..."
-        class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
-      />
-    </div>
+      <!-- Form -->
+      <form id="review-form" class="space-y-4">
+        <input type="hidden" name="chapter_id" value={chapterId} />
 
-    {/* Content */}
-    <div>
-      <label for="review-content" class="block text-sm font-medium text-on-surface-variant mb-1.5">
-        Nội dung <span class="text-error">*</span>
-      </label>
-      <textarea
-        id="review-content"
-        name="content"
-        required
-        rows="4"
-        minlength="2"
-        placeholder="Chia sẻ cảm nhận về chương này..."
-        class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all resize-y min-h-[6rem] max-h-[12rem]"
-      ></textarea>
-    </div>
+        {/* Rating */}
+        <div>
+          <label class="block text-sm font-medium text-on-surface-variant mb-1.5">
+            Đánh giá <span class="text-error">*</span>
+          </label>
+          <StarRating name="rating" size="lg" />
+        </div>
 
-    {/* Submit */}
-    <div class="flex items-center justify-between">
-      <p class="text-xs text-on-surface-variant/50 review-status"></p>
-      <button
-        type="submit"
-        class="review-submit px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm flex items-center gap-2"
-      >
-        <span class="material-symbols-outlined text-[18px]">send</span>
-        Gửi đánh giá
-      </button>
-    </div>
-  </form>
+        {/* Title (optional) */}
+        <div>
+          <label for="review-title" class="block text-sm font-medium text-on-surface-variant mb-1.5">
+            Tiêu đề <span class="text-on-surface-variant/50">(tùy chọn)</span>
+          </label>
+          <input
+            type="text"
+            id="review-title"
+            name="title"
+            placeholder="Tóm tắt cảm nhận..."
+            class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+          />
+        </div>
 
-  {/* Success message (hidden by default) */}
-  <div class="review-success hidden text-center py-6">
-    <span class="material-symbols-outlined text-5xl text-green-400 mb-2 block">check_circle</span>
-    <p class="font-semibold text-white mb-1">Cảm ơn bạn đã chia sẻ!</p>
-    <p class="text-sm text-on-surface-variant">Đánh giá của bạn đã được hiển thị.</p>
-  </div>
+        {/* Content */}
+        <div>
+          <label for="review-content" class="block text-sm font-medium text-on-surface-variant mb-1.5">
+            Nội dung <span class="text-error">*</span>
+          </label>
+          <textarea
+            id="review-content"
+            name="content"
+            required
+            rows="4"
+            minlength="2"
+            placeholder="Chia sẻ cảm nhận về chương này..."
+            class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all resize-y min-h-[6rem] max-h-[12rem]"
+          ></textarea>
+        </div>
+
+        {/* Submit */}
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-on-surface-variant/50 review-status"></p>
+          <button
+            type="submit"
+            class="review-submit px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-[18px]">send</span>
+            Gửi đánh giá
+          </button>
+        </div>
+      </form>
+
+      {/* Success message (hidden by default) */}
+      <div class="review-success hidden text-center py-6">
+        <span class="material-symbols-outlined text-5xl text-green-400 mb-2 block">check_circle</span>
+        <p class="font-semibold text-white mb-1">Cảm ơn bạn đã chia sẻ!</p>
+        <p class="text-sm text-on-surface-variant">Đánh giá của bạn đã được hiển thị.</p>
+      </div>
+    </>
+  )}
 </div>
 
 <script>

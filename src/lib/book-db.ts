@@ -281,7 +281,8 @@ const _SECTION_TTL_MS = 30_000; // 30 seconds — stale-while-revalidate
 /**
  * Fetches all sections from published chapters.
  * Each section title becomes an auto-keyword linking to its chapter + anchor.
- * Custom keywords (comma-separated or JSON array in DB) are also expanded into separate entries.
+<<<<<<< Updated upstream
+ * Custom keywords (comma-separated in DB) are also expanded into separate entries.
  * Result is cached in-memory for 30s to avoid repeated scans across chapter navigations.
  */
 export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
@@ -291,32 +292,15 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
     return cached.data;
   }
 
-  let results: { title: string; slug: string; level: number; keywords: string; chapter_id: string }[];
-
-  try {
-    const res = await db
-      .prepare(
-        `SELECT s."title", s."slug", s."level", s."keywords", c."id" as chapter_id
-         FROM "section" s
-         JOIN "chapter" c ON c."id" = s."chapter_id"
-         WHERE c."status" = 'published'
-         ORDER BY c."tier", c."order", s."order"`,
-      )
-      .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
-    results = res.results;
-  } catch {
-    // keywords column may not exist yet (migration 0013 not applied) — fallback query
-    const res = await db
-      .prepare(
-        `SELECT s."title", s."slug", s."level", '' as "keywords", c."id" as chapter_id
-         FROM "section" s
-         JOIN "chapter" c ON c."id" = s."chapter_id"
-         WHERE c."status" = 'published'
-         ORDER BY c."tier", c."order", s."order"`,
-      )
-      .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
-    results = res.results;
-  }
+  const { results } = await db
+    .prepare(
+      `SELECT s."title", s."slug", s."level", s."keywords", c."id" as chapter_id
+       FROM "section" s
+       JOIN "chapter" c ON c."id" = s."chapter_id"
+       WHERE c."status" = 'published'
+       ORDER BY c."tier", c."order", s."order"`,
+    )
+    .all<{ title: string; slug: string; level: number; keywords: string; chapter_id: string }>();
 
   const data: AutoKeyword[] = [];
 
@@ -326,9 +310,10 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
     // Always add the section title as an auto-keyword
     data.push({ pattern: r.title, target, label: r.title });
 
-    // Parse custom keywords from DB (JSON array or comma-separated)
+    // Parse custom keywords (comma-separated string)
     if (r.keywords) {
       try {
+        // Support both JSON array format and plain comma-separated format
         let parsed: string[];
         const trimmed = r.keywords.trim();
         if (trimmed.startsWith('[')) {
@@ -342,7 +327,7 @@ export async function listAllSections(db: D1Database): Promise<AutoKeyword[]> {
           }
         }
       } catch {
-        // Fallback: comma-separated
+        // If JSON parse fails, try comma-separated fallback
         const parts = r.keywords.split(',').map(s => s.trim()).filter(Boolean);
         for (const kw of parts) {
           if (kw && kw.toLowerCase() !== r.title.toLowerCase()) {

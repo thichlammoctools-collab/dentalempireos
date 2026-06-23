@@ -20,7 +20,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const auth = getAuth();
   const result = await auth.api.getSession({ headers: request.headers });
   if (result) {
-    locals.user = result.user;
+    // better-auth không tự động trả về field tùy chỉnh (như is_active).
+    // Query trực tiếp từ DB để lấy is_active.
+    const dbUser = await env.DB
+      .prepare('SELECT "is_active" FROM "user" WHERE "id" = ?')
+      .bind(result.user.id)
+      .first<{ is_active: number }>();
+
+    locals.user = { ...result.user, is_active: dbUser?.is_active ?? 0 };
     locals.session = result.session;
   }
 

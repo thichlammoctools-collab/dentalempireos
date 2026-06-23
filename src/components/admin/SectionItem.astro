@@ -34,7 +34,7 @@ if (section.keywords) {
   data-section-order={section.order}
   data-section-depth={depth}
   data-section-parent-id={section.parent_id ?? ''}
-  data-keywords-value={section.keywords ?? '[]'}
+  data-section-keywords={section.keywords ?? '[]'}
   class:list={[
     'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border transition-all duration-200',
     isSelected
@@ -93,7 +93,7 @@ if (section.keywords) {
   )}
 
   {hasChildren && (
-    <ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20" style="display: none">
+    <ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20">
       {section.children.map((child) => (
         <SectionItem section={child} selectedId={selectedId} depth={depth + 1} />
       ))}

@@ -148,7 +148,12 @@ const currentTier = groupedChapters.find((g) =>
 
     <!-- Right: Controls (desktop) -->
     <div class="hidden lg:flex items-center gap-1 lg:gap-2">
-      <button id="toolbar-ask-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all hidden" title="Hỏi Tác Giả">
+      <button id="toolbar-review-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Đánh giá">
+        <span class="material-symbols-outlined text-base">reviews</span>
+        <span class="text-[11px] font-semibold">Đánh giá</span>
+      </button>
+
+      <button id="toolbar-ask-btn" class="fab-control items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg r-text-muted hover:text-primary r-hover transition-all" title="Hỏi Tác Giả">
         <span class="material-symbols-outlined text-base">support_agent</span>
         <span class="text-[11px] font-semibold">Hỏi tác giả</span>
       </button>
@@ -222,48 +227,48 @@ const currentTier = groupedChapters.find((g) =>
       <div class="flex flex-1 overflow-hidden min-h-0">
 
       <!-- Desktop Sidebar TOC -->
-      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-[404px] flex-shrink-0 h-full border-r overflow-y-auto toc-sidebar" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
+      <aside id="toc-sidebar" class="hidden lg:flex flex-col w-[26rem] flex-shrink-0 h-full border-r overflow-y-auto toc-sidebar" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
         <!-- TOC Header -->
-        <div class="px-4 py-4 border-b sticky top-0 z-10" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
+        <div class="px-5 py-4 border-b sticky top-0 z-10" style="border-color: var(--reader-border); background: var(--reader-chrome-bg);">
           <h3 class="text-sm font-bold r-text mb-1">Mục lục</h3>
           <p class="text-xs r-text-muted">{currentTierLabel}</p>
         </div>
 
         <!-- Chapter navigation -->
-        <nav class="flex-1 px-3 py-3 space-y-1">
+        <nav class="flex-1 px-4 py-4 space-y-2">
           {groupedChapters.map((group) => {
             const isCurrentTier = group.tier === currentTier;
             return (
               <div class="toc-group" data-tier={group.tier} data-current-tier={isCurrentTier ? 'true' : 'false'}>
                 <!-- Group header with collapse toggle -->
                 <button
-                  class="toc-group-header flex items-center gap-2 px-3 py-2 w-full rounded-lg text-left transition-all r-hover"
+                  class="toc-group-header flex items-center gap-2.5 px-4 py-2.5 w-full rounded-lg text-left transition-all r-hover"
                   aria-expanded="true"
                   data-toc-toggle
                 >
-                  <span class="material-symbols-outlined text-primary text-[16px] toc-group-icon transition-transform duration-200">folder_open</span>
+                  <span class="material-symbols-outlined text-primary text-[18px] toc-group-icon transition-transform duration-200">folder_open</span>
                   <span class="text-sm font-bold r-text-muted toc-group-label flex-1 truncate">{group.label}</span>
-                  <span class="text-xs r-text-muted px-1.5 py-0.5 rounded toc-group-count" style="background: var(--reader-chrome-surface-high);">{group.chapters.length}</span>
-                  <span class="material-symbols-outlined text-[16px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
+                  <span class="text-xs r-text-muted px-2 py-0.5 rounded toc-group-count" style="background: var(--reader-chrome-surface-high);">{group.chapters.length}</span>
+                  <span class="material-symbols-outlined text-[18px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
                 </button>
 
                 <!-- Chapter list -->
-                <div class="toc-group-chapters space-y-0.5 overflow-hidden transition-all duration-300">
+                <div class="toc-group-chapters space-y-1 overflow-hidden transition-all duration-300">
                   {group.chapters.map((ch) => {
                     const isCurrent = ch.id === currentSlug;
                     return (
                       <a
                         href={`/book/${ch.id}`}
                         class:list={[
-                          'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border-l-2',
+                          'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all border-l-2',
                           isCurrent
                             ? 'toc-item-active border-primary text-primary'
-                            : 'border-transparent r-text-muted r-hover-text r-hover',
+                            : 'border-transparent r-text-muted toc-item-hover',
                         ]}
                         data-toc-chapter
                       >
                         <span class="shrink-0 text-xs w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
-                        <span class="truncate">{ch.data.title}</span>
+                        <span class="truncate leading-relaxed">{ch.data.title}</span>
                       </a>
                     );
                   })}
@@ -348,6 +353,7 @@ const currentTier = groupedChapters.find((g) =>
   <!-- ═══════════════ Review Drawer (outside #reader-app, fixed positioned) ═══════════════ -->
   <ReviewDrawer
     chapterId={currentSlug}
+    chapterTitle={title}
     isLoggedIn={isLoggedIn}
     currentUserId={currentUserId}
   />
@@ -1412,6 +1418,26 @@ function toggleToc() {
     /* Chapter nav fixed bottom bar */
     .chapter-nav-fixed a:hover span:last-child {
       color: var(--color-primary) !important;
+    }
+
+    /* Enhanced TOC item hover - more prominent */
+    .toc-item-hover {
+      transition: all 0.2s ease;
+    }
+    .toc-item-hover:hover {
+      background: rgba(146, 204, 255, 0.08) !important;
+      border-color: rgba(146, 204, 255, 0.4) !important;
+      color: var(--color-on-surface) !important;
+      transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(146, 204, 255, 0.1);
+    }
+
+    /* Group header hover enhancement */
+    .toc-group-header:hover {
+      background: rgba(146, 204, 255, 0.06);
+    }
+    .toc-group-header:hover .toc-group-label {
+      color: var(--color-on-surface);
     }
 
     /* TOC group collapse */

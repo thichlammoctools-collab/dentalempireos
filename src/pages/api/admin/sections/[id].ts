@@ -43,31 +43,27 @@ export const PUT: APIRoute = async ({ params, request }) => {
 
   if (!chapter_id) return badRequest('chapter_id is required');
 
-  try {
-    await upsertSection(env.DB, {
-      id,
-      chapter_id,
-      parent_id: parent_id ?? null,
-      level: level ?? 2,
-      title: title ?? '',
-      slug: slug || slugify(title ?? ''),
-      order: order ?? 0,
-      keywords: keywords ?? '[]',
-    });
+  await upsertSection(env.DB, {
+    id,
+    chapter_id,
+    parent_id: parent_id ?? null,
+    level: level ?? 2,
+    title: title ?? '',
+    slug: slug || slugify(title ?? ''),
+    order: order ?? 0,
+    keywords: keywords ?? '[]',
+  });
 
-    // Optional: batch-reorder siblings in the same call (for atomic reparent + reorder)
-    if (sibling_ids && sibling_ids.length > 0) {
-      await env.DB.batch(
-        sibling_ids.map((sid, index) =>
-          env.DB.prepare(`UPDATE "section" SET "order" = ? WHERE "id" = ?`).bind(index, sid)
-        )
-      );
-    }
-
-    return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? 'Failed to update section' }, 500);
+  // Optional: batch-reorder siblings in the same call (for atomic reparent + reorder)
+  if (sibling_ids && sibling_ids.length > 0) {
+    await env.DB.batch(
+      sibling_ids.map((sid, index) =>
+        env.DB.prepare(`UPDATE "section" SET "order" = ? WHERE "id" = ?`).bind(index, sid)
+      )
+    );
   }
+
+  return json({ ok: true });
 };
 
 // DELETE /api/admin/sections/[id]
