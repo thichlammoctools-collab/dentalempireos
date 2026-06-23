@@ -30,7 +30,6 @@ walk(tree.sections);
 const selectedSectionId = flatSections[0]?.id ?? '';
 ---
 
-<script is:inline>console.log('[EDITOR-MARKER] v3-buttons-reorder-active');</script>
 <AdminLayout title={`${ch.title} | Editor`}>
 
   <div class="max-w-[1200px] w-full mx-auto flex flex-col gap-6">
@@ -116,7 +115,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     <!-- Sections tree -->
     <section class="glass-card rounded-xl p-5">
       <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <h3 class="text-base font-bold text-white">Đề mục <span class="text-[9px] text-primary/40 font-normal">v2-inline</span></h3>
+        <h3 class="text-base font-bold text-white">Đề mục</h3>
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="btn-expand-all" type="button" class="px-2 py-1.5 text-on-surface-variant hover:text-primary rounded-lg text-[11px] font-bold transition-all flex items-center gap-0.5" title="Mở tất cả đề mục con">
             <span class="material-symbols-outlined text-[14px]">unfold_more</span>
@@ -240,7 +239,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     const modalCloseBtn = document.getElementById('modal-close-btn')!;
     let modalSectionId = '';
     let dirty = false;
-    let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
     // ── Helpers ──────────────────────────────────────────
     function findSection(sections: SectionNode[], id: string): SectionNode | null {
@@ -258,6 +256,39 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    /** Close all open inline input rows (add sub / keywords) */
+    function clearInlineInputs() {
+      document.querySelectorAll('[data-add-sub-input]').forEach((el) => el.remove());
+    }
+
+    /** Ensure a toggle button exists on a parent item that just received children */
+    function ensureToggle(sectionItem: HTMLElement) {
+      if (sectionItem.querySelector('[data-section-toggle]')) return;
+      const handleSpan = sectionItem.querySelector<HTMLElement>('.section-drag-handle');
+      if (!handleSpan) return;
+      const btn = document.createElement('button');
+      btn.setAttribute('data-section-toggle', '');
+      btn.className = 'section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0';
+      btn.title = 'Thu gọn / Mở rộng';
+      btn.innerHTML = '<span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span>';
+      handleSpan.parentElement?.insertBefore(btn, handleSpan.nextSibling);
+    }
+
+    /** Expand a section's child list + rotate toggle icon */
+    function expandSection(sectionItem: HTMLElement) {
+      const childUl = sectionItem.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+      if (childUl) childUl.style.display = '';
+      const icon = sectionItem.querySelector<HTMLElement>('.section-toggle-icon');
+      if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+
+    /** Flash animation + scroll to element */
+    function flashAndScroll(el: HTMLElement) {
+      el.classList.add('reorder-success');
+      el.addEventListener('animationend', () => el.classList.remove('reorder-success'), { once: true });
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
     }
 
     // ── Fetch tree ────────────────────────────────────────
@@ -430,10 +461,11 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       setTimeout(() => input.focus(), 50);
 
       let busy = false;
+      let finished = false;
       const submit = async () => {
-        if (busy) return;
+        if (busy || finished) return;
         const title = input.value.trim();
-        if (!title) return;
+        if (!title) { finished = true; li.remove(); return; }
         busy = true;
         input.disabled = true;
         status.classList.remove('hidden');
@@ -441,21 +473,23 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           await opts.onSubmit(title, li, input);
         } finally {
           busy = false;
+          finished = true;
           input.disabled = false;
           status.classList.add('hidden');
         }
       };
       input.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Escape') { e.preventDefault(); li.remove(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); finished = true; li.remove(); return; }
         if (e.key === 'Enter') { e.preventDefault(); submit(); }
       });
-      cancelBtn.addEventListener('click', () => li.remove());
+      cancelBtn.addEventListener('click', () => { finished = true; li.remove(); });
+      // Blur saves if not already handled by Enter/Escape/cancel
+      input.addEventListener('blur', () => { if (!finished) submit(); });
       return li;
     }
 
     document.getElementById('btn-add-section')?.addEventListener('click', () => {
-      // Remove any other inline input first
-      document.querySelectorAll('[data-add-sub-input]').forEach((el) => el.remove());
+      clearInlineInputs();
       // Ensure tree UL exists
       let treeUl = document.getElementById('section-tree');
       if (!treeUl) {
@@ -480,10 +514,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             const { id: newId } = await res.json() as { id: string };
             const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: null, level: 2, title, slug: '', order: treeUl!.children.length, keywords: '[]', children: [], blocks: [] };
             const newLi = buildSectionLi(node, 0);
-            newLi.classList.add('reorder-success');
-            newLi.addEventListener('animationend', () => newLi.classList.remove('reorder-success'), { once: true });
             treeUl!.insertBefore(newLi, li);
-            setTimeout(() => newLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+            flashAndScroll(newLi);
             if (currentTree) currentTree.sections.push(node);
             input.value = '';
             input.focus();
@@ -1078,11 +1110,13 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         titleEl.replaceWith(input);
         input.focus();
         input.select();
+        let finished = false;
         const finish = async (save: boolean) => {
-          input.replaceWith(titleEl);
-          if (!save) return;
+          if (finished) return;
+          finished = true;
           const newTitle = input.value.trim();
-          if (!newTitle || newTitle === currentTitle) return;
+          input.replaceWith(titleEl);
+          if (!save || !newTitle || newTitle === currentTitle) return;
           await fetch(`/api/admin/sections/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1118,35 +1152,98 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         return;
       }
 
-      // Edit keywords
+      // Edit keywords — inline input (no prompt)
       const kwBtn = target.closest<HTMLElement>('[data-section-keywords]');
       if (kwBtn) {
         const sectionItem = kwBtn.closest<HTMLElement>('[data-section-item]');
-        if (!sectionItem || !currentTree) return;
+        if (!sectionItem) return;
         const id = sectionItem.dataset.sectionId!;
-        const section = findSection(currentTree.sections, id);
+        const section = currentTree ? findSection(currentTree.sections, id) : null;
         const currentKw = sectionItem.dataset.sectionKeywords || '[]';
         let parsed: string[] = [];
         try {
           parsed = currentKw.startsWith('[') ? JSON.parse(currentKw) : currentKw.split(',').map((s: string) => s.trim()).filter(Boolean);
         } catch { parsed = []; }
-        const input = prompt('Keywords (phân tách bằng dấu phẩy):', parsed.join(', '));
-        if (input === null) return;
-        const keywords = JSON.stringify(input.split(',').map((s: string) => s.trim()).filter(Boolean));
-        fetch(`/api/admin/sections/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            parent_id: section?.parent_id ?? null,
-            level: section?.level ?? 2,
-            title: section?.title ?? '',
-            slug: section?.slug ?? '',
-            order: section?.order ?? 0,
-            keywords,
-          }),
-        }).then(() => location.reload());
+
+        // Close any existing inline input
+        clearInlineInputs();
+
+        // Build inline keyword editor below the section item
+        const inputLi = document.createElement('li');
+        inputLi.setAttribute('data-add-sub-input', '');
+        inputLi.className = 'flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/30 rounded-lg';
+        inputLi.innerHTML = `
+          <span class="material-symbols-outlined text-primary text-[18px]">sell</span>
+          <input type="text" autocomplete="off" value="${escapeHtml(parsed.join(', '))}"
+            placeholder="Keywords (phân tách bằng dấu phẩy)..."
+            class="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder:text-on-surface-variant/60" />
+          <span class="text-[10px] text-on-surface-variant hidden" data-sub-status>
+            <span class="material-symbols-outlined text-[14px] animate-spin inline align-middle">progress_activity</span>
+          </span>
+          <button type="button" class="p-1 text-on-surface-variant hover:text-error transition-colors" data-cancel-sub-input title="Hủy (Esc)">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        `;
+
+        // Find the parent UL of this section item
+        const parentUl = sectionItem.parentElement;
+        if (!parentUl) return;
+        parentUl.appendChild(inputLi);
+
+        const kwInput = inputLi.querySelector('input')!;
+        kwInput.focus();
+        kwInput.select();
+
+        let finished = false;
+        const finish = async (save: boolean) => {
+          if (finished) return;
+          finished = true;
+          const val = kwInput.value.trim();
+          inputLi.remove();
+          if (!save) return;
+          const keywords = JSON.stringify(val ? val.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+          // Update data attribute
+          sectionItem.dataset.sectionKeywords = keywords;
+          // Update chip display
+          const existingChips = sectionItem.querySelector(':scope > .flex.flex-wrap');
+          if (existingChips) existingChips.remove();
+          if (val) {
+            const kwArr = val.split(',').map((s: string) => s.trim()).filter(Boolean);
+            const chipsDiv = document.createElement('div');
+            chipsDiv.className = 'flex flex-wrap gap-1 mt-0.5 pl-9';
+            chipsDiv.innerHTML = kwArr.map((k: string) => `<span class="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium rounded bg-primary/10 text-primary border border-primary/20">${escapeHtml(k)}</span>`).join('');
+            sectionItem.appendChild(chipsDiv);
+          }
+          // Update keyword button appearance
+          const kwIcon = kwBtn.querySelector('.material-symbols-outlined');
+          if (kwIcon) {
+            kwBtn.classList.toggle('text-primary', !!val);
+            kwBtn.classList.toggle('hover:text-primary/80', !!val);
+            kwBtn.classList.toggle('text-on-surface-variant', !val);
+          }
+          // Save to server
+          await fetch(`/api/admin/sections/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              chapter_id: chapterId,
+              parent_id: section?.parent_id ?? null,
+              level: section?.level ?? 2,
+              title: section?.title ?? '',
+              slug: section?.slug ?? '',
+              order: section?.order ?? 0,
+              keywords,
+            }),
+          });
+          if (section) section.keywords = keywords;
+        };
+
+        kwInput.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        kwInput.addEventListener('blur', () => finish(true));
         return;
       }
 
@@ -1159,7 +1256,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         const parentDepth = parseInt(sectionItem.dataset.sectionDepth || '0', 10);
 
         // Close any other open sub-input
-        document.querySelectorAll('[data-add-sub-input]').forEach((el) => el.remove());
+        clearInlineInputs();
 
         // Ensure parent has a child UL; create if not
         let childUl = sectionItem.querySelector<HTMLElement>(':scope > ul[data-section-list]');
@@ -1168,23 +1265,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           childUl.setAttribute('data-section-list', '');
           childUl.className = 'flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20';
           sectionItem.appendChild(childUl);
-          // Add a toggle button if parent had none (now has children)
-          if (!sectionItem.querySelector('[data-section-toggle]')) {
-            const handleSpan = sectionItem.querySelector<HTMLElement>('.section-drag-handle');
-            if (handleSpan) {
-              const btn = document.createElement('button');
-              btn.setAttribute('data-section-toggle', '');
-              btn.className = 'section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0';
-              btn.title = 'Thu gọn / Mở rộng';
-              btn.innerHTML = '<span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span>';
-              handleSpan.parentElement?.insertBefore(btn, handleSpan.nextSibling);
-            }
-          }
+          ensureToggle(sectionItem);
         }
-        // Always expand (if collapsed)
-        childUl.style.display = '';
-        const toggleIcon = sectionItem.querySelector<HTMLElement>('.section-toggle-icon');
-        if (toggleIcon) toggleIcon.style.transform = 'rotate(0deg)';
+        expandSection(sectionItem);
 
         const inputRow = createInlineInputRow(3, 'Tên đề mục phụ... (Enter để lưu, Esc để hủy)', {
           onSubmit: async (title, li, input) => {
@@ -1198,10 +1281,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
               const { id: newId } = await res.json() as { id: string };
               const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: id, level: 3, title, slug: '', order: childUl!.querySelectorAll(':scope > [data-section-item]').length, keywords: '[]', children: [], blocks: [] };
               const newLi = buildSectionLi(node, parentDepth + 1);
-              newLi.classList.add('reorder-success');
-              newLi.addEventListener('animationend', () => newLi.classList.remove('reorder-success'), { once: true });
               childUl!.insertBefore(newLi, li);
-              setTimeout(() => newLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+              flashAndScroll(newLi);
               // Update the "X mục" count on parent
               const countSpan = sectionItem.querySelector<HTMLElement>('[data-section-count]');
               if (countSpan) {
