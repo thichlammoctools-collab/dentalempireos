@@ -1,0 +1,665 @@
+---
+// Multi-step survey form with bilingual content.
+// State is held in a single JS object; steps are shown/hidden via display.
+
+import { surveyData, scaleLabels } from '../../data/survey-translations';
+---
+
+<div id="survey-form" class="survey-wrap" data-default-lang="vi">
+  <!-- Language toggle -->
+  <div class="lang-toggle">
+    <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
+    <button type="button" class="lang-btn" data-lang="en">English</button>
+  </div>
+
+  <!-- Stepper -->
+  <div class="stepper">
+    <div class="stepper-fill" id="stepper-fill"></div>
+  </div>
+  <div class="step-labels" id="step-labels"></div>
+
+  <!-- Intro card -->
+  <div class="card intro-card" id="card-intro">
+    <h1 class="form-title" data-i18n="meta.title">Hồ Sơ Gốc Rễ</h1>
+    <p class="form-desc" data-i18n="meta.description">Trước khi bắt đầu...</p>
+
+    <div class="form-section">
+      <h2 class="section-title" data-i18n="info.title">Thông tin cơ bản</h2>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label class="form-label" data-i18n="info.ownerName">Họ tên chủ phòng khám</label>
+          <input type="text" name="owner_name" class="form-input" placeholder="BS. Nguyễn Văn A" />
+        </div>
+        <div class="form-col">
+          <label class="form-label" data-i18n="info.clinicName">Tên phòng khám <span class="req">*</span></label>
+          <input type="text" name="clinic_name" class="form-input" required placeholder="Nha Khoa ABC" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col form-col-full">
+          <label class="form-label" data-i18n="info.clinicAddress">Địa chỉ</label>
+          <input type="text" name="clinic_address" class="form-input" placeholder="Số 1, đường X, quận Y" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label class="form-label" data-i18n="info.email">Email liên hệ <span class="req">*</span></label>
+          <input type="email" name="email" class="form-input" required placeholder="ban@email.com" />
+        </div>
+        <div class="form-col">
+          <label class="form-label" data-i18n="info.yearsInOperation">Số năm hoạt động</label>
+          <input type="number" name="years_in_operation" class="form-input" min="0" max="100" placeholder="5" />
+        </div>
+        <div class="form-col">
+          <label class="form-label" data-i18n="info.staffCount">Số nhân sự hiện tại</label>
+          <input type="number" name="staff_count" class="form-input" min="1" max="500" placeholder="8" />
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <div></div>
+      <button type="button" class="btn btn-primary" id="btn-start" data-i18n="btn.start">Bắt đầu →</button>
+    </div>
+  </div>
+
+  <!-- Question cards — one per part -->
+  <div id="parts-container"></div>
+
+  <!-- Submit card -->
+  <div class="card submit-card hidden" id="card-submit">
+    <h2 class="section-title" data-i18n="submit.title">Sẵn sàng gửi?</h2>
+    <p class="form-desc" data-i18n="submit.desc">Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...</p>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-ghost" id="btn-back-submit" data-i18n="btn.back">← Quay lại</button>
+      <button type="button" class="btn btn-primary" id="btn-submit">
+        <span data-i18n="meta.submitButton">Gửi Hồ Sơ</span>
+      </button>
+    </div>
+
+    <p id="submit-error" class="error-text hidden"></p>
+  </div>
+</div>
+
+<style>
+  .survey-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+  }
+
+  /* Language toggle */
+  .lang-toggle {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--outline-variant);
+    border-radius: 999px;
+    width: fit-content;
+    margin: 0 auto 2rem;
+  }
+  .lang-btn {
+    padding: 0.45rem 1rem;
+    background: transparent;
+    border: 0;
+    color: var(--on-surface-variant);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+  .lang-btn:hover:not(.active) {
+    color: var(--on-surface);
+  }
+
+  /* Stepper */
+  .stepper {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+  .stepper-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #f59e0b);
+    width: 0;
+    transition: width 0.3s ease;
+  }
+  .step-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--on-surface-variant);
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .step-labels span {
+    text-align: center;
+    flex: 1 0 auto;
+    min-width: 60px;
+  }
+  .step-labels span.active {
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--outline-variant);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .intro-card, .submit-card {
+    background: var(--surface);
+  }
+  .form-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0 0 0.5rem;
+  }
+  .form-desc {
+    color: var(--on-surface-variant);
+    line-height: 1.6;
+    margin: 0 0 1.5rem;
+  }
+  .part-header {
+    border-bottom: 1px solid var(--outline-variant);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .part-ref {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #f59e0b;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .part-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0 0 0.5rem;
+  }
+  .part-subtitle {
+    color: var(--on-surface-variant);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .form-section {
+    margin-bottom: 2rem;
+  }
+  .section-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    margin: 0 0 1rem;
+  }
+
+  /* Form fields */
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .form-col { display: flex; flex-direction: column; }
+  .form-col-full { grid-column: span 3; }
+  .form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+  .form-label .req { color: #f59e0b; }
+  .form-input,
+  .form-textarea,
+  .form-select {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    color: var(--on-surface);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .form-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+  .form-input:focus,
+  .form-textarea:focus,
+  .form-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .form-textarea::placeholder,
+  .form-input::placeholder {
+    color: var(--on-surface-variant);
+    opacity: 0.5;
+  }
+
+  /* Question block */
+  .question {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.75rem;
+  }
+  .question.anchor {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.04);
+  }
+  .anchor-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    margin-bottom: 0.5rem;
+  }
+  .q-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+  }
+  .q-label .req { color: #f59e0b; }
+
+  /* Scale (1-5) */
+  .scale-group {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+  }
+  .scale-option {
+    cursor: pointer;
+    position: relative;
+  }
+  .scale-option input { position: absolute; opacity: 0; }
+  .scale-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.65rem 0.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    min-height: 90px;
+  }
+  .scale-num {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin-bottom: 0.25rem;
+  }
+  .scale-text {
+    font-size: 0.7rem;
+    color: var(--on-surface-variant);
+    line-height: 1.2;
+    text-align: center;
+  }
+  .scale-option:hover .scale-pill {
+    border-color: var(--primary);
+  }
+  .scale-option input:checked ~ .scale-pill {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+  .scale-option input:checked ~ .scale-pill .scale-num,
+  .scale-option input:checked ~ .scale-pill .scale-text {
+    color: white;
+  }
+
+  /* Radio (multiple choice) */
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .radio-option:hover { border-color: var(--primary); }
+  .radio-option input { margin-top: 0.2rem; accent-color: var(--primary); }
+  .radio-option input:checked + .radio-label {
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+  .radio-option:has(input:checked) {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--primary);
+  }
+  .radio-label {
+    color: var(--on-surface-variant);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* Nav buttons */
+  .nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .btn {
+    padding: 0.7rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 0;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--on-surface-variant);
+    border: 1px solid var(--outline-variant);
+  }
+  .btn-ghost:hover { color: var(--on-surface); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .error-text {
+    color: #f87171;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+  }
+  .hidden { display: none !important; }
+
+  @media (max-width: 640px) {
+    .survey-wrap { padding: 1rem 0.5rem 3rem; }
+    .card { padding: 1.25rem; }
+    .form-row { grid-template-columns: 1fr; }
+    .form-col-full { grid-column: span 1; }
+    .scale-pill { min-height: 70px; padding: 0.4rem 0.15rem; }
+    .scale-text { font-size: 0.65rem; }
+  }
+</style>
+
+<script>
+  import { surveyData, scaleLabels } from '../../data/survey-translations';
+
+  type Lang = 'vi' | 'en';
+
+  const wrap = document.getElementById('survey-form') as HTMLDivElement;
+  const partsContainer = document.getElementById('parts-container') as HTMLDivElement;
+  const stepperFill = document.getElementById('stepper-fill') as HTMLDivElement;
+  const stepLabels = document.getElementById('step-labels') as HTMLDivElement;
+  const cardIntro = document.getElementById('card-intro') as HTMLDivElement;
+  const cardSubmit = document.getElementById('card-submit') as HTMLDivElement;
+  const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
+  const btnSubmit = document.getElementById('btn-submit') as HTMLButtonElement;
+  const btnBackSubmit = document.getElementById('btn-back-submit') as HTMLButtonElement;
+  const submitError = document.getElementById('submit-error') as HTMLElement;
+
+  let currentLang: Lang = 'vi';
+  let currentStep = 0; // -1 = intro, 0..parts-1 = question parts, parts = submit card
+  const answers: Record<string, unknown> = { lang: 'vi' };
+  const partEls: HTMLDivElement[] = [];
+
+  const partIds = surveyData.vi.parts.map((p) => p.id);
+
+  // ── Build part cards from translations ────────────────────
+  function buildParts() {
+    partsContainer.innerHTML = '';
+    partEls.length = 0;
+
+    surveyData[currentLang].parts.forEach((part, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card part-card hidden';
+      card.dataset.step = String(idx);
+      card.dataset.partId = part.id;
+
+      const ref = part.ref
+        ? `<div class="part-ref">${escapeHtml(part.ref)}</div>`
+        : '';
+
+      card.innerHTML = `
+        <div class="part-header">
+          ${ref}
+          <h2 class="part-title">${escapeHtml(part.title)}</h2>
+          <p class="part-subtitle">${escapeHtml(part.subtitle)}</p>
+        </div>
+      `;
+
+      part.questions.forEach((q) => {
+        const block = document.createElement('div');
+        block.className = 'question' + (q.anchor ? ' anchor' : '');
+        const anchorBadge = q.anchor
+          ? `<span class="anchor-badge">⭐ ${currentLang === 'vi' ? 'Câu neo' : 'Anchor'}</span>`
+          : '';
+
+        let inputHtml = '';
+        if (q.type === 'textarea') {
+          inputHtml = `<textarea class="form-textarea" name="${q.id}" placeholder="${escapeHtml(q.placeholder ?? '')}"></textarea>`;
+        } else if (q.type === 'select') {
+          const labels = q.scaleLabels ?? scaleLabels[currentLang];
+          const pills = [1, 2, 3, 4, 5].map((n) => `
+            <label class="scale-option">
+              <input type="radio" name="${q.id}" value="${n}" />
+              <span class="scale-pill">
+                <span class="scale-num">${n}</span>
+                <span class="scale-text">${escapeHtml(labels[n] ?? '')}</span>
+              </span>
+            </label>
+          `).join('');
+          inputHtml = `<div class="scale-group">${pills}</div>`;
+        } else if (q.type === 'radio') {
+          const options = (q.options ?? []).map((opt, i) => `
+            <label class="radio-option">
+              <input type="radio" name="${q.id}" value="${escapeHtml(opt)}" />
+              <span class="radio-label">${escapeHtml(opt)}</span>
+            </label>
+          `).join('');
+          inputHtml = `<div class="radio-group">${options}</div>`;
+        }
+
+        block.innerHTML = `
+          ${anchorBadge}
+          <label class="q-label">${escapeHtml(q.label)}</label>
+          ${inputHtml}
+        `;
+        card.appendChild(block);
+      });
+
+      // Nav buttons
+      const nav = document.createElement('div');
+      nav.className = 'nav-buttons';
+      nav.innerHTML = `
+        <button type="button" class="btn btn-ghost" data-action="prev">← ${currentLang === 'vi' ? 'Quay lại' : 'Back'}</button>
+        <button type="button" class="btn btn-primary" data-action="next">${currentLang === 'vi' ? 'Tiếp tục' : 'Next'} →</button>
+      `;
+      card.appendChild(nav);
+
+      nav.querySelector('[data-action="prev"]')?.addEventListener('click', () => goTo(currentStep - 1));
+      nav.querySelector('[data-action="next"]')?.addEventListener('click', () => goTo(currentStep + 1));
+
+      // Auto-save answers on change
+      card.addEventListener('change', (e) => saveFromEvent(e));
+      card.addEventListener('input', (e) => saveFromEvent(e));
+
+      partsContainer.appendChild(card);
+      partEls.push(card);
+    });
+  }
+
+  function saveFromEvent(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (!target.name) return;
+    if (target.type === 'radio') {
+      answers[target.name] = target.value;
+    } else if (target.type === 'checkbox') {
+      // (not used here)
+    } else {
+      answers[target.name] = target.value;
+    }
+  }
+
+  // ── Build step labels ─────────────────────────────────────
+  function buildStepLabels() {
+    const total = partIds.length + 1; // +1 for submit step
+    const labels = partIds.map((id) => {
+      const part = surveyData[currentLang].parts.find((p) => p.id === id);
+      const num = part?.title.match(/^\s*PHẦN\s*(\d+)|^\s*PART\s*(\d+)/i);
+      const n = num ? (num[1] || num[2]) : '';
+      return `<span data-step-idx="${partIds.indexOf(id)}">${n}</span>`;
+    });
+    labels.push(`<span data-step-idx="${partIds.length}">${currentLang === 'vi' ? 'Gửi' : 'Submit'}</span>`);
+    stepLabels.innerHTML = labels.join('');
+  }
+
+  // ── Navigation ────────────────────────────────────────────
+  function goTo(step: number) {
+    if (step < -1 || step > partIds.length) return;
+
+    // Validate required fields when leaving the intro step
+    if (currentStep === -1 && step >= 0) {
+      const clinic = (document.querySelector('[name="clinic_name"]') as HTMLInputElement)?.value?.trim();
+      const email = (document.querySelector('[name="email"]') as HTMLInputElement)?.value?.trim();
+      if (!clinic || !email) {
+        alert(currentLang === 'vi' ? 'Vui lòng điền tên phòng khám và email.' : 'Please fill clinic name and email.');
+        return;
+      }
+      // Save intro fields
+      ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'].forEach((k) => {
+        const el = document.querySelector(`[name="${k}"]`) as HTMLInputElement;
+        if (el) answers[k] = el.value || null;
+      });
+    }
+
+    currentStep = step;
+    cardIntro.classList.toggle('hidden', step !== -1);
+    cardSubmit.classList.toggle('hidden', step !== partIds.length);
+    partEls.forEach((el, i) => el.classList.toggle('hidden', i !== step));
+
+    // Stepper
+    const total = partIds.length + 1;
+    const progress = step < 0 ? 0 : step >= partIds.length ? 100 : Math.round((step / partIds.length) * 100);
+    stepperFill.style.width = `${progress}%`;
+
+    // Active step label
+    stepLabels.querySelectorAll('span').forEach((s) => {
+      const idx = parseInt(s.dataset.stepIdx ?? '-1');
+      s.classList.toggle('active', idx === step);
+    });
+
+    // Scroll into view
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── Submit ────────────────────────────────────────────────
+  async function submit() {
+    submitError.classList.add('hidden');
+    btnSubmit.disabled = true;
+    const original = btnSubmit.innerHTML;
+    btnSubmit.innerHTML = `<span>${surveyData[currentLang].meta.submitting}</span>`;
+
+    // Final save: read remaining fields that might be missed
+    document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach((el) => {
+      if (el.name && (el.type === 'text' || el.type === 'email' || el.type === 'number' || el.tagName === 'TEXTAREA')) {
+        if (el.value) answers[el.name] = el.value;
+      }
+    });
+    answers.lang = currentLang;
+
+    try {
+      const res = await fetch('/api/survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(answers),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Submit failed');
+      }
+      window.location.href = data.redirect;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Submit failed';
+      submitError.textContent = msg;
+      submitError.classList.remove('hidden');
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = original;
+    }
+  }
+
+  // ── Language switching ────────────────────────────────────
+  function setLang(lang: Lang) {
+    currentLang = lang;
+    answers.lang = lang;
+
+    document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+
+    // Update info card labels
+    document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
+      const key = el.dataset.i18n;
+      const val = resolveKey(surveyData[lang], key);
+      if (val) el.textContent = val;
+    });
+
+    // Rebuild question cards
+    buildParts();
+    buildStepLabels();
+    goTo(currentStep);
+  }
+
+  function resolveKey(obj: any, key: string): string {
+    return key.split('.').reduce((acc, k) => acc?.[k], obj) ?? '';
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c] ?? c));
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach((b) => {
+    b.addEventListener('click', () => setLang(b.dataset.lang as Lang));
+  });
+  btnStart.addEventListener('click', () => goTo(0));
+  btnSubmit.addEventListener('click', () => submit());
+  btnBackSubmit.addEventListener('click', () => goTo(partIds.length - 1));
+
+  buildParts();
+  buildStepLabels();
+</script>

@@ -539,7 +539,7 @@ const currentTier = groupedChapters.find((g) =>
           toast.style.cssText = 'background: #ffffff; opacity: 0; transform: translateY(16px); box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);';
           toast.innerHTML = '<span class="material-symbols-outlined text-primary text-sm shrink-0">history</span>' +
             '<span class="text-xs font-medium text-gray-600 shrink-0">Bạn đọc đến ' + saved.pct + '%</span>' +
-            '<button id="bm-restore-btn" class="ml-auto px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold shrink-0">Đọc tiếp</button>' +
+            '<button id="bm-restore-btn" class="ml-auto px-3 py-1 rounded-lg text-white text-xs font-bold shrink-0" style="background: #0a7bab;">Đọc tiếp</button>' +
             '<button id="bm-dismiss-btn" class="material-symbols-outlined text-base text-gray-400 hover:text-gray-600 shrink-0 leading-none" style="padding: 2px 4px;">close</button>';
           doc.body.appendChild(toast);
           requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });

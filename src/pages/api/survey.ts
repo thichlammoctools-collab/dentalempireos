@@ -89,7 +89,8 @@ export const POST: APIRoute = async ({ request }) => {
   // If it fails, the survey is still saved and the user can still see scores.
   // The result page will check for ai_analysis and re-trigger if needed.
   if (env.ANTHROPIC_API_KEY) {
-    env.cfContext?.waitUntil(runAiAnalysis(env.DB, env.ANTHROPIC_API_KEY, id));
+    // @ts-ignore — waitUntil may be on context; safe no-op if missing
+    (env as any).cfContext?.waitUntil?.(runAiAnalysis(env.DB, env.ANTHROPIC_API_KEY, id));
   }
 
   return json({ success: true, id, redirect: `/survey/result/${id}` }, 201);

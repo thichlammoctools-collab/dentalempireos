@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SurveyForm from '../components/survey/SurveyForm.astro';
+
+export const prerender = false;
+---
+
+<BaseLayout
+  title="Hồ Sơ Gốc Rễ — Khảo sát Hệ thống Quản trị | Dental Empire OS"
+  description="Khảo sát tự đánh giá dựa trên 3 framework: ROOTS, SKY, S.T.A.R.S. Bước đầu tiên trong hành trình tư vấn phòng khám nha khoa."
+  ogImage="/images/survey-og.jpg"
+>
+  <section class="relative">
+    <!-- Decorative gradient backdrop -->
+    <div
+      class="absolute inset-x-0 top-0 h-[420px] pointer-events-none opacity-50"
+      style="background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.15), transparent 60%);"
+    >
+    </div>
+
+    <div class="relative">
+      <SurveyForm />
+    </div>
+  </section>
+</BaseLayout>
+
+<style is:global>
+  /* Page-specific tweaks for the survey form */
+  .intro-card .form-title {
+    background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+</style>

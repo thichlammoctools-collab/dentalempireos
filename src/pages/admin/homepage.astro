@@ -854,8 +854,25 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
       });
 
       if (res.ok) {
-        saveStatus.textContent = '✓ Đã lưu';
-        setTimeout(() => { saveStatus.textContent = ''; }, 3000);
+        saveStatus.textContent = '✓ Đã lưu, đang purge cache...';
+
+        // Auto-purge Cloudflare edge cache so homepage changes show immediately
+        try {
+          const purgeRes = await fetch('/api/admin/publish', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          const purgeData = await purgeRes.json().catch(() => ({}));
+          if (purgeRes.ok && purgeData.ok) {
+            saveStatus.textContent = '✓ Đã lưu & xóa cache';
+          } else {
+            saveStatus.textContent = `✓ Đã lưu (purge: ${purgeData.error || 'thất bại'})`;
+          }
+        } catch {
+          saveStatus.textContent = '✓ Đã lưu (không gọi được purge cache)';
+        }
+
+        setTimeout(() => { saveStatus.textContent = ''; }, 4000);
       } else {
         saveStatus.textContent = '✗ Lỗi khi lưu';
       }

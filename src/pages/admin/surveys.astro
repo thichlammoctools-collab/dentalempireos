@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listSurveyResponses, countSurveyResponses } from '../../lib/survey-db';
+
+export const prerender = false;
+
+const url = Astro.url;
+const minScoreParam = url.searchParams.get('min');
+const maxScoreParam = url.searchParams.get('max');
+const minScore = minScoreParam ? parseFloat(minScoreParam) : undefined;
+const maxScore = maxScoreParam ? parseFloat(maxScoreParam) : undefined;
+
+const [rows, total] = await Promise.all([
+  listSurveyResponses(env.DB, { minScore, maxScore, limit: 100 }),
+  countSurveyResponses(env.DB),
+]);
+
+function scoreColor(s: number | null): string {
+  if (s == null) return '#6b7280';
+  if (s >= 75) return '#10b981';
+  if (s >= 55) return '#3b82f6';
+  if (s >= 35) return '#f59e0b';
+  return '#ef4444';
+}
+
+function aiBadge(analyzedAt: string | null): { label: string; color: string } {
+  if (!analyzedAt) return { label: 'Pending', color: '#f59e0b' };
+  return { label: 'Done', color: '#10b981' };
+}
+---
+
+<AdminLayout title="Survey Responses | Admin">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6">
+    <div>
+      <h2 class="text-3xl md:text-[32px] leading-tight font-bold text-white mb-1">Hồ Sơ Gốc Rễ</h2>
+      <p class="text-base text-on-surface-variant">
+        Tổng cộng <span class="text-primary font-semibold">{total}</span> lượt khảo sát
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a
+        href="/survey"
+        target="_blank"
+        class="px-4 py-2 bg-primary/10 border border-primary/30 text-primary text-sm font-semibold rounded-lg hover:bg-primary/20 transition-all flex items-center gap-2"
+      >
+        <span class="material-symbols-outlined text-base">open_in_new</span>
+        Mở trang khảo sát
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="glass-card rounded-xl p-4 mb-6 flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-xs uppercase tracking-wider text-on-surface-variant font-bold mb-1.5">Điểm tối thiểu</label>
+      <input
+        type="number" name="min" min="0" max="100" value={minScore ?? ''}
+        placeholder="0"
+        class="bg-surface-container border border-outline-variant/30 text-white text-sm rounded-lg px-3 py-2 w-24 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+      />
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-wider text-on-surface-variant font-bold mb-1.5">Điểm tối đa</label>
+      <input
+        type="number" name="max" min="0" max="100" value={maxScore ?? ''}
+        placeholder="100"
+        class="bg-surface-container border border-outline-variant/30 text-white text-sm rounded-lg px-3 py-2 w-24 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+      />
+    </div>
+    <button type="submit" class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-all">
+      Lọc
+    </button>
+    <a href="/admin/surveys" class="px-4 py-2 bg-surface-container text-on-surface-variant text-sm rounded-lg border border-outline-variant/30 hover:text-white transition-all">
+      Xoá lọc
+    </a>
+  </form>
+
+  <!-- Table -->
+  <div class="glass-card rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="text-left bg-surface-container-high/50">
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">ID</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Phòng khám</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Chủ phòng khám</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Email</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Điểm tổng</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">AI</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Ngày</th>
+            <th class="px-4 py-3 text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colspan="8" class="px-4 py-12 text-center text-on-surface-variant">
+                <span class="material-symbols-outlined text-4xl mb-2 block">inbox</span>
+                Chưa có khảo sát nào
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => {
+              const badge = aiBadge(r.ai_analyzed_at);
+              return (
+                <tr class="border-t border-outline-variant/10 hover:bg-surface-container-high/30 transition-colors">
+                  <td class="px-4 py-3 text-sm text-on-surface-variant font-mono">#{r.id}</td>
+                  <td class="px-4 py-3 text-sm text-white font-semibold">{r.clinic_name ?? '—'}</td>
+                  <td class="px-4 py-3 text-sm text-on-surface-variant">{r.owner_name ?? '—'}</td>
+                  <td class="px-4 py-3 text-sm text-on-surface-variant">{r.email ?? '—'}</td>
+                  <td class="px-4 py-3">
+                    <span
+                      class="text-sm font-bold"
+                      style={`color: ${scoreColor(r.score_total)}`}
+                    >
+                      {r.score_total ?? 0}
+                    </span>
+                    <span class="text-xs text-on-surface-variant">/100</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span
+                      class="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                      style={`background: ${badge.color}20; color: ${badge.color}`}
+                    >
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-on-surface-variant whitespace-nowrap">
+                    {r.created_at?.split(' ')[0] ?? '—'}
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <a
+                      href={`/admin/surveys/${r.id}`}
+                      class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-all"
+                    >
+                      Xem
+                      <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    </a>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>

@@ -7,75 +7,124 @@ interface Props {
     qr_url: string;
     payment_methods: string;
   };
+  /** compact = collapsible (book, resources); inline = always visible (homepage) */
+  variant?: 'compact' | 'inline';
 }
 
-const { settings } = Astro.props;
+const { settings, variant = 'compact' } = Astro.props;
 
 if (!settings || settings.enabled === 0) {
-  // Widget is disabled — render nothing
   return;
 }
 ---
 
-<!-- Collapsible Support Widget -->
-<div id="support-widget" class="mt-12 transition-all duration-300">
-  <!-- Collapsed: subtle heart button -->
-  <button
-    id="support-trigger"
-    class="group flex items-center gap-2 mx-auto px-5 py-2.5 rounded-full border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-all duration-200 cursor-pointer select-none"
-    aria-expanded="false"
-    aria-controls="support-panel"
-  >
-    <span class="material-symbols-outlined text-[18px] text-primary group-hover:scale-110 transition-transform duration-200">favorite</span>
-    <span class="text-sm font-medium">{settings.title}</span>
-    <span id="support-chevron" class="material-symbols-outlined text-[16px] transition-transform duration-300">expand_more</span>
-  </button>
+{variant === 'inline' ? (
+  <!-- ===== Inline variant — always visible, hero-style ===== -->
+  <div class="donate-inline relative overflow-hidden rounded-3xl border border-outline-variant/30 bg-surface-container">
+    <!-- Decorative glows -->
+    <div class="absolute -top-24 -right-24 w-72 h-72 bg-primary/8 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-20 -left-20 w-56 h-56 bg-tertiary/6 rounded-full blur-3xl pointer-events-none"></div>
 
-  <!-- Expanded panel (hidden by default) -->
-  <div
-    id="support-panel"
-    class="hidden mt-3 p-6 bg-surface-container rounded-2xl border border-outline-variant/30 text-center"
-    role="region"
-    aria-labelledby="support-trigger"
-  >
-    <!-- Icon -->
-    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-3">
-      <span class="material-symbols-outlined text-2xl">volunteer_activism</span>
-    </div>
+    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8 p-8 md:p-12">
+      <!-- Left: text content -->
+      <div class="flex-1 text-center md:text-left space-y-4">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary md:mx-0 mx-auto">
+          <span class="material-symbols-outlined text-3xl">volunteer_activism</span>
+        </div>
+        <h3 class="text-headline-md text-white">{settings.title}</h3>
+        <p class="text-sm text-on-surface-variant leading-relaxed max-w-md">
+          {settings.message}
+        </p>
 
-    <!-- Title -->
-    <h3 class="text-title-md text-white mb-2">{settings.title}</h3>
-
-    <!-- Message -->
-    <p class="text-sm text-on-surface-variant mb-5 max-w-md mx-auto">
-      {settings.message}
-    </p>
-
-    <!-- QR Code -->
-    <div class="inline-block p-4 bg-white rounded-2xl mb-4">
-      <img
-        src={settings.qr_url}
-        alt="QR Code ủng hộ"
-        class="w-44 h-44"
-        loading="lazy"
-        decoding="async"
-      />
-    </div>
-
-    <!-- Instruction -->
-    <p class="text-xs text-on-surface-variant mt-3">
-      Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
-    </p>
-
-    <!-- Payment methods -->
-    {settings.payment_methods && (
-      <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
-        <span class="material-symbols-outlined text-[14px]">qr_code_2</span>
-        <span>Supports: {settings.payment_methods}</span>
+        <div class="flex items-center gap-3 text-xs text-on-surface-variant pt-2 justify-center md:justify-start">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-outline-variant/30">
+            <span class="material-symbols-outlined text-[14px] text-primary">qr_code_2</span>
+            Quét để ủng hộ
+          </span>
+          {settings.payment_methods && (
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-outline-variant/30">
+              <span class="material-symbols-outlined text-[14px] text-primary">account_balance</span>
+              {settings.payment_methods}
+            </span>
+          )}
+        </div>
       </div>
-    )}
+
+      <!-- Right: QR code -->
+      <div class="shrink-0">
+        <div class="donate-qr-wrap relative p-3 bg-white rounded-2xl shadow-[0_8px_32px_rgba(146,204,255,0.12)] border border-white/10">
+          <img
+            src={settings.qr_url}
+            alt="QR Code ủng hộ"
+            class="w-52 h-52 md:w-56 md:h-56"
+            loading="lazy"
+            decoding="async"
+          />
+          <!-- Subtle corner accents -->
+          <div class="absolute top-1.5 left-1.5 w-4 h-4 border-t-2 border-l-2 border-primary/40 rounded-tl-lg"></div>
+          <div class="absolute top-1.5 right-1.5 w-4 h-4 border-t-2 border-r-2 border-primary/40 rounded-tr-lg"></div>
+          <div class="absolute bottom-1.5 left-1.5 w-4 h-4 border-b-2 border-l-2 border-primary/40 rounded-bl-lg"></div>
+          <div class="absolute bottom-1.5 right-1.5 w-4 h-4 border-b-2 border-r-2 border-primary/40 rounded-br-lg"></div>
+        </div>
+        <p class="text-center text-[11px] text-on-surface-variant mt-3">
+          Quét mã QR với ứng dụng ngân hàng
+        </p>
+      </div>
+    </div>
   </div>
-</div>
+) : (
+  <!-- ===== Compact variant — collapsible (book, resources) ===== -->
+  <div id="support-widget" class="mt-12 transition-all duration-300">
+    <button
+      id="support-trigger"
+      class="group flex items-center gap-2 mx-auto px-5 py-2.5 rounded-full border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-all duration-200 cursor-pointer select-none"
+      aria-expanded="false"
+      aria-controls="support-panel"
+    >
+      <span class="material-symbols-outlined text-[18px] text-primary group-hover:scale-110 transition-transform duration-200">favorite</span>
+      <span class="text-sm font-medium">{settings.title}</span>
+      <span id="support-chevron" class="material-symbols-outlined text-[16px] transition-transform duration-300">expand_more</span>
+    </button>
+
+    <div
+      id="support-panel"
+      class="hidden mt-3 p-6 bg-surface-container rounded-2xl border border-outline-variant/30 text-center"
+      role="region"
+      aria-labelledby="support-trigger"
+    >
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-3">
+        <span class="material-symbols-outlined text-2xl">volunteer_activism</span>
+      </div>
+
+      <h3 class="text-title-md text-white mb-2">{settings.title}</h3>
+
+      <p class="text-sm text-on-surface-variant mb-5 max-w-md mx-auto">
+        {settings.message}
+      </p>
+
+      <div class="inline-block p-4 bg-white rounded-2xl mb-4">
+        <img
+          src={settings.qr_url}
+          alt="QR Code ủng hộ"
+          class="w-44 h-44"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+
+      <p class="text-xs text-on-surface-variant mt-3">
+        Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
+      </p>
+
+      {settings.payment_methods && (
+        <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
+          <span class="material-symbols-outlined text-[14px]">qr_code_2</span>
+          <span>Supports: {settings.payment_methods}</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
 <script>
   const trigger = document.getElementById('support-trigger');
@@ -85,23 +134,18 @@ if (!settings || settings.enabled === 0) {
   if (trigger && panel && chevron) {
     trigger.addEventListener('click', () => {
       const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
-
       if (isExpanded) {
-        // Collapse
         panel.classList.add('hidden');
         trigger.setAttribute('aria-expanded', 'false');
         chevron.style.transform = '';
       } else {
-        // Expand
         panel.classList.remove('hidden');
         trigger.setAttribute('aria-expanded', 'true');
         chevron.style.transform = 'rotate(180deg)';
-        // Smooth scroll widget into view if partially off screen
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     });
 
-    // Close on Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && trigger.getAttribute('aria-expanded') === 'true') {
         panel.classList.add('hidden');
@@ -111,3 +155,14 @@ if (!settings || settings.enabled === 0) {
     });
   }
 </script>
+
+<style>
+  /* QR hover glow */
+  .donate-qr-wrap {
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .donate-qr-wrap:hover {
+    box-shadow: 0 8px 40px rgba(146, 204, 255, 0.2);
+    transform: translateY(-2px);
+  }
+</style>
