@@ -1059,28 +1059,50 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         return;
       }
 
-      // Edit button → rename
+      // Edit button → inline rename (no prompt)
       const editBtn = target.closest<HTMLElement>('[data-section-edit]');
       if (editBtn) {
         const sectionItem = target.closest<HTMLElement>('[data-section-item]');
-        if (!sectionItem || !currentTree) return;
+        if (!sectionItem) return;
         const id = sectionItem.dataset.sectionId!;
-        const section = findSection(currentTree.sections, id);
-        const title = prompt('Tên đề mục:', sectionItem.querySelector('[data-section-title]')?.textContent || '');
-        if (!title) return;
-        fetch(`/api/admin/sections/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            parent_id: section?.parent_id ?? null,
-            level: section?.level ?? 2,
-            title,
-            slug: section?.slug ?? '',
-            order: section?.order ?? 0,
-          }),
-        }).then(() => location.reload());
+        const titleEl = sectionItem.querySelector<HTMLElement>('[data-section-title]');
+        if (!titleEl) return;
+        const currentTitle = titleEl.textContent || '';
+        const section = currentTree ? findSection(currentTree.sections, id) : null;
+        // Replace title with input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentTitle;
+        input.className = 'flex-1 bg-surface-container border border-primary rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary';
+        titleEl.replaceWith(input);
+        input.focus();
+        input.select();
+        const finish = async (save: boolean) => {
+          input.replaceWith(titleEl);
+          if (!save) return;
+          const newTitle = input.value.trim();
+          if (!newTitle || newTitle === currentTitle) return;
+          await fetch(`/api/admin/sections/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              chapter_id: chapterId,
+              parent_id: section?.parent_id ?? null,
+              level: section?.level ?? 2,
+              title: newTitle,
+              slug: section?.slug ?? '',
+              order: section?.order ?? 0,
+            }),
+          });
+          titleEl.textContent = newTitle;
+          if (section) section.title = newTitle;
+        };
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
         return;
       }
 
