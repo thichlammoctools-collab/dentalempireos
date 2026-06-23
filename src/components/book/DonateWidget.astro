@@ -69,6 +69,14 @@ if (!settings || settings.enabled === 0) {
         <p class="text-center text-[11px] text-on-surface-variant mt-3">
           Quét mã QR với ứng dụng ngân hàng
         </p>
+        <button
+          type="button"
+          data-donate-qr-url={settings.qr_url}
+          class="donate-download-btn mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 hover:border-primary/50 active:scale-95 transition-all"
+        >
+          <span class="material-symbols-outlined text-[18px]">download</span>
+          <span class="donate-download-label">Lưu hình QR</span>
+        </button>
       </div>
     </div>
   </div>
@@ -116,6 +124,15 @@ if (!settings || settings.enabled === 0) {
         Quét mã QR với ứng dụng ngân hàng để ủng hộ qua chuyển khoản
       </p>
 
+      <button
+        type="button"
+        data-donate-qr-url={settings.qr_url}
+        class="donate-download-btn mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-semibold hover:bg-primary/20 hover:border-primary/50 active:scale-95 transition-all"
+      >
+        <span class="material-symbols-outlined text-[14px]">download</span>
+        <span class="donate-download-label">Lưu hình QR</span>
+      </button>
+
       {settings.payment_methods && (
         <div class="flex items-center justify-center gap-2 mt-2 text-xs text-on-surface-variant">
           <span class="material-symbols-outlined text-[14px]">qr_code_2</span>
@@ -127,6 +144,35 @@ if (!settings || settings.enabled === 0) {
 )}
 
 <script>
+  // Download QR handler
+  document.querySelectorAll('.donate-download-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const qrUrl = btn.getAttribute('data-donate-qr-url');
+      if (!qrUrl) return;
+      const label = btn.querySelector('.donate-download-label');
+      try {
+        btn.setAttribute('disabled', '');
+        if (label) label.textContent = 'Đang tải...';
+        const res = await fetch(qrUrl);
+        const blob = await res.blob();
+        const ext = qrUrl.split('.').pop()?.split('?')[0] || 'png';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dental-empire-qr.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (label) label.textContent = 'Đã lưu!';
+        setTimeout(() => { if (label) label.textContent = 'Lưu hình QR'; }, 2000);
+      } catch {
+        window.open(qrUrl, '_blank');
+        if (label) label.textContent = 'Lưu hình QR';
+      } finally {
+        btn.removeAttribute('disabled');
+      }
+    });
+  });
+
   const trigger = document.getElementById('support-trigger');
   const panel = document.getElementById('support-panel');
   const chevron = document.getElementById('support-chevron');

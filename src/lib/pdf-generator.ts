@@ -3,6 +3,7 @@
 // Font: Be Vietnam Pro (embedded, full Vietnamese support).
 
 import { PDFDocument, rgb, PDFPage, PDFFont } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { marked } from 'marked';
 import type { SurveyResponseRow } from './survey-db';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
@@ -232,7 +233,8 @@ export async function generateSurveyPdf(row: SurveyResponseRow): Promise<Uint8Ar
   doc.setSubject('Roots Profile Survey Report');
   doc.setProducer('Dental Empire OS — dentalempireos.com');
 
-  // Embed Unicode fonts (Be Vietnam Pro — supports Vietnamese fully)
+  // Register fontkit and embed Unicode fonts
+  doc.registerFontkit(fontkit);
   const font = await doc.embedFont(new Uint8Array(BE_VIETNAM_PRO_REGULAR));
   const fontBold = await doc.embedFont(new Uint8Array(BE_VIETNAM_PRO_BOLD));
 
