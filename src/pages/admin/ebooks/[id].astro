@@ -148,18 +148,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         </ul>
       )}
 
-      <!-- Inline add-main-section input (hidden by default, toggled by btn-add-section) -->
-      <div id="inline-add-main" class="hidden mt-3 flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/30 rounded-lg">
-        <span class="material-symbols-outlined text-primary text-[18px]">menu_book</span>
-        <input id="inline-add-main-input" type="text" autocomplete="off" placeholder="Tên đề mục chính... (Enter để lưu, Esc để hủy)"
-          class="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder:text-on-surface-variant/60" />
-        <span id="inline-add-main-status" class="text-[10px] text-on-surface-variant hidden">
-          <span class="material-symbols-outlined text-[14px] animate-spin inline align-middle">progress_activity</span>
-        </span>
-        <button type="button" id="inline-add-main-cancel" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Hủy (Esc)">
-          <span class="material-symbols-outlined text-[16px]">close</span>
-        </button>
-      </div>
     </section>
   <!-- ═══════════════ Bulk add sections modal ═══════════════ -->
   <div id="bulk-add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
@@ -361,109 +349,148 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     });
 
     // ── Inline add main section ──────────────────────────
-    const inlineAddMain = document.getElementById('inline-add-main')!;
-    const inlineAddMainInput = document.getElementById('inline-add-main-input') as HTMLInputElement;
-    const inlineAddMainStatus = document.getElementById('inline-add-main-status')!;
-    const inlineAddMainCancel = document.getElementById('inline-add-main-cancel')!;
-    let inlineAddingMain = false;
-
-    function showInlineMainInput() {
-      inlineAddMain.classList.remove('hidden');
-      inlineAddMainInput.value = '';
-      inlineAddMainInput.focus();
-    }
-
-    function hideInlineMainInput() {
-      inlineAddMain.classList.add('hidden');
-      inlineAddMainInput.value = '';
-      inlineAddMainStatus.classList.add('hidden');
-    }
-
-    document.getElementById('btn-add-section')?.addEventListener('click', showInlineMainInput);
-    inlineAddMainCancel.addEventListener('click', hideInlineMainInput);
-
-    inlineAddMainInput.addEventListener('keydown', async (e) => {
-      if (e.key === 'Escape') { hideInlineMainInput(); return; }
-      if (e.key !== 'Enter' || inlineAddingMain) return;
-      const title = inlineAddMainInput.value.trim();
-      if (!title) return;
-      e.preventDefault();
-      inlineAddingMain = true;
-      inlineAddMainStatus.classList.remove('hidden');
-      try {
-        const res = await fetch('/api/admin/sections', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            level: 2,
-            title,
-            order: Date.now(),
-          }),
-        });
-        if (res.ok) {
-          const { id: newId } = await res.json() as { id: string };
-          // Remove empty-msg if present
-          document.querySelector('[data-empty-msg]')?.remove();
-          // Ensure tree UL exists
-          let treeUl = document.getElementById('section-tree');
-          if (!treeUl) {
-            treeUl = document.createElement('ul');
-            treeUl.id = 'section-tree';
-            treeUl.setAttribute('data-section-list', '');
-            treeUl.className = 'flex flex-col gap-1';
-            document.getElementById('section-tree')?.parentElement?.appendChild(treeUl)
-              ?? inlineAddMain.parentElement?.insertBefore(treeUl, inlineAddMain);
-          }
-          // Build SectionNode stub for DOM render
-          const sectionNode = { id: newId, chapter_id: chapterId, parent_id: null, level: 2, title, slug: '', order: treeUl.children.length, keywords: '[]', children: [], blocks: [] } as any;
-          // Render via SectionItem
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = `<ul data-section-list class="flex flex-col gap-1"></ul>`;
-          // We'll inject raw HTML by calling a tiny server endpoint — simpler: just rebuild that one item client-side
-          const li = document.createElement('li');
-          li.dataset.sectionItem = '';
-          li.dataset.sectionId = newId;
-          li.dataset.sectionOrder = String(treeUl.children.length);
-          li.dataset.sectionDepth = '0';
-          li.dataset.sectionParentId = '';
-          li.dataset.sectionKeywords = '[]';
-          li.className = 'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border bg-surface-container-low border-outline-variant/30 hover:border-outline-variant hover:bg-surface-container transition-all duration-200';
-          li.innerHTML = `
-            <div class="flex items-center gap-2">
-              <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
-                <span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform duration-150">drag_indicator</span>
-              </span>
-              <span class="material-symbols-outlined text-[16px] text-primary">menu_book</span>
-              <span data-section-title class="flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors text-white font-semibold" title="Nhấp đôi để sửa tên">${escapeHtml(title)}</span>
-              <button data-section-keywords class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm keywords">
-                <span class="material-symbols-outlined text-[14px]">sell</span>
-              </button>
-              <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
-                <span class="material-symbols-outlined text-[14px]">edit</span>
-              </button>
-              <button data-section-add-sub class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm đề mục phụ">
-                <span class="material-symbols-outlined text-[14px]">add</span>
-              </button>
-              <button data-section-delete class="p-1 rounded text-on-surface-variant hover:text-error transition-colors" title="Xoá">
-                <span class="material-symbols-outlined text-[14px]">delete</span>
-              </button>
-            </div>
-          `;
-          li.classList.add('reorder-success');
-          li.addEventListener('animationend', () => li.classList.remove('reorder-success'), { once: true });
-          treeUl.appendChild(li);
-          setTimeout(() => li.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-          inlineAddMainInput.value = '';
-          inlineAddMainInput.focus();
-          // Sync in-memory tree
-          if (currentTree) currentTree.sections.push(sectionNode);
-        }
-      } finally {
-        inlineAddingMain = false;
-        inlineAddMainStatus.classList.add('hidden');
+    // Helper: build a raw section-item LI from a SectionNode (mirrors SectionItem.astro)
+    function buildSectionLi(s: SectionNode, depth = 0): HTMLLIElement {
+      const li = document.createElement('li');
+      li.dataset.sectionItem = '';
+      li.dataset.sectionId = s.id;
+      li.dataset.sectionOrder = String(s.order);
+      li.dataset.sectionDepth = String(depth);
+      li.dataset.sectionParentId = s.parent_id ?? '';
+      li.dataset.sectionKeywords = s.keywords ?? '[]';
+      li.className = 'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border bg-surface-container-low border-outline-variant/30 hover:border-outline-variant hover:bg-surface-container transition-all duration-200';
+      const isLevel3 = s.level === 3;
+      const iconClass = isLevel3 ? 'text-on-surface-variant' : 'text-primary';
+      const icon = isLevel3 ? 'subdirectory_arrow_right' : 'menu_book';
+      const titleClass = isLevel3 ? 'text-on-surface-variant' : 'text-white font-semibold';
+      // Build keyword chips
+      let kwChips = '';
+      let kwArr: string[] = [];
+      try { kwArr = (s.keywords || '').startsWith('[') ? JSON.parse(s.keywords) : s.keywords.split(',').map((x: string) => x.trim()).filter(Boolean); } catch { /* ignore */ }
+      if (kwArr.length > 0) {
+        kwChips = `<div class="flex flex-wrap gap-1 mt-0.5 pl-9">${kwArr.map((k: string) => `<span class="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium rounded bg-primary/10 text-primary border border-primary/20">${escapeHtml(k)}</span>`).join('')}</div>`;
       }
+      const hasChildren = s.children.length > 0;
+      let childUlHtml = '';
+      if (hasChildren) {
+        const childLis = s.children.map((c: SectionNode) => buildSectionLi(c, depth + 1).outerHTML).join('');
+        childUlHtml = `<ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20">${childLis}</ul>`;
+      }
+      const toggleBtn = hasChildren
+        ? `<button data-section-toggle class="section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" title="Thu gọn / Mở rộng"><span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span></button>`
+        : `<span class="material-symbols-outlined text-[16px] ${iconClass}">${icon}</span>`;
+      const countBadge = hasChildren ? `<span data-section-count class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">${s.children.length} mục</span>` : '';
+      li.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
+            <span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform duration-150">drag_indicator</span>
+          </span>
+          ${toggleBtn}
+          <span data-section-title class="flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors ${titleClass}" title="Nhấp đôi để sửa tên">${escapeHtml(s.title)}</span>
+          ${countBadge}
+          <button data-section-keywords class="p-1 rounded ${kwArr.length > 0 ? 'text-primary hover:text-primary/80' : 'text-on-surface-variant hover:text-primary'} transition-colors" title="${kwArr.length > 0 ? 'Keywords: ' + kwArr.join(', ') : 'Thêm keywords'}">
+            <span class="material-symbols-outlined text-[14px]">sell</span>
+          </button>
+          <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
+            <span class="material-symbols-outlined text-[14px]">edit</span>
+          </button>
+          <button data-section-add-sub class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm đề mục phụ">
+            <span class="material-symbols-outlined text-[14px]">add</span>
+          </button>
+          <button data-section-delete class="p-1 rounded text-on-surface-variant hover:text-error transition-colors" title="Xoá">
+            <span class="material-symbols-outlined text-[14px]">delete</span>
+          </button>
+        </div>
+        ${kwChips}
+        ${childUlHtml}
+      `;
+      return li;
+    }
+
+    function createInlineInputRow(level: number, placeholder: string, opts: { onSubmit: (value: string, li: HTMLLIElement, input: HTMLInputElement) => Promise<void> }): HTMLLIElement {
+      const li = document.createElement('li');
+      li.setAttribute('data-add-sub-input', '');
+      li.className = 'flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/30 rounded-lg';
+      const icon = level === 3 ? 'subdirectory_arrow_right' : 'menu_book';
+      li.innerHTML = `
+        <span class="material-symbols-outlined text-primary text-[18px]">${icon}</span>
+        <input type="text" autocomplete="off" placeholder="${placeholder}"
+          class="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder:text-on-surface-variant/60" />
+        <span class="text-[10px] text-on-surface-variant hidden" data-sub-status>
+          <span class="material-symbols-outlined text-[14px] animate-spin inline align-middle">progress_activity</span>
+        </span>
+        <button type="button" class="p-1 text-on-surface-variant hover:text-error transition-colors" data-cancel-sub-input title="Hủy (Esc)">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      `;
+      const input = li.querySelector('input')!;
+      const status = li.querySelector('[data-sub-status]') as HTMLElement;
+      const cancelBtn = li.querySelector('[data-cancel-sub-input]')!;
+      setTimeout(() => input.focus(), 50);
+
+      let busy = false;
+      const submit = async () => {
+        if (busy) return;
+        const title = input.value.trim();
+        if (!title) return;
+        busy = true;
+        input.disabled = true;
+        status.classList.remove('hidden');
+        try {
+          await opts.onSubmit(title, li, input);
+        } finally {
+          busy = false;
+          input.disabled = false;
+          status.classList.add('hidden');
+        }
+      };
+      input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Escape') { e.preventDefault(); li.remove(); return; }
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      });
+      cancelBtn.addEventListener('click', () => li.remove());
+      return li;
+    }
+
+    document.getElementById('btn-add-section')?.addEventListener('click', () => {
+      // Remove any other inline input first
+      document.querySelectorAll('[data-add-sub-input]').forEach((el) => el.remove());
+      // Ensure tree UL exists
+      let treeUl = document.getElementById('section-tree');
+      if (!treeUl) {
+        treeUl = document.createElement('ul');
+        treeUl.id = 'section-tree';
+        treeUl.setAttribute('data-section-list', '');
+        treeUl.className = 'flex flex-col gap-1';
+        const section = document.querySelector('.glass-card > section, .glass-card')!;
+        const emptyMsg = section.querySelector('[data-empty-msg]');
+        if (emptyMsg) emptyMsg.remove();
+        section.appendChild(treeUl);
+      }
+      const inputRow = createInlineInputRow(2, 'Tên đề mục chính... (Enter để lưu, Esc để hủy)', {
+        onSubmit: async (title, li, input) => {
+          const res = await fetch('/api/admin/sections', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ chapter_id: chapterId, level: 2, title, order: Date.now() }),
+          });
+          if (res.ok) {
+            const { id: newId } = await res.json() as { id: string };
+            const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: null, level: 2, title, slug: '', order: treeUl!.children.length, keywords: '[]', children: [], blocks: [] };
+            const newLi = buildSectionLi(node, 0);
+            newLi.classList.add('reorder-success');
+            newLi.addEventListener('animationend', () => newLi.classList.remove('reorder-success'), { once: true });
+            treeUl!.insertBefore(newLi, li);
+            setTimeout(() => newLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+            if (currentTree) currentTree.sections.push(node);
+            input.value = '';
+            input.focus();
+          }
+        }
+      });
+      treeUl.appendChild(inputRow);
+      inputRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
     // ── Bulk add sections modal ──────────────────────────
@@ -532,12 +559,13 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Keyboard shortcuts ───────────────────────────────
     document.addEventListener('keydown', (e) => {
-      // Ctrl+Shift+S = open inline add-main OR bulk modal
+      // Ctrl+Shift+S = toggle inline add-main input (inside tree) or close bulk modal
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
         e.preventDefault();
         if (!bulkAddModal.classList.contains('hidden')) { closeBulkAddModal(); return; }
-        if (!inlineAddMain.classList.contains('hidden')) { hideInlineMainInput(); return; }
-        showInlineMainInput();
+        const existing = document.querySelector('[data-add-sub-input]');
+        if (existing) { (existing as HTMLElement).remove(); return; }
+        document.getElementById('btn-add-section')?.click();
         return;
       }
       // Escape = close bulk modal
@@ -1135,115 +1163,39 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         const toggleIcon = sectionItem.querySelector<HTMLElement>('.section-toggle-icon');
         if (toggleIcon) toggleIcon.style.transform = 'rotate(0deg)';
 
-        // Inject input row
-        const inputLi = document.createElement('li');
-        inputLi.setAttribute('data-add-sub-input', '');
-        inputLi.className = 'flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/30 rounded-lg';
-        inputLi.innerHTML = `
-          <span class="material-symbols-outlined text-primary text-[18px]">subdirectory_arrow_right</span>
-          <input type="text" autocomplete="off" placeholder="Tên đề mục phụ... (Enter để lưu, Esc để hủy)"
-            class="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder:text-on-surface-variant/60" />
-          <span class="text-[10px] text-on-surface-variant hidden" data-sub-status>
-            <span class="material-symbols-outlined text-[14px] animate-spin inline align-middle">progress_activity</span>
-          </span>
-          <button type="button" class="p-1 text-on-surface-variant hover:text-error transition-colors" data-cancel-sub-input title="Hủy (Esc)">
-            <span class="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        `;
-        childUl.appendChild(inputLi);
-        const input = inputLi.querySelector('input')!;
-        const status = inputLi.querySelector('[data-sub-status]') as HTMLElement;
-        const cancelBtn = inputLi.querySelector('[data-cancel-sub-input]')!;
-        setTimeout(() => input.focus(), 50);
-
-        let busy = false;
-        const submit = async () => {
-          if (busy) return;
-          const title = input.value.trim();
-          if (!title) return;
-          busy = true;
-          input.disabled = true;
-          status.classList.remove('hidden');
-          try {
+        const inputRow = createInlineInputRow(3, 'Tên đề mục phụ... (Enter để lưu, Esc để hủy)', {
+          onSubmit: async (title, li, input) => {
             const res = await fetch('/api/admin/sections', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({
-                chapter_id: chapterId,
-                parent_id: id,
-                level: 3,
-                title,
-                order: Date.now(),
-              }),
+              body: JSON.stringify({ chapter_id: chapterId, parent_id: id, level: 3, title, order: Date.now() }),
             });
             if (res.ok) {
               const { id: newId } = await res.json() as { id: string };
-              const li = document.createElement('li');
-              li.dataset.sectionItem = '';
-              li.dataset.sectionId = newId;
-              li.dataset.sectionOrder = String(childUl!.querySelectorAll(':scope > [data-section-item]').length);
-              li.dataset.sectionDepth = String(parentDepth + 1);
-              li.dataset.sectionParentId = id;
-              li.dataset.sectionKeywords = '[]';
-              li.className = 'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border bg-surface-container-low border-outline-variant/30 hover:border-outline-variant hover:bg-surface-container transition-all duration-200';
-              li.innerHTML = `
-                <div class="flex items-center gap-2">
-                  <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
-                    <span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform duration-150">drag_indicator</span>
-                  </span>
-                  <span class="material-symbols-outlined text-[16px] text-on-surface-variant">subdirectory_arrow_right</span>
-                  <span data-section-title class="flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors text-on-surface-variant" title="Nhấp đôi để sửa tên">${escapeHtml(title)}</span>
-                  <button data-section-keywords class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm keywords">
-                    <span class="material-symbols-outlined text-[14px]">sell</span>
-                  </button>
-                  <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
-                    <span class="material-symbols-outlined text-[14px]">edit</span>
-                  </button>
-                  <button data-section-add-sub class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Thêm đề mục phụ">
-                    <span class="material-symbols-outlined text-[14px]">add</span>
-                  </button>
-                  <button data-section-delete class="p-1 rounded text-on-surface-variant hover:text-error transition-colors" title="Xoá">
-                    <span class="material-symbols-outlined text-[14px]">delete</span>
-                  </button>
-                </div>
-              `;
-              li.classList.add('reorder-success');
-              li.addEventListener('animationend', () => li.classList.remove('reorder-success'), { once: true });
-              childUl!.insertBefore(li, inputLi);
-              setTimeout(() => li.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+              const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: id, level: 3, title, slug: '', order: childUl!.querySelectorAll(':scope > [data-section-item]').length, keywords: '[]', children: [], blocks: [] };
+              const newLi = buildSectionLi(node, parentDepth + 1);
+              newLi.classList.add('reorder-success');
+              newLi.addEventListener('animationend', () => newLi.classList.remove('reorder-success'), { once: true });
+              childUl!.insertBefore(newLi, li);
+              setTimeout(() => newLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
               // Update the "X mục" count on parent
               const countSpan = sectionItem.querySelector<HTMLElement>('[data-section-count]');
               if (countSpan) {
                 const cnt = childUl!.querySelectorAll(':scope > [data-section-item]').length;
                 countSpan.textContent = `${cnt} mục`;
               }
-              // Sync in-memory tree
               if (currentTree) {
                 const parent = findSection(currentTree.sections, id);
-                if (parent) {
-                  parent.children.push({ id: newId, chapter_id: chapterId, parent_id: id, level: 3, title, slug: '', order: 0, keywords: '[]', children: [], blocks: [] } as any);
-                }
+                if (parent) parent.children.push(node);
               }
-              // Reset input for next entry
               input.value = '';
-              input.disabled = false;
-              status.classList.add('hidden');
-              busy = false;
               input.focus();
             }
-          } finally {
-            busy = false;
-            input.disabled = false;
-            status.classList.add('hidden');
           }
-        };
-
-        input.addEventListener('keydown', (e: KeyboardEvent) => {
-          if (e.key === 'Escape') { e.preventDefault(); inputLi.remove(); return; }
-          if (e.key === 'Enter') { e.preventDefault(); submit(); }
         });
-        cancelBtn.addEventListener('click', () => inputLi.remove());
+        childUl.appendChild(inputRow);
+        inputRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
     });
