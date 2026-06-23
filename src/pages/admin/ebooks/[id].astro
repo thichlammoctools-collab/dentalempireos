@@ -143,7 +143,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       ) : (
         <ul id="section-tree" data-section-list class="flex flex-col gap-1">
           {tree.sections.map((s) => (
-            <SectionItem section={s} flatSections={flatSections} selectedId={selectedSectionId} depth={0} />
+            <SectionItem section={s} selectedId={selectedSectionId} depth={0} />
           ))}
         </ul>
       )}
@@ -1660,8 +1660,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       srcEl.dataset.sectionParentId = newParentId ?? '';
 
       // Update the icon to reflect new level
-      const levelIcon = srcEl.querySelector<HTMLElement>(':scope > div > .material-symbols-outlined:not(.section-drag-handle .material-symbols-outlined):not(.section-toggle-icon):not([data-section-title] ~ .material-symbols-outlined)');
-      // Simpler: just update level in all section-icon spans
       const iconSpans = srcEl.querySelectorAll<HTMLElement>(':scope > div > span.material-symbols-outlined');
       iconSpans.forEach(span => {
         const text = span.textContent?.trim();
