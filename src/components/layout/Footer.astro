@@ -1,8 +1,16 @@
 ---
 const currentYear = new Date().getFullYear();
+
+// TODO: Replace with real social URLs in homepage_settings or env
+// (Facebook Page, YouTube channel, email contact) before production launch.
+const social = {
+  facebook: 'https://facebook.com/',
+  youtube: 'https://youtube.com/@',
+  email: 'mailto:contact@dentalempireos.com',
+};
 ---
 
-<footer class="hidden w-full py-20 bg-surface-container-lowest text-on-surface border-t border-outline-variant">
+<footer class="w-full py-20 bg-surface-container-lowest text-on-surface border-t border-outline-variant">
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6 w-full px-6 max-w-[1200px] mx-auto">
     <!-- Brand -->
     <div class="space-y-6">
@@ -11,13 +19,33 @@ const currentYear = new Date().getFullYear();
         Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.
       </p>
       <div class="flex gap-4">
-        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors">
-          <span class="material-symbols-outlined">face_nod</span>
+        <a
+          href={social.facebook}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Facebook"
+          class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
         </a>
-        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors">
-          <span class="material-symbols-outlined">play_circle</span>
+        <a
+          href={social.youtube}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="YouTube"
+          class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
         </a>
-        <a href="#" class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors">
+        <a
+          href={social.email}
+          aria-label="Email"
+          class="w-10 h-10 rounded-full bg-white/5 border border-outline-variant flex items-center justify-center btn-icon hover:bg-primary hover:text-white transition-colors"
+        >
           <span class="material-symbols-outlined">mail</span>
         </a>
       </div>
@@ -28,7 +56,7 @@ const currentYear = new Date().getFullYear();
       <h4 class="font-bold text-lg mb-6 text-primary">Nội Dung</h4>
       <ul class="space-y-4">
         <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/book">Thư viện E-book</a></li>
-        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Khóa học Academy</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/courses">Khóa học Academy</a></li>
         <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/blog">Blog Quản Trị</a></li>
         <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/resources">Tài liệu miễn phí</a></li>
       </ul>
@@ -40,8 +68,8 @@ const currentYear = new Date().getFullYear();
       <ul class="space-y-4">
         <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/about">Dr. Vinh &amp; Đội ngũ</a></li>
         <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/about">Câu chuyện thương hiệu</a></li>
-        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Điều khoản dịch vụ</a></li>
-        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Chính sách bảo mật</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/reviews">Cảm nhận độc giả</a></li>
+        <li><a class="text-on-surface-variant hover:text-primary transition-colors" href="/survey">Hồ Sơ Gốc Rễ</a></li>
       </ul>
     </div>
 
@@ -49,16 +77,18 @@ const currentYear = new Date().getFullYear();
     <div>
       <h4 class="font-bold text-lg mb-6 text-primary">Newsletter</h4>
       <p class="mb-4 text-on-surface-variant">Nhận kiến thức quản trị mới nhất hàng tuần.</p>
-      <div class="flex flex-col gap-2">
+      <form action="/api/newsletter" method="post" class="flex flex-col gap-2">
         <input
           type="email"
+          name="email"
+          required
           placeholder="Email của bác sĩ..."
           class="px-4 py-3 bg-white/5 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 text-white"
         />
-        <button class="w-full py-3 btn-primary-metallic font-bold rounded-xl active:scale-95 transition-all">
+        <button type="submit" class="w-full py-3 btn-primary-metallic font-bold rounded-xl active:scale-95 transition-all">
           Đăng Ký
         </button>
-      </div>
+      </form>
     </div>
   </div>
 
@@ -66,8 +96,8 @@ const currentYear = new Date().getFullYear();
   <div class="w-full px-6 max-w-[1200px] mx-auto mt-20 pt-8 border-t border-outline-variant flex flex-col md:flex-row justify-between items-center gap-4 text-on-surface-variant">
     <div>&copy; {currentYear} Dental Empire Knowledge Hub. All rights reserved.</div>
     <div class="flex gap-8">
-      <a href="#" class="hover:text-primary transition-colors">Privacy Policy</a>
-      <a href="#" class="hover:text-primary transition-colors">Terms of Service</a>
+      <a href="/about" class="hover:text-primary transition-colors">Về chúng tôi</a>
+      <a href="/book" class="hover:text-primary transition-colors">Nội dung</a>
     </div>
   </div>
 </footer>

@@ -22,7 +22,7 @@ const currentPath = Astro.url.pathname;
     </a>
 
     <!-- Desktop Nav -->
-    <div class="hidden md:flex items-center gap-8">
+    <nav class="hidden md:flex items-center gap-8" aria-label="Điều hướng chính">
       {navLinks.map((link) => {
         const isActive = link.href === '/'
           ? currentPath === '/'
@@ -30,6 +30,7 @@ const currentPath = Astro.url.pathname;
         return (
           <a
             href={link.href}
+            aria-current={isActive ? 'page' : undefined}
             class:list={[
               'label-md font-semibold transition-colors',
               isActive
@@ -41,7 +42,7 @@ const currentPath = Astro.url.pathname;
           </a>
         );
       })}
-    </div>
+    </nav>
 
     <!-- Mobile: search input (top-right) — hidden on /resources which has its own search -->
     {!currentPath.startsWith('/resources') && (

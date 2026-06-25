@@ -1,0 +1,62 @@
+---
+/**
+ * StructuredData — JSON-LD Schema.org markup helper.
+ *
+ * Usage:
+ *   <StructuredData type="article" data={{ headline, author, ... }} />
+ *
+ * Supported types: website | organization | person | article | blogposting |
+ *                  book | course | faq | breadcrumb | review
+ *
+ * `data` is merged into the schema object verbatim. Anything not provided
+ * is omitted (use this to pass optional fields conditionally).
+ */
+
+interface Props {
+  type:
+    | 'website'
+    | 'organization'
+    | 'person'
+    | 'article'
+    | 'blogposting'
+    | 'book'
+    | 'course'
+    | 'faq'
+    | 'breadcrumb'
+    | 'review';
+  data: Record<string, any>;
+}
+
+const { type, data } = Astro.props;
+
+const schema: Record<string, any> = {
+  '@context': 'https://schema.org',
+  ...data,
+};
+
+// Map our type → schema.org @type (allows 'article' → 'Article', etc.)
+const typeMap: Record<string, string> = {
+  website: 'WebSite',
+  organization: 'Organization',
+  person: 'Person',
+  article: 'Article',
+  blogposting: 'BlogPosting',
+  book: 'Book',
+  course: 'Course',
+  faq: 'FAQPage',
+  breadcrumb: 'BreadcrumbList',
+  review: 'Review',
+};
+
+schema['@type'] = typeMap[type] ?? type;
+
+// Sanitize undefined / null values
+const cleanSchema: Record<string, any> = {};
+for (const [k, v] of Object.entries(schema)) {
+  if (v !== undefined && v !== null && v !== '') cleanSchema[k] = v;
+}
+
+const json = JSON.stringify(cleanSchema);
+---
+
+<script type="application/ld+json" set:html={json} is:inline />

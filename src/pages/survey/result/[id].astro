@@ -6,6 +6,8 @@ import { marked } from 'marked';
 
 export const prerender = false;
 
+const SURVEY_PRODUCT_ID = 'survey-rootsgoc-1';
+
 const idParam = Astro.params.id;
 const id = idParam ? parseInt(idParam, 10) : 0;
 
@@ -41,20 +43,30 @@ const parts = [
   { key: 'living', name: lang === 'vi' ? 'Hệ thống sống' : 'Living System', score: scoreLiving, ...scoreLevel(scoreLiving) },
 ];
 
-// Render markdown safely
+// Pre-render the analysis HTML for unlocked state
 marked.setOptions({ gfm: true, breaks: true });
-const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string : '';
+const analysisHtml = row.ai_analysis ? (marked.parse(row.ai_analysis) as string) : '';
+const hasAnalysis = !!analysisHtml;
+
+// Product info for payment
+const product = await env.DB
+  .prepare('SELECT * FROM "product" WHERE "id" = ?')
+  .bind(SURVEY_PRODUCT_ID)
+  .first<{ id: string; name: string; price: number; description: string }>();
+
+const priceFormatted = product ? new Intl.NumberFormat('vi-VN').format(product.price) : '199.000';
 ---
 
 <BaseLayout
   title={`Hồ Sơ Gốc Rễ #${id} | Dental Empire OS`}
   description="Bản phân tích hệ thống quản trị phòng khám"
+  noindex={true}
 >
-  <section class="result-wrap">
+  <section class="result-wrap" data-survey-id={id} data-product-id={SURVEY_PRODUCT_ID} data-lang={lang}>
     <!-- Header -->
     <div class="result-header">
       <div>
-        <p class="text-xs uppercase tracking-wider text-amber-500 font-semibold mb-1">
+        <p class="text-xs uppercase tracking-wider text-amber-500 font-bold mb-1">
           {lang === 'vi' ? 'Hồ Sơ Gốc Rễ' : 'Roots Profile'}
         </p>
         <h1 class="result-title">
@@ -66,21 +78,17 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
         </p>
       </div>
       <div class="flex gap-2 flex-wrap">
-        <button id="btn-pdf" class="btn btn-primary">
-          <span class="material-symbols-outlined text-base">download</span>
-          {lang === 'vi' ? 'Tải PDF' : 'Download PDF'}
-        </button>
         <a href="/survey" class="btn btn-ghost">
-          {lang === 'vi' ? 'Làm mới' : 'New survey'}
+          {lang === 'vi' ? 'Làm khảo sát mới' : 'New survey'}
         </a>
       </div>
     </div>
 
-    <!-- Score Overview Card -->
+    <!-- Score Overview Card — ALWAYS FREE -->
     <div class="card score-card">
       <div class="score-header">
         <div>
-          <p class="text-xs uppercase tracking-wider text-[var(--on-surface-variant)] font-semibold">
+          <p class="text-xs uppercase tracking-wider text-[var(--on-surface-variant)] font-bold">
             {lang === 'vi' ? 'Điểm tổng hợp' : 'Overall Score'}
           </p>
           <div class="score-total">
@@ -119,42 +127,61 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
       </div>
     </div>
 
-    <!-- AI Analysis -->
-    <div class="card analysis-card">
+    <!-- AI Analysis — LOCKED behind paywall -->
+    <div class="card analysis-card" id="analysis-section">
       <div class="analysis-header">
         <div>
-          <p class="text-xs uppercase tracking-wider text-amber-500 font-semibold">
-            {lang === 'vi' ? 'Phân tích từ BS. Vinh' : 'Analysis from Dr. Vinh'}
+          <p class="text-xs uppercase tracking-wider text-amber-500 font-bold">
+            {lang === 'vi' ? 'Phân tích AI' : 'AI Analysis'}
           </p>
           <h2 class="analysis-title">
             {lang === 'vi' ? 'Bản soi chiếu hệ thống' : 'System Illumination'}
           </h2>
         </div>
-        {row.ai_analyzed_at && (
-          <span class="text-xs text-[var(--on-surface-variant)]">
-            {row.ai_analyzed_at}
-          </span>
+      </div>
+
+      <!-- Unlocked content (hidden by default, shown by JS if access granted) -->
+      <div id="analysis-unlocked" class:hidden={true}>
+        {hasAnalysis ? (
+          <article class="prose-content" set:html={analysisHtml}></article>
+        ) : (
+          <div class="text-center py-8 text-[var(--on-surface-variant)]">
+            <div class="spinner mb-4"></div>
+            <p>{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+          </div>
         )}
       </div>
 
-      {analysisHtml ? (
-        <article class="prose-content" set:html={analysisHtml}></article>
-      ) : (
-        <div class="analysis-pending">
-          <div class="spinner"></div>
-          <p>
+      <!-- Paywall overlay (shown by default, hidden by JS if access granted) -->
+      <div id="analysis-locked">
+        <div class="paywall-overlay">
+          <div class="paywall-icon">
+            <span class="material-symbols-outlined" style="font-size:3rem;color:#f59e0b;">lock</span>
+          </div>
+          <h3 class="paywall-title">
+            {lang === 'vi' ? 'Mở khóa Bản Phân Tích AI' : 'Unlock AI Analysis'}
+          </h3>
+          <p class="paywall-desc">
             {lang === 'vi'
-              ? 'Đang phân tích hệ thống phòng khám của bạn... Quá trình này thường mất 15-30 giây.'
-              : 'Analyzing your clinic system... This usually takes 15-30 seconds.'}
+              ? `Bản phân tích chi tiết 9 phần theo framework ROOTS, SKY, S.T.A.R.S — bao gồm gợi ý hành động ưu tiên và lời nhắn từ BS. Vinh.`
+              : `Detailed 9-part analysis using the ROOTS, SKY, S.T.A.R.S framework — including priority actions and a personal note from Dr. Vinh.`}
           </p>
-          <button class="btn btn-ghost" id="btn-refresh">
-            {lang === 'vi' ? 'Tải lại' : 'Refresh'}
+          <div class="paywall-price">
+            <span class="paywall-amount">{priceFormatted}</span>
+            <span class="paywall-currency">VND</span>
+          </div>
+          <button id="btn-unlock" class="btn btn-primary paywall-btn">
+            <span class="material-symbols-outlined text-base">lock_open</span>
+            {lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}
           </button>
+          <p class="paywall-note">
+            {lang === 'vi' ? 'Thanh toán qua PayOS • Truy cập vĩnh viễn • Tải PDF không giới hạn' : 'Pay via PayOS • Lifetime access • Unlimited PDF downloads'}
+          </p>
         </div>
-      )}
+      </div>
     </div>
 
-    <!-- Footer CTA -->
+    <!-- Footer CTA — always visible -->
     <div class="card cta-card">
       <h3 class="cta-title">
         {lang === 'vi' ? 'Bước tiếp theo' : 'Next steps'}
@@ -244,7 +271,6 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
     flex-direction: column;
     gap: 0.85rem;
   }
-  .bar-item { }
   .bar-label {
     display: flex;
     justify-content: space-between;
@@ -268,12 +294,7 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
 
   /* Analysis card */
   .analysis-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
     margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
   .analysis-title {
     font-size: 1.5rem;
@@ -305,7 +326,7 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
   }
   .prose-content :global(li) { margin-bottom: 0.4rem; }
   .prose-content :global(strong) { color: #f59e0b; }
-  .prose-content :global(em) { color: var(--on-surface-variant); }
+  .prose-content :global(em) { color: var(--on-surface-variant); font-style: italic; }
   .prose-content :global(blockquote) {
     border-left: 3px solid #f59e0b;
     padding: 0.25rem 0 0.25rem 1rem;
@@ -325,16 +346,58 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
     margin: 2rem 0;
   }
 
-  /* Pending state */
-  .analysis-pending {
+  /* Paywall overlay */
+  .paywall-overlay {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3rem 1rem;
-    gap: 1rem;
-    color: var(--on-surface-variant);
+    padding: 2.5rem 1rem;
     text-align: center;
+    border-top: 1px solid var(--outline-variant);
+    margin-top: 1rem;
   }
+  .paywall-icon { margin-bottom: 1rem; }
+  .paywall-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0 0 0.5rem;
+  }
+  .paywall-desc {
+    color: var(--on-surface-variant);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-width: 480px;
+    margin: 0 0 1.25rem;
+  }
+  .paywall-price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+  }
+  .paywall-amount {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--on-surface);
+  }
+  .paywall-currency {
+    font-size: 1rem;
+    color: var(--on-surface-variant);
+    font-weight: 500;
+  }
+  .paywall-btn {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+  }
+  .paywall-note {
+    color: var(--on-surface-variant);
+    font-size: 0.75rem;
+    margin-top: 0.75rem;
+    opacity: 0.7;
+  }
+
+  /* Pending spinner */
   .spinner {
     width: 36px;
     height: 36px;
@@ -342,6 +405,7 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
     border-top-color: #f59e0b;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+    margin: 0 auto;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -353,7 +417,7 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
     margin: 0 0 0.5rem;
   }
 
-  /* Buttons (matching form style) */
+  /* Buttons */
   .btn {
     padding: 0.6rem 1.25rem;
     border-radius: 0.5rem;
@@ -379,35 +443,54 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
   }
   .btn-ghost:hover { color: var(--on-surface); }
 
+  .hidden { display: none !important; }
+
   @media (max-width: 640px) {
     .result-wrap { padding: 1rem 0.5rem 3rem; }
     .card { padding: 1.25rem; }
     .score-num { font-size: 2.75rem; }
+    .paywall-overlay { padding: 1.5rem 0.5rem; }
+    .paywall-amount { font-size: 1.5rem; }
   }
 </style>
 
 <script>
-  const btnPdf = document.getElementById('btn-pdf');
-  const btnRefresh = document.getElementById('btn-refresh');
-  const id = window.location.pathname.split('/').pop();
+  const wrap = document.querySelector('.result-wrap') as HTMLElement;
+  const surveyId = wrap?.dataset.surveyId;
+  const productId = wrap?.dataset.productId;
+  const lang = wrap?.dataset.lang ?? 'vi';
+  const btnUnlock = document.getElementById('btn-unlock');
+  const locked = document.getElementById('analysis-locked');
+  const unlocked = document.getElementById('analysis-unlocked');
 
-  btnPdf?.addEventListener('click', () => {
-    if (!id) return;
-    window.location.href = `/api/survey/${id}/pdf`;
-  });
+  async function checkAccess() {
+    if (!surveyId || !productId) return false;
+    try {
+      const res = await fetch(`/api/survey/check-access?id=${surveyId}&product_id=${productId}`);
+      const data = await res.json();
+      return data.hasAccess === true;
+    } catch {
+      return false;
+    }
+  }
 
-  btnRefresh?.addEventListener('click', () => {
-    window.location.reload();
-  });
+  function showUnlocked() {
+    if (locked) locked.style.display = 'none';
+    if (unlocked) unlocked.classList.remove('hidden');
+  }
 
-  // Auto-refresh if no analysis yet (poll every 4s up to 60s)
-  const pending = document.querySelector('.analysis-pending');
-  if (pending) {
+  function showLocked() {
+    if (locked) locked.style.display = '';
+    if (unlocked) unlocked.classList.add('hidden');
+  }
+
+  // Auto-refresh for pending analysis (only if unlocked)
+  function startPolling() {
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/survey?id=${id}`);
+        const res = await fetch(`/api/survey?id=${surveyId}`);
         const data = await res.json();
         if (data.ai_analysis) {
           clearInterval(interval);
@@ -417,4 +500,42 @@ const analysisHtml = row.ai_analysis ? marked.parse(row.ai_analysis) as string :
       if (attempts >= 15) clearInterval(interval);
     }, 4000);
   }
+
+  // Init
+  checkAccess().then((hasAccess) => {
+    if (hasAccess) {
+      showUnlocked();
+      // Poll for analysis if not yet generated
+      const analysisEl = document.querySelector('.spinner');
+      if (analysisEl) startPolling();
+    } else {
+      showLocked();
+    }
+  });
+
+  // Unlock button — redirect to payment
+  btnUnlock?.addEventListener('click', async () => {
+    btnUnlock.textContent = lang === 'vi' ? 'Đang chuyển...' : 'Redirecting...';
+    btnUnlock.setAttribute('disabled', 'true');
+
+    try {
+      const res = await fetch('/api/payos/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId }),
+      });
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        alert(data.error || 'Payment failed');
+        btnUnlock.textContent = lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now';
+        btnUnlock.removeAttribute('disabled');
+      }
+    } catch {
+      alert(lang === 'vi' ? 'Không thể kết nối thanh toán' : 'Payment connection failed');
+      btnUnlock.textContent = lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now';
+      btnUnlock.removeAttribute('disabled');
+    }
+  });
 </script>

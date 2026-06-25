@@ -15,6 +15,40 @@ export const GET: APIRoute = async ({ params }) => {
   return json(row);
 };
 
+// PATCH /api/admin/products/[id] — partial update (price, is_active, name)
+export const PATCH: APIRoute = async ({ params, request, locals }) => {
+  if (!locals.user) return json({ error: 'unauthorized' }, 401);
+  const id = params.id;
+  if (!id) return badRequest('Missing id');
+
+  const existing = await getProduct(env.DB, id);
+  if (!existing) return notFound();
+
+  const body = await request.json().catch(() => null);
+  if (!body) return badRequest('Invalid JSON');
+
+  const updates: Partial<{ price: number; is_active: number; name: string; description: string }> = {};
+  if (typeof body.price === 'number' && body.price >= 0) updates.price = body.price;
+  if (typeof body.is_active === 'boolean') updates.is_active = body.is_active ? 1 : 0;
+  if (typeof body.name === 'string' && body.name.trim()) updates.name = body.name.trim();
+  if (typeof body.description === 'string') updates.description = body.description.trim();
+
+  if (Object.keys(updates).length === 0) return badRequest('No fields to update');
+
+  await upsertProduct(env.DB, {
+    id,
+    name: updates.name ?? existing.name,
+    type: existing.type,
+    price: updates.price ?? existing.price,
+    description: updates.description ?? existing.description,
+    duration_days: existing.duration_days,
+    reference_id: existing.reference_id,
+    is_active: updates.is_active ?? existing.is_active,
+  });
+
+  return json({ success: true });
+};
+
 // PUT /api/admin/products/[id] — update a product
 export const PUT: APIRoute = async ({ params, request }) => {
   const id = params.id;

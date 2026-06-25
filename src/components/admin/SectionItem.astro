@@ -6,13 +6,15 @@ interface Props {
   section: SectionNode;
   selectedId: string;
   depth?: number;
-  /** Pre-computed outline number like "1", "1.2", "2.3.1". Pass empty string to hide. */
+  /** Pre-computed outline number for THIS section like "1", "1.2", "2.3.1". Pass empty string to hide. */
   number?: string;
 }
 
 const { section, selectedId, depth = 0, number = '' } = Astro.props;
 const isSelected = section.id === selectedId;
 const hasChildren = section.children.length > 0;
+// For children, build their numbers by appending 1..n to our prefix
+const childPrefix = number; // e.g. "1.2" — child will become "1.2.1", "1.2.2"…
 
 // Parse keywords for display
 let keywordList: string[] = [];
@@ -102,8 +104,8 @@ if (section.keywords) {
 
   {hasChildren && (
     <ul data-section-list class="flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20">
-      {section.children.map((child) => (
-        <SectionItem section={child} selectedId={selectedId} depth={depth + 1} />
+      {section.children.map((child, idx) => (
+        <SectionItem section={child} selectedId={selectedId} depth={depth + 1} number={childPrefix ? `${childPrefix}.${idx + 1}` : ''} />
       ))}
     </ul>
   )}

@@ -117,7 +117,7 @@ function formatDate(iso: string | null): string {
                 <div class="flex items-center gap-3 text-xs text-white/50">
                   <span class="flex items-center gap-1">
                     <span class="material-symbols-outlined text-[14px]">calendar_today</span>
-                    {formatDate(featured[0].published_at)}
+                    <time datetime={featured[0].published_at ?? ''}>{formatDate(featured[0].published_at)}</time>
                   </span>
                   <span class="flex items-center gap-1">
                     <span class="material-symbols-outlined text-[14px]">schedule</span>
@@ -168,7 +168,7 @@ function formatDate(iso: string | null): string {
                     </h3>
                   </div>
                   <div class="flex items-center gap-2 text-[11px] text-white/50 mt-2">
-                    <span>{formatDate(post.published_at)}</span>
+                    <time datetime={post.published_at ?? ''}>{formatDate(post.published_at)}</time>
                     <span>·</span>
                     <span>{post.read_time_minutes} phút</span>
                   </div>

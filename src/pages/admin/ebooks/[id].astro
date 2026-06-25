@@ -171,9 +171,10 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       )}
 
       <!-- Hidden data for section list (used by block move feature) -->
-      <script is:inline define:vars={{ flatSectionsNumbered, sectionNumbers }}>
+      <script is:inline define:vars={{ flatSectionsNumbered, sectionNumbers, treeData }}>
         window.__flatSections = flatSectionsNumbered;
         window.__sectionNumbers = sectionNumbers;
+        window.__treeData = treeData;
       </script>
 
     </section>
@@ -244,6 +245,65 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         <button data-modal-add-block="file" class="px-3 py-2 bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold hover:text-primary hover:border-primary border border-outline-variant transition-all flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">attach_file</span>
           Thêm biểu mẫu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Move block popup (Google Drive-style) ═══════════════ -->
+  <div id="move-block-popup" class="hidden fixed inset-0 z-[60] items-center justify-center">
+    <div id="move-block-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+    <div class="relative bg-surface-container rounded-2xl shadow-2xl border border-outline-variant/30 w-full max-w-2xl mx-4 flex flex-col max-h-[85vh] overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-outline-variant/30 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-primary text-[22px]">drive_file_move</span>
+          <div class="min-w-0">
+            <h3 class="text-base font-bold text-white">Di chuyển block</h3>
+            <p id="move-block-current-path" class="text-[11px] text-on-surface-variant/70 truncate mt-0.5"></p>
+          </div>
+        </div>
+        <button id="move-block-close" type="button" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-white hover:bg-surface-container-high transition-all" title="Đóng (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Search bar -->
+      <div class="px-5 pt-4 pb-2 shrink-0">
+        <div class="relative">
+          <span class="material-symbols-outlined text-[18px] text-on-surface-variant/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">search</span>
+          <input id="move-block-search" type="text" placeholder="Tìm đề mục theo tên..." autocomplete="off" class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-3 py-2.5 text-white text-sm placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none transition-all" />
+        </div>
+      </div>
+
+      <!-- Selected destination breadcrumb -->
+      <div class="px-5 py-2 border-b border-outline-variant/20 shrink-0 bg-surface-container-low/40">
+        <div class="flex items-center gap-1.5 min-h-[20px]">
+          <span class="material-symbols-outlined text-[14px] text-primary shrink-0">folder_open</span>
+          <span class="text-[11px] text-on-surface-variant/70 shrink-0">Đích:</span>
+          <div id="move-block-breadcrumb" class="flex items-center min-w-0 flex-1 truncate">
+            <span class="text-on-surface-variant/60 text-xs italic">Chưa chọn đề mục</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tree -->
+      <div id="move-block-tree" class="flex-1 overflow-y-auto p-3 min-h-[280px] max-h-[50vh]">
+        <!-- Tree rendered here -->
+      </div>
+      <div id="move-block-empty" class="hidden px-5 py-8 text-center text-sm text-on-surface-variant">
+        <span class="material-symbols-outlined text-[32px] text-on-surface-variant/40">search_off</span>
+        <p class="mt-2">Không tìm thấy đề mục phù hợp</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-outline-variant/30 shrink-0 bg-surface-container-low/30">
+        <button id="move-block-cancel" type="button" class="px-4 py-2 border border-outline-variant text-on-surface-variant rounded-lg text-sm font-bold hover:border-primary hover:text-primary transition-all">
+          Huỷ
+        </button>
+        <button id="move-block-confirm" type="button" disabled class="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">drive_file_move</span>
+          <span>Chuyển đến đây</span>
         </button>
       </div>
     </div>
@@ -496,8 +556,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         ? `<button data-section-toggle class="section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" title="Thu gọn / Mở rộng"><span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span></button>`
         : `<span class="material-symbols-outlined text-[16px] ${iconClass}">${icon}</span>`;
       const countBadge = hasChildren ? `<span data-section-count class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">${s.children.length} mục</span>` : '';
-      // Compute a tentative number (will be corrected by renumberAllSections after insert)
-      const numBadge = '';
       li.innerHTML = `
         <div class="flex items-center gap-2">
           <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
@@ -604,6 +662,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             treeUl!.insertBefore(newLi, li);
             flashAndScroll(newLi);
             if (currentTree) currentTree.sections.push(node);
+            renumberAllSections();
             input.value = '';
             input.focus();
           }
@@ -884,18 +943,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             <button data-action="save-block" class="text-on-surface-variant hover:text-primary transition-colors opacity-0 pointer-events-none" title="Lưu block">
               <span class="material-symbols-outlined text-[18px]">save</span>
             </button>
-            <div class="relative" data-move-wrap>
-              <button data-action="move-block" class="text-on-surface-variant hover:text-primary transition-colors" title="Di chuyển sang đề mục khác">
-                <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
-              </button>
-              <div data-move-menu class="move-menu hidden">
-                <div class="move-menu-search">
-                  <span class="material-symbols-outlined text-[14px] text-on-surface-variant/60 shrink-0">search</span>
-                  <input data-move-search type="text" placeholder="Tìm đề mục..." class="bg-transparent text-white text-xs outline-none w-full" />
-                </div>
-                <div data-move-list class="move-menu-list"></div>
-              </div>
-            </div>
+            <button data-action="move-block" class="text-on-surface-variant hover:text-primary transition-colors" title="Di chuyển sang đề mục khác">
+              <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
+            </button>
             <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
@@ -1022,96 +1072,266 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       });
     });
 
-    // ── Block: move to another section ─────────────────
-    let sectionListData: { id: string; label: string; level: number }[] = [];
-    try {
-      sectionListData = (window as any).__flatSections ?? [];
-    } catch { sectionListData = []; }
+    // ── Block: move to another section (Google Drive-style popup) ─────
+    type MoveSectionNode = { id: string; title: string; level: number; children: MoveSectionNode[]; parent_id: string | null };
 
-    function populateMoveMenu(menu: HTMLElement, blockId: string, currentSectionId: string, searchQuery = '') {
-      const listEl = menu.querySelector<HTMLElement>('[data-move-list]')!;
-      const q = searchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const filtered = sectionListData.filter(s => s.id !== currentSectionId && (
-        !q || s.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)
-      ));
-      listEl.innerHTML = filtered.length === 0
-        ? '<div class="move-menu-empty">Không tìm thấy</div>'
-        : filtered.map(s => `
-            <button data-move-target="${s.id}" class="move-menu-item ${s.level === 3 ? 'move-menu-item-sub' : ''}">
-              <span class="material-symbols-outlined text-[14px] ${s.level === 3 ? 'text-on-surface-variant' : 'text-primary'}">${s.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}</span>
-              <span class="truncate">${escapeHtml(s.label)}</span>
-            </button>
-          `).join('');
+    function buildMoveTree(sections: SectionNode[]): MoveSectionNode[] {
+      return sections.map(s => ({
+        id: s.id,
+        title: s.title,
+        level: s.level,
+        parent_id: s.parent_id,
+        children: buildMoveTree(s.children),
+      }));
     }
 
-    // Close open move menus when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('[data-move-wrap]')) {
-        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
+    let moveTreeData: MoveSectionNode[] = [];
+    try {
+      moveTreeData = buildMoveTree((window as any).__treeData ?? []);
+      // Fallback: build from currentTree if window var not set
+      if (moveTreeData.length === 0 && currentTree) {
+        moveTreeData = buildMoveTree(currentTree.sections);
       }
-    });
+    } catch { moveTreeData = []; }
 
-    // Move block to another section
-    modalBody.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
+    const movePopup = document.getElementById('move-block-popup') as HTMLElement | null;
+    const moveBackdrop = document.getElementById('move-block-backdrop');
+    const moveSearch = document.getElementById('move-block-search') as HTMLInputElement | null;
+    const moveTreeEl = document.getElementById('move-block-tree');
+    const moveBreadcrumb = document.getElementById('move-block-breadcrumb');
+    const moveCancelBtn = document.getElementById('move-block-cancel');
+    const moveConfirmBtn = document.getElementById('move-block-confirm') as HTMLButtonElement | null;
+    const moveTitleEl = document.getElementById('move-block-title');
+    const moveCurrentPathEl = document.getElementById('move-block-current-path');
+    const moveEmptyEl = document.getElementById('move-block-empty');
 
-      // Move button → open/close dropdown
-      const moveBtn = target.closest<HTMLElement>('[data-action="move-block"]');
-      if (moveBtn) {
-        e.stopPropagation();
-        const wrap = moveBtn.closest<HTMLElement>('[data-move-wrap]')!;
-        const menu = wrap.querySelector<HTMLElement>('[data-move-menu]')!;
-        const isOpen = !menu.classList.contains('hidden');
-        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
-        if (!isOpen) {
-          menu.classList.remove('hidden');
-          const item = moveBtn.closest<HTMLElement>('.block-item');
-          const blockId = item?.dataset.blockId ?? '';
-          populateMoveMenu(menu, blockId, modalSectionId);
-          const searchInput = menu.querySelector<HTMLInputElement>('[data-move-search]');
-          if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+    let moveActiveBlockId: string | null = null;
+    let moveActiveBlockItem: HTMLElement | null = null;
+    let moveSelectedId: string | null = null;
+    let moveExpandedIds = new Set<string>();
+    let moveSearchQuery = '';
+    let moveCurrentPath: string[] = []; // breadcrumb of selected section
+
+    function normalizeVN(s: string): string {
+      return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
+
+    function getPathToRoot(treeData: MoveSectionNode[], id: string): MoveSectionNode[] | null {
+      function dfs(nodes: MoveSectionNode[], path: MoveSectionNode[]): MoveSectionNode[] | null {
+        for (const n of nodes) {
+          if (n.id === id) return [...path, n];
+          const found = dfs(n.children, [...path, n]);
+          if (found) return found;
         }
+        return null;
+      }
+      return dfs(treeData, []);
+    }
+
+    function isDescendantOf(treeData: MoveSectionNode[], candidateId: string, ancestorId: string): boolean {
+      const path = getPathToRoot(treeData, candidateId);
+      if (!path) return false;
+      return path.some(n => n.id === ancestorId);
+    }
+
+    function sectionMatches(n: MoveSectionNode, q: string): boolean {
+      if (!q) return true;
+      return normalizeVN(n.title).includes(q);
+    }
+
+    function renderMoveTree() {
+      if (!moveTreeEl) return;
+      const q = normalizeVN(moveSearchQuery);
+
+      // When searching: auto-expand path to every match
+      if (q) {
+        function findMatches(nodes: MoveSectionNode[], parents: MoveSectionNode[]): { node: MoveSectionNode; path: MoveSectionNode[] }[] {
+          const out: { node: MoveSectionNode; path: MoveSectionNode[] }[] = [];
+          for (const n of nodes) {
+            const path = [...parents, n];
+            if (sectionMatches(n, q)) out.push({ node: n, path });
+            if (n.children.length) out.push(...findMatches(n.children, path));
+          }
+          return out;
+        }
+        const matches = findMatches(moveTreeData, []);
+        if (matches.length === 0) {
+          moveTreeEl.innerHTML = '';
+          moveEmptyEl?.classList.remove('hidden');
+          return;
+        }
+        moveEmptyEl?.classList.add('hidden');
+
+        // Render a flat list of matches with their breadcrumb path
+        moveTreeEl.innerHTML = matches.map(({ node, path }) => {
+          const isDisabled = node.id === modalSectionId;
+          const pathStr = path.slice(0, -1).map(p => escapeHtml(p.title)).join(' › ');
+          return `
+            <button type="button" data-move-target="${node.id}" ${isDisabled ? 'disabled' : ''} class="move-tree-row ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''} ${moveSelectedId === node.id ? 'move-tree-row-selected' : ''}">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <span class="material-symbols-outlined text-[18px] ${node.level === 1 ? 'text-primary' : 'text-on-surface-variant'} shrink-0">${node.level === 1 ? 'menu_book' : 'subdirectory_arrow_right'}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-semibold text-white truncate">${escapeHtml(node.title)}</div>
+                  ${pathStr ? `<div class="text-[11px] text-on-surface-variant/70 truncate">${pathStr}</div>` : ''}
+                </div>
+              </div>
+              ${isDisabled ? '<span class="text-[10px] text-on-surface-variant/60 shrink-0">Hiện tại</span>' : ''}
+            </button>`;
+        }).join('');
         return;
       }
 
-      // Move target → execute move
-      const moveTarget = target.closest<HTMLElement>('[data-move-target]');
-      if (moveTarget) {
-        e.stopPropagation();
-        const targetSectionId = moveTarget.dataset.moveTarget!;
-        const blockItem = moveTarget.closest<HTMLElement>('.block-item');
-        const blockId = blockItem?.dataset.blockId;
-        if (!blockId) return;
-        const targetSection = sectionListData.find(s => s.id === targetSectionId);
-        const targetLabel = targetSection?.label ?? 'đề mục mới';
-        if (!confirm(`Di chuyển block này sang "${targetLabel}"?`)) return;
+      // No search: render expandable tree
+      moveEmptyEl?.classList.add('hidden');
 
-        fetch(`/api/admin/blocks/${blockId}`, {
+      function renderNode(n: MoveSectionNode): string {
+        const isCurrent = n.id === modalSectionId;
+        const isSelected = n.id === moveSelectedId;
+        const hasChildren = n.children.length > 0;
+        const isExpanded = moveExpandedIds.has(n.id);
+        return `
+          <div class="move-tree-node" data-node-id="${n.id}">
+            <button type="button" data-move-target="${n.id}" ${isCurrent ? 'disabled' : ''} class="move-tree-row ${isCurrent ? 'opacity-40 cursor-not-allowed' : ''} ${isSelected ? 'move-tree-row-selected' : ''}">
+              ${hasChildren ? `
+                <span class="move-tree-toggle shrink-0" data-toggle="${n.id}">
+                  <span class="material-symbols-outlined text-[16px] transition-transform ${isExpanded ? 'rotate-90' : ''}">chevron_right</span>
+                </span>
+              ` : '<span class="w-4 shrink-0"></span>'}
+              <span class="material-symbols-outlined text-[18px] ${n.level === 1 ? 'text-primary' : 'text-on-surface-variant'} shrink-0">${n.level === 1 ? 'menu_book' : 'subdirectory_arrow_right'}</span>
+              <span class="text-sm font-semibold text-white truncate flex-1 text-left">${escapeHtml(n.title)}</span>
+              ${isCurrent ? '<span class="text-[10px] text-on-surface-variant/60 shrink-0">Hiện tại</span>' : ''}
+            </button>
+            ${hasChildren ? `<div class="move-tree-children ${isExpanded ? '' : 'hidden'}">${n.children.map(renderNode).join('')}</div>` : ''}
+          </div>`;
+      }
+
+      moveTreeEl.innerHTML = moveTreeData.length === 0
+        ? '<div class="text-sm text-on-surface-variant text-center py-6">Chưa có đề mục nào.</div>'
+        : moveTreeData.map(renderNode).join('');
+    }
+
+    function updateMoveBreadcrumb() {
+      if (!moveBreadcrumb) return;
+      if (!moveSelectedId) {
+        moveBreadcrumb.innerHTML = '<span class="text-on-surface-variant/60 text-xs italic">Chưa chọn đề mục</span>';
+        if (moveConfirmBtn) moveConfirmBtn.disabled = true;
+        return;
+      }
+      const path = getPathToRoot(moveTreeData, moveSelectedId);
+      if (!path) return;
+      moveBreadcrumb.innerHTML = path.map((n, i) => {
+        const sep = i < path.length - 1 ? '<span class="text-on-surface-variant/40 mx-1">›</span>' : '';
+        const isLast = i === path.length - 1;
+        return `<span class="${isLast ? 'text-primary font-semibold' : 'text-on-surface-variant/80'} text-xs">${escapeHtml(n.title)}</span>${sep}`;
+      }).join('');
+      if (moveConfirmBtn) {
+        const disabled = moveSelectedId === modalSectionId;
+        moveConfirmBtn.disabled = disabled;
+        moveConfirmBtn.classList.toggle('opacity-40', disabled);
+      }
+    }
+
+    function openMovePopup(blockId: string, blockItem: HTMLElement) {
+      moveActiveBlockId = blockId;
+      moveActiveBlockItem = blockItem;
+      moveSelectedId = null;
+      moveSearchQuery = '';
+      if (moveSearch) moveSearch.value = '';
+
+      // Show current path of source section
+      if (moveCurrentPathEl && modalSectionId) {
+        const path = getPathToRoot(moveTreeData, modalSectionId);
+        if (path) {
+          moveCurrentPathEl.innerHTML = '<span class="text-on-surface-variant/60">Đang ở:</span> ' + path.map(n => escapeHtml(n.title)).join(' › ');
+        }
+      }
+
+      // Auto-expand top 2 levels by default
+      moveExpandedIds = new Set();
+      function expandTopLevels(nodes: MoveSectionNode[], depth = 0) {
+        if (depth >= 2) return;
+        for (const n of nodes) {
+          moveExpandedIds.add(n.id);
+          expandTopLevels(n.children, depth + 1);
+        }
+      }
+      expandTopLevels(moveTreeData);
+
+      renderMoveTree();
+      updateMoveBreadcrumb();
+      if (movePopup) {
+        movePopup.classList.remove('hidden');
+        movePopup.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => moveSearch?.focus(), 50);
+      }
+    }
+
+    function closeMovePopup() {
+      if (movePopup) {
+        movePopup.classList.add('hidden');
+        movePopup.classList.remove('flex');
+      }
+      document.body.style.overflow = '';
+      moveActiveBlockId = null;
+      moveActiveBlockItem = null;
+      moveSelectedId = null;
+    }
+
+    async function executeMove() {
+      if (!moveSelectedId || !moveActiveBlockId || !moveActiveBlockItem) return;
+      if (moveSelectedId === modalSectionId) return;
+      const targetPath = getPathToRoot(moveTreeData, moveSelectedId);
+      const targetLabel = targetPath ? targetPath.map(n => n.title).join(' › ') : 'đề mục mới';
+
+      // Confirm if target has descendants — moving into a non-leaf will append at end
+      const targetSection = findSectionById(moveTreeData, moveSelectedId);
+      const isLeaf = !targetSection || targetSection.children.length === 0;
+
+      if (!confirm(`Di chuyển block này sang "${targetLabel}"?`)) return;
+
+      if (moveConfirmBtn) {
+        moveConfirmBtn.disabled = true;
+        moveConfirmBtn.textContent = 'Đang chuyển...';
+      }
+
+      try {
+        const res = await fetch(`/api/admin/blocks/${moveActiveBlockId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ section_id: targetSectionId }),
-        }).then(res => {
-          if (res.ok) {
-            blockItem?.remove();
-            showMoveToast(`Đã chuyển sang "${targetLabel}"`);
-            if (!modalBody.querySelector('.block-item')) {
-              modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
-            }
-            // Update in-memory tree
-            if (currentTree) {
-              const srcSection = findSection(currentTree.sections, modalSectionId);
-              if (srcSection) {
-                srcSection.blocks = srcSection.blocks.filter(b => b.id !== blockId);
-              }
-            }
-          } else {
-            showMoveToast('Lỗi khi di chuyển block', false);
+          body: JSON.stringify({ section_id: moveSelectedId }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        moveActiveBlockItem.remove();
+        showMoveToast(`Đã chuyển sang "${targetLabel}"`);
+        if (!modalBody.querySelector('.block-item')) {
+          modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
+        }
+        if (currentTree) {
+          const srcSection = findSection(currentTree.sections, modalSectionId);
+          if (srcSection) {
+            srcSection.blocks = srcSection.blocks.filter(b => b.id !== moveActiveBlockId);
           }
-        }).catch(() => showMoveToast('Lỗi mạng', false));
-        return;
+        }
+        closeMovePopup();
+      } catch {
+        showMoveToast('Lỗi khi di chuyển block', false);
+        if (moveConfirmBtn) {
+          moveConfirmBtn.disabled = false;
+          moveConfirmBtn.textContent = 'Chuyển đến đây';
+        }
       }
-    });
+    }
+
+    function findSectionById(nodes: MoveSectionNode[], id: string): MoveSectionNode | null {
+      for (const n of nodes) {
+        if (n.id === id) return n;
+        const found = findSectionById(n.children, id);
+        if (found) return found;
+      }
+      return null;
+    }
 
     function showMoveToast(msg: string, ok = true) {
       const t = document.createElement('div');
@@ -1122,15 +1342,60 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       setTimeout(() => t.remove(), 2200);
     }
 
-    // Filter move menu on search input
-    modalBody.addEventListener('input', (e) => {
+    // Wire up move-block button → open popup
+    modalBody.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      if (!target.matches('[data-move-search]')) return;
-      const menu = target.closest<HTMLElement>('[data-move-menu]')!;
-      const wrap = menu.closest<HTMLElement>('[data-move-wrap]')!;
-      const blockItem = wrap.closest<HTMLElement>('.block-item');
-      const blockId = blockItem?.dataset.blockId ?? '';
-      populateMoveMenu(menu, blockId, modalSectionId, target.value);
+      const moveBtn = target.closest<HTMLElement>('[data-action="move-block"]');
+      if (moveBtn) {
+        e.stopPropagation();
+        const item = moveBtn.closest<HTMLElement>('.block-item');
+        const blockId = item?.dataset.blockId;
+        if (blockId && item) openMovePopup(blockId, item);
+        return;
+      }
+    });
+
+    // Tree interactions: select row, toggle expand
+    if (moveTreeEl) {
+      moveTreeEl.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        // Toggle expand
+        const toggle = target.closest<HTMLElement>('[data-toggle]');
+        if (toggle) {
+          e.stopPropagation();
+          const id = toggle.dataset.toggle!;
+          if (moveExpandedIds.has(id)) moveExpandedIds.delete(id);
+          else moveExpandedIds.add(id);
+          renderMoveTree();
+          return;
+        }
+        // Select row
+        const row = target.closest<HTMLElement>('[data-move-target]');
+        if (row && !row.hasAttribute('disabled')) {
+          moveSelectedId = row.dataset.moveTarget!;
+          renderMoveTree();
+          updateMoveBreadcrumb();
+        }
+      });
+    }
+
+    // Search input
+    if (moveSearch) {
+      moveSearch.addEventListener('input', () => {
+        moveSearchQuery = moveSearch.value;
+        renderMoveTree();
+      });
+    }
+
+    // Cancel + backdrop + ESC
+    moveBackdrop?.addEventListener('click', closeMovePopup);
+    moveCancelBtn?.addEventListener('click', closeMovePopup);
+    document.getElementById('move-block-close')?.addEventListener('click', closeMovePopup);
+    moveConfirmBtn?.addEventListener('click', executeMove);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && movePopup && !movePopup.classList.contains('hidden')) {
+        closeMovePopup();
+      }
     });
 
     // ── Modal add block buttons ───────────────────────────
@@ -1503,6 +1768,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
                 const parent = findSection(currentTree.sections, id);
                 if (parent) parent.children.push(node);
               }
+              renumberAllSections();
               input.value = '';
               input.focus();
             }
@@ -1828,6 +2094,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       const ok = await reorderSiblings(parentUl);
       if (!ok) { showDndError('Lỗi lưu thứ tự. Đang tải lại...'); location.reload(); }
+      renumberAllSections();
     }
 
     // ── Cross-parent move (above/below) ────────────────────
@@ -1909,6 +2176,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       // Sync in-memory tree — pass target item ID (not parent) for above/below positioning
       const tgtItemId = tgtItem.dataset.sectionId ?? null;
       syncTreeAfterMove(srcId, tgtItemId, zone);
+      renumberAllSections();
     }
 
     // ── Reparent as child (into zone) ──────────────────────
@@ -2013,6 +2281,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       // Sync in-memory tree
       syncTreeAfterMove(srcId, tgtId, 'into');
+      renumberAllSections();
     }
 
     // ── Init ──────────────────────────────────────────────
@@ -2137,61 +2406,52 @@ const selectedSectionId = flatSections[0]?.id ?? '';
   /* ==========================================
      MOVE BLOCK — Section dropdown menu
      ========================================== */
-  .move-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 100;
-    width: 260px;
-    max-height: 320px;
-    background: var(--color-surface-container, #1e1e1e);
-    border: 1px solid var(--color-outline-variant, #444);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-top: 4px;
-  }
-  .move-menu-search {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--color-outline-variant, #444);
-  }
-  .move-menu-list {
-    overflow-y: auto;
-    flex: 1;
-    padding: 4px;
-  }
-  .move-menu-item {
+  .move-tree-row {
     display: flex;
     align-items: center;
     gap: 6px;
     width: 100%;
-    padding: 7px 8px;
-    border-radius: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
     background: transparent;
     color: var(--color-on-surface, #fff);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 14px;
     text-align: left;
     cursor: pointer;
     transition: background 0.12s;
+    border: 1px solid transparent;
   }
-  .move-menu-item:hover {
+  .move-tree-row:hover:not(:disabled) {
     background: var(--color-surface-container-high, #2a2a2a);
   }
-  .move-menu-item-sub {
-    padding-left: 22px;
-    font-weight: 400;
-    color: var(--color-on-surface-variant, #aaa);
+  .move-tree-row-selected {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
   }
-  .move-menu-empty {
-    padding: 12px 8px;
-    font-size: 12px;
-    color: var(--color-on-surface-variant, #888);
-    text-align: center;
+  .move-tree-node {
+    margin-left: 20px;
+  }
+  .move-tree-node:first-child {
+    margin-top: 2px;
+  }
+  .move-tree-children {
+    animation: tree-expand 0.2s ease;
+  }
+  @keyframes tree-expand {
+    0% { opacity: 0; transform: translateY(-4px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .move-tree-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .move-tree-toggle:hover {
+    background: var(--color-surface-container-high, #2a2a2a);
   }
 </style>

@@ -1,7 +1,8 @@
-﻿---
+---
 import Header from '../components/layout/Header.astro';
 import Footer from '../components/layout/Footer.astro';
 import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
+import StructuredData from '../components/seo/StructuredData.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -12,18 +13,36 @@ interface Props {
   isReading?: boolean;
   currentSlug?: string;
   groupedChapters?: any[];
+  // SEO controls
+  noindex?: boolean;
+  ogType?: 'website' | 'article' | 'book' | 'profile';
+  keywords?: string;
 }
 
 const {
   title,
   description = 'Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.',
-  ogImage = '/images/og-image.jpg',
+  ogImage = '/images/og-image.svg',
   isReading = false,
   currentSlug = '',
   groupedChapters = [],
+  noindex = false,
+  ogType = 'website',
+  keywords = 'quản trị nha khoa, dental clinic management, bác sĩ nha khoa, vận hành phòng khám, Dental Empire OS',
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalempireos.com');
+const ogImageURL = new URL(ogImage, Astro.site ?? 'https://dentalempireos.com');
+
+const robotsContent = noindex
+  ? 'noindex, nofollow'
+  : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+
+// TODO: Replace with real social URLs before production
+const sameAs = [
+  'https://facebook.com/dentalempireos',
+  'https://youtube.com/@dentalempireos',
+];
 ---
 
 <!doctype html>
@@ -33,39 +52,56 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalem
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
 
-    <!-- SEO -->
+    <!-- SEO Core -->
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <meta name="author" content="Bác sĩ Nguyễn Phước Vinh" />
+    <meta name="robots" content={robotsContent} />
     <link rel="canonical" href={canonicalURL} />
 
+    <!-- Search engine verification (placeholders — user fills in from GSC) -->
+    <meta name="google-site-verification" content="" />
+    <meta name="msvalidate.01" content="" />
+
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={new URL(ogImage, Astro.site ?? 'https://dentalempireos.com')} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="vi_VN" />
+    <meta property="og:site_name" content="Dental Empire OS" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={new URL(ogImage, Astro.site ?? 'https://dentalempireos.com')} />
+    <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:site" content="@dentalempireos" />
 
-    <!-- Favicon -->
+    <!-- Favicon & App Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0a0a14" />
 
-    <!-- Be Vietnam Pro font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Be Vietnam Pro font — self-hosted via @fontsource (see global.css) -->
+    <!-- Material Symbols — kept from Google Fonts CDN with display=swap to avoid FOIT -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100..900;1,100..900&display=swap"
-      rel="stylesheet"
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
     />
-
-    <!-- Material Symbols -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
       rel="stylesheet"
     />
 
@@ -79,15 +115,33 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalem
       })();
     </script>
 
-    <!-- Structured Data -->
-    <script type="application/ld+json" set:html={JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Dental Empire OS",
-      "url": "https://dentalempireos.com",
-      "description": "Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam",
-      "inLanguage": "vi",
-    })} />
+    <!-- Structured Data: WebSite + Organization + Person -->
+    <StructuredData type="website" data={{
+      name: 'Dental Empire OS',
+      url: 'https://dentalempireos.com',
+      description: 'Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam',
+      inLanguage: 'vi',
+    }} />
+    <StructuredData type="organization" data={{
+      name: 'Dental Empire OS',
+      url: 'https://dentalempireos.com',
+      logo: 'https://dentalempireos.com/favicon.svg',
+      description: 'Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.',
+      sameAs,
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        availableLanguage: ['Vietnamese', 'English'],
+        url: 'https://dentalempireos.com/about',
+      },
+    }} />
+    <StructuredData type="person" data={{
+      name: 'Bác sĩ Nguyễn Phước Vinh',
+      jobTitle: 'Founder & Author',
+      url: 'https://dentalempireos.com/about',
+      worksFor: 'Dental Empire OS',
+      sameAs,
+    }} />
   </head>
   <body class="min-h-screen flex flex-col bg-surface text-on-surface selection:bg-primary-container selection:text-white">
     <Header />
@@ -95,7 +149,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalem
       <slot />
     </main>
     <Footer />
-    
+
     <!-- Mobile Navigation -->
     <MobileBottomNav
       currentPath={Astro.url.pathname}

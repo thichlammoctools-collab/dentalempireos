@@ -4,7 +4,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const email = Astro.url.searchParams.get('email') || '';
 ---
 
-<BaseLayout title="Xác nhận email | Dental Empire OS" description="Kiểm tra hộp thư để xác nhận tài khoản.">
+<BaseLayout title="Xác nhận email | Dental Empire OS" description="Kiểm tra hộp thư để xác nhận tài khoản." noindex={true}>
   <section class="max-w-[440px] mx-auto px-6 py-16 text-center">
     <div class="glass-card rounded-2xl p-8 border border-outline-variant/20">
       <span class="material-symbols-outlined text-primary text-[56px] mb-4">mark_email_unread</span>

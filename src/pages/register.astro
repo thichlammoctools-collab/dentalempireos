@@ -8,7 +8,7 @@ if (Astro.locals.user) {
 const redirectTo = Astro.url.searchParams.get('redirect') || '/';
 ---
 
-<BaseLayout title="Đăng ký | Dental Empire OS" description="Tạo tài khoản để tải tài liệu và sử dụng tính năng nâng cao.">
+<BaseLayout title="Đăng ký | Dental Empire OS" description="Tạo tài khoản để tải tài liệu và sử dụng tính năng nâng cao." noindex={true}>
   <section class="max-w-[440px] mx-auto px-6 py-16">
     <div class="glass-card rounded-2xl p-8 border border-outline-variant/20">
       <h1 class="text-2xl font-bold text-white mb-2">Đăng ký</h1>
