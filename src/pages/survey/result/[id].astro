@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
 import { getSurveyResponse } from '../../../lib/survey-db';
 import { marked } from 'marked';
 
@@ -12,7 +13,7 @@ if (!id || Number.isNaN(id)) {
   return Astro.redirect('/survey');
 }
 
-const row = await getSurveyResponse((Astro.locals as any).env?.DB, id);
+const row = await getSurveyResponse(env.DB, id);
 if (!row) {
   return new Response('Survey not found', { status: 404 });
 }

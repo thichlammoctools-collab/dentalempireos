@@ -1,18 +1,18 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { getSurveyResponse } from '../../../../lib/survey-db';
 import { generateSurveyPdf } from '../../../../lib/pdf-generator';
 
 export const prerender = false;
 
 // GET /api/survey/:id/pdf — download PDF report
-export const GET: APIRoute = async ({ params, locals }) => {
-  const db = (locals as any).env?.DB;
+export const GET: APIRoute = async ({ params }) => {
   const id = parseInt(params.id ?? '', 10);
   if (!id || Number.isNaN(id)) {
     return new Response('Invalid ID', { status: 400 });
   }
 
-  const row = await getSurveyResponse(db, id);
+  const row = await getSurveyResponse(env.DB, id);
   if (!row) {
     return new Response('Survey not found', { status: 404 });
   }

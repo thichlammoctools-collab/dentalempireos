@@ -8,6 +8,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/admin',           label: 'Dashboard',   icon: 'dashboard',     match: '/admin' },
+  { href: '/admin/surveys',   label: 'Hồ Sơ Gốc Rễ', icon: 'assignment',  match: '/admin/surveys' },
   { href: '/admin/ebooks',    label: 'Ebook',       icon: 'menu_book',     match: '/admin/ebooks' },
   { href: '/admin/resources', label: 'Tài liệu',   icon: 'folder_shared', match: '/admin/resources' },
   { href: '/admin/courses',    label: 'Khoá Học',     icon: 'school',          match: '/admin/courses' },
@@ -22,6 +23,7 @@ const settingsItems: NavItem[] = [
   { href: '/admin/orders',    label: 'Đơn hàng',       icon: 'receipt_long',      match: '/admin/orders' },
   { href: '/admin/settings/payos',  label: 'Cổng thanh toán', icon: 'payment',      match: '/admin/settings/payos' },
   { href: '/admin/settings/support', label: 'Ủng Hộ Tác Giả', icon: 'volunteer_activism', match: '/admin/settings/support' },
+  { href: '/admin/ai-settings', label: 'AI Settings',   icon: 'smart_toy',         match: '/admin/ai-settings' },
   { href: '/', label: 'Về site', icon: 'public' },
 ];
 

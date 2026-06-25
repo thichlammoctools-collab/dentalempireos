@@ -6,9 +6,11 @@ interface Props {
   section: SectionNode;
   selectedId: string;
   depth?: number;
+  /** Pre-computed outline number like "1", "1.2", "2.3.1". Pass empty string to hide. */
+  number?: string;
 }
 
-const { section, selectedId, depth = 0 } = Astro.props;
+const { section, selectedId, depth = 0, number = '' } = Astro.props;
 const isSelected = section.id === selectedId;
 const hasChildren = section.children.length > 0;
 
@@ -35,6 +37,7 @@ if (section.keywords) {
   data-section-depth={depth}
   data-section-parent-id={section.parent_id ?? ''}
   data-section-keywords={section.keywords ?? '[]'}
+  data-section-number={number}
   class:list={[
     'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border transition-all duration-200',
     isSelected
@@ -57,6 +60,11 @@ if (section.keywords) {
     ) : (
       <span class={`material-symbols-outlined text-[16px] ${section.level === 3 ? 'text-on-surface-variant' : 'text-primary'}`}>
         {section.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}
+      </span>
+    )}
+    {number && (
+      <span data-section-number class="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 text-[10px] font-bold tabular-nums rounded bg-surface-container-high text-primary/80 border border-primary/15 shrink-0 select-none" title={`Đề mục ${number}`}>
+        {number}
       </span>
     )}
     <span data-section-title class={`flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors ${section.level === 3 ? 'text-on-surface-variant' : 'text-white font-semibold'}`} title="Nhấp đôi để sửa tên">

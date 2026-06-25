@@ -3,6 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyResponse, updateAiAnalysis, buildAnalysisContext } from '../../../lib/survey-db';
 import { analyzeSurvey } from '../../../lib/ai-survey-analysis';
+import { getAiSettings, isAiEnabled } from '../../../lib/ai-settings-db';
 import { marked } from 'marked';
 
 export const prerender = false;
@@ -15,10 +16,14 @@ if (!id || Number.isNaN(id)) {
 // Handle reanalyze action
 if (Astro.url.searchParams.has('reanalyze')) {
   const row = await getSurveyResponse(env.DB, id);
-  if (row && env.ANTHROPIC_API_KEY) {
+  const settings = await getAiSettings(env.DB);
+  if (row && settings.is_active === 1 && settings.api_key) {
     const context = buildAnalysisContext(row);
     try {
-      const analysis = await analyzeSurvey(env.ANTHROPIC_API_KEY, row, context);
+      const analysis = await analyzeSurvey(settings.api_key, row, context, {
+        baseUrl: settings.base_url,
+        model: settings.model,
+      });
       await updateAiAnalysis(env.DB, id, analysis);
     } catch (err) {
       console.error('Reanalyze failed:', err);
@@ -31,6 +36,8 @@ const row = await getSurveyResponse(env.DB, id);
 if (!row) {
   return new Response('Not found', { status: 404 });
 }
+
+const aiEnabled = await isAiEnabled(env.DB);
 
 marked.setOptions({ gfm: true, breaks: true });
 const analysisHtml = row.ai_analysis ? (marked.parse(row.ai_analysis) as string) : '';
@@ -162,7 +169,7 @@ const openAnswer = (val: string | null) => val && val.trim() ? val : '—';
       <div class="text-center py-8 text-on-surface-variant">
         <span class="material-symbols-outlined text-4xl mb-2 block">pending</span>
         <p>Chưa có phân tích AI. Hệ thống sẽ tự động tạo sau khi nhận được response.</p>
-        {env.ANTHROPIC_API_KEY && (
+        {aiEnabled && (
           <a
             href={`/admin/surveys/${row.id}?reanalyze=1`}
             class="inline-block mt-4 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg"

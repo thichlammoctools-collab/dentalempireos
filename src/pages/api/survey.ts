@@ -9,12 +9,13 @@ import {
   type SurveyInput,
 } from '../../lib/survey-db';
 import { analyzeSurvey } from '../../lib/ai-survey-analysis';
+import { getAiSettings, isAiEnabled } from '../../lib/ai-settings-db';
 
 export const prerender = false;
 
 // POST /api/survey — submit a survey response
 // Triggers AI analysis in the background, returns the new ID.
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, waitUntil }) => {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return badRequest('Invalid JSON body');
 
@@ -86,11 +87,10 @@ export const POST: APIRoute = async ({ request }) => {
   const { id } = await createSurveyResponse(env.DB, input);
 
   // Fire-and-forget AI analysis in the background.
-  // If it fails, the survey is still saved and the user can still see scores.
-  // The result page will check for ai_analysis and re-trigger if needed.
-  if (env.ANTHROPIC_API_KEY) {
-    // @ts-ignore — waitUntil may be on context; safe no-op if missing
-    (env as any).cfContext?.waitUntil?.(runAiAnalysis(env.DB, env.ANTHROPIC_API_KEY, id));
+  // Read config from DB ai_settings table.
+  if (await isAiEnabled(env.DB)) {
+    // @ts-ignore — waitUntil is provided by Astro Cloudflare adapter at runtime
+    waitUntil?.(runAiAnalysis(env.DB, id));
   }
 
   return json({ success: true, id, redirect: `/survey/result/${id}` }, 201);
@@ -137,14 +137,21 @@ function maskEmail(email: string): string {
   return `${visible}***@${domain}`;
 }
 
-async function runAiAnalysis(db: D1Database, apiKey: string, id: number): Promise<void> {
+async function runAiAnalysis(db: D1Database, id: number): Promise<void> {
   try {
     const row = await getSurveyResponse(db, id);
     if (!row) return;
     if (row.ai_analysis) return; // already analyzed
 
+    const settings = await getAiSettings(db);
+    if (settings.is_active !== 1 || !settings.api_key) return;
+
     const context = buildAnalysisContext(row);
-    const analysis = await analyzeSurvey(apiKey, row, context);
+    const analysis = await analyzeSurvey(settings.api_key, row, context, {
+      baseUrl: settings.base_url,
+      model: settings.model,
+      maxTokens: settings.max_tokens,
+    });
     await updateAiAnalysis(db, id, analysis);
   } catch (err) {
     // Log to console — UI will show "analysis pending" if ai_analysis is still null

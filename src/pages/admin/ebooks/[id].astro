@@ -27,6 +27,28 @@ function walk(sections: typeof tree.sections, prefix = '') {
 }
 walk(tree.sections);
 
+// Build flat section list WITH outline numbers — used for the block-move menu
+const flatSectionsNumbered: { id: string; label: string; level: number }[] = [];
+function walkNumbered(sections: typeof tree.sections, prefix = '') {
+  sections.forEach((s, idx) => {
+    const num = prefix ? `${prefix}.${idx + 1}` : String(idx + 1);
+    flatSectionsNumbered.push({ id: s.id, label: `${num}. ${s.title}`, level: s.level });
+    if (s.children.length > 0) walkNumbered(s.children, num);
+  });
+}
+walkNumbered(tree.sections);
+
+// Compute outline numbers (1, 1.1, 1.2, 2.3.1…) for each section
+const sectionNumbers: Record<string, string> = {};
+function buildNumbers(sections: typeof tree.sections, parentNum = '') {
+  sections.forEach((s, idx) => {
+    const num = parentNum ? `${parentNum}.${idx + 1}` : String(idx + 1);
+    sectionNumbers[s.id] = num;
+    if (s.children.length > 0) buildNumbers(s.children, num);
+  });
+}
+buildNumbers(tree.sections);
+
 const selectedSectionId = flatSections[0]?.id ?? '';
 ---
 
@@ -143,10 +165,16 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       ) : (
         <ul id="section-tree" data-section-list class="flex flex-col gap-1">
           {tree.sections.map((s) => (
-            <SectionItem section={s} selectedId={selectedSectionId} depth={0} />
+            <SectionItem section={s} selectedId={selectedSectionId} depth={0} number={sectionNumbers[s.id] ?? ''} />
           ))}
         </ul>
       )}
+
+      <!-- Hidden data for section list (used by block move feature) -->
+      <script is:inline define:vars={{ flatSectionsNumbered, sectionNumbers }}>
+        window.__flatSections = flatSectionsNumbered;
+        window.__sectionNumbers = sectionNumbers;
+      </script>
 
     </section>
   <!-- ═══════════════ Bulk add sections modal ═══════════════ -->
@@ -256,6 +284,62 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    /** Renumber all visible section items and rebuild __sectionNumbers */
+    function renumberAllSections() {
+      const treeUl = document.getElementById('section-tree');
+      if (!treeUl) return;
+      const topItems = Array.from(treeUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]'));
+      const nums: Record<string, string> = {};
+      topItems.forEach((item, idx) => {
+        const num = String(idx + 1);
+        applyNumber(item, num, nums);
+      });
+      // Rebuild window.__sectionNumbers
+      (window as any).__sectionNumbers = nums;
+      // Rebuild flatSectionsNumbered for the block-move dropdown
+      const sectionListData: { id: string; label: string; level: number }[] = (window as any).__flatSections ?? [];
+      sectionListData.forEach(s => {
+        const n = nums[s.id];
+        if (n) {
+          // Strip old leading number (e.g. "1. Foo" → "Foo") then prepend new
+          s.label = s.label.replace(/^\d[\d.]*\s*/, '');
+          s.label = `${n}. ${s.label}`;
+        }
+      });
+    }
+
+    /** Recursively apply number to a section-item and its children */
+    function applyNumber(item: HTMLElement, num: string, nums: Record<string, string>) {
+      const id = item.dataset.sectionId ?? '';
+      item.dataset.sectionNumber = num;
+      nums[id] = num;
+      // Update or create the number badge span
+      let badge = item.querySelector<HTMLElement>(':scope > div > [data-section-number]');
+      if (badge) {
+        badge.textContent = num;
+        badge.title = `Đề mục ${num}`;
+      } else if (num) {
+        // Insert badge before the title span
+        const titleSpan = item.querySelector<HTMLElement>(':scope > div > [data-section-title]');
+        if (titleSpan) {
+          badge = document.createElement('span');
+          badge.setAttribute('data-section-number', '');
+          badge.className = 'inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 text-[10px] font-bold tabular-nums rounded bg-surface-container-high text-primary/80 border border-primary/15 shrink-0 select-none';
+          badge.title = `Đề mục ${num}`;
+          badge.textContent = num;
+          titleSpan.parentElement?.insertBefore(badge, titleSpan);
+        }
+      }
+      // Recurse into children
+      const childUl = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+      if (childUl) {
+        const childItems = Array.from(childUl.querySelectorAll<HTMLElement>(':scope > [data-section-item]'));
+        childItems.forEach((child, idx) => {
+          applyNumber(child, `${num}.${idx + 1}`, nums);
+        });
+      }
     }
 
     /** Close all open inline input rows (add sub / keywords) */
@@ -412,12 +496,15 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         ? `<button data-section-toggle class="section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" title="Thu gọn / Mở rộng"><span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span></button>`
         : `<span class="material-symbols-outlined text-[16px] ${iconClass}">${icon}</span>`;
       const countBadge = hasChildren ? `<span data-section-count class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">${s.children.length} mục</span>` : '';
+      // Compute a tentative number (will be corrected by renumberAllSections after insert)
+      const numBadge = '';
       li.innerHTML = `
         <div class="flex items-center gap-2">
           <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
             <span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform duration-150">drag_indicator</span>
           </span>
           ${toggleBtn}
+          <span data-section-number class="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 text-[10px] font-bold tabular-nums rounded bg-surface-container-high text-primary/80 border border-primary/15 shrink-0 select-none" style="display:none"></span>
           <span data-section-title class="flex-1 truncate text-sm cursor-pointer hover:text-primary/80 transition-colors ${titleClass}" title="Nhấp đôi để sửa tên">${escapeHtml(s.title)}</span>
           ${countBadge}
           <button data-section-edit class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" title="Sửa tên">
@@ -788,7 +875,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const header = `
         <div class="flex items-center justify-between gap-2 cursor-pointer select-none" data-action="toggle-collapse">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="block-drag-handle material-symbols-outlined text-[16px] text-on-surface-variant/40 hover:text-primary cursor-grab active:cursor-grabbing shrink-0" title="Kéo để sắp xếp">drag_indicator</span>
+            <span class="block-drag-handle material-symbols-outlined text-[16px] text-on-surface-variant/40 hover:text-primary cursor-grab active:cursor-grabbing shrink-0" draggable="true" title="Kéo để sắp xếp">drag_indicator</span>
             <span class="material-symbols-outlined text-[16px] text-on-surface-variant collapse-icon" style="transition:transform 0.2s">expand_more</span>
             <span class="text-xs font-bold text-on-surface-variant shrink-0">${b.type === 'text' ? 'Text block' : b.type === 'image' ? 'Image block' : 'File block'}</span>
             ${preview}
@@ -797,6 +884,18 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             <button data-action="save-block" class="text-on-surface-variant hover:text-primary transition-colors opacity-0 pointer-events-none" title="Lưu block">
               <span class="material-symbols-outlined text-[18px]">save</span>
             </button>
+            <div class="relative" data-move-wrap>
+              <button data-action="move-block" class="text-on-surface-variant hover:text-primary transition-colors" title="Di chuyển sang đề mục khác">
+                <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
+              </button>
+              <div data-move-menu class="move-menu hidden">
+                <div class="move-menu-search">
+                  <span class="material-symbols-outlined text-[14px] text-on-surface-variant/60 shrink-0">search</span>
+                  <input data-move-search type="text" placeholder="Tìm đề mục..." class="bg-transparent text-white text-xs outline-none w-full" />
+                </div>
+                <div data-move-list class="move-menu-list"></div>
+              </div>
+            </div>
             <button data-action="delete" class="text-on-surface-variant hover:text-error transition-colors" title="Xoá block">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
@@ -921,6 +1020,117 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
         }
       });
+    });
+
+    // ── Block: move to another section ─────────────────
+    let sectionListData: { id: string; label: string; level: number }[] = [];
+    try {
+      sectionListData = (window as any).__flatSections ?? [];
+    } catch { sectionListData = []; }
+
+    function populateMoveMenu(menu: HTMLElement, blockId: string, currentSectionId: string, searchQuery = '') {
+      const listEl = menu.querySelector<HTMLElement>('[data-move-list]')!;
+      const q = searchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const filtered = sectionListData.filter(s => s.id !== currentSectionId && (
+        !q || s.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)
+      ));
+      listEl.innerHTML = filtered.length === 0
+        ? '<div class="move-menu-empty">Không tìm thấy</div>'
+        : filtered.map(s => `
+            <button data-move-target="${s.id}" class="move-menu-item ${s.level === 3 ? 'move-menu-item-sub' : ''}">
+              <span class="material-symbols-outlined text-[14px] ${s.level === 3 ? 'text-on-surface-variant' : 'text-primary'}">${s.level === 3 ? 'subdirectory_arrow_right' : 'menu_book'}</span>
+              <span class="truncate">${escapeHtml(s.label)}</span>
+            </button>
+          `).join('');
+    }
+
+    // Close open move menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('[data-move-wrap]')) {
+        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // Move block to another section
+    modalBody.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      // Move button → open/close dropdown
+      const moveBtn = target.closest<HTMLElement>('[data-action="move-block"]');
+      if (moveBtn) {
+        e.stopPropagation();
+        const wrap = moveBtn.closest<HTMLElement>('[data-move-wrap]')!;
+        const menu = wrap.querySelector<HTMLElement>('[data-move-menu]')!;
+        const isOpen = !menu.classList.contains('hidden');
+        modalBody.querySelectorAll('.move-menu').forEach(m => m.classList.add('hidden'));
+        if (!isOpen) {
+          menu.classList.remove('hidden');
+          const item = moveBtn.closest<HTMLElement>('.block-item');
+          const blockId = item?.dataset.blockId ?? '';
+          populateMoveMenu(menu, blockId, modalSectionId);
+          const searchInput = menu.querySelector<HTMLInputElement>('[data-move-search]');
+          if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+        }
+        return;
+      }
+
+      // Move target → execute move
+      const moveTarget = target.closest<HTMLElement>('[data-move-target]');
+      if (moveTarget) {
+        e.stopPropagation();
+        const targetSectionId = moveTarget.dataset.moveTarget!;
+        const blockItem = moveTarget.closest<HTMLElement>('.block-item');
+        const blockId = blockItem?.dataset.blockId;
+        if (!blockId) return;
+        const targetSection = sectionListData.find(s => s.id === targetSectionId);
+        const targetLabel = targetSection?.label ?? 'đề mục mới';
+        if (!confirm(`Di chuyển block này sang "${targetLabel}"?`)) return;
+
+        fetch(`/api/admin/blocks/${blockId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ section_id: targetSectionId }),
+        }).then(res => {
+          if (res.ok) {
+            blockItem?.remove();
+            showMoveToast(`Đã chuyển sang "${targetLabel}"`);
+            if (!modalBody.querySelector('.block-item')) {
+              modalBody.innerHTML = '<p class="text-sm text-on-surface-variant py-6 text-center">Chưa có nội dung. Thêm block bên dưới.</p>';
+            }
+            // Update in-memory tree
+            if (currentTree) {
+              const srcSection = findSection(currentTree.sections, modalSectionId);
+              if (srcSection) {
+                srcSection.blocks = srcSection.blocks.filter(b => b.id !== blockId);
+              }
+            }
+          } else {
+            showMoveToast('Lỗi khi di chuyển block', false);
+          }
+        }).catch(() => showMoveToast('Lỗi mạng', false));
+        return;
+      }
+    });
+
+    function showMoveToast(msg: string, ok = true) {
+      const t = document.createElement('div');
+      t.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-opacity duration-300 ${ok ? 'bg-primary/90 text-white' : 'bg-error/90 text-white'}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; }, 1800);
+      setTimeout(() => t.remove(), 2200);
+    }
+
+    // Filter move menu on search input
+    modalBody.addEventListener('input', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.matches('[data-move-search]')) return;
+      const menu = target.closest<HTMLElement>('[data-move-menu]')!;
+      const wrap = menu.closest<HTMLElement>('[data-move-wrap]')!;
+      const blockItem = wrap.closest<HTMLElement>('.block-item');
+      const blockId = blockItem?.dataset.blockId ?? '';
+      populateMoveMenu(menu, blockId, modalSectionId, target.value);
     });
 
     // ── Modal add block buttons ───────────────────────────
@@ -1922,5 +2132,66 @@ const selectedSectionId = flatSections[0]?.id ?? '';
   :global(.drag-above),
   :global(.drag-below) {
     position: relative;
+  }
+
+  /* ==========================================
+     MOVE BLOCK — Section dropdown menu
+     ========================================== */
+  .move-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 100;
+    width: 260px;
+    max-height: 320px;
+    background: var(--color-surface-container, #1e1e1e);
+    border: 1px solid var(--color-outline-variant, #444);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .move-menu-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-outline-variant, #444);
+  }
+  .move-menu-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px;
+  }
+  .move-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-on-surface, #fff);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .move-menu-item:hover {
+    background: var(--color-surface-container-high, #2a2a2a);
+  }
+  .move-menu-item-sub {
+    padding-left: 22px;
+    font-weight: 400;
+    color: var(--color-on-surface-variant, #aaa);
+  }
+  .move-menu-empty {
+    padding: 12px 8px;
+    font-size: 12px;
+    color: var(--color-on-surface-variant, #888);
+    text-align: center;
   }
 </style>

@@ -16,7 +16,6 @@ declare namespace Cloudflare {
     PAYOS_API_KEY: string;
     PAYOS_CHECKSUM_KEY: string;
     PAYOS_WEBHOOK_URL: string;
-    ANTHROPIC_API_KEY: string;
   }
 }
 
