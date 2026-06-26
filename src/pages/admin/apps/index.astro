@@ -21,6 +21,14 @@ const typeLabels: Record<string, string> = {
   generator: 'Tạo nội dung',
 };
 
+const typeIcons: Record<string, string> = {
+  survey: 'quiz',
+  ebook_ai: 'menu_book',
+  course_ai: 'school',
+  tool: 'build',
+  generator: 'auto_awesome',
+};
+
 const typeColors: Record<string, string> = {
   survey: 'bg-purple-500/20 text-purple-300',
   ebook_ai: 'bg-blue-500/20 text-blue-300',
@@ -41,116 +49,237 @@ const statusColors: Record<string, string> = {
   archived: 'bg-red-500/20 text-red-300',
 };
 
+const statusDotColors: Record<string, string> = {
+  draft: 'bg-gray-400',
+  active: 'bg-green-400',
+  archived: 'bg-red-400',
+};
+
+// Stats
+const totalApps = apps.length;
+const activeApps = apps.filter(a => a.status === 'active').length;
+const draftApps = apps.filter(a => a.status === 'draft').length;
+const freeApps = apps.filter(a => a.is_free === 1).length;
+
 function formatDate(s: string) {
-  return new Date(s).toLocaleDateString('vi-VN');
+  return new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+function getInitials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// Alternating subtle bg colors for initials
+const avatarColors = [
+  'from-blue-600 to-cyan-600',
+  'from-purple-600 to-pink-600',
+  'from-emerald-600 to-teal-600',
+  'from-amber-600 to-orange-600',
+  'from-rose-600 to-red-600',
+];
 ---
 
 <AdminLayout title="Ứng dụng AI">
-  <div class="p-6 max-w-7xl mx-auto space-y-6">
+  <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-on-surface">Ứng dụng AI</h1>
-        <p class="text-sm text-on-surface-variant mt-1">Quản lý các ứng dụng AI — cấu hình, prompt, trạng thái</p>
+        <h1 class="text-2xl font-bold text-on-surface tracking-tight">Ứng dụng AI</h1>
+        <p class="text-sm text-on-surface-variant/70 mt-1">Quản lý các ứng dụng AI — cấu hình, prompt, trạng thái</p>
       </div>
       <button
         id="open-create-modal"
-        class="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-all flex items-center gap-2"
+        class="btn-primary-metallic bg-primary text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
       >
         <span class="material-symbols-outlined text-[20px]">add</span>
         Tạo ứng dụng
       </button>
     </div>
 
+    <!-- Stat cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass-card rounded-2xl p-4 group">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant/50">Tổng cộng</span>
+          <div class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-[18px]">apps</span>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-on-surface">{totalApps}</p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">ứng dụng đã tạo</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 group">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant/50">Đang hoạt động</span>
+          <div class="w-8 h-8 rounded-lg bg-green-500/15 flex items-center justify-center">
+            <span class="material-symbols-outlined text-green-400 text-[18px]">check_circle</span>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-green-300">{activeApps}</p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">sẵn sàng sử dụng</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 group">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant/50">Bản nháp</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+            <span class="material-symbols-outlined text-amber-400 text-[18px]">edit_note</span>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-amber-300">{draftApps}</p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">đang chỉnh sửa</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 group">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant/50">Miễn phí</span>
+          <div class="w-8 h-8 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+            <span class="material-symbols-outlined text-cyan-400 text-[18px]">volunteer_activism</span>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-cyan-300">{freeApps}</p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">không cần thanh toán</p>
+      </div>
+    </div>
+
     <!-- Apps table -->
     <div class="glass-card rounded-2xl overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-outline-variant/20 text-on-surface-variant">
-            <th class="text-left py-3 px-4 font-medium">Tên</th>
-            <th class="text-left py-3 px-4 font-medium">Loại</th>
-            <th class="text-left py-3 px-4 font-medium">Trạng thái</th>
-            <th class="text-left py-3 px-4 font-medium">Miễn phí</th>
-            <th class="text-left py-3 px-4 font-medium">Ngày tạo</th>
-            <th class="text-right py-3 px-4 font-medium">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {apps.length === 0 && (
-            <tr>
-              <td colspan="6" class="py-12 text-center text-on-surface-variant/60">
-                Chưa có ứng dụng AI nào. Nhấn "Tạo ứng dụng" để bắt đầu.
-              </td>
+      {apps.length > 0 && (
+        <div class="px-5 py-3.5 border-b border-outline-variant/15 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-on-surface-variant/50 text-[18px]">robot_2</span>
+            <span class="text-sm font-semibold text-on-surface/80">Danh sách ứng dụng</span>
+            <span class="ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/15 text-primary">{totalApps}</span>
+          </div>
+        </div>
+      )}
+
+      {apps.length === 0 ? (
+        /* Empty state — enhanced */
+        <div class="py-20 px-6 text-center">
+          <div class="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
+            <span class="material-symbols-outlined text-primary/60 text-[40px]">smart_toy</span>
+          </div>
+          <h3 class="text-lg font-bold text-on-surface/80 mb-2">Chưa có ứng dụng AI nào</h3>
+          <p class="text-sm text-on-surface-variant/50 max-w-sm mx-auto mb-6 leading-relaxed">
+            Bắt đầu tạo ứng dụng AI đầu tiên để quản lý prompt, cấu hình model và trạng thái hoạt động.
+          </p>
+          <button
+            id="open-create-modal-empty"
+            class="btn-primary-metallic bg-primary text-white px-5 py-2.5 rounded-xl font-semibold inline-flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-[20px]">add</span>
+            Tạo ứng dụng đầu tiên
+          </button>
+        </div>
+      ) : (
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-outline-variant/15 text-on-surface-variant/70">
+              <th class="text-left py-3 px-5 font-semibold text-xs uppercase tracking-wider">Ứng dụng</th>
+              <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider">Loại</th>
+              <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider">Trạng thái</th>
+              <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider">Giá</th>
+              <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider">Ngày tạo</th>
+              <th class="text-right py-3 px-5 font-semibold text-xs uppercase tracking-wider">Thao tác</th>
             </tr>
-          )}
-          {apps.map((app: App) => (
-            <tr class="border-b border-outline-variant/10 hover:bg-surface-container-high/50 transition-colors">
-              <td class="py-3 px-4">
-                <a href={`/admin/apps/${app.id}`} class="text-on-surface font-medium hover:text-primary transition-colors">
-                  {app.name}
-                </a>
-                <div class="text-xs text-on-surface-variant/60 mt-0.5">{app.slug}</div>
-              </td>
-              <td class="py-3 px-4">
-                <span class={`inline-block px-2 py-1 rounded-full text-xs font-medium ${typeColors[app.type] ?? 'bg-gray-500/20 text-gray-400'}`}>
-                  {typeLabels[app.type] ?? app.type}
-                </span>
-              </td>
-              <td class="py-3 px-4">
-                <span class={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusColors[app.status] ?? 'bg-gray-500/20 text-gray-400'}`}>
-                  {statusLabels[app.status] ?? app.status}
-                </span>
-              </td>
-              <td class="py-3 px-4 text-on-surface-variant">
-                {app.is_free ? '✅' : '💰'}
-              </td>
-              <td class="py-3 px-4 text-on-surface-variant">
-                {formatDate(app.created_at)}
-              </td>
-              <td class="py-3 px-4 text-right">
-                <a
-                  href={`/admin/apps/${app.id}`}
-                  class="text-on-surface-variant hover:text-primary transition-colors"
-                  title="Chỉnh sửa"
-                >
-                  <span class="material-symbols-outlined text-[18px]">edit</span>
-                </a>
-                <button
-                  class="delete-btn text-on-surface-variant hover:text-red-400 transition-colors ml-2"
-                  data-id={app.id}
-                  data-name={app.name}
-                  title="Xóa"
-                >
-                  <span class="material-symbols-outlined text-[18px]">delete</span>
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/10">
+            {apps.map((app: App, i: number) => (
+              <tr class="hover:bg-primary/[0.03] transition-colors duration-150 group">
+                <td class="py-3.5 px-5">
+                  <a href={`/admin/apps/${app.id}`} class="flex items-center gap-3 group/link">
+                    <div class={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/20`}>
+                      <span class="text-white text-xs font-bold">{getInitials(app.name)}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <span class="text-on-surface font-semibold group-hover/link:text-primary transition-colors block truncate">
+                        {app.name}
+                      </span>
+                      <span class="text-xs text-on-surface-variant/50 font-mono">/{app.slug}</span>
+                    </div>
+                  </a>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span class={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${typeColors[app.type] ?? 'bg-gray-500/20 text-gray-400'}`}>
+                    <span class="material-symbols-outlined text-[14px]">{typeIcons[app.type] ?? 'category'}</span>
+                    {typeLabels[app.type] ?? app.type}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span class={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusColors[app.status] ?? 'bg-gray-500/20 text-gray-400'}`}>
+                    <span class={`w-1.5 h-1.5 rounded-full ${statusDotColors[app.status] ?? 'bg-gray-400'} flex-shrink-0`}></span>
+                    {statusLabels[app.status] ?? app.status}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4">
+                  {app.is_free ? (
+                    <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                      <span class="material-symbols-outlined text-[16px]">volunteer_activism</span>
+                      Miễn phí
+                    </span>
+                  ) : (
+                    <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                      <span class="material-symbols-outlined text-[16px]">paid</span>
+                      Trả phí
+                    </span>
+                  )}
+                </td>
+                <td class="py-3.5 px-4 text-on-surface-variant/60 text-xs">
+                  {formatDate(app.created_at)}
+                </td>
+                <td class="py-3.5 px-5">
+                  <div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                    <a
+                      href={`/admin/apps/${app.id}`}
+                      class="btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
+                      title="Chỉnh sửa"
+                    >
+                      <span class="material-symbols-outlined text-[18px]">edit</span>
+                    </a>
+                    <button
+                      class="delete-btn btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      data-id={app.id}
+                      data-name={app.name}
+                      title="Xóa"
+                    >
+                      <span class="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   </div>
 
   <!-- Create modal -->
   <div
     id="create-modal"
-    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/0"
   >
-    <div class="glass-card rounded-2xl p-6 w-full max-w-md mx-4 space-y-4">
-      <h2 class="text-lg font-bold text-on-surface">Tạo ứng dụng AI mới</h2>
-      <form id="create-form" class="space-y-3">
+    <!-- Backdrop -->
+    <div id="create-modal-backdrop" class="absolute inset-0 bg-black/0 backdrop-blur-none transition-all duration-300"></div>
+    <!-- Panel -->
+    <div id="create-modal-panel" class="relative glass-card rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 shadow-2xl shadow-black/40 scale-95 opacity-0 transition-all duration-300 ease-out">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="text-lg font-bold text-on-surface">Tạo ứng dụng AI mới</h2>
+        <button id="close-create-modal" class="btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <form id="create-form" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-on-surface-variant mb-1">Tên ứng dụng *</label>
-          <input type="text" name="name" required class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" />
+          <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Tên ứng dụng <span class="text-tertiary">*</span></label>
+          <input type="text" name="name" required placeholder="VD: Khảo sát sức khỏe răng miệng" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-on-surface-variant mb-1">Slug (tự tạo)</label>
-          <input type="text" name="slug" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" placeholder="tự tạo từ tên" />
+          <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Slug</label>
+          <input type="text" name="slug" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30" placeholder="tự tạo từ tên" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-on-surface-variant mb-1">Loại *</label>
-          <select name="type" required class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
+          <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Loại <span class="text-tertiary">*</span></label>
+          <select name="type" required class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all">
             <option value="">— Chọn loại —</option>
             <option value="survey">Khảo sát (Survey)</option>
             <option value="ebook_ai">Ebook AI</option>
@@ -160,25 +289,26 @@ function formatDate(s: string) {
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-on-surface-variant mb-1">Mô tả</label>
-          <textarea name="description" rows="2" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+          <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Mô tả</label>
+          <textarea name="description" rows="2" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30 resize-none" placeholder="Mô tả ngắn về ứng dụng..."></textarea>
         </div>
         <div>
-          <label class="block text-sm font-medium text-on-surface-variant mb-1">Trạng thái</label>
-          <select name="status" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
+          <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Trạng thái</label>
+          <select name="status" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all">
             <option value="draft">Bản nháp</option>
             <option value="active">Đang hoạt động</option>
           </select>
         </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" name="is_free" id="is_free" class="accent-primary" />
-          <label for="is_free" class="text-sm text-on-surface-variant">Miễn phí (không cần thanh toán)</label>
+        <div class="flex items-center gap-2.5 py-1">
+          <input type="checkbox" name="is_free" id="is_free" class="accent-primary w-4 h-4 rounded" />
+          <label for="is_free" class="text-sm text-on-surface-variant cursor-pointer">Miễn phí (không cần thanh toán)</label>
         </div>
         <div class="flex gap-3 pt-2">
-          <button type="submit" class="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:opacity-90 transition-all">
+          <button type="submit" id="submit-create" class="flex-1 btn-primary-metallic bg-primary text-white py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">add</span>
             Tạo mới
           </button>
-          <button type="button" id="close-create-modal" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors">
+          <button type="button" id="close-create-modal-2" class="px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-all text-sm font-medium">
             Hủy
           </button>
         </div>
@@ -187,22 +317,58 @@ function formatDate(s: string) {
   </div>
 
   <script>
-    // Create modal
+    // ── Modal animation ──
     const createModal = document.getElementById('create-modal')!;
-    document.getElementById('open-create-modal')?.addEventListener('click', () => {
+    const backdrop = document.getElementById('create-modal-backdrop')!;
+    const panel = document.getElementById('create-modal-panel')!;
+
+    function openModal() {
       createModal.classList.remove('hidden');
       createModal.classList.add('flex');
-    });
-    document.getElementById('close-create-modal')?.addEventListener('click', () => {
-      createModal.classList.add('hidden');
-      createModal.classList.remove('flex');
-    });
+      // Trigger reflow for animation
+      void createModal.offsetHeight;
+      backdrop.classList.replace('bg-black/0', 'bg-black/60');
+      backdrop.classList.replace('backdrop-blur-none', 'backdrop-blur-sm');
+      panel.classList.replace('scale-95', 'scale-100');
+      panel.classList.replace('opacity-0', 'opacity-100');
+    }
 
-    // Create form
+    function closeModal() {
+      backdrop.classList.replace('bg-black/60', 'bg-black/0');
+      backdrop.classList.replace('backdrop-blur-sm', 'backdrop-blur-none');
+      panel.classList.replace('scale-100', 'scale-95');
+      panel.classList.replace('opacity-100', 'opacity-0');
+      setTimeout(() => {
+        createModal.classList.add('hidden');
+        createModal.classList.remove('flex');
+      }, 300);
+    }
+
+    document.getElementById('open-create-modal')?.addEventListener('click', openModal);
+    document.getElementById('open-create-modal-empty')?.addEventListener('click', openModal);
+    document.getElementById('close-create-modal')?.addEventListener('click', closeModal);
+    document.getElementById('close-create-modal-2')?.addEventListener('click', closeModal);
+    backdrop?.addEventListener('click', closeModal);
+
+    // ── Toast helper ──
+    function showToast(msg: string, type: 'success' | 'error' | 'info' = 'info') {
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast(msg, type);
+      } else {
+        alert(msg);
+      }
+    }
+
+    // ── Create form ──
     document.getElementById('create-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target as HTMLFormElement;
+      const submitBtn = document.getElementById('submit-create') as HTMLButtonElement;
       const fd = new FormData(form);
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang tạo...';
+
       const body = {
         name: fd.get('name')?.toString().trim(),
         slug: fd.get('slug')?.toString().trim() || undefined,
@@ -211,21 +377,30 @@ function formatDate(s: string) {
         status: fd.get('status')?.toString() || 'draft',
         is_free: fd.has('is_free') ? 1 : 0,
       };
-      const res = await fetch('/api/admin/apps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const { id } = await res.json();
-        window.location.href = `/admin/apps/${id}`;
-      } else {
-        const err = await res.json().catch(() => ({ error: 'Lỗi không xác định' }));
-        alert(err.error || 'Tạo ứng dụng thất bại');
+      try {
+        const res = await fetch('/api/admin/apps', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const { id } = await res.json();
+          showToast('Tạo ứng dụng thành công!', 'success');
+          setTimeout(() => { window.location.href = `/admin/apps/${id}`; }, 600);
+        } else {
+          const err = await res.json().catch(() => ({ error: 'Lỗi không xác định' }));
+          showToast(err.error || 'Tạo ứng dụng thất bại', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">add</span> Tạo mới';
+        }
+      } catch {
+        showToast('Lỗi kết nối. Vui lòng thử lại.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">add</span> Tạo mới';
       }
     });
 
-    // Delete
+    // ── Delete ──
     document.querySelectorAll('.delete-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const id = (btn as HTMLElement).dataset.id;
@@ -233,11 +408,49 @@ function formatDate(s: string) {
         if (!id || !confirm(`Xác nhận xóa ứng dụng "${name}"?`)) return;
         const res = await fetch(`/api/admin/apps/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          window.location.reload();
+          showToast(`Đã xóa "${name}"`, 'success');
+          setTimeout(() => window.location.reload(), 600);
         } else {
-          alert('Xóa thất bại');
+          showToast('Xóa thất bại', 'error');
         }
       });
     });
   </script>
+
+  <style>
+    /* Stat card hover glow */
+    .glass-card.group:hover {
+      border-color: rgba(146, 204, 255, 0.15);
+    }
+
+    /* Row hover left accent line */
+    tbody tr {
+      position: relative;
+    }
+    tbody tr::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--color-primary);
+      border-radius: 0 2px 2px 0;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    tbody tr:hover::before {
+      opacity: 1;
+    }
+
+    /* Table dividers use softer color */
+    tbody tr + tr {
+      border-top: 1px solid rgba(63, 72, 80, 0.12);
+    }
+
+    /* Smooth badge transitions */
+    span[class*="rounded-lg"] {
+      transition: all 0.15s ease;
+    }
+  </style>
 </AdminLayout>
