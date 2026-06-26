@@ -38,9 +38,10 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const ALLOWED_BLOCK_TYPES = new Set(['text', 'image', 'form', 'rich']);
     const blocks = body.blocks.map((b: { id?: string; type: string; content?: string; sort_order?: number }, i: number) => ({
       id: b.id || crypto.randomUUID(),
-      type: b.type,
+      type: ALLOWED_BLOCK_TYPES.has(b.type) ? b.type : 'text',
       content: b.content ?? '',
       sort_order: b.sort_order ?? i,
     }));

@@ -1,0 +1,215 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getApp, parseAppConfig } from '../../../lib/app-db';
+
+export const prerender = false;
+
+const id = Astro.params.id;
+if (!id) return Astro.redirect('/admin/apps');
+
+const app = await getApp(env.DB, id);
+if (!app) return Astro.redirect('/admin/apps');
+
+const config = parseAppConfig(app.config_json);
+const promptVi = (config.prompt_vi as string) ?? '';
+const promptEn = (config.prompt_en as string) ?? '';
+const modelOverride = (config.model_override as string) ?? '';
+const maxTokensOverride = (config.max_tokens_override as number) ?? '';
+
+const typeLabels: Record<string, string> = {
+  survey: 'Khảo sát',
+  ebook_ai: 'Ebook AI',
+  course_ai: 'Khóa học AI',
+  tool: 'Công cụ',
+  generator: 'Tạo nội dung',
+};
+---
+
+<AdminLayout title={app.name}>
+  <div class="p-6 max-w-6xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-xs text-on-surface-variant/70 mb-1">
+          <a href="/admin/apps" class="hover:text-primary">Ứng dụng AI</a> / {app.name}
+        </div>
+        <h1 class="text-2xl font-bold text-on-surface">{app.name}</h1>
+        <p class="text-sm text-on-surface-variant mt-1">
+          <span class="inline-block px-2 py-0.5 rounded-full text-xs bg-surface-container-high mr-2">
+            {typeLabels[app.type] ?? app.type}
+          </span>
+          <span class="font-mono text-xs">{app.id}</span>
+        </p>
+      </div>
+      <a href="/admin/apps" class="text-on-surface-variant hover:text-on-surface transition-colors">
+        <span class="material-symbols-outlined">close</span>
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Basic fields (left) -->
+      <div class="glass-card rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold text-on-surface">Thông tin cơ bản</h2>
+        <form id="basic-form" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-on-surface-variant mb-1">Tên *</label>
+            <input type="text" name="name" required value={app.name} class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-on-surface-variant mb-1">Slug</label>
+            <input type="text" name="slug" value={app.slug} class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-on-surface-variant mb-1">Loại (không thể đổi)</label>
+            <input type="text" value={typeLabels[app.type] ?? app.type} disabled class="w-full px-3 py-2 bg-surface-container border border-outline-variant/20 rounded-lg text-on-surface-variant/60 cursor-not-allowed" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-on-surface-variant mb-1">Trạng thái</label>
+            <select name="status" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="draft" selected={app.status === 'draft'}>Bản nháp</option>
+              <option value="active" selected={app.status === 'active'}>Đang hoạt động</option>
+              <option value="archived" selected={app.status === 'archived'}>Lưu trữ</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-on-surface-variant mb-1">Mô tả</label>
+            <textarea name="description" rows="3" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">{app.description ?? ''}</textarea>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" name="is_free" id="is_free" checked={app.is_free === 1} class="accent-primary" />
+            <label for="is_free" class="text-sm text-on-surface-variant">Miễn phí (user không cần thanh toán để dùng)</label>
+          </div>
+          <button type="submit" class="w-full bg-primary text-white py-2 rounded-lg font-medium hover:opacity-90 transition-all">
+            Lưu thông tin
+          </button>
+        </form>
+      </div>
+
+      <!-- Config panel (right) -->
+      <div class="space-y-4">
+        <div class="glass-card rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-on-surface">Cấu hình AI</h2>
+            <span class="text-xs text-on-surface-variant/60">config_json</span>
+          </div>
+
+          {app.type === 'survey' && (
+            <form id="config-form" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-1">Model override</label>
+                <input type="text" name="model_override" value={modelOverride} placeholder="claude-sonnet-4-6" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" />
+                <p class="text-xs text-on-surface-variant/60 mt-1">Để trống để dùng model mặc định từ AI Settings</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-1">Max tokens override</label>
+                <input type="number" name="max_tokens_override" value={maxTokensOverride} placeholder="4096" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-1">Prompt tiếng Việt</label>
+                <textarea name="prompt_vi" rows="8" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono text-xs">{promptVi}</textarea>
+                <p class="text-xs text-on-surface-variant/60 mt-1">Để trống sẽ dùng prompt mặc định trong code</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-1">Prompt tiếng Anh (tùy chọn)</label>
+                <textarea name="prompt_en" rows="6" class="w-full px-3 py-2 bg-surface-container-high border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono text-xs">{promptEn}</textarea>
+              </div>
+              <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:opacity-90 transition-all">
+                  Lưu cấu hình
+                </button>
+                <button type="button" id="reset-config" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors">
+                  Reset về mặc định
+                </button>
+              </div>
+            </form>
+          )}
+
+          {app.type !== 'survey' && (
+            <div class="text-center py-8 space-y-2">
+              <span class="material-symbols-outlined text-4xl text-on-surface-variant/40">construction</span>
+              <p class="text-on-surface-variant">Cấu hình cho loại "{typeLabels[app.type] ?? app.type}" đang được phát triển.</p>
+              <p class="text-xs text-on-surface-variant/60">Sẽ sớm hỗ trợ trong bản cập nhật tiếp theo.</p>
+            </div>
+          )}
+        </div>
+
+        <div class="glass-card rounded-2xl p-4 text-xs text-on-surface-variant/70 space-y-1">
+          <p><strong>ID:</strong> <span class="font-mono">{app.id}</span></p>
+          <p><strong>Slug:</strong> <span class="font-mono">{app.slug}</span></p>
+          <p><strong>Tạo lúc:</strong> {new Date(app.created_at).toLocaleString('vi-VN')}</p>
+          <p><strong>Cập nhật:</strong> {new Date(app.updated_at).toLocaleString('vi-VN')}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ appId: app.id }}>
+    // Basic form
+    const basicForm = document.getElementById('basic-form');
+    basicForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(basicForm);
+      const body = {
+        name: fd.get('name')?.toString().trim(),
+        slug: fd.get('slug')?.toString().trim(),
+        description: fd.get('description')?.toString().trim() || null,
+        status: fd.get('status')?.toString(),
+        is_free: fd.has('is_free') ? 1 : 0,
+      };
+      const res = await fetch(`/api/admin/apps/${appId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        alert('Đã lưu');
+        window.location.reload();
+      } else {
+        alert('Lưu thất bại');
+      }
+    });
+
+    // Config form (only for survey)
+    const configForm = document.getElementById('config-form');
+    configForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(configForm);
+      const config = {
+        prompt_vi: fd.get('prompt_vi')?.toString() || undefined,
+        prompt_en: fd.get('prompt_en')?.toString() || undefined,
+        model_override: fd.get('model_override')?.toString() || undefined,
+        max_tokens_override: fd.get('max_tokens_override')?.toString()
+          ? parseInt(fd.get('max_tokens_override').toString(), 10)
+          : undefined,
+      };
+      // Bỏ field undefined để JSON gọn
+      Object.keys(config).forEach((k) => config[k] === undefined && delete config[k]);
+      const res = await fetch(`/api/admin/apps/${appId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config_json: JSON.stringify(config) }),
+      });
+      if (res.ok) {
+        alert('Đã lưu cấu hình');
+      } else {
+        alert('Lưu cấu hình thất bại');
+      }
+    });
+
+    // Reset config
+    document.getElementById('reset-config')?.addEventListener('click', async () => {
+      if (!confirm('Xóa toàn bộ config_json và quay về prompt mặc định trong code?')) return;
+      const res = await fetch(`/api/admin/apps/${appId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config_json: null }),
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Reset thất bại');
+      }
+    });
+  </script>
+</AdminLayout>
