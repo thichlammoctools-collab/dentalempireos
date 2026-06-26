@@ -27,11 +27,12 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const body = await request.json().catch(() => null);
   if (!body) return badRequest('Invalid JSON');
 
-  const updates: Partial<{ price: number; is_active: number; name: string; description: string }> = {};
+  const updates: Partial<{ price: number; is_active: number; name: string; description: string; app_id: string | null }> = {};
   if (typeof body.price === 'number' && body.price >= 0) updates.price = body.price;
   if (typeof body.is_active === 'boolean') updates.is_active = body.is_active ? 1 : 0;
   if (typeof body.name === 'string' && body.name.trim()) updates.name = body.name.trim();
   if (typeof body.description === 'string') updates.description = body.description.trim();
+  if (typeof body.app_id === 'string' || body.app_id === null) updates.app_id = body.app_id ?? null;
 
   if (Object.keys(updates).length === 0) return badRequest('No fields to update');
 
@@ -43,6 +44,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     description: updates.description ?? existing.description,
     duration_days: existing.duration_days,
     reference_id: existing.reference_id,
+    app_id: updates.app_id !== undefined ? updates.app_id : existing.app_id,
     is_active: updates.is_active ?? existing.is_active,
   });
 
@@ -60,13 +62,14 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const body = await request.json().catch(() => null);
   if (!body) return badRequest('Invalid JSON body');
 
-  const { name, type, price, description, duration_days, reference_id, is_active } = body as {
+  const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body as {
     name?: string;
     type?: string;
     price?: number;
     description?: string;
     duration_days?: number | null;
     reference_id?: string | null;
+    app_id?: string | null;
     is_active?: number;
   };
 
@@ -78,6 +81,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     description: description ?? existing.description,
     duration_days: duration_days ?? existing.duration_days,
     reference_id: reference_id ?? existing.reference_id,
+    app_id: app_id !== undefined ? app_id : existing.app_id,
     is_active: is_active ?? existing.is_active,
   });
 

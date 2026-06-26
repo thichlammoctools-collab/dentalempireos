@@ -1,7 +1,7 @@
 // Dental Empire OS — Service Worker
 // Strategy: cache-first cho static assets, network-first cho HTML.
 
-const VERSION = 'de-v1';
+const VERSION = 'de-v2';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -39,6 +39,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Network-only cho API admin — không bao giờ cache
+  if (url.pathname.startsWith('/api/admin/') || url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(req).catch(() => new Response(JSON.stringify({ error: 'offline' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+    );
+    return;
+  }
 
   // Network-first cho HTML — luôn ưu tiên bản mới
   const accept = req.headers.get('accept') || '';

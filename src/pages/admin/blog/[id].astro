@@ -153,6 +153,9 @@ function formatDate(iso: string | null): string {
             <button type="button" data-add-block="text" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
               <span class="material-symbols-outlined text-[16px]">notes</span>Thêm Text
             </button>
+            <button type="button" data-add-block="rich" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">format_color_text</span>Rich Text
+            </button>
             <button type="button" data-add-block="image" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
               <span class="material-symbols-outlined text-[16px]">image</span>Thêm Ảnh
             </button>
@@ -295,10 +298,11 @@ function formatDate(iso: string | null): string {
   toggleMdBtn.addEventListener('click', showMarkdown);
 
   // ── Block Editor State ─────────────────────────────────────
-  interface Block { id: string; type: 'text'|'image'|'form'; content: string; sort_order: number; }
+  interface Block { id: string; type: 'text' | 'image' | 'form' | 'rich'; content: string; sort_order: number; }
   const blocks: Block[] = [];
   const blocksContainer = document.getElementById('blocks-container') as HTMLDivElement;
   const blocksJsonInput = document.getElementById('blocks-json') as HTMLInputElement;
+  const richHandles = new Map<string, { destroy: () => void; getHTML: () => string }>();
   const postId = window.location.pathname.split('/').pop()!;
 
   function syncBlocks() {
@@ -315,9 +319,9 @@ function formatDate(iso: string | null): string {
     wrapper.dataset.blockId = block.id;
     wrapper.draggable = true;
 
-    const typeLabels: Record<string, string> = { text: 'Văn bản', image: 'Ảnh', form: 'Biểu mẫu' };
-    const typeIcons: Record<string, string> = { text: 'notes', image: 'image', form: 'description' };
-    const typeColors: Record<string, string> = { text: 'border-primary/30 bg-primary/5', image: 'border-tertiary/30 bg-tertiary/5', form: 'border-secondary/30 bg-secondary/5' };
+    const typeLabels: Record<string, string> = { text: 'Văn bản', image: 'Ảnh', form: 'Biểu mẫu', rich: 'Rich Text' };
+    const typeIcons: Record<string, string> = { text: 'notes', image: 'image', form: 'description', rich: 'format_color_text' };
+    const typeColors: Record<string, string> = { text: 'border-primary/30 bg-primary/5', image: 'border-tertiary/30 bg-tertiary/5', form: 'border-secondary/30 bg-secondary/5', rich: 'border-cyan-400/30 bg-cyan-400/5' };
 
     wrapper.innerHTML = `
       <div class="flex items-center gap-2 mb-2">
@@ -467,6 +471,29 @@ function formatDate(iso: string | null): string {
       renderFormFields();
       formTitleInput.addEventListener('input', () => { cfg.title = formTitleInput.value; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
       addFieldBtn.addEventListener('click', () => { cfg.fields.push({id: crypto.randomUUID(), type:'text', label:'', placeholder:'', required:false}); block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); renderFormFields(); });
+    } else if (block.type === 'rich') {
+      const editorContainer = document.createElement('div');
+      editorContainer.className = 'richtext-block-container';
+      contentEl.appendChild(editorContainer);
+
+      (async () => {
+        const mod = await import('../../../scripts/richtext-editor');
+        const { renderRichTextToolbar } = await import('../../../scripts/richtext-toolbar');
+        const handle = mod.createRichTextEditor({
+          element: editorContainer,
+          initialContent: block.content || '',
+          onChange: (html) => {
+            block.content = html;
+            syncBlocks();
+          },
+        });
+        const toolbar = renderRichTextToolbar({ editor: handle.editor });
+        editorContainer.insertBefore(toolbar, editorContainer.firstChild);
+        richHandles.set(block.id, handle);
+      })().catch((err) => {
+        console.error('Failed to load rich text editor:', err);
+        editorContainer.innerHTML = '<p class="text-red-400 text-sm">Lỗi tải trình soạn thảo. Vui lòng tải lại trang.</p>';
+      });
     }
 
     wrapper.querySelector('[data-move="up"]')?.addEventListener('click', () => {
@@ -502,6 +529,8 @@ function formatDate(iso: string | null): string {
   }
 
   function renderAllBlocks() {
+    richHandles.forEach((h) => h.destroy());
+    richHandles.clear();
     blocksContainer.innerHTML = '';
     blocks.forEach(b => blocksContainer.appendChild(renderBlock(b)));
   }

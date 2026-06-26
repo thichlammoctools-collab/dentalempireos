@@ -4,7 +4,7 @@
 
 import DOMPurify from 'isomorphic-dompurify';
 
-export const RICH_CONFIG = {
+export const RICH_CONFIG: import('isomorphic-dompurify').Config = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',
     'h2', 'h3', 'blockquote',
@@ -20,7 +20,7 @@ export const RICH_CONFIG = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form', 'input'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onstyle', 'style'],
-} as const;
+};
 
 export function sanitizeRichHtml(html: string): string {
   if (!html) return '';

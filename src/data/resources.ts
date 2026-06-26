@@ -14,11 +14,12 @@ export interface ResourceMeta {
 }
 
 export const resourceCategories = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'sops', label: 'SOPs' },
-  { id: 'checklists', label: 'Checklists' },
-  { id: 'excel', label: 'Excel' },
-  { id: 'marketing', label: 'Marketing' },
+  { id: 'all', label: 'Tất cả', defaultIcon: 'apps' },
+  { id: 'bieu_mau', label: 'Biểu mẫu', defaultIcon: 'description' },
+  { id: 'checklist', label: 'Checklist', defaultIcon: 'checklist' },
+  { id: 'sops', label: 'SOPs', defaultIcon: 'rule' },
+  { id: 'cong_cu', label: 'Công cụ', defaultIcon: 'construction' },
+  { id: 'tham_khao', label: 'Tham khảo', defaultIcon: 'menu_book' },
 ] as const;
 
 export const resources: ResourceMeta[] = [
@@ -27,7 +28,7 @@ export const resources: ResourceMeta[] = [
     title: 'Quy trình đón tiếp bệnh nhân',
     description:
       'Bộ quy trình chuẩn hóa từ tiếp đón, tư vấn, điều trị đến tái khám. Áp dụng cho mọi phòng khám.',
-    icon: 'description',
+    icon: 'rule',
     fileExt: 'pdf',
     category: 'sops',
     tier: 'free',
@@ -39,9 +40,9 @@ export const resources: ResourceMeta[] = [
     title: 'Bảng tính lương & KPI bác sĩ',
     description:
       'Bảng đo lường hiệu suất phòng khám — theo dõi doanh thu, khách hàng mới, tỷ lệ giữ chân và lợi nhuận ròng.',
-    icon: 'table_chart',
+    icon: 'construction',
     fileExt: 'xlsx',
-    category: 'excel',
+    category: 'cong_cu',
     tier: 'premium',
     updated: '1 tuần trước',
     tag: 'Tài chính',
@@ -51,7 +52,7 @@ export const resources: ResourceMeta[] = [
     title: 'Video hướng dẫn lấy dấu mẫu',
     description:
       'Hướng dẫn chi tiết quy trình lấy dấu mẫu chuẩn cho phụ tá nha khoa, kèm checklist kiểm tra chất lượng.',
-    icon: 'video_library',
+    icon: 'rule',
     fileExt: 'mp4',
     category: 'sops',
     tier: 'free',
@@ -63,9 +64,9 @@ export const resources: ResourceMeta[] = [
     title: 'Mẫu hợp đồng nha khoa',
     description:
       'Bộ mẫu hợp đồng dịch vụ, cam kết bảo hành và biên bản nghiệm thu chuẩn pháp lý cho phòng khám.',
-    icon: 'article',
+    icon: 'description',
     fileExt: 'docx',
-    category: 'checklists',
+    category: 'bieu_mau',
     tier: 'free',
     updated: '1 tháng trước',
     tag: 'Pháp lý',
@@ -75,9 +76,9 @@ export const resources: ResourceMeta[] = [
     title: 'CRM Khách Hàng Tracker',
     description:
       'Theo dõi hành trình khách hàng từ lần đầu liên hệ đến điều trị duy trì. Tích hợp nhắc lịch tái khám tự động.',
-    icon: 'contacts',
+    icon: 'construction',
     fileExt: 'xlsx',
-    category: 'excel',
+    category: 'cong_cu',
     tier: 'free',
     updated: '3 ngày trước',
     tag: 'Khách hàng',
@@ -87,9 +88,9 @@ export const resources: ResourceMeta[] = [
     title: 'Kế hoạch Marketing 90 ngày',
     description:
       'Bản kế hoạch marketing chi tiết cho 90 ngày đầu — từ social media, Google Ads đến chương trình khuyến mãi.',
-    icon: 'campaign',
+    icon: 'menu_book',
     fileExt: 'pdf',
-    category: 'marketing',
+    category: 'tham_khao',
     tier: 'premium',
     updated: '5 ngày trước',
     tag: 'Marketing',
@@ -99,9 +100,9 @@ export const resources: ResourceMeta[] = [
     title: 'Mẫu Tuyển Dụng Nhân Sự',
     description:
       'Bộ mẫu tin tuyển dụng, bảng đánh giá phỏng vấn và phiếu thử việc cho vị trí bác sĩ, phụ tá, lễ tân.',
-    icon: 'person_add',
+    icon: 'checklist',
     fileExt: 'pdf',
-    category: 'checklists',
+    category: 'checklist',
     tier: 'free',
     updated: '2 tuần trước',
     tag: 'Nhân sự',
@@ -111,9 +112,9 @@ export const resources: ResourceMeta[] = [
     title: 'Báo cáo tài chính tháng',
     description:
       'Mẫu báo cáo tài chính hàng tháng — dòng tiền, chi phí cố định, biến động và dự báo 3 tháng tới.',
-    icon: 'account_balance',
+    icon: 'checklist',
     fileExt: 'xlsx',
-    category: 'excel',
+    category: 'checklist',
     tier: 'premium',
     updated: '1 tuần trước',
     tag: 'Tài chính',

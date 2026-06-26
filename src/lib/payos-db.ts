@@ -6,11 +6,12 @@
 export interface Product {
   id: string;
   name: string;
-  type: 'course_unlock' | 'document_unlock' | 'booking' | 'event_ticket';
+  type: 'course_unlock' | 'document_unlock' | 'booking' | 'event_ticket' | 'survey_unlock';
   price: number;
   description: string | null;
   duration_days: number | null;
   reference_id: string | null;
+  app_id: string | null;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -24,6 +25,7 @@ export interface ProductInput {
   description?: string;
   duration_days?: number | null;
   reference_id?: string | null;
+  app_id?: string | null;
   is_active?: number;
 }
 
@@ -83,8 +85,8 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
   const ts = now();
   await db
     .prepare(
-      `INSERT INTO "product" ("id","name","type","price","description","duration_days","reference_id","is_active","created_at","updated_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO "product" ("id","name","type","price","description","duration_days","reference_id","app_id","is_active","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "name"=excluded."name",
          "type"=excluded."type",
@@ -92,6 +94,7 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
          "description"=excluded."description",
          "duration_days"=excluded."duration_days",
          "reference_id"=excluded."reference_id",
+         "app_id"=excluded."app_id",
          "is_active"=excluded."is_active",
          "updated_at"=excluded."updated_at"`,
     )
@@ -103,6 +106,7 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
       input.description ?? null,
       input.duration_days ?? null,
       input.reference_id ?? null,
+      input.app_id ?? null,
       input.is_active ?? 1,
       ts,
       ts,

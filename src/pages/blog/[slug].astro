@@ -5,6 +5,7 @@ import StructuredData from '../../components/seo/StructuredData.astro';
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
+import { sanitizeRichHtml } from '../../lib/sanitize';
 
 export const prerender = false;
 
@@ -66,7 +67,15 @@ const tocItems = (() => {
   const headingRegex = /^(#{2,3})\s+(.+)$/gm;
   const items: { level: number; text: string; id: string }[] = [];
   const source = blocks.length > 0
-    ? blocks.filter(b => b.type === 'text').map(b => b.content).join('\n')
+    ? blocks.map(b => {
+        if (b.type === 'rich') {
+          // Convert HTML headings to Markdown-style so the headingRegex can match them.
+          return b.content
+            .replace(/<h2[^>]*>(.*?)<\/h2>/gi, (_, t) => `## ${t.replace(/<[^>]+>/g, '')}`)
+            .replace(/<h3[^>]*>(.*?)<\/h3>/gi, (_, t) => `### ${t.replace(/<[^>]+>/g, '')}`);
+        }
+        return b.type === 'text' ? b.content : '';
+      }).join('\n')
     : post.content_md;
   let match;
   while ((match = headingRegex.exec(source)) !== null) {
@@ -318,6 +327,8 @@ const breadcrumbSchema = {
                         </form>
                       </div>
                     );
+                  } else if (block.type === 'rich') {
+                    return <div class="block-rich" set:html={sanitizeRichHtml(block.content)}></div>;
                   }
                   return null;
                 })}

@@ -554,7 +554,7 @@ export async function setPostTags(
 export interface BlogBlock {
   id: string;
   post_id: string;
-  type: 'text' | 'image' | 'form';
+  type: 'text' | 'image' | 'form' | 'rich';
   content: string;
   sort_order: number;
   created_at: string;
@@ -564,7 +564,7 @@ export interface BlogBlock {
 export interface BlogBlockInput {
   id: string;
   post_id: string;
-  type: 'text' | 'image' | 'form';
+  type: 'text' | 'image' | 'form' | 'rich';
   content: string;
   sort_order?: number;
 }

@@ -16,13 +16,14 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null);
   if (!body) return badRequest('Invalid JSON body');
 
-  const { name, type, price, description, duration_days, reference_id, is_active } = body as {
+  const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body as {
     name?: string;
     type?: string;
     price?: number;
     description?: string;
     duration_days?: number | null;
     reference_id?: string | null;
+    app_id?: string | null;
     is_active?: number;
   };
 
@@ -39,6 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
     description,
     duration_days,
     reference_id,
+    app_id: app_id || null,
     is_active,
   });
 

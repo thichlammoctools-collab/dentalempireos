@@ -146,11 +146,22 @@ async function runAiAnalysis(db: D1Database, id: number): Promise<void> {
     const settings = await getAiSettings(db);
     if (settings.is_active !== 1 || !settings.api_key) return;
 
+    // Load app config from ai_application registry (optional — null if not set)
+    const appConfigRow = await db
+      .prepare('SELECT "config_json" FROM "ai_application" WHERE "id" = ?')
+      .bind('survey-rootsgoc-1-app')
+      .first<{ config_json: string | null }>();
+    let appConfig: Record<string, unknown> | null = null;
+    if (appConfigRow?.config_json) {
+      try { appConfig = JSON.parse(appConfigRow.config_json); } catch { appConfig = null; }
+    }
+
     const context = buildAnalysisContext(row);
     const analysis = await analyzeSurvey(settings.api_key, row, context, {
       baseUrl: settings.base_url,
       model: settings.model,
       maxTokens: settings.max_tokens,
+      appConfig,
     });
     await updateAiAnalysis(db, id, analysis);
   } catch (err) {

@@ -71,6 +71,17 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
     },
   });
 
+  // Prevent the parent block-wrapper's draggable from hijacking text selection
+  // inside the editor. Without this, clicking/dragging on text starts a block-drag.
+  const pmView = editor.view;
+  if (pmView && pmView.dom) {
+    pmView.dom.setAttribute('draggable', 'false');
+    pmView.dom.addEventListener('dragstart', (e: Event) => {
+      e.stopPropagation();
+      (e as DragEvent).stopImmediatePropagation();
+    });
+  }
+
   return {
     editor,
     getHTML: () => sanitize(editor.getHTML()),
@@ -89,11 +100,11 @@ export function uploadImageFile(file: File): Promise<{ url: string; alt: string 
     fd.append('file', file);
     fd.append('purpose', 'blog');
     fetch('/api/admin/upload', { method: 'POST', body: fd })
-      .then((res) => res.json())
+      .then((res) => res.json() as Promise<{ url?: string }>)
       .then((data) => {
         if (data && data.url) {
           const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
-          resolve({ url: data.url as string, alt });
+          resolve({ url: data.url, alt });
         } else {
           reject(new Error('Upload failed'));
         }

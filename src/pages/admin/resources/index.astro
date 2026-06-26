@@ -128,10 +128,11 @@ import { resourceCategories } from '../../../data/resources';
               <label class="block text-xs font-bold text-on-surface-variant mb-1.5">Danh mục</label>
               <div class="relative">
                 <select id="f-category" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/60 rounded-xl text-white text-sm appearance-none focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all cursor-pointer">
+                  <option value="bieu_mau">📄 Biểu mẫu</option>
+                  <option value="checklist">✅ Checklist</option>
                   <option value="sops">📋 SOPs</option>
-                  <option value="checklists">✅ Checklists</option>
-                  <option value="excel">📊 Excel</option>
-                  <option value="marketing">📣 Marketing</option>
+                  <option value="cong_cu">🔧 Công cụ</option>
+                  <option value="tham_khao">📚 Tham khảo</option>
                 </select>
                 <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
               </div>
@@ -574,6 +575,28 @@ import { resourceCategories } from '../../../data/resources';
     if (iconPreview) iconPreview.textContent = val;
   });
 
+  // ── Category → default icon mapping ──────────────────────
+  const categoryDefaultIcons: Record<string, string> = {
+    bieu_mau: 'description',
+    checklist: 'checklist',
+    sops: 'rule',
+    cong_cu: 'construction',
+    tham_khao: 'menu_book',
+  };
+  let iconAutoFromCategory = true;
+  const categorySelect = document.getElementById('f-category');
+  categorySelect?.addEventListener('change', () => {
+    const def = categoryDefaultIcons[categorySelect.value];
+    if (def && iconInput) {
+      iconInput.value = def;
+      if (iconPreview) iconPreview.textContent = def;
+      iconAutoFromCategory = true;
+    }
+  });
+  iconInput?.addEventListener('input', () => {
+    iconAutoFromCategory = false;
+  });
+
   function resetForm() {
     editingId = null;
     modalTitle.textContent = 'Thêm tài nguyên mới';
@@ -584,7 +607,7 @@ import { resourceCategories } from '../../../data/resources';
     document.getElementById('f-id').value = '';
     document.getElementById('f-title').value = '';
     document.getElementById('f-description').value = '';
-    document.getElementById('f-category').value = 'sops';
+    document.getElementById('f-category').value = 'bieu_mau';
     document.getElementById('f-tier').value = 'free';
     document.getElementById('f-file_ext').value = 'pdf';
     document.getElementById('f-tag').value = '';

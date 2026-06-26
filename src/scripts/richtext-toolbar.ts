@@ -123,9 +123,9 @@ function updateActiveState(toolbar: HTMLElement, editor: Editor): void {
       case 'blockquote': active = isActive('blockquote'); break;
       case 'code': active = isActive('code'); break;
       case 'link': active = isActive('link'); break;
-      case 'align-left': active = isActive({ textAlign: 'left' }); break;
-      case 'align-center': active = isActive({ textAlign: 'center' }); break;
-      case 'align-right': active = isActive({ textAlign: 'right' }); break;
+      case 'align-left': active = editor.isActive('paragraph', { textAlign: 'left' }); break;
+      case 'align-center': active = editor.isActive('paragraph', { textAlign: 'center' }); break;
+      case 'align-right': active = editor.isActive('paragraph', { textAlign: 'right' }); break;
     }
     btn.classList.toggle('is-active', active);
   });

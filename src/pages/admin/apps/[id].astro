@@ -8,7 +8,12 @@ export const prerender = false;
 const id = Astro.params.id;
 if (!id) return Astro.redirect('/admin/apps');
 
-const app = await getApp(env.DB, id);
+let app;
+try {
+  app = await getApp(env.DB, id);
+} catch {
+  return Astro.redirect('/admin/apps');
+}
 if (!app) return Astro.redirect('/admin/apps');
 
 const config = parseAppConfig(app.config_json);

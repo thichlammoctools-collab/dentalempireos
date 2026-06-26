@@ -1,11 +1,17 @@
 ---
-import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listApps, type App } from '../../lib/app-db';
+import { listApps, type App } from '../../../lib/app-db';
 
 export const prerender = false;
 
-const apps = await listApps(env.DB);
+// Graceful fallback: ai_application table may not exist yet if migration 0019 hasn't been applied
+let apps: Awaited<ReturnType<typeof listApps>> = [];
+try {
+  apps = await listApps(env.DB);
+} catch {
+  apps = [];
+}
 
 const typeLabels: Record<string, string> = {
   survey: 'Khảo sát',

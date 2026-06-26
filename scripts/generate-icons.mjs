@@ -1,42 +1,56 @@
-// Generate PWA icons from SVG
+// Generate PWA icons from source image
 import sharp from 'sharp';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { mkdirSync } from 'fs';
+import { existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outDir = join(__dirname, '..', 'public', 'icons');
-mkdirSync(outDir, { recursive: true });
+const outIconsDir = join(__dirname, '..', 'public', 'icons');
+const rootDir = join(__dirname, '..', 'public');
 
-// Dental Empire icon SVG — white tooth on brand color background
-const iconSvg = (bg, fg) => `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="108" fill="${bg}"/>
-  <g transform="translate(128, 80) scale(2.5)">
-    <path d="M50.4 78.5a75.1 75.1 0 0 0-28.5 6.9l24.2-65.7c.7-2 1.9-3.2 3.4-3.2h29c1.5 0 2.7 1.2 3.4 3.2l24.2 65.7s-11.6-7-28.5-7L67 45.5c-.4-1.7-1.6-2.8-2.9-2.8-1.3 0-2.5 1.1-2.9 2.7L50.4 78.5Zm-1.1 28.2Zm-4.2-20.2c-2 6.6-.6 15.8 4.2 20.2a17.5 17.5 0 0 1 .2-.7 5.5 5.5 0 0 1 5.7-4.5c2.8.1 4.3 1.5 4.7 4.7.2 1.1.2 2.3.2 3.5v.4c0 2.7.7 5.2 2.2 7.4a13 13 0 0 0 5.7 4.9v-.3l-.2-.3c-1.8-5.6-.5-9.5 4.4-12.8l1.5-1a73 73 0 0 0 3.2-2.2 16 16 0 0 0 6.8-11.4c.3-2 .1-4-.6-6l-.8.6-1.6 1a37 37 0 0 1-22.4 2.7c-5-.7-9.7-2-13.2-6.2Z" fill="${fg}"/>
-  </g>
-</svg>`;
+// Find source file (user may save as pwa-icon.jpg, .png, etc.)
+const candidates = [
+  join(__dirname, '..', 'tmp', 'pwa-icon.jpg.png'),
+  join(__dirname, '..', 'tmp', 'pwa-icon.jpg'),
+  join(__dirname, '..', 'tmp', 'pwa-icon.png'),
+  join(__dirname, '..', 'public', 'pwa-icon.jpg'),
+  join(__dirname, '..', 'public', 'pwa-icon.png'),
+  join(__dirname, '..', 'pwa-icon.jpg'),
+  join(__dirname, '..', 'pwa-icon.png'),
+];
+
+const sourcePath = candidates.find((p) => existsSync(p));
+if (!sourcePath) {
+  console.error('❌ Không tìm thấy pwa-icon. Save ảnh vào tmp/pwa-icon.jpg hoặc public/pwa-icon.jpg');
+  process.exit(1);
+}
+console.log(`📸 Source: ${sourcePath}`);
 
 const sizes = {
-  'icon-192.png': 192,
-  'icon-512.png': 512,
+  'icons/icon-192.png': 192,
+  'icons/icon-512.png': 512,
+  'icons/maskable-512.png': 512,
   'apple-touch-icon.png': 180,
+  'favicon-192.png': 192,
 };
 
-const bg = '#0a0a14';
-const fg = '#FFFFFF';
-
 for (const [name, size] of Object.entries(sizes)) {
-  const buf = Buffer.from(iconSvg(bg, fg));
-  await sharp(buf).resize(size, size).png().toFile(join(outDir, name));
+  const out = join(rootDir, name);
+  await sharp(sourcePath)
+    .resize(size, size, { fit: 'cover' })
+    .png()
+    .toFile(out);
   console.log(`✓ ${name} (${size}×${size})`);
 }
 
-// Also put apple-touch-icon in public root
-await sharp(Buffer.from(iconSvg(bg, fg)))
-  .resize(180, 180)
-  .png()
-  .toFile(join(__dirname, '..', 'public', 'apple-touch-icon.png'));
-console.log('✓ apple-touch-icon.png (180×180, root)');
+// favicon.ico — 32x32 multi-format
+const ico32 = await sharp(sourcePath).resize(32, 32, { fit: 'cover' }).png().toBuffer();
+const ico16 = await sharp(sourcePath).resize(16, 16, { fit: 'cover' }).png().toBuffer();
+await sharp(ico32).toFile(join(rootDir, 'favicon-32.png'));
+console.log('✓ favicon-32.png (32×32)');
 
-console.log('\nDone!');
+console.log('\n✅ Done. Next:');
+console.log('   1. Replace public/favicon.svg (optional)');
+console.log('   2. Replace public/favicon.ico (optional)');
+console.log('   3. Update public/site.webmanifest if needed');
+console.log('   4. Rebuild + deploy');

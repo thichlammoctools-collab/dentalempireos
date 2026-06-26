@@ -3,12 +3,13 @@ import { env } from 'cloudflare:workers';
 import { getSurveyResponse } from '../../../../lib/survey-db';
 import { generateSurveyPdf } from '../../../../lib/pdf-generator';
 
-const SURVEY_PRODUCT_ID = 'survey-rootsgoc-1';
+const SURVEY_APP_ID = 'survey-rootsgoc-1-app';
+const SURVEY_PRODUCT_FALLBACK = 'survey-rootsgoc-1';
 
 export const prerender = false;
 
 // GET /api/survey/:id/pdf — download PDF report
-// Requires unlock access (user must have paid for survey-rootsgoc-1 product)
+// Requires unlock access via ai_application registry
 export const GET: APIRoute = async ({ params }) => {
   const id = parseInt(params.id ?? '', 10);
   if (!id || Number.isNaN(id)) {
@@ -19,6 +20,18 @@ export const GET: APIRoute = async ({ params }) => {
   if (!row) {
     return new Response('Survey not found', { status: 404 });
   }
+
+  // Dynamic product resolution from ai_application registry
+  let linkedProduct: { id: string } | null = null;
+  try {
+    linkedProduct = await env.DB
+      .prepare('SELECT "id" FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
+      .bind(SURVEY_APP_ID)
+      .first<{ id: string }>();
+  } catch {
+    // Table may not have app_id column yet — use fallback
+  }
+  const productId = linkedProduct?.id ?? SURVEY_PRODUCT_FALLBACK;
 
   // Check access: find user by survey email, then check access table
   let hasAccess = false;
@@ -36,7 +49,7 @@ export const GET: APIRoute = async ({ params }) => {
              AND ("expires_at" IS NULL OR "expires_at" > datetime('now'))
            LIMIT 1`,
         )
-        .bind(user.id, SURVEY_PRODUCT_ID)
+        .bind(user.id, productId)
         .first();
       hasAccess = !!access;
     }
@@ -44,7 +57,7 @@ export const GET: APIRoute = async ({ params }) => {
 
   if (!hasAccess) {
     return new Response(
-      JSON.stringify({ error: 'unlock_required', product_id: SURVEY_PRODUCT_ID }),
+      JSON.stringify({ error: 'unlock_required', product_id: productId }),
       {
         status: 402, // Payment Required
         headers: { 'Content-Type': 'application/json' },

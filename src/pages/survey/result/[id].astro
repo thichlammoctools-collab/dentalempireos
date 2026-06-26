@@ -6,8 +6,6 @@ import { marked } from 'marked';
 
 export const prerender = false;
 
-const SURVEY_PRODUCT_ID = 'survey-rootsgoc-1';
-
 const idParam = Astro.params.id;
 const id = idParam ? parseInt(idParam, 10) : 0;
 
@@ -48,13 +46,24 @@ marked.setOptions({ gfm: true, breaks: true });
 const analysisHtml = row.ai_analysis ? (marked.parse(row.ai_analysis) as string) : '';
 const hasAnalysis = !!analysisHtml;
 
-// Product info for payment
-const product = await env.DB
-  .prepare('SELECT * FROM "product" WHERE "id" = ?')
-  .bind(SURVEY_PRODUCT_ID)
-  .first<{ id: string; name: string; price: number; description: string }>();
+// Dynamic product resolution from ai_application registry
+const SURVEY_APP_ID = 'survey-rootsgoc-1-app';
+const SURVEY_PRODUCT_FALLBACK = 'survey-rootsgoc-1';
 
-const priceFormatted = product ? new Intl.NumberFormat('vi-VN').format(product.price) : '199.000';
+let linkedProduct: { id: string; name: string; price: number; description: string } | null = null;
+try {
+  linkedProduct = await env.DB
+    .prepare('SELECT * FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
+    .bind(SURVEY_APP_ID)
+    .first<{ id: string; name: string; price: number; description: string }>();
+} catch {
+  // Table may not have app_id column yet — use fallback
+}
+
+const productId = linkedProduct?.id ?? SURVEY_PRODUCT_FALLBACK;
+const priceFormatted = linkedProduct
+  ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
+  : '199.000';
 ---
 
 <BaseLayout
@@ -62,7 +71,7 @@ const priceFormatted = product ? new Intl.NumberFormat('vi-VN').format(product.p
   description="Bản phân tích hệ thống quản trị phòng khám"
   noindex={true}
 >
-  <section class="result-wrap" data-survey-id={id} data-product-id={SURVEY_PRODUCT_ID} data-lang={lang}>
+  <section class="result-wrap" data-survey-id={id} data-product-id={productId} data-lang={lang}>
     <!-- Header -->
     <div class="result-header">
       <div>

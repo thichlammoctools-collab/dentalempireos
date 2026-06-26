@@ -116,7 +116,7 @@ export async function upsertResource(db: D1Database, input: ResourceInput): Prom
       input.icon ?? 'description',
       input.file_ext ?? 'pdf',
       input.file_url ?? '',
-      input.category ?? 'sops',
+      input.category ?? 'bieu_mau',
       input.tier ?? 'free',
       input.tag ?? '',
       input.sort_order ?? 0,
