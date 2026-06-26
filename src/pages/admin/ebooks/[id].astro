@@ -27,6 +27,9 @@ function walk(sections: typeof tree.sections, prefix = '') {
 }
 walk(tree.sections);
 
+// Tree data for move feature
+const treeData: { id: string; title: string; children: any[] }[] = tree.sections.map((s: any) => ({ id: s.id, title: s.title, children: s.children }));
+
 // Build flat section list WITH outline numbers — used for the block-move menu
 const flatSectionsNumbered: { id: string; label: string; level: number }[] = [];
 function walkNumbered(sections: typeof tree.sections, prefix = '') {

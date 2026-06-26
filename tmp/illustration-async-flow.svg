@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="sync" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="async" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="600" fill="url(#bg2)"/>
+
+  <!-- Title -->
+  <text x="500" y="50" text-anchor="middle" fill="#0f172a" font-family="-apple-system, sans-serif" font-size="32" font-weight="800">Sync vs Async Working</text>
+  <text x="500" y="78" text-anchor="middle" fill="#64748b" font-family="-apple-system, sans-serif" font-size="14" font-weight="500">Hai mô hình làm việc nhóm phổ biến</text>
+
+  <!-- SYNC block -->
+  <g transform="translate(40, 130)">
+    <rect x="0" y="0" width="440" height="380" rx="16" fill="#ffffff" stroke="#fecaca" stroke-width="2"/>
+    <rect x="0" y="0" width="440" height="50" rx="16" fill="url(#sync)"/>
+    <rect x="0" y="34" width="440" height="16" fill="url(#sync)"/>
+    <text x="220" y="32" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="20" font-weight="700">SYNCHRONOUS</text>
+
+    <!-- Timeline (same time, all online) -->
+    <line x1="40" y1="130" x2="400" y2="130" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="40" y="120" fill="#64748b" font-family="-apple-system, sans-serif" font-size="11" font-weight="600">9:00 AM</text>
+
+    <!-- 4 people online same time -->
+    <g transform="translate(80, 200)">
+      <circle cx="0" cy="0" r="22" fill="#ef4444"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">A</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">Team A</text>
+    </g>
+    <g transform="translate(180, 200)">
+      <circle cx="0" cy="0" r="22" fill="#f59e0b"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">B</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">Team B</text>
+    </g>
+    <g transform="translate(280, 200)">
+      <circle cx="0" cy="0" r="22" fill="#ef4444"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">C</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">Team C</text>
+    </g>
+    <g transform="translate(380, 200)">
+      <circle cx="0" cy="0" r="22" fill="#f59e0b"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">D</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">Team D</text>
+    </g>
+
+    <!-- Connection lines (all together) -->
+    <g stroke="#fbbf24" stroke-width="1.5" fill="none" opacity="0.5">
+      <line x1="80" y1="200" x2="180" y2="200"/>
+      <line x1="180" y1="200" x2="280" y2="200"/>
+      <line x1="280" y1="200" x2="380" y2="200"/>
+    </g>
+
+    <!-- Video call icon -->
+    <g transform="translate(220, 300)">
+      <rect x="-50" y="-22" width="100" height="44" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+      <rect x="-30" y="-12" width="36" height="24" rx="3" fill="#ef4444"/>
+      <polygon points="10,-8 24,-14 24,14 10,8" fill="#ef4444"/>
+    </g>
+    <text x="220" y="350" text-anchor="middle" fill="#475569" font-family="-apple-system, sans-serif" font-size="13" font-weight="500">Cùng online — phản hồi ngay</text>
+  </g>
+
+  <!-- ASYNC block -->
+  <g transform="translate(520, 130)">
+    <rect x="0" y="0" width="440" height="380" rx="16" fill="#ffffff" stroke="#99f6e4" stroke-width="2"/>
+    <rect x="0" y="0" width="440" height="50" rx="16" fill="url(#async)"/>
+    <rect x="0" y="34" width="440" height="16" fill="url(#async)"/>
+    <text x="220" y="32" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="20" font-weight="700">ASYNCHRONOUS</text>
+
+    <!-- Timeline staggered -->
+    <line x1="40" y1="130" x2="400" y2="130" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="40" y="120" fill="#64748b" font-family="-apple-system, sans-serif" font-size="11" font-weight="600">Lịch riêng</text>
+
+    <!-- 4 people, staggered times -->
+    <g transform="translate(80, 200)">
+      <circle cx="0" cy="0" r="22" fill="#0d9488"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">A</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">8h-17h</text>
+    </g>
+    <g transform="translate(190, 200)">
+      <circle cx="0" cy="0" r="22" fill="#06b6d4"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">B</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">14h-22h</text>
+    </g>
+    <g transform="translate(300, 200)">
+      <circle cx="0" cy="0" r="22" fill="#0d9488"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">C</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">22h-6h</text>
+    </g>
+    <g transform="translate(400, 200)">
+      <circle cx="0" cy="0" r="22" fill="#06b6d4"/>
+      <text x="0" y="6" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">D</text>
+      <text x="0" y="48" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">6h-14h</text>
+    </g>
+
+    <!-- Document arrows -->
+    <g stroke="#0d9488" stroke-width="2" fill="none" stroke-dasharray="4,3">
+      <path d="M 100 195 Q 145 165 168 195"/>
+      <path d="M 210 195 Q 245 165 278 195"/>
+      <path d="M 320 195 Q 350 165 378 195"/>
+    </g>
+
+    <!-- Doc + message icons -->
+    <g transform="translate(180, 305)">
+      <rect x="-40" y="-20" width="34" height="40" rx="3" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+      <line x1="-32" y1="-10" x2="-15" y2="-10" stroke="#0d9488" stroke-width="1.2"/>
+      <line x1="-32" y1="-2" x2="-15" y2="-2" stroke="#0d9488" stroke-width="1.2"/>
+      <line x1="-32" y1="6" x2="-22" y2="6" stroke="#0d9488" stroke-width="1.2"/>
+    </g>
+    <g transform="translate(260, 305)">
+      <path d="M -30 -8 L 30 -8 Q 36 -8 36 -2 L 36 12 Q 36 18 30 18 L 0 18 L -10 26 L -10 18 L -30 18 Q -36 18 -36 12 L -36 -2 Q -36 -8 -30 -8 Z" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+    </g>
+    <text x="220" y="350" text-anchor="middle" fill="#475569" font-family="-apple-system, sans-serif" font-size="13" font-weight="500">Doc + tin nhắn — không cần online cùng lúc</text>
+  </g>
+
+  <!-- Footer note -->
+  <text x="500" y="555" text-anchor="middle" fill="#475569" font-family="-apple-system, sans-serif" font-size="13" font-weight="500">Async ≠ Remote. Một nhóm remote cùng múi giờ vẫn có thể làm việc synchronous.</text>
+</svg>
