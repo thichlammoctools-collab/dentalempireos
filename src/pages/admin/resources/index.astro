@@ -331,11 +331,18 @@ import { resourceCategories } from '../../../data/resources';
 </AdminLayout>
 
 <script>
+  // ── Types ─────────────────────────────────────────────────
+  interface Resource {
+    id: string; title: string; description: string; category: string;
+    tier: string; file_ext: string; tag: string; icon: string;
+    file_url: string; sort_order: number; is_active: number;
+  }
+
   // ── State ─────────────────────────────────────────────────
-  let allResources = [];
+  let allResources: Resource[] = [];
   let activeFilter = 'all';
-  let editingId = null;
-  let deletingId = null;
+  let editingId: string | null = null;
+  let deletingId: string | null = null;
 
   const extColors: Record<string, string> = {
     pdf: 'text-rose-300 bg-rose-500/10',

@@ -94,16 +94,16 @@ const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number 
                   <span class="material-symbols-outlined text-6xl text-primary">{mod.icon}</span>
                 </div>
                 <div class="relative z-10">
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="inline-block px-4 py-1 rounded-full font-semibold text-sm tracking-wider bg-primary/10 text-primary">
+                  <div class="flex flex-wrap items-center gap-3 mb-4">
+                    <div class="inline-block px-4 py-1 rounded-full font-semibold text-sm tracking-wider bg-primary/10 text-primary whitespace-nowrap">
                       TẦNG {mod.tier}
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-on-surface-variant">
-                      <span class="flex items-center gap-1">
+                    <div class="flex items-center gap-3 text-xs whitespace-nowrap">
+                      <span class="flex items-center gap-1 text-primary font-medium">
                         <span class="material-symbols-outlined text-[16px]">menu_book</span>
                         {stats.chapterCount} chương
                       </span>
-                      <span class="flex items-center gap-1">
+                      <span class="flex items-center gap-1 text-primary font-medium">
                         <span class="material-symbols-outlined text-[16px]">toc</span>
                         {stats.sectionCount} đề mục
                       </span>
