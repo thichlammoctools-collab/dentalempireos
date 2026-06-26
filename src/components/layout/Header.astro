@@ -2,7 +2,6 @@
 import NotificationBell from './NotificationBell.astro';
 
 const navLinks = [
-  { href: '/', label: 'Home' },
   { href: '/book', label: 'E-book Library' },
   { href: '/videos', label: 'Videos' },
   { href: '/blog', label: 'Blog' },
@@ -17,8 +16,8 @@ const currentPath = Astro.url.pathname;
 <header class="fixed top-0 w-full z-50 bg-surface-container-lowest/80 glass-nav border-b border-outline-variant h-20">
   <div class="flex justify-between items-center w-full px-6 max-w-[1200px] mx-auto h-full">
     <!-- Logo -->
-    <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <span class="text-headline-md font-bold text-primary">Dental Empire</span>
+    <a href="/" class="flex items-center hover:opacity-80 transition-opacity">
+      <img src="/images/logo-header.png" alt="Dental Empire" class="h-10 w-auto" width="140" height="46" />
     </a>
 
     <!-- Desktop Nav -->

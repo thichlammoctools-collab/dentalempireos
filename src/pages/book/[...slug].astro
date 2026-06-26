@@ -25,7 +25,7 @@ const db = env.DB;
 // ── In-memory cache (per isolate, 60s TTL) ─────────────────────────────────────
 interface ChapterCacheEntry {
   html: string;
-  attachments: ReturnType<typeof buildAttachments>;
+  attachments: AttachmentItem[];
   sectionNavItems: ReturnType<typeof flattenSections>;
   ch: Awaited<ReturnType<typeof getChapterTree>>['chapter'];
   ts: number;
@@ -247,7 +247,7 @@ const fileAttachments = attachments.filter((item) => item.type === 'file');
 // Compute sectionNavItems (cheap, always fresh)
 const sectionNavItems = flattenSections(sections);
 
-const dbFetchMs = Date.now() - dbFetchStart;
+const dbFetchStart = Date.now();
 
 // Reviews — parallel fetch (wrapped in try-catch: table may not exist yet)
 const reviewLimit = 10;

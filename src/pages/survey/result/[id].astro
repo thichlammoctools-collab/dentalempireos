@@ -150,7 +150,7 @@ const priceFormatted = linkedProduct
       </div>
 
       <!-- Unlocked content (hidden by default, shown by JS if access granted) -->
-      <div id="analysis-unlocked" class:hidden={true}>
+      <div id="analysis-unlocked" class="hidden">
         {hasAnalysis ? (
           <article class="prose-content" set:html={analysisHtml}></article>
         ) : (
@@ -476,7 +476,7 @@ const priceFormatted = linkedProduct
     if (!surveyId || !productId) return false;
     try {
       const res = await fetch(`/api/survey/check-access?id=${surveyId}&product_id=${productId}`);
-      const data = await res.json();
+      const data = await res.json() as { hasAccess?: boolean };
       return data.hasAccess === true;
     } catch {
       return false;
@@ -500,7 +500,7 @@ const priceFormatted = linkedProduct
       attempts++;
       try {
         const res = await fetch(`/api/survey?id=${surveyId}`);
-        const data = await res.json();
+        const data = await res.json() as { ai_analysis?: string };
         if (data.ai_analysis) {
           clearInterval(interval);
           window.location.reload();
@@ -533,7 +533,7 @@ const priceFormatted = linkedProduct
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: productId }),
       });
-      const data = await res.json();
+      const data = await res.json() as { checkoutUrl?: string; error?: string };
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {

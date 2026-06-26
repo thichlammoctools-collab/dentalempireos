@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync, readFileSync } from 'fs';
+import { writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 

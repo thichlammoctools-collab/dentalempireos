@@ -15,7 +15,7 @@ function runSQL(sql) {
   return JSON.parse(res)[0]?.results || [];
 }
 
-function runSQLFile(sql, label) {
+function runSQLFile(sql, _label) {
   const tmpFile = join(tmpdir(), `ab_${Date.now()}.sql`);
   writeFileSync(tmpFile, sql);
   try {
@@ -56,10 +56,10 @@ function beautify(text) {
   t = t.replace(/^(Cảnh báo\s*:?)\s*\n/gim, '> **Cảnh báo:**\n\n');
 
   // 4. Fix doubled headings: "AnchorAnchor là..." → "### Anchor\n\nAnchor là..."
-  t = t.replace(/^([A-Z][a-zA-Z]+)\1\s+/m, (m, word) => `### ${word}\n\n${word} `);
+  t = t.replace(/^([A-Z][a-zA-Z]+)\1\s+/m, (_m, word) => `### ${word}\n\n${word} `);
 
   // 5. Fix merged bold heading: "**Anchor**Anchor là..." → "### Anchor\n\nAnchor là..."
-  t = t.replace(/^\*\*([^*]{2,30})\*\*\s*\1\s/m, (m, word) => `### ${word}\n\n${word} `);
+  t = t.replace(/^\*\*([^*]{2,30})\*\*\s*\1\s/m, (_m, word) => `### ${word}\n\n${word} `);
 
   // 6. Standalone heading blocks (short, <60 chars, starts with **word** or **word**)
   if (t.length < 60) {

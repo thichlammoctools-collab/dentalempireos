@@ -40,7 +40,7 @@ export default defineConfig({
         return {
           ...item,
           priority,
-          changefreq,
+          changefreq: /** @type {import('@astrojs/sitemap').SitemapItem['changefreq']} */ (changefreq),
         };
       },
     }),

@@ -1,10 +1,8 @@
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { tmpdir } from 'os';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_NAME = 'dentalempireos-db';
 const CHAPTER = '03-roadmap-to-be-sky';
 
@@ -20,7 +18,7 @@ function runSQLFile(sql, label) {
   const tmpFile = join(tmpdir(), `b3_${Date.now()}.sql`);
   writeFileSync(tmpFile, sql);
   try {
-    const out = execSync(
+    execSync(
       `npx wrangler d1 execute ${DB_NAME} --remote --file "${tmpFile}"`,
       { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
     );

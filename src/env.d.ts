@@ -22,7 +22,7 @@ declare namespace Cloudflare {
 declare namespace App {
   interface Locals {
     cfContext: ExecutionContext;
-    user: import('better-auth').User | null;
+    user: (import('better-auth').User & { is_active?: number }) | null;
     session: import('better-auth').Session | null;
   }
 }
