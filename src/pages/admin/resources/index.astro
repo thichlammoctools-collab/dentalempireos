@@ -357,17 +357,22 @@ import { resourceCategories } from '../../../data/resources';
   const statsEl = document.getElementById('resource-stats');
   const chips = Array.from(document.querySelectorAll('.filter-chip'));
 
-  const modal = document.getElementById('resource-modal');
-  const modalTitle = document.getElementById('modal-title');
-  const modalClose = document.getElementById('modal-close');
-  const modalCancel = document.getElementById('modal-cancel');
-  const modalSubmit = document.getElementById('modal-submit');
-  const form = document.getElementById('resource-form');
+  const modal = el('resource-modal')!;
+  const modalTitle = el('modal-title')!;
+  const modalClose = el('modal-close')!;
+  const modalCancel = el('modal-cancel')!;
+  const modalSubmit = el('modal-submit')!;
+  const form = el('resource-form')! as HTMLFormElement;
 
-  const deleteModal = document.getElementById('delete-modal');
-  const deleteName = document.getElementById('delete-name');
-  const deleteCancel = document.getElementById('delete-cancel');
-  const deleteConfirm = document.getElementById('delete-confirm');
+  const deleteModal = el('delete-modal')!;
+  const deleteName = el('delete-name')!;
+  const deleteCancel = el('delete-cancel')!;
+  const deleteConfirm = el('delete-confirm')!;
+
+  // ── Helpers ─────────────────────────────────────────────
+  function val(id: string) { return (document.getElementById(id) as HTMLInputElement)?.value ?? ''; }
+  function setVal(id: string, v: string) { const el = document.getElementById(id) as HTMLInputElement; if (el) el.value = v; }
+  function el(id: string) { return document.getElementById(id); }
 
   // ── Fetch & Render ────────────────────────────────────────
   async function loadResources() {
@@ -471,13 +476,13 @@ import { resourceCategories } from '../../../data/resources';
   );
 
   // ── File upload to R2 ────────────────────────────────────
-  let uploadedFileUrl = null;
-  const fileInput = document.getElementById('f-file-input');
-  const uploadZone = document.getElementById('upload-zone');
-  const uploadProgress = document.getElementById('upload-progress');
-  const uploadSuccess = document.getElementById('upload-success');
-  const urlTextInput = document.getElementById('f-file_url_text');
-  const fileUrlHidden = document.getElementById('f-file_url');
+  let uploadedFileUrl: string | null = null;
+  const fileInput = el('f-file-input') as HTMLInputElement | null;
+  const uploadZone = el('upload-zone');
+  const uploadProgress = el('upload-progress');
+  const uploadSuccess = el('upload-success');
+  const urlTextInput = el('f-file_url_text') as HTMLInputElement | null;
+  const fileUrlHidden = el('f-file_url') as HTMLInputElement | null;
 
   const fileIconMap = { pdf: 'picture_as_pdf', xlsx: 'table_chart', docx: 'article', mp4: 'movie', pptx: 'slideshow' };
 
@@ -528,7 +533,7 @@ import { resourceCategories } from '../../../data/resources';
         throw new Error(err.error || 'Upload failed');
       }
 
-      const data = await res.json();
+      const data = await res.json() as { r2_key: string };
       clearInterval(iv);
       bar.style.width = '100%';
       spinner.classList.add('hidden');
@@ -541,7 +546,7 @@ import { resourceCategories } from '../../../data/resources';
         uploadSuccess.classList.remove('hidden');
         document.getElementById('upload-success-name').textContent = file.name;
       }, 300);
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(iv);
       bar.style.width = '0%';
       spinner.classList.add('hidden');
@@ -611,16 +616,16 @@ import { resourceCategories } from '../../../data/resources';
     // Update button text
     modalSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu tài nguyên';
     if (modalIcon) modalIcon.textContent = 'add_circle';
-    document.getElementById('f-id').value = '';
-    document.getElementById('f-title').value = '';
-    document.getElementById('f-description').value = '';
-    document.getElementById('f-category').value = 'bieu_mau';
-    document.getElementById('f-tier').value = 'free';
-    document.getElementById('f-file_ext').value = 'pdf';
-    document.getElementById('f-tag').value = '';
-    document.getElementById('f-icon').value = 'description';
-    document.getElementById('f-file_url').value = '';
-    document.getElementById('f-sort_order').value = '0';
+    setVal('f-id', '');
+    setVal('f-title', '');
+    setVal('f-description', '');
+    setVal('f-category', 'bieu_mau');
+    setVal('f-tier', 'free');
+    setVal('f-file_ext', 'pdf');
+    setVal('f-tag', '');
+    setVal('f-icon', 'description');
+    setVal('f-file_url', '');
+    setVal('f-sort_order', '0');
     if (iconPreview) iconPreview.textContent = 'description';
     hideUploadUI();
   }
@@ -668,17 +673,17 @@ import { resourceCategories } from '../../../data/resources';
     modalTitle.textContent = 'Chỉnh sửa tài nguyên';
     if (modalIcon) modalIcon.textContent = 'edit';
     modalSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">update</span> Cập nhật';
-    document.getElementById('f-id').value = r.id;
-    document.getElementById('f-title').value = r.title;
-    document.getElementById('f-description').value = r.description;
-    document.getElementById('f-category').value = r.category;
-    document.getElementById('f-tier').value = r.tier;
-    document.getElementById('f-file_ext').value = r.file_ext;
-    document.getElementById('f-tag').value = r.tag;
-    document.getElementById('f-icon').value = r.icon;
-    document.getElementById('f-file_url').value = r.file_url;
+    setVal('f-id', r.id);
+    setVal('f-title', r.title);
+    setVal('f-description', r.description);
+    setVal('f-category', r.category);
+    setVal('f-tier', r.tier);
+    setVal('f-file_ext', r.file_ext);
+    setVal('f-tag', r.tag);
+    setVal('f-icon', r.icon);
+    setVal('f-file_url', r.file_url);
     if (urlTextInput) urlTextInput.value = r.file_url;
-    document.getElementById('f-sort_order').value = r.sort_order;
+    setVal('f-sort_order', String(r.sort_order));
     // If existing resource has an R2 file_url (not external URL), show success state
     if (r.file_url && !r.file_url.startsWith('http')) {
       uploadedFileUrl = r.file_url;
@@ -709,15 +714,15 @@ import { resourceCategories } from '../../../data/resources';
     e.preventDefault();
 
     const payload = {
-      title: document.getElementById('f-title').value.trim(),
-      description: document.getElementById('f-description').value.trim(),
-      category: document.getElementById('f-category').value,
-      tier: document.getElementById('f-tier').value,
-      file_ext: document.getElementById('f-file_ext').value,
-      tag: document.getElementById('f-tag').value.trim(),
-      icon: document.getElementById('f-icon').value.trim() || 'description',
-      file_url: document.getElementById('f-file_url').value.trim() || (urlTextInput?.value.trim() || ''),
-      sort_order: parseInt(document.getElementById('f-sort_order').value, 10) || 0,
+      title: val('f-title').trim(),
+      description: val('f-description').trim(),
+      category: val('f-category'),
+      tier: val('f-tier'),
+      file_ext: val('f-file_ext'),
+      tag: val('f-tag').trim(),
+      icon: val('f-icon').trim() || 'description',
+      file_url: val('f-file_url').trim() || (urlTextInput?.value.trim() || ''),
+      sort_order: parseInt(val('f-sort_order'), 10) || 0,
     };
 
     if (!payload.title) return;
