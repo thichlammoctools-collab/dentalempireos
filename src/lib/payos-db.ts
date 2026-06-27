@@ -231,6 +231,18 @@ export async function grantAccess(
 ): Promise<Access> {
   const ts = now();
   const id = uid();
+
+  // Deactivate any existing active access for this user+product first.
+  // This prevents race conditions (e.g., PayOS webhook fires twice for the same payment).
+  // The unique partial index idx_access_user_product_active also guards against duplicates.
+  await db
+    .prepare(
+      `UPDATE "access" SET "is_active" = 0
+       WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1`,
+    )
+    .bind(input.user_id, input.product_id)
+    .run();
+
   await db
     .prepare(
       `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active")
@@ -238,6 +250,7 @@ export async function grantAccess(
     )
     .bind(id, input.user_id, input.product_id, input.order_id, ts, input.expires_at)
     .run();
+
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
 }
 
