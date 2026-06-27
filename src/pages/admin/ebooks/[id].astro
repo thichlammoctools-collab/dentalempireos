@@ -1824,13 +1824,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       return 'into';
     }
 
-    function isSectionLevel2(item: HTMLElement): boolean {
-      // level 2 = main section (depth 0), level 3 = sub-section (depth 1)
-      // Determine from data attributes: level is stored in the SectionNode data,
-      // but we can infer from depth (depth 0 = level 2, depth 1 = level 3)
-      return getItemDepth(item) === 0;
-    }
-
     // ── Placeholder management ─────────────────────────────
     function createPlaceholder(zone: 'above' | 'into' | 'below'): HTMLElement {
       const li = document.createElement('li');
@@ -2002,7 +1995,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       // Prevent circular: can't drop into self or descendant
       if (isDomDescendant(item, sectionDragSrc)) return;
 
-      const tgtDepth = getItemDepth(item);
       const zone = getDropZone(e as DragEvent, item);
 
       // Skip if same target+zone as last dragover (avoid DOM thrashing)
