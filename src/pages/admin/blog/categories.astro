@@ -316,6 +316,8 @@ function countRoots(nodes: BlogCategoryNode[]): number {
 </style>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // ── Form handling ─────────────────────────────────────────
   const nameInput = document.getElementById('cat-name') as HTMLInputElement;
   const slugInput = document.getElementById('cat-slug') as HTMLInputElement;

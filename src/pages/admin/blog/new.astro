@@ -276,6 +276,8 @@ const categoryOptions = flattenCategoryTree(categoryTree);
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // ── Slug auto-generate ─────────────────────────────────────
   const titleInput = document.getElementById('post-title') as HTMLInputElement;
   const slugInput = document.getElementById('post-slug') as HTMLInputElement;

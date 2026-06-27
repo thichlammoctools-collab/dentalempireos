@@ -144,6 +144,8 @@ const settings = await getSupportSettings(env.DB);
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   const form = document.getElementById('support-form') as HTMLFormElement;
   const enabledCheckbox = document.getElementById('field-enabled') as HTMLInputElement;
   const contentFields = document.getElementById('content-fields')!;

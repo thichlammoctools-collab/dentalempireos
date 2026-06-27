@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ url }) => {
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = await request.json() as { post_id?: string; blocks?: Array<{ id?: string; type?: string; content?: string; sort_order?: number }> };
 
     if (!body.post_id || !Array.isArray(body.blocks)) {
       return new Response(JSON.stringify({ error: 'Thiếu post_id hoặc blocks' }), {
@@ -41,7 +41,7 @@ export const POST: APIRoute = async ({ request }) => {
     const ALLOWED_BLOCK_TYPES = new Set(['text', 'image', 'form', 'rich']);
     const blocks = body.blocks.map((b: { id?: string; type: string; content?: string; sort_order?: number }, i: number) => ({
       id: b.id || crypto.randomUUID(),
-      type: ALLOWED_BLOCK_TYPES.has(b.type) ? b.type : 'text',
+      type: (ALLOWED_BLOCK_TYPES.has(b.type) ? b.type : 'text') as 'text' | 'image' | 'form' | 'rich',
       content: b.content ?? '',
       sort_order: b.sort_order ?? i,
     }));

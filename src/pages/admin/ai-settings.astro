@@ -167,7 +167,7 @@ const settings = await getAiSettings(env.DB);
           max_tokens: maxTokens,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; settings?: { api_key_set?: boolean; api_key?: string } };
 
       if (!res.ok) throw new Error(data.error || 'Save failed');
 

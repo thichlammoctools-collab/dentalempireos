@@ -141,6 +141,8 @@ const tiers = [1, 2, 3];
 
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // ── Filter chips ───────────────────────────────────────
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-chip'));
   const cards = Array.from(document.querySelectorAll<HTMLElement>('.ebook-card'));

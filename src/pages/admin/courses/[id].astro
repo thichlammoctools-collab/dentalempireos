@@ -188,6 +188,8 @@ const newVideoId = nanoid();
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // Course form save
   document.getElementById('course-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();

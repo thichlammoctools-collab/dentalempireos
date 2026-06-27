@@ -13,10 +13,21 @@ export function createAuth(env: Cloudflare.Env) {
     };
   }
 
+  // Compute trusted origins from baseURL so dev + prod both work.
+  // baseURL is required for OAuth flow (callback must match registered URI).
+  const baseURL = env.BETTER_AUTH_URL;
+  const trustedOrigins = [baseURL];
+  try {
+    const u = new URL(baseURL);
+    trustedOrigins.push(`${u.protocol}//${u.host}`);
+  } catch {
+    // baseURL invalid — keep just the raw value
+  }
+
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    baseURL,
+    trustedOrigins,
     database: {
       dialect: new D1Dialect({ database: env.DB }),
       type: 'sqlite',

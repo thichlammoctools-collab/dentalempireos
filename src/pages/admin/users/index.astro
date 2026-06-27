@@ -86,6 +86,8 @@ const inactiveCount = total - activeCount;
   )}
 
   <script>
+    declare function showToast(msg: string, type?: string): void;
+
     document.querySelectorAll('.toggle-active-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const userId = (btn as HTMLElement).dataset.userId;
@@ -101,7 +103,7 @@ const inactiveCount = total - activeCount;
           if (res.ok) {
             window.location.reload();
           } else {
-            const data = await res.json();
+            const data = await res.json() as { error?: string };
             showToast(data.error || 'Lỗi khi cập nhật', 'error');
           }
         } catch {

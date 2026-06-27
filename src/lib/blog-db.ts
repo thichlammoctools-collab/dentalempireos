@@ -408,7 +408,7 @@ export async function getRelatedPosts(
   categoryId: string | null,
   limit = 4,
 ): Promise<BlogPostWithMeta[]> {
-  let rows: BlogPost[];
+  let rows: BlogPost[] = [];
 
   if (categoryId) {
     ({ results: rows } = await db

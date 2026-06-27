@@ -176,6 +176,8 @@ const newId = nanoid();
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // Modal open/close
   function openModal() {
     document.getElementById('new-course-modal')?.classList.remove('hidden');
@@ -208,7 +210,7 @@ const newId = nanoid();
       closeModal();
       window.location.href = `/admin/courses/${body.id}`;
     } else {
-      const err = await res.json();
+      const err = await res.json() as { error?: string };
       showToast('Lỗi: ' + (err.error ?? 'Không rõ'), 'error');
     }
   });

@@ -6,7 +6,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = await request.json() as { post_id?: string; ordered_ids?: string[] };
 
     if (!body.post_id || !Array.isArray(body.ordered_ids)) {
       return new Response(JSON.stringify({ error: 'Thiếu post_id hoặc ordered_ids' }), {
