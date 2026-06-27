@@ -22,7 +22,14 @@ export const GET: APIRoute = async () => {
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      id: string;
+      title: string;
+      description?: string | null;
+      thumbnail_url?: string | null;
+      sort_order?: number;
+      is_published?: number;
+    };
 
     if (!body.id || !body.title) {
       return new Response(JSON.stringify({ error: 'Thiếu trường bắt buộc: id, title' }), {

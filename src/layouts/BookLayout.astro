@@ -492,10 +492,10 @@ const breadcrumbSchema = {
       const tocSidebar = doc.getElementById('toc-sidebar');
       const sectionNav = doc.getElementById('section-nav-desktop');
       const searchOverlay = doc.getElementById('search-overlay');
-      const searchInput = doc.getElementById('search-input');
+      const searchInput = doc.getElementById('search-input') as HTMLInputElement | null;
 
       // ---- Theme cycling ----
-      function applyTheme(idx) {
+      function applyTheme(idx: number) {
         body.classList.remove('light-mode', 'sepia-mode');
         if (idx === 1) body.classList.add('light-mode');
         if (idx === 2) body.classList.add('sepia-mode');
@@ -528,10 +528,10 @@ const breadcrumbSchema = {
       const chapterTitleText = readerContent?.getAttribute('data-chapter-title');
 
       // -- Helpers --
-      function getBookmarks() { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
-      function setBookmarks(arr) { localStorage.setItem(BM_KEY, JSON.stringify(arr)); }
-      function getReadProgress() { try { return JSON.parse(localStorage.getItem(RP_KEY) || '{}'); } catch { return {}; } }
-      function setReadProgress(obj) { localStorage.setItem(RP_KEY, JSON.stringify(obj)); }
+      function getBookmarks(): any[] { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
+      function setBookmarks(arr: any[]): void { localStorage.setItem(BM_KEY, JSON.stringify(arr)); }
+      function getReadProgress(): Record<string, any> { try { return JSON.parse(localStorage.getItem(RP_KEY) || '{}'); } catch { return {}; } }
+      function setReadProgress(obj: Record<string, any>): void { localStorage.setItem(RP_KEY, JSON.stringify(obj)); }
       function getScrollPct() {
         if (!readerScroll) return 0;
         const max = readerScroll.scrollHeight - readerScroll.clientHeight;
@@ -541,7 +541,7 @@ const breadcrumbSchema = {
       // -- Manual bookmark (save position) --
       function isBookmarked() { return getBookmarks().some(b => b.id === chapterId); }
 
-      function updateBookmarkUi(active) {
+      function updateBookmarkUi(active: boolean) {
         const icon = active ? 'bookmark' : 'bookmark_border';
         if (bookmarkIcon) {
           bookmarkIcon.textContent = icon;
@@ -659,7 +659,7 @@ function toggleToc() {
       let activeSearchIndex = 0;
       const originalReaderHtml = readerContent?.innerHTML;
 
-      function escapeRegExp(string) {
+      function escapeRegExp(string: string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }
 
@@ -672,7 +672,7 @@ function toggleToc() {
         if (searchHelperText) searchHelperText.textContent = 'Nhập từ khóa để tìm kiếm trong nội dung';
       }
 
-      function highlightText(node, regex) {
+      function highlightText(node: Node, regex: RegExp) {
         const text = node.textContent || '';
         if (!regex.test(text)) return;
         const span = document.createDocumentFragment();
@@ -693,7 +693,7 @@ function toggleToc() {
         node.parentNode?.replaceChild(span, node);
       }
 
-      function walkTextNodes(root, regex) {
+      function walkTextNodes(root: Node, regex: RegExp) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
           acceptNode(node) {
             if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
@@ -708,7 +708,7 @@ function toggleToc() {
         textNodes.forEach((node) => highlightText(node, regex));
       }
 
-      function selectSearchMatch(index) {
+      function selectSearchMatch(index: number) {
         if (!searchMatches.length) return;
         searchMatches.forEach((el, i) => el.classList.toggle('search-highlight-active', i === index));
         const target = searchMatches[index] as HTMLElement;
@@ -723,7 +723,7 @@ function toggleToc() {
         }
       }
 
-      function updateSearch(query) {
+      function updateSearch(query: string) {
         clearSearchHighlights();
         const trimmed = query.trim();
         if (!trimmed || !readerContent) return;
@@ -1356,7 +1356,7 @@ function toggleToc() {
           }
 
           // Build blob and trigger download
-          const blob = new Blob(chunks);
+          const blob = new Blob(chunks as BlobPart[]);
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = blobUrl;

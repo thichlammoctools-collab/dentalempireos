@@ -14,7 +14,12 @@ export const PUT: APIRoute = async ({ params, request }) => {
       });
     }
 
-    const body = await request.json();
+    const body = await request.json() as {
+      post_id?: string;
+      type?: string;
+      content?: string;
+      sort_order?: number;
+    };
     if (!body.post_id || !body.type || !['text', 'image', 'form'].includes(body.type)) {
       return new Response(JSON.stringify({ error: 'Thiếu hoặc sai post_id / type' }), {
         status: 400,

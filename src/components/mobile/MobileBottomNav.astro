@@ -1,5 +1,9 @@
 ---
-import type { TierGroup } from '../book/SidebarNav.astro';
+interface TierGroup {
+  tier: number;
+  label: string;
+  chapters: Array<{ id: string; data: { title: string; tier: number; chapter: number } }>;
+}
 
 interface Props {
   currentPath: string;
@@ -222,7 +226,7 @@ const activeNav = getNavState();
           </div>
         </button>
         <div class="tier-chapters hidden space-y-1 mt-1 pl-2">
-          {group.chapters.map((ch) => {
+          {group.chapters.map((ch: TierGroup['chapters'][number]) => {
             const isActive = ch.id === currentSlug;
             return (
               <a
@@ -305,7 +309,8 @@ const activeNav = getNavState();
     async function loadUserState() {
       try {
         var res = await fetch('/api/auth/get-session', { credentials: 'include' });
-        var session = await res.json().catch(function() { return null; });
+        var session: any = null;
+        try { session = await res.json(); } catch {}
         if (session && session.user) {
           if (authLoggedIn) authLoggedIn.classList.remove('hidden');
           if (authLoggedOut) authLoggedOut.classList.add('hidden');
@@ -323,10 +328,10 @@ const activeNav = getNavState();
 
     function loadBookmarks() {
       if (!bookmarksSection || !bookmarksList) return;
-      var items = [];
+      var items: any[] = [];
       try {
         var bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
-        bookmarks.forEach(function(b) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
+        bookmarks.forEach(function(b: any) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
       } catch(e) {}
       try {
         var rp = JSON.parse(localStorage.getItem('deos_read_progress') || '{}');
@@ -386,21 +391,23 @@ const activeNav = getNavState();
     menuDrawer && menuDrawer.addEventListener('touchstart', function(e) {
       menuStartX = e.touches[0].clientX;
     }, { passive: true });
-    menuDrawer && menuDrawer.addEventListener('touchmove', function(e) {
-      if (!isMenuOpen) return;
-      var diff = e.touches[0].clientX - menuStartX;
-      if (diff > 0) {
-        menuDrawer.style.transform = 'translateX(' + diff + 'px)';
-      }
-    }, { passive: true });
-    menuDrawer && menuDrawer.addEventListener('touchend', function(e) {
-      var diff = e.changedTouches[0].clientX - menuStartX;
-      if (diff > 80) {
-        closeMenu();
-      } else if (isMenuOpen) {
-        menuDrawer.style.transform = 'translateX(0)';
-      }
-    });
+    if (menuDrawer) {
+      menuDrawer.addEventListener('touchmove', function(e) {
+        if (!isMenuOpen) return;
+        var diff = e.touches[0].clientX - menuStartX;
+        if (diff > 0) {
+          menuDrawer!.style.transform = 'translateX(' + diff + 'px)';
+        }
+      }, { passive: true });
+      menuDrawer.addEventListener('touchend', function(e) {
+        var diff = e.changedTouches[0].clientX - menuStartX;
+        if (diff > 80) {
+          closeMenu();
+        } else if (isMenuOpen) {
+          menuDrawer!.style.transform = 'translateX(0)';
+        }
+      });
+    }
 
     // ====== CHAPTER DRAWER ======
     var chapterDrawer = document.getElementById('mobile-chapter-drawer');
@@ -421,12 +428,13 @@ const activeNav = getNavState();
         chapterOverlay.classList.add('opacity-100', 'pointer-events-auto');
       }
       document.body.classList.add('drawer-open');
-      var currentLink = chapterDrawer && chapterDrawer.querySelector('a[href*="' + location.pathname + '"]');
+      var currentLink: HTMLElement | null = chapterDrawer ? chapterDrawer.querySelector<HTMLElement>('a[href*="' + location.pathname + '"]') : null;
       if (currentLink) {
         var tierGroup = currentLink.closest('.tier-group');
         if (tierGroup) {
           tierGroup.setAttribute('data-expanded', 'true');
-          setTimeout(function() { currentLink.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+          var linkRef: HTMLElement = currentLink;
+          setTimeout(function() { linkRef.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
         }
       }
     }
@@ -487,8 +495,8 @@ const activeNav = getNavState();
     });
 
     // Expose for inline onclick
-    window.__menuOpen = openMenu;
-    window.__menuClose = closeMenu;
+    (window as any).__menuOpen = openMenu;
+    (window as any).__menuClose = closeMenu;
 
     // Double-tap nav buttons to scroll to top
     var lastTap = 0;

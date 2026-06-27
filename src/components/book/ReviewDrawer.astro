@@ -1,5 +1,4 @@
 ---
-import StarRating from './StarRating.astro';
 import ReviewForm from './ReviewForm.astro';
 
 interface Props {
@@ -199,6 +198,12 @@ const { chapterId, chapterTitle = '', isLoggedIn, currentUserId = null } = Astro
 
 <script>
   (function () {
+    interface ReviewData {
+      id: string; user_id: string; user_name?: string; author_name?: string;
+      user_image?: string; rating: number; title?: string; content: string;
+      createdAt: string;
+    }
+
     /* ── Elements ── */
     const overlay = document.getElementById('review-overlay');
     const desktop = document.getElementById('review-drawer-desktop');
@@ -214,7 +219,7 @@ const { chapterId, chapterTitle = '', isLoggedIn, currentUserId = null } = Astro
     let dataFetched = false;
     let currentChapterId = '';
     let isLoggedIn = false;
-    let currentUserId = null;
+    let currentUserId: string | null = null;
 
     function getChapterData() {
       const container = mobile || desktop;
@@ -312,9 +317,9 @@ const { chapterId, chapterTitle = '', isLoggedIn, currentUserId = null } = Astro
       } catch (error) { console.error('Error fetching reviews:', error); showError(); }
     }
 
-    function renderStars(rating) { return '★'.repeat(rating) + '☆'.repeat(5 - rating); }
+    function renderStars(rating: number) { return '★'.repeat(rating) + '☆'.repeat(5 - rating); }
 
-    function relativeDate(iso) {
+    function relativeDate(iso: string) {
       const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
       if (diff < 60) return 'Vừa xong';
       if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
@@ -325,12 +330,12 @@ const { chapterId, chapterTitle = '', isLoggedIn, currentUserId = null } = Astro
       return `${Math.floor(diff / 31536000)} năm trước`;
     }
 
-    function renderReviews({ reviews = [], stats = { avgRating: 0, totalReviews: 0 } }) {
+    function renderReviews({ reviews = [], stats = { avgRating: 0, totalReviews: 0 } }: { reviews: ReviewData[]; stats: { avgRating: number; totalReviews: number } }) {
       const hasReviews = stats.totalReviews > 0;
       const badgeDesktop = document.getElementById('review-badge-desktop');
       const badgeMobile = document.getElementById('review-badge-mobile');
-      if (badgeDesktop) { badgeDesktop.textContent = stats.totalReviews; badgeDesktop.classList.toggle('hidden', !hasReviews); }
-      if (badgeMobile) { badgeMobile.textContent = stats.totalReviews; badgeMobile.classList.toggle('hidden', !hasReviews); }
+      if (badgeDesktop) { badgeDesktop.textContent = String(stats.totalReviews); badgeDesktop.classList.toggle('hidden', !hasReviews); }
+      if (badgeMobile) { badgeMobile.textContent = String(stats.totalReviews); badgeMobile.classList.toggle('hidden', !hasReviews); }
 
       const statsHtml = hasReviews ? `
         <div class="flex items-center gap-4 p-4 rounded-2xl r-surface border" style="border-color: var(--reader-border);">
@@ -408,11 +413,11 @@ const { chapterId, chapterTitle = '', isLoggedIn, currentUserId = null } = Astro
     function bindDeleteButtons() {
       document.querySelectorAll('.review-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const id = btn.dataset.reviewId;
+          const id = (btn as HTMLElement).dataset.reviewId;
           if (!id || !confirm('Bạn muốn xóa review này?')) return;
           try {
             const res = await fetch(`/api/public/reviews/${id}`, { method: 'DELETE', credentials: 'include' });
-            if (res.ok) { btn.closest('.review-card')?.remove(); dataFetched = false; fetchReviews(); }
+            if (res.ok) { (btn as HTMLElement).closest('.review-card')?.remove(); dataFetched = false; fetchReviews(); }
           } catch (e) { console.error('Delete failed:', e); }
         });
       });

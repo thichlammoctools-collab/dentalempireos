@@ -26,7 +26,8 @@ export const GET: APIRoute = async ({ request }) => {
 
 // POST /api/public/reviews — submit a review
 export const POST: APIRoute = async ({ request, locals }) => {
-  const body = await request.json().catch(() => null);
+  let body: Record<string, any> | null = null;
+  try { body = await request.json(); } catch {}
   if (!body) return badRequest('Invalid JSON');
 
   const { chapter_id, rating, title, content, author_name } = body;

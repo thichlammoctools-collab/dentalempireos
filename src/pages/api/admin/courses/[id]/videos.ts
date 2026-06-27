@@ -37,7 +37,15 @@ export const POST: APIRoute = async ({ params, request }) => {
       });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      id?: string;
+      youtube_id: string;
+      title: string;
+      description?: string | null;
+      sort_order?: number;
+      duration_seconds?: number | null;
+      is_published?: number;
+    };
 
     if (!body.youtube_id || !body.title) {
       return new Response(JSON.stringify({ error: 'Thiếu trường bắt buộc: youtube_id, title' }), {

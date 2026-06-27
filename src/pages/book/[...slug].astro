@@ -247,8 +247,6 @@ const fileAttachments = attachments.filter((item) => item.type === 'file');
 // Compute sectionNavItems (cheap, always fresh)
 const sectionNavItems = flattenSections(sections);
 
-const dbFetchStart = Date.now();
-
 // Reviews — parallel fetch (wrapped in try-catch: table may not exist yet)
 const reviewLimit = 10;
 let reviews: Awaited<ReturnType<typeof listReviewsByChapter>> = [];

@@ -56,9 +56,11 @@ const {
   currentSlug = '',
   reviewStats = { avgRating: 0, totalReviews: 0 },
   attachments = [],
-  chapterId = '',
-  chapterTitle = '',
+  chapterId: _chapterId = '',
+  chapterTitle: _chapterTitle = '',
 } = Astro.props;
+// suppress unused warnings (used in template)
+void _chapterId; void _chapterTitle;
 const h2Count = sections.filter((s) => s.level === 2).length;
 const attachmentCount = attachments.length;
 
@@ -356,7 +358,7 @@ const currentChapterTitle = groupedChapters
           const header = g.querySelector<HTMLElement>('[data-mobile-toc-toggle]');
           if (header) {
             header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
-            const chevron = header.querySelector('.material-symbols-outlined:last-child');
+            const chevron = header.querySelector<HTMLElement>('.material-symbols-outlined:last-child');
             if (chevron) chevron.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
           }
         });
@@ -388,7 +390,7 @@ const currentChapterTitle = groupedChapters
 
       function getActiveId(): string | null {
         const activeLink = document.querySelector('[data-mobile-section-link].section-nav-active-mobile');
-        if (activeLink) return (activeLink as HTMLElement).dataset.mobileSectionLink;
+        if (activeLink) return (activeLink as HTMLElement).dataset.mobileSectionLink ?? null;
         const headings = document.querySelectorAll('.reader-content h2[id], .reader-content h3[id]');
         let bestId: string | null = null;
         let bestDist = Infinity;
@@ -422,7 +424,7 @@ const currentChapterTitle = groupedChapters
       }
 
       function syncMobileProgress() {
-        if (!mobileProgressBar) return;
+        if (!mobileProgressBar || !readerScroll) return;
         const { scrollTop, scrollHeight, clientHeight } = readerScroll;
         const maxScroll = scrollHeight - clientHeight;
         const pct = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
@@ -514,6 +516,8 @@ const currentChapterTitle = groupedChapters
       let lastTime = 0;
       let dragging = false;
       let rafId: number | null = null;
+      let hoveredGroupTier: number | null = null;
+      let expandTimer: ReturnType<typeof setTimeout> | null = null;
 
       handle?.addEventListener('touchstart', (e: TouchEvent) => {
         if ((e.target as HTMLElement).closest('[data-mobile-section-link]')) return;
@@ -524,7 +528,7 @@ const currentChapterTitle = groupedChapters
         deltaY = 0;
         dragging = true;
         sheet.style.transition = 'none';
-        overlay.style.transition = 'none';
+        overlay!.style.transition = 'none';
         hoveredGroupTier = null;
       }, { passive: true });
 
@@ -558,7 +562,7 @@ const currentChapterTitle = groupedChapters
           // Opacity of overlay fades based on drag distance
           const maxDelta = sheet.offsetHeight * 0.4;
           const opacity = Math.max(0, 1 - deltaY / maxDelta) * 0.5;
-          overlay.style.opacity = String(opacity);
+          overlay!.style.opacity = String(opacity);
         });
       }, { passive: true });
 
@@ -568,13 +572,13 @@ const currentChapterTitle = groupedChapters
         if (expandTimer) clearTimeout(expandTimer);
         dragging = false;
         sheet.style.transition = '';
-        overlay.style.transition = '';
-        overlay.style.opacity = '';
+        overlay!.style.transition = '';
+        overlay!.style.opacity = '';
 
         const shouldClose = deltaY > 80 || (deltaY > 40 && velocity > 0.5);
         if (shouldClose) {
           sheet.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1), opacity 0.2s ease';
-          overlay.style.transition = 'opacity 0.25s ease';
+          overlay!.style.transition = 'opacity 0.25s ease';
           closeSheet();
         } else if (deltaY > 5) {
           sheet.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';

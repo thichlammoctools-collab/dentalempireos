@@ -24,7 +24,13 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const existing = await getProduct(env.DB, id);
   if (!existing) return notFound();
 
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as {
+    price?: number;
+    is_active?: boolean;
+    name?: string;
+    description?: string;
+    app_id?: string | null;
+  } | null;
   if (!body) return badRequest('Invalid JSON');
 
   const updates: Partial<{ price: number; is_active: number; name: string; description: string; app_id: string | null }> = {};
@@ -59,10 +65,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const existing = await getProduct(env.DB, id);
   if (!existing) return notFound();
 
-  const body = await request.json().catch(() => null);
-  if (!body) return badRequest('Invalid JSON body');
-
-  const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body as {
+  const body = (await request.json().catch(() => null)) as {
     name?: string;
     type?: string;
     price?: number;
@@ -71,7 +74,10 @@ export const PUT: APIRoute = async ({ params, request }) => {
     reference_id?: string | null;
     app_id?: string | null;
     is_active?: number;
-  };
+  } | null;
+  if (!body) return badRequest('Invalid JSON body');
+
+  const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body;
 
   await upsertProduct(env.DB, {
     id,

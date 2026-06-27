@@ -6,7 +6,21 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = await request.json() as {
+      id?: string;
+      title?: string;
+      slug?: string;
+      description?: string | null;
+      content_md?: string | null;
+      cover_url?: string | null;
+      cover_alt?: string | null;
+      category_id?: string | null;
+      author_name?: string;
+      status?: string;
+      is_featured?: number | boolean;
+      is_pinned?: number | boolean;
+      is_recommended?: number | boolean;
+    };
 
     if (!body.id || !body.title || !body.slug) {
       return new Response(JSON.stringify({ error: 'Thiếu trường bắt buộc: id, title, slug' }), {

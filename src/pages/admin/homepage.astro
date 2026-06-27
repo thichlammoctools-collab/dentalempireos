@@ -560,6 +560,8 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   const form = document.getElementById('homepage-form') as HTMLFormElement;
   const saveStatus = document.getElementById('save-status')!;
 
@@ -862,7 +864,8 @@ const settings = await getHomepageSettings(env.DB) ?? getDefaults();
             method: 'POST',
             credentials: 'include',
           });
-          const purgeData = await purgeRes.json().catch(() => ({}));
+          let purgeData: Record<string, any> = {};
+          try { purgeData = await purgeRes.json(); } catch {}
           if (purgeRes.ok && purgeData.ok) {
             saveStatus.textContent = '✓ Đã lưu & xóa cache';
           } else {

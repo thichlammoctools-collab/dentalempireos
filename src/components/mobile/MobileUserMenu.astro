@@ -168,7 +168,8 @@
   async function loadUserState() {
     try {
       var res = await fetch('/api/auth/get-session', { credentials: 'include' });
-      var session = await res.json().catch(function() { return null; });
+      var session: any = null;
+      try { session = await res.json(); } catch {}
       if (session && session.user) {
         if (loggedInSection) loggedInSection.classList.remove('hidden');
         if (loggedOutSection) loggedOutSection.classList.add('hidden');
@@ -188,10 +189,10 @@
     var section = document.getElementById('bookmarks-section');
     var list = document.getElementById('bookmarks-list');
     if (!section || !list) return;
-    var items = [];
+    var items: any[] = [];
     try {
       var bookmarks = JSON.parse(localStorage.getItem('deos_bookmarks') || '[]');
-      bookmarks.forEach(function(b) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
+      bookmarks.forEach(function(b: any) { items.push({id:b.id, title:b.title, url:b.url, scrollPct:b.scrollPct, type:'bookmark', savedAt:b.savedAt}); });
     } catch(e) {}
     try {
       var rp = JSON.parse(localStorage.getItem('deos_read_progress') || '{}');
@@ -229,22 +230,24 @@
     startX = e.touches[0].clientX;
   }, { passive: true });
 
-  drawer && drawer.addEventListener('touchmove', function(e) {
-    if (!isOpen) return;
-    var diff = e.touches[0].clientX - startX;
-    if (diff > 0) {
-      drawer.style.transform = 'translateX(' + diff + 'px)';
-    }
-  }, { passive: true });
+  if (drawer) {
+    drawer.addEventListener('touchmove', function(e) {
+      if (!isOpen) return;
+      var diff = e.touches[0].clientX - startX;
+      if (diff > 0) {
+        drawer!.style.transform = 'translateX(' + diff + 'px)';
+      }
+    }, { passive: true });
 
-  drawer && drawer.addEventListener('touchend', function(e) {
-    var diff = e.changedTouches[0].clientX - startX;
-    if (diff > 80) {
-      close();
-    } else {
-      if (drawer) drawer.style.transform = '';
-    }
-  });
+    drawer.addEventListener('touchend', function(e) {
+      var diff = e.changedTouches[0].clientX - startX;
+      if (diff > 80) {
+        close();
+      } else {
+        drawer!.style.transform = '';
+      }
+    });
+  }
 
   var themeBtn = document.getElementById('theme-toggle');
   var themeKnob = document.getElementById('theme-knob');
@@ -272,7 +275,7 @@
     if (e.key === 'Escape' && isOpen) close();
   });
 
-  (window).openUserMenu = open;
-  (window).closeUserMenu = close;
+  (window as any).openUserMenu = open;
+  (window as any).closeUserMenu = close;
   document.addEventListener('open-user-menu', open);
 </script>

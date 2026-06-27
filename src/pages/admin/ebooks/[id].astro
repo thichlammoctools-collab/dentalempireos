@@ -3,6 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import SectionItem from '../../../components/admin/SectionItem.astro';
 import { env } from 'cloudflare:workers';
 import { getChapterTree } from '../../../lib/book-db';
+import type { SectionNode } from '../../../lib/book-db';
 
 export const prerender = false;
 
@@ -19,7 +20,7 @@ if (!tree) {
 const ch = tree.chapter;
 // Build flat section list (id, level, title) for the dropdown when creating blocks
 const flatSections: { id: string; label: string; level: number }[] = [];
-function walk(sections: typeof tree.sections, prefix = '') {
+function walk(sections: SectionNode[], prefix = '') {
   for (const s of sections) {
     flatSections.push({ id: s.id, label: prefix + s.title, level: s.level });
     if (s.children.length > 0) walk(s.children, prefix + '— ');
@@ -32,7 +33,7 @@ const treeData: { id: string; title: string; children: any[] }[] = tree.sections
 
 // Build flat section list WITH outline numbers — used for the block-move menu
 const flatSectionsNumbered: { id: string; label: string; level: number }[] = [];
-function walkNumbered(sections: typeof tree.sections, prefix = '') {
+function walkNumbered(sections: SectionNode[], prefix = '') {
   sections.forEach((s, idx) => {
     const num = prefix ? `${prefix}.${idx + 1}` : String(idx + 1);
     flatSectionsNumbered.push({ id: s.id, label: `${num}. ${s.title}`, level: s.level });
@@ -43,7 +44,7 @@ walkNumbered(tree.sections);
 
 // Compute outline numbers (1, 1.1, 1.2, 2.3.1…) for each section
 const sectionNumbers: Record<string, string> = {};
-function buildNumbers(sections: typeof tree.sections, parentNum = '') {
+function buildNumbers(sections: SectionNode[], parentNum = '') {
   sections.forEach((s, idx) => {
     const num = parentNum ? `${parentNum}.${idx + 1}` : String(idx + 1);
     sectionNumbers[s.id] = num;
@@ -680,7 +681,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     const bulkAddBackdrop = document.getElementById('bulk-add-backdrop')!;
     const bulkAddTextarea = document.getElementById('bulk-add-textarea') as HTMLTextAreaElement;
     const bulkAddCount = document.getElementById('bulk-add-count')!;
-    const bulkAddSubmit = document.getElementById('bulk-add-submit')!;
+    const bulkAddSubmit = document.getElementById('bulk-add-submit') as HTMLButtonElement;
     const bulkAddClose = document.getElementById('bulk-add-close')!;
     let bulkAdding = false;
 
@@ -1093,7 +1094,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       moveTreeData = buildMoveTree((window as any).__treeData ?? []);
       // Fallback: build from currentTree if window var not set
       if (moveTreeData.length === 0 && currentTree) {
-        moveTreeData = buildMoveTree(currentTree.sections);
+        moveTreeData = buildMoveTree((currentTree as ChapterTree).sections);
       }
     } catch { moveTreeData = []; }
 
@@ -1796,7 +1797,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       return el.closest('.section-drag-handle') !== null;
     }
 
-    function isDescendantOf(candidate: HTMLElement, ancestor: HTMLElement): boolean {
+    function isDomDescendant(candidate: HTMLElement, ancestor: HTMLElement): boolean {
       let el = candidate.parentElement;
       while (el) {
         if (el === ancestor) return true;
@@ -1832,13 +1833,13 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       return li;
     }
 
-    function ensureChildUl(item: HTMLElement): HTMLElement | null {
+    function ensureChildUl(item: HTMLElement): HTMLElement {
       // If the item already has a [data-section-list], return it
-      let ul = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
-      if (ul) return ul;
+      const existing = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
+      if (existing) return existing;
 
       // Create a temporary <ul> and insert it after the item's content div
-      ul = document.createElement('ul');
+      const ul = document.createElement('ul');
       ul.setAttribute('data-section-list', '');
       ul.className = SECTION_LIST_CLASSES;
 
@@ -1984,7 +1985,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (!item || item === sectionDragSrc) return;
 
       // Prevent circular: can't drop into self or descendant
-      if (isDescendantOf(item, sectionDragSrc)) return;
+      if (isDomDescendant(item, sectionDragSrc)) return;
 
       const tgtDepth = getItemDepth(item);
       const zone = getDropZone(e as DragEvent, item);
@@ -2011,10 +2012,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         item.parentElement?.insertBefore(dragPlaceholder, item.nextSibling);
       } else {
         // into — insert as first child of target's child list
-        let childUl = item.querySelector<HTMLElement>(':scope > ul[data-section-list]');
-        if (!childUl) {
+        let childUl: HTMLElement = item.querySelector<HTMLElement>(':scope > ul[data-section-list]') ?? ensureChildUl(item);
+        if (!item.querySelector<HTMLElement>(':scope > ul[data-section-list]')) {
           // Auto-expand if collapsed, or create temporary UL for leaf nodes
-          childUl = ensureChildUl(item);
           dragFakeUl = childUl; // track for cleanup
         }
         // If the child list is hidden (collapsed), expand it
@@ -2031,14 +2031,15 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       removePlaceholder();
 
       if (!sectionDragSrc) return;
+      const dragSrc: HTMLElement = sectionDragSrc;
 
       const target = e.target as HTMLElement;
       const item = target.closest<HTMLElement>('[data-section-item]');
-      if (!item || item === sectionDragSrc) return;
+      if (!item || item === dragSrc) return;
 
-      const srcId = sectionDragSrc.dataset.sectionId!;
+      const srcId = dragSrc.dataset.sectionId!;
       const tgtId = item.dataset.sectionId!;
-      if (isDescendantOf(item, sectionDragSrc)) return;
+      if (isDomDescendant(item, dragSrc)) return;
 
       const zone = getDropZone(e as DragEvent, item);
       const tgtDepth = getItemDepth(item);
@@ -2047,19 +2048,19 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       if (zone === 'into') {
         // ── INTO: Reparent as child of target ──
-        await doReparentAsChild(srcId, sectionDragSrc, item, tgtId);
+        await doReparentAsChild(srcId, dragSrc, item, tgtId);
       } else {
         // ── ABOVE / BELOW: Reorder or cross-parent move ──
-        const srcParentUl = sectionDragSrc.closest<HTMLElement>('ul[data-section-list]');
+        const srcParentUl = dragSrc.closest<HTMLElement>('ul[data-section-list]');
         const tgtParentUl = item.closest<HTMLElement>('ul[data-section-list]');
         if (!srcParentUl || !tgtParentUl) return;
 
         if (srcParentUl === tgtParentUl) {
           // Same parent — reorder in place
-          await doSameParentReorder(sectionDragSrc, srcParentUl, zone, e as DragEvent);
+          await doSameParentReorder(dragSrc, srcParentUl, zone, e as DragEvent);
         } else {
           // Cross-parent — move as sibling of target
-          await doCrossParentMove(srcId, sectionDragSrc, item, tgtParentUl, zone, e as DragEvent);
+          await doCrossParentMove(srcId, dragSrc, item, tgtParentUl, zone, e as DragEvent);
         }
       }
 
@@ -2197,10 +2198,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const newLevel = newDepth + 2;
 
       // Get target's child UL (should exist — either from DOM or created during dragover)
-      let childUl = tgtItem.querySelector<HTMLElement>(':scope > ul[data-section-list]');
-      if (!childUl) {
-        childUl = ensureChildUl(tgtItem);
-      }
+      let childUl: HTMLElement = tgtItem.querySelector<HTMLElement>(':scope > ul[data-section-list]') ?? ensureChildUl(tgtItem);
 
       // If target's child list was hidden (collapsed), expand it
       if (childUl.style.display === 'none') {

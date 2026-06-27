@@ -335,8 +335,9 @@ import { resourceCategories } from '../../../data/resources';
   interface Resource {
     id: string; title: string; description: string; category: string;
     tier: string; file_ext: string; tag: string; icon: string;
-    file_url: string; sort_order: number; is_active: number;
+    file_url: string; sort_order: number; is_active: number; updated_at?: string;
   }
+  declare function showToast(message: string, type?: string, duration?: number): void;
 
   // ── State ─────────────────────────────────────────────────
   let allResources: Resource[] = [];
@@ -352,9 +353,9 @@ import { resourceCategories } from '../../../data/resources';
   };
 
   // ── DOM refs ──────────────────────────────────────────────
-  const listEl = document.getElementById('resource-list');
-  const emptyEl = document.getElementById('resource-empty');
-  const statsEl = document.getElementById('resource-stats');
+  const listEl = el('resource-list')!;
+  const emptyEl = el('resource-empty')!;
+  const statsEl = el('resource-stats')!;
   const chips = Array.from(document.querySelectorAll('.filter-chip'));
 
   const modal = el('resource-modal')!;
@@ -425,7 +426,7 @@ import { resourceCategories } from '../../../data/resources';
               <div class="flex items-center gap-3 mt-3 pt-3 border-t border-outline-variant/60">
                 <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
                   <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  ${new Date(r.updated_at).toLocaleDateString('vi-VN')}
+                  ${r.updated_at ? new Date(r.updated_at).toLocaleDateString('vi-VN') : ''}
                 </span>
                 <div class="flex items-center gap-2 ml-auto">
                   <button type="button" data-edit="${r.id}" class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Chỉnh sửa">
@@ -447,17 +448,17 @@ import { resourceCategories } from '../../../data/resources';
 
     // Rebind card action buttons
     listEl.querySelectorAll('[data-edit]').forEach((btn) =>
-      btn.addEventListener('click', () => openEdit(btn.dataset.edit))
+      btn.addEventListener('click', () => { const id = (btn as HTMLElement).dataset.edit; if (id) openEdit(id); })
     );
     listEl.querySelectorAll('[data-delete]').forEach((btn) =>
-      btn.addEventListener('click', () => openDelete(btn.dataset.delete))
+      btn.addEventListener('click', () => { const id = (btn as HTMLElement).dataset.delete; if (id) openDelete(id); })
     );
   }
 
   // ── Filter chips ──────────────────────────────────────────
   function applyChipStyles() {
     chips.forEach((chip) => {
-      const isActive = chip.dataset.filter === activeFilter;
+      const isActive = (chip as HTMLElement).dataset.filter === activeFilter;
       chip.classList.toggle('bg-primary', isActive);
       chip.classList.toggle('text-on-primary', isActive);
       chip.classList.toggle('border-primary', isActive);
@@ -469,7 +470,7 @@ import { resourceCategories } from '../../../data/resources';
 
   chips.forEach((chip) =>
     chip.addEventListener('click', () => {
-      activeFilter = chip.dataset.filter ?? 'all';
+      activeFilter = (chip as HTMLElement).dataset.filter ?? 'all';
       applyChipStyles();
       render();
     })
@@ -477,17 +478,17 @@ import { resourceCategories } from '../../../data/resources';
 
   // ── File upload to R2 ────────────────────────────────────
   let uploadedFileUrl: string | null = null;
-  const fileInput = el('f-file-input') as HTMLInputElement | null;
-  const uploadZone = el('upload-zone');
-  const uploadProgress = el('upload-progress');
-  const uploadSuccess = el('upload-success');
-  const urlTextInput = el('f-file_url_text') as HTMLInputElement | null;
-  const fileUrlHidden = el('f-file_url') as HTMLInputElement | null;
+  const fFileInput = el('f-file-input') as HTMLInputElement;
+  const uploadZone = el('upload-zone')!;
+  const uploadProgress = el('upload-progress')!;
+  const uploadSuccess = el('upload-success')!;
+  const urlTextInput = el('f-file_url_text') as HTMLInputElement;
+  const fileUrlHidden = el('f-file_url') as HTMLInputElement;
 
   const fileIconMap = { pdf: 'picture_as_pdf', xlsx: 'table_chart', docx: 'article', mp4: 'movie', pptx: 'slideshow' };
 
-  fileInput?.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
+  fFileInput?.addEventListener('change', async () => {
+    const file = fFileInput.files?.[0];
     if (!file) return;
     await uploadFile(file);
   });
@@ -502,10 +503,10 @@ import { resourceCategories } from '../../../data/resources';
     if (file) await uploadFile(file);
   });
 
-  async function uploadFile(file) {
+  async function uploadFile(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    if (fileIconMap[ext]) {
-      document.getElementById('f-file_ext').value = ext;
+    if (fileIconMap[ext as keyof typeof fileIconMap]) {
+      setVal('f-file_ext', ext);
     }
 
     uploadZone.classList.add('hidden');
@@ -513,10 +514,10 @@ import { resourceCategories } from '../../../data/resources';
     uploadSuccess.classList.add('hidden');
     if (urlTextInput) urlTextInput.disabled = true;
 
-    document.getElementById('upload-file-name').textContent = file.name;
-    document.getElementById('upload-file-icon').textContent = fileIconMap[ext] || 'description';
-    const bar = document.getElementById('upload-bar');
-    const spinner = document.getElementById('upload-spinner');
+    el('upload-file-name')!.textContent = file.name;
+    el('upload-file-icon')!.textContent = fileIconMap[ext as keyof typeof fileIconMap] || 'description';
+    const bar = el('upload-bar')!;
+    const spinner = el('upload-spinner')!;
 
     // Fake progress
     let pct = 0;
@@ -529,8 +530,8 @@ import { resourceCategories } from '../../../data/resources';
 
       const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Upload failed');
+        const err = await res.json().catch(() => ({} as Record<string, string>));
+        throw new Error((err as Record<string, string>).error || 'Upload failed');
       }
 
       const data = await res.json() as { r2_key: string };
@@ -544,13 +545,13 @@ import { resourceCategories } from '../../../data/resources';
       setTimeout(() => {
         uploadProgress.classList.add('hidden');
         uploadSuccess.classList.remove('hidden');
-        document.getElementById('upload-success-name').textContent = file.name;
+        el('upload-success-name')!.textContent = file.name;
       }, 300);
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearInterval(iv);
       bar.style.width = '0%';
       spinner.classList.add('hidden');
-      showToast('Lỗi tải lên: ' + err.message, 'error');
+      showToast('Lỗi tải lên: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'), 'error');
       hideUploadUI();
     }
   }
@@ -562,11 +563,11 @@ import { resourceCategories } from '../../../data/resources';
     if (urlTextInput) urlTextInput.disabled = false;
     uploadedFileUrl = null;
     if (fileUrlHidden) fileUrlHidden.value = '';
-    if (fileInput) fileInput.value = '';
+    if (fFileInput) fFileInput.value = '';
   }
 
-  document.getElementById('upload-cancel-btn')?.addEventListener('click', () => { hideUploadUI(); });
-  document.getElementById('upload-remove-btn')?.addEventListener('click', () => { hideUploadUI(); });
+  el('upload-cancel-btn')?.addEventListener('click', () => { hideUploadUI(); });
+  el('upload-remove-btn')?.addEventListener('click', () => { hideUploadUI(); });
 
   // Sync URL text input to hidden field
   urlTextInput?.addEventListener('input', () => {
@@ -576,10 +577,10 @@ import { resourceCategories } from '../../../data/resources';
   });
 
   // ── Modal helpers ─────────────────────────────────────────
-  const fields = ['id', 'title', 'description', 'category', 'tier', 'file_ext', 'tag', 'icon', 'file_url', 'sort_order'];
-  const modalIcon = document.getElementById('modal-icon');
-  const iconPreview = document.getElementById('icon-preview');
-  const iconInput = document.getElementById('f-icon');
+  const _fields = ['id', 'title', 'description', 'category', 'tier', 'file_ext', 'tag', 'icon', 'file_url', 'sort_order'];
+  const modalIcon = el('modal-icon') as HTMLElement | null;
+  const iconPreview = el('icon-preview');
+  const iconInput = el('f-icon') as HTMLInputElement | null;
 
   // Live icon preview
   iconInput?.addEventListener('input', () => {
@@ -595,18 +596,18 @@ import { resourceCategories } from '../../../data/resources';
     cong_cu: 'construction',
     tham_khao: 'menu_book',
   };
-  let iconAutoFromCategory = true;
-  const categorySelect = document.getElementById('f-category');
+  let __iconAutoFromCategory = true;
+  const categorySelect = el('f-category') as HTMLSelectElement | null;
   categorySelect?.addEventListener('change', () => {
     const def = categoryDefaultIcons[categorySelect.value];
     if (def && iconInput) {
       iconInput.value = def;
       if (iconPreview) iconPreview.textContent = def;
-      iconAutoFromCategory = true;
+      _iconAutoFromCategory = true;
     }
   });
   iconInput?.addEventListener('input', () => {
-    iconAutoFromCategory = false;
+    _iconAutoFromCategory = false;
   });
 
   function resetForm() {
@@ -644,7 +645,7 @@ import { resourceCategories } from '../../../data/resources';
       });
     }
     // Focus first input
-    setTimeout(() => document.getElementById('f-title')?.focus(), 150);
+    setTimeout(() => (el('f-title') as HTMLInputElement)?.focus(), 150);
   }
 
   function closeModal() {
@@ -666,7 +667,7 @@ import { resourceCategories } from '../../../data/resources';
     }
   }
 
-  function openEdit(id) {
+  function openEdit(id: string) {
     const r = allResources.find((x) => x.id === id);
     if (!r) return;
     editingId = id;
@@ -691,7 +692,7 @@ import { resourceCategories } from '../../../data/resources';
       uploadProgress?.classList.add('hidden');
       uploadSuccess?.classList.remove('hidden');
       const name = r.file_url.split('/').pop() || r.file_url;
-      document.getElementById('upload-success-name').textContent = name;
+      el('upload-success-name')!.textContent = name;
       urlTextInput.disabled = true;
     }
     if (iconPreview) iconPreview.textContent = r.icon;
@@ -699,7 +700,7 @@ import { resourceCategories } from '../../../data/resources';
   }
 
   // Add button
-  document.getElementById('btn-add-resource').addEventListener('click', () => {
+  el('btn-add-resource')!.addEventListener('click', () => {
     resetForm();
     openModal();
   });
@@ -751,7 +752,7 @@ import { resourceCategories } from '../../../data/resources';
   });
 
   // ── Delete confirm dialog ─────────────────────────────────
-  function openDelete(id) {
+  function openDelete(id: string) {
     const r = allResources.find((x) => x.id === id);
     if (!r) return;
     deletingId = id;

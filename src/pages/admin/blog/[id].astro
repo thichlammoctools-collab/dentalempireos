@@ -252,7 +252,7 @@ function formatDate(iso: string | null): string {
       uploadBtn.textContent = 'Đang tải...'; uploadBtn.setAttribute('disabled', 'true');
       try {
         const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-        const data = await res.json();
+        const data = await res.json() as { url?: string };
         if (data.url) {
           coverUrlInput.value = data.url;
           coverAltInput.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
@@ -412,7 +412,7 @@ function formatDate(iso: string | null): string {
           imgUploadBtn.textContent = 'Đang tải...'; imgUploadBtn.setAttribute('disabled','true');
           try {
             const res = await fetch('/api/admin/upload', { method:'POST', body:fd });
-            const data = await res.json();
+            const data = await res.json() as { url?: string };
             if (data.url) {
               imgUrlInput.value = data.url; imgPreview.src = data.url; imgPreview.alt = file.name;
               imgPreview.classList.remove('hidden'); imgPlaceholder.classList.add('hidden'); imgRemoveBtn.classList.remove('hidden');
@@ -569,7 +569,7 @@ function formatDate(iso: string | null): string {
   (async () => {
     try {
       const res = await fetch(`/api/admin/blog/blocks?post_id=${postId}`);
-      const data = await res.json();
+      const data = await res.json() as { blocks?: Block[] };
       if (data.blocks && data.blocks.length > 0) {
         blocks.push(...data.blocks);
         syncBlocks();

@@ -307,7 +307,7 @@ const categoryOptions = flattenCategoryTree(categoryTree);
       uploadBtn.textContent = 'Đang tải...'; uploadBtn.setAttribute('disabled', 'true');
       try {
         const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-        const data = await res.json();
+        const data = await res.json() as { url?: string };
         if (data.url) {
           coverUrlInput.value = data.url;
           coverAltInput.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
@@ -493,7 +493,7 @@ const categoryOptions = flattenCategoryTree(categoryTree);
           imgUploadBtn.textContent = 'Đang tải...'; imgUploadBtn.setAttribute('disabled', 'true');
           try {
             const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-            const data = await res.json();
+            const data = await res.json() as { url?: string };
             if (data.url) {
               imgUrlInput.value = data.url;
               imgPreview.src = data.url; imgPreview.alt = file.name;
@@ -771,7 +771,7 @@ const categoryOptions = flattenCategoryTree(categoryTree);
         }),
       });
       if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await res.json() as { id: string };
 
       // Save blocks
       if (blocks.length > 0) {

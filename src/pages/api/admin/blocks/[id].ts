@@ -19,7 +19,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const id = params.id;
   if (!id) return badRequest('Missing id');
 
-  const body = await request.json().catch(() => null);
+  let body: Record<string, any> | null = null;
+  try { body = await request.json(); } catch {}
   if (!body) return badRequest('Invalid JSON body');
 
   const existing = await getBlock(env.DB, id);
