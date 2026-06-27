@@ -133,57 +133,9 @@ function formatDate(iso: string | null): string {
 
       <!-- Content -->
       <section class="glass-card rounded-xl p-5">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-bold text-white">Nội dung</h3>
-          <div class="flex items-center gap-2">
-            <button type="button" id="toggle-blocks" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-80 transition-all flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">view_agenda</span>Block
-            </button>
-            <button type="button" id="toggle-markdown" class="px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary transition-all flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">code</span>Markdown
-            </button>
-          </div>
-        </div>
-
-        <!-- Block Editor -->
-        <div id="block-editor" class="flex flex-col gap-3">
-          <input type="hidden" name="blocks_json" id="blocks-json" value="[]" />
-          <div id="blocks-container" class="flex flex-col gap-3 min-h-[60px]"></div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-outline-variant/30">
-            <button type="button" data-add-block="text" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
-              <span class="material-symbols-outlined text-[16px]">notes</span>Thêm Text
-            </button>
-            <button type="button" data-add-block="rich" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
-              <span class="material-symbols-outlined text-[16px]">format_color_text</span>Rich Text
-            </button>
-            <button type="button" data-add-block="image" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
-              <span class="material-symbols-outlined text-[16px]">image</span>Thêm Ảnh
-            </button>
-            <button type="button" data-add-block="form" class="px-4 py-2 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-xl text-xs font-semibold hover:border-primary hover:text-primary transition-all flex items-center gap-2">
-              <span class="material-symbols-outlined text-[16px]">description</span>Thêm Biểu mẫu
-            </button>
-          </div>
-        </div>
-
-        <!-- Markdown Editor -->
-        <div id="markdown-editor" class="hidden">
-          <div class="flex flex-wrap gap-1 mb-3">
-            <button type="button" data-md="bold" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><b>B</b></button>
-            <button type="button" data-md="italic" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><i>I</i></button>
-            <button type="button" data-md="h2" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all">H2</button>
-            <button type="button" data-md="h3" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all">H3</button>
-            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
-            <button type="button" data-md="ul" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><span class="material-symbols-outlined text-[14px]">format_list_bulleted</span></button>
-            <button type="button" data-md="ol" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><span class="material-symbols-outlined text-[14px]">format_list_numbered</span></button>
-            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
-            <button type="button" data-md="link" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><span class="material-symbols-outlined text-[14px]">link</span></button>
-            <button type="button" data-md="quote" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all"><span class="material-symbols-outlined text-[14px]">format_quote</span></button>
-            <button type="button" data-md="code" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all">`code`</button>
-            <div class="h-5 w-px bg-outline-variant mx-1 self-center"></div>
-            <button type="button" data-md="hr" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant text-xs font-bold text-on-surface-variant hover:border-primary hover:text-white transition-all">──</button>
-          </div>
-          <textarea name="content_md" id="post-content" rows="20" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none resize-y font-mono leading-relaxed" style="min-height: 400px">{post.content_md}</textarea>
-        </div>
+        <h3 class="text-sm font-bold text-white mb-4">Nội dung</h3>
+        <div id="rich-editor-container" class="min-h-[400px]"></div>
+        <input type="hidden" name="blocks_json" id="blocks-json" value="[]" />
       </section>
 
       <!-- Options -->
@@ -223,6 +175,8 @@ function formatDate(iso: string | null): string {
 
 <script>
   declare function showToast(msg: string, type?: string): void;
+
+  const postId = window.location.pathname.split('/').pop()!;
 
   // ── Slug auto-generate ─────────────────────────────────────
   const titleInput = document.getElementById('post-title') as HTMLInputElement;
@@ -276,338 +230,35 @@ function formatDate(iso: string | null): string {
     coverRemove!.classList.add('hidden');
   });
 
-  // ── Toggle Block / Markdown editor ─────────────────────────
-  const blockEditor = document.getElementById('block-editor')!;
-  const markdownEditor = document.getElementById('markdown-editor')!;
-  const toggleBlocksBtn = document.getElementById('toggle-blocks')!;
-  const toggleMdBtn = document.getElementById('toggle-markdown')!;
-
-  function showBlocks() {
-    blockEditor.classList.remove('hidden'); markdownEditor.classList.add('hidden');
-    toggleBlocksBtn.classList.add('bg-primary','text-white');
-    toggleBlocksBtn.classList.remove('bg-surface-container-high','text-on-surface-variant','border','border-outline-variant');
-    toggleMdBtn.classList.remove('bg-primary','text-white');
-    toggleMdBtn.classList.add('bg-surface-container-high','text-on-surface-variant','border','border-outline-variant');
-  }
-  function showMarkdown() {
-    blockEditor.classList.add('hidden'); markdownEditor.classList.remove('hidden');
-    toggleMdBtn.classList.add('bg-primary','text-white');
-    toggleMdBtn.classList.remove('bg-surface-container-high','text-on-surface-variant','border','border-outline-variant');
-    toggleBlocksBtn.classList.remove('bg-primary','text-white');
-    toggleBlocksBtn.classList.add('bg-surface-container-high','text-on-surface-variant','border','border-outline-variant');
-  }
-  toggleBlocksBtn.addEventListener('click', showBlocks);
-  toggleMdBtn.addEventListener('click', showMarkdown);
-
-  // ── Block Editor State ─────────────────────────────────────
-  interface Block { id: string; type: 'text' | 'image' | 'form' | 'rich'; content: string; sort_order: number; }
-  const blocks: Block[] = [];
-  const blocksContainer = document.getElementById('blocks-container') as HTMLDivElement;
+  // ── Rich Text Editor ────────────────────────────────────────
+  const richEditorContainer = document.getElementById('rich-editor-container') as HTMLDivElement;
   const blocksJsonInput = document.getElementById('blocks-json') as HTMLInputElement;
-  const richHandles = new Map<string, { destroy: () => void; getHTML: () => string }>();
-  const postId = window.location.pathname.split('/').pop()!;
+  let richHandle: { destroy: () => void; getHTML: () => string } | null = null;
 
-  function syncBlocks() {
-    blocks.forEach((b, i) => b.sort_order = i);
-    blocksJsonInput.value = JSON.stringify(blocks);
-  }
-
-  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function escAttr(s: string): string { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
-  function renderBlock(block: Block) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'block-wrapper group';
-    wrapper.dataset.blockId = block.id;
-    wrapper.draggable = true;
-
-    const typeLabels: Record<string, string> = { text: 'Văn bản', image: 'Ảnh', form: 'Biểu mẫu', rich: 'Rich Text' };
-    const typeIcons: Record<string, string> = { text: 'notes', image: 'image', form: 'description', rich: 'format_color_text' };
-    const typeColors: Record<string, string> = { text: 'border-primary/30 bg-primary/5', image: 'border-tertiary/30 bg-tertiary/5', form: 'border-secondary/30 bg-secondary/5', rich: 'border-cyan-400/30 bg-cyan-400/5' };
-
-    wrapper.innerHTML = `
-      <div class="flex items-center gap-2 mb-2">
-        <span class="material-symbols-outlined text-[16px] text-on-surface-variant/50 cursor-grab active:cursor-grabbing handle">drag_indicator</span>
-        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${typeColors[block.type]} text-on-surface-variant capitalize flex items-center gap-1">
-          <span class="material-symbols-outlined text-[12px]">${typeIcons[block.type]}</span>
-          ${typeLabels[block.type]}
-        </span>
-        <div class="flex-1"></div>
-        <button type="button" data-move="up" class="p-1 rounded text-on-surface-variant/40 hover:text-white hover:bg-surface-container-high transition-all" title="Lên">
-          <span class="material-symbols-outlined text-[14px]">keyboard_arrow_up</span>
-        </button>
-        <button type="button" data-move="down" class="p-1 rounded text-on-surface-variant/40 hover:text-white hover:bg-surface-container-high transition-all" title="Xuống">
-          <span class="material-symbols-outlined text-[14px]">keyboard_arrow_down</span>
-        </button>
-        <button type="button" data-block-delete class="p-1 rounded text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Xóa">
-          <span class="material-symbols-outlined text-[14px]">delete</span>
-        </button>
-      </div>
-      <div class="block-content rounded-xl border border-outline-variant/50 bg-surface-container p-4"></div>
-    `;
-
-    const contentEl = wrapper.querySelector('.block-content') as HTMLDivElement;
-
-    if (block.type === 'text') {
-      contentEl.innerHTML = `<textarea class="w-full bg-transparent border-none text-white text-sm resize-none focus:outline-none placeholder:text-white/20 font-mono leading-relaxed" rows="5" placeholder="Nhập nội dung markdown...">${escHtml(block.content)}</textarea>`;
-      const toolbar = document.createElement('div');
-      toolbar.className = 'flex flex-wrap gap-1 mb-2';
-      toolbar.innerHTML = ['bold','italic','h2','h3','ul','ol','link','quote','code','hr'].map(a =>
-        `<button type="button" data-md="${a}" class="md-tool-btn px-2 py-1 rounded text-[10px] font-bold bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary transition-all">${
-          a==='bold'?'<b>B</b>':a==='italic'?'<i>I</i>':a==='code'?'`':a==='hr'?'──':a.toUpperCase()
-        }</button>`
-      ).join('');
-      contentEl.insertBefore(toolbar, contentEl.firstChild);
-      const ta = contentEl.querySelector('textarea') as HTMLTextAreaElement;
-      toolbar.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const action = btn.dataset.md;
-          const start = ta.selectionStart, end = ta.selectionEnd;
-          const selected = ta.value.substring(start, end);
-          let insert = '', cursorOffset = 0;
-          switch (action) {
-            case 'bold': insert = `**${selected||'text'}**`; cursorOffset = selected?0:-2; break;
-            case 'italic': insert = `*${selected||'text'}*`; cursorOffset = selected?0:-1; break;
-            case 'h2': insert = `\n## ${selected||'Heading'}\n`; break;
-            case 'h3': insert = `\n### ${selected||'Heading'}\n`; break;
-            case 'ul': insert = `\n- ${selected||'Item 1'}\n- Item 2\n`; break;
-            case 'ol': insert = `\n1. ${selected||'Item 1'}\n2. Item 2\n`; break;
-            case 'link': insert = `[${selected||'Link'}](url)`; cursorOffset = selected?-1:-4; break;
-            case 'quote': insert = `\n> ${selected||'Quote'}\n`; break;
-            case 'code': insert = selected.includes('\n')?`\n\`\`\`\n${selected||'code'}\n\`\`\`\n`:`\`${selected||'code'}\``; cursorOffset = selected&&!selected.includes('\n')?0:-4; break;
-            case 'hr': insert = '\n---\n'; break;
-          }
-          ta.setRangeText(insert, start, end, 'end');
-          ta.focus();
-          const newPos = start + insert.length + cursorOffset;
-          ta.setSelectionRange(newPos, newPos);
-          block.content = ta.value; syncBlocks();
-        });
-      });
-      ta.addEventListener('input', () => { block.content = ta.value; syncBlocks(); });
-    } else if (block.type === 'image') {
-      const parsed = (() => { try { return JSON.parse(block.content); } catch { return { url: block.content, alt: '' }; } })();
-      contentEl.innerHTML = `
-        <div class="flex flex-col sm:flex-row gap-3 items-start">
-          <div class="relative w-32 h-24 shrink-0">
-            <img class="block-img-preview w-full h-full rounded-lg object-cover border border-outline-variant ${!parsed.url?'hidden':''}" src="${escAttr(parsed.url||'')}" alt="${escAttr(parsed.alt||'')}" />
-            <div class="block-img-placeholder w-full h-full rounded-lg border border-dashed border-outline-variant flex items-center justify-center ${parsed.url?'hidden':''}"><span class="material-symbols-outlined text-2xl text-on-surface-variant/30">image</span></div>
-            <button type="button" data-img-remove class="block-img-remove absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 ${!parsed.url?'hidden':''}"><span class="material-symbols-outlined text-[12px]">close</span></button>
-          </div>
-          <div class="flex flex-col gap-2 flex-1">
-            <input type="hidden" class="block-img-url" value="${escAttr(parsed.url||'')}" />
-            <input type="text" class="block-img-alt w-full px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Alt text..." value="${escAttr(parsed.alt||'')}" />
-            <button type="button" data-img-upload class="px-3 py-1.5 bg-surface-container-high border border-outline-variant text-on-surface-variant rounded-lg text-xs font-semibold hover:border-primary hover:text-primary transition-all w-fit"><span class="material-symbols-outlined text-[14px] align-middle mr-1">upload</span>Tải ảnh</button>
-          </div>
-        </div>`;
-      const imgUrlInput = contentEl.querySelector('.block-img-url') as HTMLInputElement;
-      const imgAltInput = contentEl.querySelector('.block-img-alt') as HTMLInputElement;
-      const imgPreview = contentEl.querySelector('.block-img-preview') as HTMLImageElement;
-      const imgPlaceholder = contentEl.querySelector('.block-img-placeholder') as HTMLDivElement;
-      const imgRemoveBtn = contentEl.querySelector('[data-img-remove]') as HTMLButtonElement;
-      const imgUploadBtn = contentEl.querySelector('[data-img-upload]') as HTMLButtonElement;
-      imgUploadBtn.addEventListener('click', async () => {
-        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-        input.onchange = async () => {
-          const file = input.files?.[0]; if (!file) return;
-          const fd = new FormData(); fd.append('file', file);
-          imgUploadBtn.textContent = 'Đang tải...'; imgUploadBtn.setAttribute('disabled','true');
-          try {
-            const res = await fetch('/api/admin/upload', { method:'POST', body:fd });
-            const data = await res.json() as { url?: string };
-            if (data.url) {
-              imgUrlInput.value = data.url; imgPreview.src = data.url; imgPreview.alt = file.name;
-              imgPreview.classList.remove('hidden'); imgPlaceholder.classList.add('hidden'); imgRemoveBtn.classList.remove('hidden');
-              block.content = JSON.stringify({ url: data.url, alt: imgAltInput.value }); syncBlocks();
-            }
-          } catch { showToast('Tải ảnh thất bại', 'error'); }
-          finally { imgUploadBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] align-middle mr-1">upload</span>Tải ảnh'; imgUploadBtn.removeAttribute('disabled'); }
-        }; input.click();
-      });
-      imgAltInput.addEventListener('input', () => { block.content = JSON.stringify({ url: imgUrlInput.value, alt: imgAltInput.value }); syncBlocks(); });
-      imgRemoveBtn.addEventListener('click', () => {
-        imgUrlInput.value = ''; imgAltInput.value = '';
-        imgPreview.classList.add('hidden'); imgPlaceholder.classList.remove('hidden'); imgRemoveBtn.classList.add('hidden');
-        block.content = JSON.stringify({ url: '', alt: '' }); syncBlocks();
-      });
-    } else if (block.type === 'form') {
-      const cfg = (() => { try { return JSON.parse(block.content); } catch { return { title: '', fields: [] }; } })();
-      contentEl.innerHTML = `
-        <div class="form-block-editor flex flex-col gap-3">
-          <input type="text" class="form-title-input w-full px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm font-semibold placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Tiêu đề biểu mẫu..." value="${escAttr(cfg.title||'')}" />
-          <div class="form-fields-list flex flex-col gap-2"></div>
-          <button type="button" data-add-field class="px-3 py-1.5 bg-surface-container-high border border-dashed border-outline-variant text-on-surface-variant rounded-lg text-xs font-semibold hover:border-primary hover:text-primary transition-all w-fit"><span class="material-symbols-outlined text-[14px] align-middle mr-1">add</span>Thêm trường</button>
-        </div>`;
-      const formTitleInput = contentEl.querySelector('.form-title-input') as HTMLInputElement;
-      const formFieldsList = contentEl.querySelector('.form-fields-list') as HTMLDivElement;
-      const addFieldBtn = contentEl.querySelector('[data-add-field]') as HTMLButtonElement;
-
-      function renderFormFields() {
-        formFieldsList.innerHTML = '';
-        cfg.fields.forEach((field: { id: string; type: string; label: string; placeholder?: string; required?: boolean }, idx: number) => {
-          const fieldEl = document.createElement('div');
-          fieldEl.className = 'flex items-center gap-2 p-2 bg-surface-container-high rounded-lg border border-outline-variant/50';
-          fieldEl.innerHTML = `
-            <span class="material-symbols-outlined text-[14px] text-on-surface-variant/40">drag_indicator</span>
-            <select class="field-type px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs focus:outline-none">
-              <option value="text" ${field.type==='text'?'selected':''}>Text</option>
-              <option value="email" ${field.type==='email'?'selected':''}>Email</option>
-              <option value="phone" ${field.type==='phone'?'selected':''}>Phone</option>
-              <option value="textarea" ${field.type==='textarea'?'selected':''}>Textarea</option>
-            </select>
-            <input type="text" class="field-label flex-1 px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Label..." value="${escAttr(field.label||'')}" />
-            <input type="text" class="field-placeholder w-32 px-2 py-1 bg-surface border border-outline-variant rounded text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-primary" placeholder="Placeholder..." value="${escAttr(field.placeholder||'')}" />
-            <label class="flex items-center gap-1 cursor-pointer shrink-0">
-              <input type="checkbox" class="field-required w-3 h-3 accent-primary" ${field.required?'checked':''} />
-              <span class="text-[10px] text-on-surface-variant">Req</span>
-            </label>
-            <button type="button" data-remove-field class="p-1 rounded text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10"><span class="material-symbols-outlined text-[14px]">delete</span></button>`;
-          fieldEl.querySelector('.field-type')?.addEventListener('change', (e) => { field.type = (e.target as HTMLSelectElement).value; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
-          fieldEl.querySelector('.field-label')?.addEventListener('input', (e) => { field.label = (e.target as HTMLInputElement).value; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
-          fieldEl.querySelector('.field-placeholder')?.addEventListener('input', (e) => { field.placeholder = (e.target as HTMLInputElement).value; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
-          fieldEl.querySelector('.field-required')?.addEventListener('change', (e) => { field.required = (e.target as HTMLInputElement).checked; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
-          fieldEl.querySelector('[data-remove-field]')?.addEventListener('click', () => { cfg.fields.splice(idx, 1); block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); renderFormFields(); });
-          formFieldsList.appendChild(fieldEl);
-        });
-      }
-      renderFormFields();
-      formTitleInput.addEventListener('input', () => { cfg.title = formTitleInput.value; block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); });
-      addFieldBtn.addEventListener('click', () => { cfg.fields.push({id: crypto.randomUUID(), type:'text', label:'', placeholder:'', required:false}); block.content = JSON.stringify({title: cfg.title, fields: cfg.fields}); syncBlocks(); renderFormFields(); });
-    } else if (block.type === 'rich') {
-      const editorContainer = document.createElement('div');
-      editorContainer.className = 'richtext-block-container';
-      contentEl.appendChild(editorContainer);
-
-      (async () => {
-        const mod = await import('../../../scripts/richtext-editor');
-        const { renderRichTextToolbar } = await import('../../../scripts/richtext-toolbar');
-        const handle = mod.createRichTextEditor({
-          element: editorContainer,
-          initialContent: block.content || '',
-          onChange: (html) => {
-            block.content = html;
-            syncBlocks();
-          },
-        });
-        const toolbar = renderRichTextToolbar({ editor: handle.editor });
-        editorContainer.insertBefore(toolbar, editorContainer.firstChild);
-        richHandles.set(block.id, handle);
-      })().catch((err) => {
-        console.error('Failed to load rich text editor:', err);
-        editorContainer.innerHTML = '<p class="text-red-400 text-sm">Lỗi tải trình soạn thảo. Vui lòng tải lại trang.</p>';
-      });
-    }
-
-    wrapper.querySelector('[data-move="up"]')?.addEventListener('click', () => {
-      const idx = blocks.findIndex(b => b.id === block.id);
-      if (idx > 0) { [blocks[idx-1], blocks[idx]] = [blocks[idx], blocks[idx-1]]; syncBlocks(); renderAllBlocks(); }
-    });
-    wrapper.querySelector('[data-move="down"]')?.addEventListener('click', () => {
-      const idx = blocks.findIndex(b => b.id === block.id);
-      if (idx < blocks.length - 1) { [blocks[idx], blocks[idx+1]] = [blocks[idx+1], blocks[idx]]; syncBlocks(); renderAllBlocks(); }
-    });
-    wrapper.querySelector('[data-block-delete]')?.addEventListener('click', () => {
-      const idx = blocks.findIndex(b => b.id === block.id);
-      if (idx >= 0) { blocks.splice(idx, 1); syncBlocks(); renderAllBlocks(); }
-    });
-
-    // Drag & drop
-    wrapper.addEventListener('dragstart', (e: DragEvent) => { (e.dataTransfer as DataTransfer).setData('text/plain', block.id); wrapper.classList.add('opacity-50'); });
-    wrapper.addEventListener('dragend', () => { wrapper.classList.remove('opacity-50'); });
-    wrapper.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); });
-    wrapper.addEventListener('drop', (e: DragEvent) => {
-      e.preventDefault();
-      const draggedId = (e.dataTransfer as DataTransfer).getData('text/plain');
-      const fromIdx = blocks.findIndex(b => b.id === draggedId);
-      const toIdx = blocks.findIndex(b => b.id === block.id);
-      if (fromIdx !== toIdx && fromIdx >= 0) {
-        const [moved] = blocks.splice(fromIdx, 1);
-        blocks.splice(toIdx, 0, moved);
-        syncBlocks(); renderAllBlocks();
-      }
-    });
-
-    return wrapper;
-  }
-
-  function renderAllBlocks() {
-    richHandles.forEach((h) => h.destroy());
-    richHandles.clear();
-    blocksContainer.innerHTML = '';
-    blocks.forEach(b => blocksContainer.appendChild(renderBlock(b)));
-  }
-
-  function addBlock(type: Block['type']) {
-    const block: Block = { id: crypto.randomUUID(), type, content: type === 'form' ? JSON.stringify({title:'', fields:[]}) : '', sort_order: blocks.length };
-    blocks.push(block); syncBlocks();
-    blocksContainer.appendChild(renderBlock(block));
-    blocksContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }
-
-  document.querySelectorAll<HTMLButtonElement>('[data-add-block]').forEach(btn => {
-    btn.addEventListener('click', () => addBlock(btn.dataset.addBlock as Block['type']));
-  });
-
-  blocksContainer.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); });
-  blocksContainer.addEventListener('drop', (e: DragEvent) => {
-    e.preventDefault();
-    const draggedId = (e.dataTransfer as DataTransfer).getData('text/plain');
-    const fromIdx = blocks.findIndex(b => b.id === draggedId);
-    if (fromIdx < 0) return;
-    const children = Array.from(blocksContainer.querySelectorAll('.block-wrapper'));
-    let toIdx = blocks.length;
-    for (let i = 0; i < children.length; i++) {
-      const rect = children[i].getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) { toIdx = i; break; }
-    }
-    if (fromIdx !== toIdx && fromIdx >= 0) {
-      const [moved] = blocks.splice(fromIdx, 1);
-      blocks.splice(toIdx > fromIdx ? toIdx - 1 : toIdx, 0, moved);
-      syncBlocks(); renderAllBlocks();
-    }
-  });
-
-  // Load existing blocks on page load
   (async () => {
     try {
       const res = await fetch(`/api/admin/blog/blocks?post_id=${postId}`);
-      const data = await res.json() as { blocks?: Block[] };
-      if (data.blocks && data.blocks.length > 0) {
-        blocks.push(...data.blocks);
-        syncBlocks();
-        renderAllBlocks();
-        showBlocks();
-      } else {
-        showMarkdown();
-      }
-    } catch {
-      showMarkdown();
+      const data = await res.json() as { blocks?: Array<{ content: string }> };
+      const existingRichBlock = data.blocks?.find(b => b.content && !b.content.startsWith('['));
+      const initialContent = existingRichBlock?.content || '';
+
+      const mod = await import('../../../scripts/richtext-editor');
+      const { renderRichTextToolbar } = await import('../../../scripts/richtext-toolbar');
+      richHandle = mod.createRichTextEditor({
+        element: richEditorContainer,
+        initialContent,
+        onChange: (html) => {
+          const block = { id: postId, type: 'rich' as const, content: html, sort_order: 0 };
+          blocksJsonInput.value = JSON.stringify([block]);
+        },
+      });
+      const toolbar = renderRichTextToolbar({ editor: richHandle.editor });
+      richEditorContainer.insertBefore(toolbar, richEditorContainer.firstChild);
+    } catch (err) {
+      console.error('Failed to load rich text editor:', err);
+      richEditorContainer.innerHTML = '<p class="text-red-400 text-sm">Lỗi tải trình soạn thảo. Vui lòng tải lại trang.</p>';
     }
   })();
-
-  // ── Markdown toolbar (legacy) ───────────────────────────────
-  const contentArea = document.getElementById('post-content') as HTMLTextAreaElement;
-  document.querySelectorAll<HTMLButtonElement>('[data-md]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.md;
-      const start = contentArea.selectionStart, end = contentArea.selectionEnd;
-      const text = contentArea.value, selected = text.substring(start, end);
-      let insert = '', cursorOffset = 0;
-      switch (action) {
-        case 'bold': insert = `**${selected||'văn bản đậm'}**`; cursorOffset = selected?0:-2; break;
-        case 'italic': insert = `*${selected||'văn bản nghiêng'}*`; cursorOffset = selected?0:-1; break;
-        case 'h2': insert = `\n## ${selected||'Tiêu đề'}\n`; break;
-        case 'h3': insert = `\n### ${selected||'Tiêu đề'}\n`; break;
-        case 'ul': insert = `\n- ${selected||'Mục 1'}\n- Mục 2\n`; break;
-        case 'ol': insert = `\n1. ${selected||'Mục 1'}\n2. Mục 2\n`; break;
-        case 'link': insert = `[${selected||'Liên kết'}](url)`; cursorOffset = selected?-1:-4; break;
-        case 'quote': insert = `\n> ${selected||'Trích dẫn'}\n`; break;
-        case 'code': insert = selected.includes('\n')?`\n\`\`\`\n${selected||'code'}\n\`\`\`\n`:`\`${selected||'code'}\``; cursorOffset = selected&&!selected.includes('\n')?0:-4; break;
-        case 'hr': insert = '\n---\n'; break;
-      }
-      contentArea.setRangeText(insert, start, end, 'end'); contentArea.focus();
-    });
-  });
 
   // ── Submit ─────────────────────────────────────────────────
   document.getElementById('blog-post-form')?.addEventListener('submit', async (e) => {
@@ -618,7 +269,6 @@ function formatDate(iso: string | null): string {
     const title = (form.elements.namedItem('title') as HTMLInputElement).value;
     const slug = (form.elements.namedItem('slug') as HTMLInputElement).value;
     const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
-    const contentMd = (form.elements.namedItem('content_md') as HTMLTextAreaElement).value;
     const coverUrl = (form.elements.namedItem('cover_url') as HTMLInputElement).value;
     const coverAlt = (form.elements.namedItem('cover_alt') as HTMLInputElement).value;
     const categoryId = (form.elements.namedItem('category_id') as unknown as HTMLSelectElement).value || null;
@@ -631,16 +281,13 @@ function formatDate(iso: string | null): string {
     submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Đang lưu...';
 
     try {
-      const useBlocks = blocks.length > 0 && !blockEditor.classList.contains('hidden');
-      const finalContentMd = useBlocks ? '' : contentMd;
-
       const res = await fetch(`/api/admin/blog/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: postId,
           title, slug, description,
-          content_md: finalContentMd,
+          content_md: '',
           cover_url: coverUrl, cover_alt: coverAlt,
           category_id: categoryId,
           is_featured: isFeatured, is_pinned: isPinned, is_recommended: isRecommended,
@@ -649,23 +296,14 @@ function formatDate(iso: string | null): string {
       });
       if (!res.ok) throw new Error();
 
-      // Save blocks
-      if (blocks.length > 0) {
-        await fetch('/api/admin/blog/blocks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, blocks }),
-        });
-      } else {
-        // Clear blocks if switched to markdown
-        await fetch('/api/admin/blog/blocks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, blocks: [] }),
-        });
-      }
+      const richContent = richHandle?.getHTML() || '';
+      const block = { id: postId, type: 'rich' as const, content: richContent, sort_order: 0 };
+      await fetch('/api/admin/blog/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, blocks: [block] }),
+      });
 
-      // Set tags
       const tagIds = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="tags"]:checked')).map((c) => c.value);
       if (tagIds.length > 0) {
         await fetch('/api/admin/blog/tags', {

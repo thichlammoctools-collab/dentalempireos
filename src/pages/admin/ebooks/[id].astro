@@ -1815,12 +1815,20 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     function getDropZone(e: DragEvent, item: HTMLElement): 'above' | 'into' | 'below' {
       // Use the title row (first child div) for zone detection,
       // NOT the full <li> which includes children and distorts the zones.
+      // "into" = top 85% of title row (drop here to nest as child)
+      // "below" = bottom 15% (drop here to reorder below)
       const titleRow = item.querySelector<HTMLElement>(':scope > div.flex');
       const rect = (titleRow ?? item).getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
-      if (ratio < 0.3) return 'above';
-      if (ratio > 0.7) return 'below';
+      if (ratio > 0.85) return 'below';
       return 'into';
+    }
+
+    function isSectionLevel2(item: HTMLElement): boolean {
+      // level 2 = main section (depth 0), level 3 = sub-section (depth 1)
+      // Determine from data attributes: level is stored in the SectionNode data,
+      // but we can infer from depth (depth 0 = level 2, depth 1 = level 3)
+      return getItemDepth(item) === 0;
     }
 
     // ── Placeholder management ─────────────────────────────
@@ -1867,8 +1875,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         dragFakeUl = null;
       }
       lastDropKey = '';
-      lastDragOverItem = null;
-      lastDragOverZone = null;
     }
 
     function showDndError(msg: string) {
@@ -1980,6 +1986,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     sectionTree?.addEventListener('dragend', () => {
       if (sectionDragSrc) sectionDragSrc.classList.remove('dragging');
       sectionDragSrc = null;
+      lastDragOverItem = null;
+      lastDragOverZone = null;
       removePlaceholder();
     });
 
@@ -1996,9 +2004,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
       const tgtDepth = getItemDepth(item);
       const zone = getDropZone(e as DragEvent, item);
-
-      // Max 3 levels: level 3 can't have children (depth 1 max for parents)
-      if (zone === 'into' && tgtDepth >= 1) return;
 
       // Skip if same target+zone as last dragover (avoid DOM thrashing)
       const key = `${item.dataset.sectionId}:${zone}`;
@@ -2056,9 +2061,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       // Use cached zone from last dragover (don't recalculate —
       // cursor position at drop time may differ from the visual placeholder zone)
       const zone = cachedZone ?? getDropZone(e as DragEvent, item);
-      const tgtDepth = getItemDepth(item);
-
-      if (zone === 'into' && tgtDepth >= 1) return;
 
       if (zone === 'into') {
         // ── INTO: Reparent as child of target ──
