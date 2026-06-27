@@ -2009,8 +2009,10 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       // Remove old placeholder
       removePlaceholder();
 
-      // Create and insert new placeholder
+      // Create and insert new placeholder — store zone on it for reliable drop detection
       dragPlaceholder = createPlaceholder(zone);
+      (dragPlaceholder as any)._dndZone = zone;
+      (dragPlaceholder as any)._dndTgtId = item.dataset.sectionId;
 
       if (zone === 'above') {
         item.parentElement?.insertBefore(dragPlaceholder, item);
@@ -2034,25 +2036,25 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     sectionTree?.addEventListener('drop', async (e) => {
       e.preventDefault();
-      // Capture cached state BEFORE removePlaceholder clears it
-      const cachedItem = lastDragOverItem;
-      const cachedZone = lastDragOverZone;
+
+      // Read zone from the visual placeholder BEFORE removing it
+      const placeholderZone = (dragPlaceholder as any)?._dndZone as 'into' | 'below' | 'above' | undefined;
+      const placeholderTgtId = (dragPlaceholder as any)?._dndTgtId as string | undefined;
       removePlaceholder();
 
       if (!sectionDragSrc) return;
       const dragSrc: HTMLElement = sectionDragSrc;
 
-      // Prefer cached item from last dragover; fall back to DOM resolution
-      const item = cachedItem ?? (e.target as HTMLElement).closest<HTMLElement>('[data-section-item]');
+      // Use placeholder's stored zone and target; fall back to DOM resolution
+      const zone = placeholderZone ?? lastDragOverZone ?? getDropZone(e as DragEvent, dragSrc);
+      const item = placeholderTgtId
+        ? document.querySelector<HTMLElement>(`[data-section-id="${placeholderTgtId}"]`)
+        : (e.target as HTMLElement).closest<HTMLElement>('[data-section-item]') ?? lastDragOverItem;
       if (!item || item === dragSrc) return;
 
       const srcId = dragSrc.dataset.sectionId!;
       const tgtId = item.dataset.sectionId!;
       if (isDomDescendant(item, dragSrc)) return;
-
-      // Use cached zone from last dragover (don't recalculate —
-      // cursor position at drop time may differ from the visual placeholder zone)
-      const zone = cachedZone ?? getDropZone(e as DragEvent, item);
 
       if (zone === 'into') {
         // ── INTO: Reparent as child of target ──
