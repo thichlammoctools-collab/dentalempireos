@@ -1,6 +1,4 @@
 ---
-import NotificationBell from './NotificationBell.astro';
-
 const navLinks = [
   { href: '/book', label: 'Đọc sách' },
   { href: '/videos', label: 'Xem Video' },
@@ -52,6 +50,15 @@ const currentPath = Astro.url.pathname;
       </a>
     )}
 
+    <!-- Mobile: profile icon (top-right, only when logged in) -->
+    <a
+      id="mobile-profile-link"
+      href="/account/profile"
+      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all ml-2 hidden"
+    >
+      <span class="material-symbols-outlined text-xl">account_circle</span>
+    </a>
+
     <!-- Right side (desktop only) -->
     <div class="hidden md:flex items-center gap-4">
       <!-- Auth: logged-out state -->
@@ -72,12 +79,14 @@ const currentPath = Astro.url.pathname;
 
       <!-- Auth: logged-in state -->
       <div id="auth-logged-in" class="hidden items-center gap-3">
-        <NotificationBell />
-        <a href="/my-questions" class="hidden lg:flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container transition-all">
-          <span class="material-symbols-outlined text-base">question_answer</span>
-          Câu hỏi
+        <a
+          id="auth-profile-link"
+          href="/account/profile"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container transition-all"
+        >
+          <span class="material-symbols-outlined text-base">account_circle</span>
+          <span id="auth-user-email" class="max-w-[180px] truncate"></span>
         </a>
-        <span id="auth-user-email" class="hidden lg:inline text-sm text-on-surface-variant max-w-[180px] truncate"></span>
         <button
           id="auth-logout"
           class="flex items-center gap-2 px-4 py-2 label-md font-semibold btn-icon text-on-surface-variant hover:text-primary"
@@ -107,6 +116,7 @@ const currentPath = Astro.url.pathname;
 
     if (loggedIn) {
       show('auth-logged-in', 'flex');
+      show('mobile-profile-link', 'flex');
     } else {
       show('auth-logged-out', 'flex');
     }

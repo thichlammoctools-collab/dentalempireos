@@ -1791,6 +1791,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     let dragFakeUl: HTMLElement | null = null; // temporary <ul> for "into" on leaf nodes
     let lastDropKey = ''; // cache "tgtId:zone" to avoid DOM thrashing
     let lastDragOverItem: HTMLElement | null = null; // cached target from last dragover
+    let lastDragOverZone: 'above' | 'into' | 'below' | null = null; // cached zone from last dragover
 
     const SECTION_LIST_CLASSES = 'flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20';
 
@@ -1867,6 +1868,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       }
       lastDropKey = '';
       lastDragOverItem = null;
+      lastDragOverZone = null;
     }
 
     function showDndError(msg: string) {
@@ -2003,6 +2005,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       if (key === lastDropKey) return;
       lastDropKey = key;
       lastDragOverItem = item;
+      lastDragOverZone = zone;
 
       (e as DragEvent).dataTransfer!.dropEffect = 'move';
 
@@ -2034,8 +2037,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     sectionTree?.addEventListener('drop', async (e) => {
       e.preventDefault();
-      // Capture cached target BEFORE removePlaceholder clears it
+      // Capture cached state BEFORE removePlaceholder clears it
       const cachedItem = lastDragOverItem;
+      const cachedZone = lastDragOverZone;
       removePlaceholder();
 
       if (!sectionDragSrc) return;
@@ -2049,7 +2053,9 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const tgtId = item.dataset.sectionId!;
       if (isDomDescendant(item, dragSrc)) return;
 
-      const zone = getDropZone(e as DragEvent, item);
+      // Use cached zone from last dragover (don't recalculate —
+      // cursor position at drop time may differ from the visual placeholder zone)
+      const zone = cachedZone ?? getDropZone(e as DragEvent, item);
       const tgtDepth = getItemDepth(item);
 
       if (zone === 'into' && tgtDepth >= 1) return;

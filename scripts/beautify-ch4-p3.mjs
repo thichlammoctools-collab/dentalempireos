@@ -101,7 +101,7 @@ b('8e46146c-dfe4-448a-be84-f750db835a24', `- Bao nhiêu phần trăm khách hàn
 - Tỷ lệ này đang tăng hay giảm?
 - Điều gì đang ảnh hưởng đến quyết định giới thiệu của khách hàng?`);
 b('ed603c49-54bc-4d70-b6d4-fb2afa98f613', `**2. Tỷ lệ tái đầu tư**`);
-b('0135173a-674e-45bf-b096-e3ef99fccdcf`, `- Có bao nhiêu phần trăm kết quả được quay lại hệ thống?
+b('0135173a-674e-45bf-b096-e3ef99fccdcf', `- Có bao nhiêu phần trăm kết quả được quay lại hệ thống?
 - Thành quả có đang bị tiêu hao hết trong hiện tại không?
 - Khoản tái đầu tư nào tạo ra hiệu quả cao nhất?`);
 b('fe239bd8-5192-4c97-a38d-042b0bf3e944', `**3. Tốc độ tối ưu**`);

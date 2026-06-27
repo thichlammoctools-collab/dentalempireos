@@ -34,6 +34,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const isAdminPage = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
   const isAdminApi = url.pathname.startsWith('/api/admin/');
 
+  const isAccountPage = url.pathname === '/account' || url.pathname.startsWith('/account/');
+  if (isAccountPage && !locals.user) {
+    const redirect = encodeURIComponent(url.pathname + url.search);
+    return context.redirect(`/login?redirect=${redirect}`);
+  }
+
   if (isAdminPage || isAdminApi) {
     const isAuthorized =
       locals.user &&
