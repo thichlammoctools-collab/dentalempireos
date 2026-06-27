@@ -621,7 +621,7 @@ function formatDate(iso: string | null): string {
     const contentMd = (form.elements.namedItem('content_md') as HTMLTextAreaElement).value;
     const coverUrl = (form.elements.namedItem('cover_url') as HTMLInputElement).value;
     const coverAlt = (form.elements.namedItem('cover_alt') as HTMLInputElement).value;
-    const categoryId = (form.elements.namedItem('category_id') as HTMLSelectElement).value || null;
+    const categoryId = (form.elements.namedItem('category_id') as unknown as HTMLSelectElement).value || null;
     const isFeatured = (form.elements.namedItem('is_featured') as HTMLInputElement).checked;
     const isPinned = (form.elements.namedItem('is_pinned') as HTMLInputElement).checked;
     const isRecommended = (form.elements.namedItem('is_recommended') as HTMLInputElement).checked;

@@ -32,9 +32,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     name: typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name,
     description: typeof body.description === 'string' ? body.description : existing.description,
     type: existing.type,
-    status: typeof body.status === 'string' ? body.status : existing.status,
+    status: (typeof body.status === 'string' ? body.status : existing.status) as 'draft' | 'active' | 'archived',
     is_free: typeof body.is_free === 'number' ? body.is_free : existing.is_free,
-    config_json: body.config_json !== undefined ? body.config_json : existing.config_json,
+    config_json: body.config_json !== undefined ? (body.config_json as string | null) : existing.config_json,
   });
 
   return json({ success: true });

@@ -291,9 +291,9 @@ const tiers = [1, 2, 3];
           const rect = targetCard.getBoundingClientRect();
           const after = e.clientY < rect.top + rect.height / 2;
           if (after) {
-            targetCard.after(card);
+            targetCard.parentElement?.insertBefore(card, targetCard.nextSibling);
           } else {
-            targetCard.before(card);
+            targetCard.parentElement?.insertBefore(card, targetCard);
           }
         } else {
           grid.appendChild(card);

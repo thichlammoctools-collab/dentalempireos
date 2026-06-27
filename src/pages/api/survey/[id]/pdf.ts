@@ -68,7 +68,7 @@ export const GET: APIRoute = async ({ params }) => {
   try {
     const pdfBytes = await generateSurveyPdf(row);
     const fileName = `GocRe_${(row.clinic_name ?? 'survey').replace(/[^a-zA-Z0-9]/g, '-')}_${id}.pdf`;
-    return new Response(pdfBytes, {
+    return new Response(new Uint8Array(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

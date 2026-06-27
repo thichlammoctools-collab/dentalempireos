@@ -1,7 +1,7 @@
 ---
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
-import { getChapterTree, listPublishedChapters, listAllSections, getSupportSettings, type SectionNode } from '../../lib/book-db';
+import { getChapterTree, listPublishedChapters, listAllSections, getSupportSettings, type SectionNode, type ChapterRow, type AutoKeyword } from '../../lib/book-db';
 import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import BookHeader from '../../components/book/BookHeader.astro';
@@ -27,7 +27,7 @@ interface ChapterCacheEntry {
   html: string;
   attachments: AttachmentItem[];
   sectionNavItems: ReturnType<typeof flattenSections>;
-  ch: Awaited<ReturnType<typeof getChapterTree>>['chapter'];
+  ch: ChapterRow;
   ts: number;
 }
 const _chapterCache = new Map<string, ChapterCacheEntry>();
@@ -39,11 +39,11 @@ const dbFetchStart = Date.now();
 // Non-critical queries are wrapped individually so missing tables/columns don't crash the page
 const [tree, autoKeywordsResult, allPublished, supportSettings] = await Promise.all([
   getChapterTree(db, slug),
-  listAllSections(db).catch(() => [] as AutoKeyword[]),
+  listAllSections(db).catch((): AutoKeyword[] => []),
   listPublishedChapters(db),
   getSupportSettings(db).catch(() => null),
 ]);
-const autoKeywords = autoKeywordsResult ?? [];
+const autoKeywords: AutoKeyword[] = autoKeywordsResult ?? [];
 
 if (!tree) {
   return new Response('Không tìm thấy chương', { status: 404 });
@@ -229,7 +229,7 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
   const sectionsHtml = sections.map((s, i) => renderSection(s, localAttachments, `${i + 1}`)).join('');
   strippedContent = sectionsHtml;
   attachments = localAttachments;
-  _chapterCache.set(slug, { html: strippedContent, attachments, ts: Date.now(), ch });
+  _chapterCache.set(slug, { html: strippedContent, attachments, sectionNavItems: [], ts: Date.now(), ch });
 }
 
 // Trigger stale revalidation in background (non-blocking)
@@ -237,7 +237,7 @@ if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
   const freshSectionsHtml = sections.map((s, i) => renderSection(s, staleAttachments, `${i + 1}`)).join('');
   const freshHtml = freshSectionsHtml;
-  _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, ts: Date.now(), ch });
+  _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, sectionNavItems: [], ts: Date.now(), ch });
 }
 
 const attachmentCount = attachments.length;
@@ -277,8 +277,6 @@ const currentUser = Astro.locals.user;
   chapterNo={ch.chapter_no}
   prev={prev}
   next={next}
-  reviews={reviews}
-  reviewStats={reviewStats}
   isLoggedIn={!!currentUser}
   currentUserId={currentUser?.id}
   chapterId={slug}
@@ -333,7 +331,7 @@ const currentUser = Astro.locals.user;
   ) : null}
 
   <!-- Donate Widget -->
-  <DonateWidget settings={supportSettings} />
+  <DonateWidget settings={supportSettings ?? { enabled: 0, title: '', message: '', qr_url: '', payment_methods: '' }} />
 
   <!-- Chapter Navigation -->
   <KeywordAutoLink autoKeywords={autoKeywords} />

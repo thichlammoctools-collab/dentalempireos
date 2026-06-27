@@ -322,7 +322,7 @@ function countRoots(nodes: BlogCategoryNode[]): number {
   const nameInput = document.getElementById('cat-name') as HTMLInputElement;
   const slugInput = document.getElementById('cat-slug') as HTMLInputElement;
   const idInput = document.getElementById('new-id') as HTMLInputElement;
-  const parentInput = document.getElementById('cat-parent') as HTMLSelectElement;
+  const parentInput = document.getElementById('cat-parent') as unknown as HTMLSelectElement;
   const iconInput = document.getElementById('cat-icon') as HTMLInputElement;
   const colorInput = document.getElementById('cat-color') as HTMLInputElement;
   const sortInput = document.getElementById('cat-sort') as HTMLInputElement;
@@ -524,9 +524,9 @@ function countRoots(nodes: BlogCategoryNode[]): number {
         // Cross-list move
         dragSrc.remove();
         if (after) {
-          item.after(dragSrc);
+          item?.parentElement?.insertBefore(dragSrc, item.nextSibling);
         } else {
-          item.before(dragSrc);
+          item?.parentElement?.insertBefore(dragSrc, item);
         }
       } else {
         // Same list reorder

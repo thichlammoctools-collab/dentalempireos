@@ -183,7 +183,7 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
             <div class="w-1 h-8 bg-primary rounded-full shrink-0"></div>
             <div class="flex flex-col">
               <p class="text-[13px] text-white leading-snug">
-                Đã xuất bản <span class="text-primary underline">Chapter {recentPublished?.chapter ?? 1}</span>
+                Đã xuất bản <span class="text-primary underline">Chapter {(recentPublished as { chapter?: number } | null)?.chapter ?? 1}</span>
               </p>
               <span class="text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">2 phút trước</span>
             </div>

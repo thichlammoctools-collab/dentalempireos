@@ -257,6 +257,8 @@ const draftCount = posts.filter((p) => p.status === 'draft').length;
 </AdminLayout>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // Category filter redirect
   document.getElementById('cat-filter')?.addEventListener('change', (e) => {
     const val = (e.target as HTMLSelectElement).value;

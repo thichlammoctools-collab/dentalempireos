@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const user = locals.user;
   if (!user) return json({ error: 'unauthorized' }, 401);
 
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as { id?: string } | null;
 
   if (body?.id) {
     // Mark single notification

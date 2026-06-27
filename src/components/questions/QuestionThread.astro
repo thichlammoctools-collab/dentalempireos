@@ -125,6 +125,8 @@ function renderMd(text: string): string {
 </div>
 
 <script>
+  declare function showToast(msg: string, type?: string): void;
+
   // Handle reply form submissions
   document.querySelectorAll('.reply-submit-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -147,8 +149,8 @@ function renderMd(text: string): string {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          const msg = err.error || `HTTP ${res.status}`;
+          const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+          const msg = (err.error as string) || `HTTP ${res.status}`;
           showToast(`Gửi thất bại: ${msg}`, 'error');
           return;
         }

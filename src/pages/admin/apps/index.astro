@@ -384,11 +384,11 @@ const avatarColors = [
           body: JSON.stringify(body),
         });
         if (res.ok) {
-          const { id } = await res.json();
+          const { id } = await res.json() as { id: string };
           showToast('Tạo ứng dụng thành công!', 'success');
           setTimeout(() => { window.location.href = `/admin/apps/${id}`; }, 600);
         } else {
-          const err = await res.json().catch(() => ({ error: 'Lỗi không xác định' }));
+          const err = await res.json().catch(() => ({ error: 'Lỗi không xác định' })) as { error?: string };
           showToast(err.error || 'Tạo ứng dụng thất bại', 'error');
           submitBtn.disabled = false;
           submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">add</span> Tạo mới';

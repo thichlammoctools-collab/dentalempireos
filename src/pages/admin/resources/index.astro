@@ -596,7 +596,7 @@ import { resourceCategories } from '../../../data/resources';
     cong_cu: 'construction',
     tham_khao: 'menu_book',
   };
-  let __iconAutoFromCategory = true;
+  let _iconAutoFromCategory = true;
   const categorySelect = el('f-category') as HTMLSelectElement | null;
   categorySelect?.addEventListener('change', () => {
     const def = categoryDefaultIcons[categorySelect.value];

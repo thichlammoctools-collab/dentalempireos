@@ -312,10 +312,11 @@ export async function listPosts(
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Total
-  const { count: total } = await db
+  const totalResult = await db
     .prepare(`SELECT COUNT(*) as count FROM "blog_post" ${where}`)
     .bind(...binds)
     .first<{ count: number }>();
+  const total = totalResult?.count ?? 0;
 
   // Order
   let order: string;

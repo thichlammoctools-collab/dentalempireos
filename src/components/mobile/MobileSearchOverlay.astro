@@ -123,7 +123,7 @@
     const overlay = document.getElementById('mobile-search-overlay');
     const searchBtn = document.getElementById('mobile-nav-search');
     const closeBtn = document.getElementById('mobile-search-close');
-    const input = document.getElementById('mobile-search-input');
+    const input = document.getElementById('mobile-search-input') as HTMLInputElement | null;
     const clearBtn = document.getElementById('mobile-search-clear');
     const recentSection = document.getElementById('search-recent');
     const recentTags = document.getElementById('recent-tags');
@@ -143,7 +143,7 @@
       }
     }
 
-    function saveHistory(query) {
+    function saveHistory(query: string) {
       if (!query.trim()) return;
       const history = getHistory().filter((h: string) => h !== query);
       history.unshift(query);

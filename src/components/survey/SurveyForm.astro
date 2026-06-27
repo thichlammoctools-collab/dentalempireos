@@ -242,9 +242,9 @@ import { surveyData, scaleLabels } from '../../data/survey-translations';
       const val = answers[el.name];
       if (val == null || val === '') return;
       if (el.type === 'radio') {
-        if (el.value === String(val)) el.checked = true;
+        if ('checked' in el && el.value === String(val)) (el as HTMLInputElement).checked = true;
       } else if (el.type === 'checkbox') {
-        el.checked = !!val;
+        (el as HTMLInputElement).checked = !!val;
       } else {
         el.value = String(val);
       }
@@ -326,12 +326,12 @@ import { surveyData, scaleLabels } from '../../data/survey-translations';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; redirect?: string };
       if (!res.ok) {
         throw new Error(data.error || 'Submit failed');
       }
       clearDraft();
-      window.location.href = data.redirect;
+      window.location.href = data.redirect!;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Submit failed';
       submitError.textContent = msg;
@@ -353,6 +353,7 @@ import { surveyData, scaleLabels } from '../../data/survey-translations';
     // Update info card labels
     document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
       const key = el.dataset.i18n;
+      if (!key) return;
       const val = resolveKey(surveyData[lang], key);
       if (val) el.textContent = val;
     });
@@ -364,7 +365,7 @@ import { surveyData, scaleLabels } from '../../data/survey-translations';
   }
 
   function resolveKey(obj: any, key: string): string {
-    return key.split('.').reduce((acc, k) => acc?.[k], obj) ?? '';
+    return String(key.split('.').reduce((acc, k) => acc?.[k], obj) ?? '');
   }
 
   function escapeHtml(s: string): string {

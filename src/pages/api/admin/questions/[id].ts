@@ -25,7 +25,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   const question = await getQuestion(env.DB, id);
   if (!question) return notFound();
 
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as { status?: string } | null;
   if (!body?.status) return badRequest('status is required');
 
   const validStatuses = ['open', 'answered', 'closed'];
@@ -33,6 +33,6 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     return badRequest(`status must be one of: ${validStatuses.join(', ')}`);
   }
 
-  await updateQuestionStatus(env.DB, id, body.status);
+  await updateQuestionStatus(env.DB, id, body.status as 'open' | 'answered' | 'closed');
   return json({ ok: true });
 };

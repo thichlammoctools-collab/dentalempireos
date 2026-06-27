@@ -361,7 +361,7 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
       drawParagraph(ctx, text, { bold: true, size, color: NAVY });
       ctx.y -= 4;
     } else if (tok.type === 'paragraph') {
-      const text = tok.tokens
+      const text = (tok.tokens ?? [])
         .filter((t: any) => t.type === 'text')
         .map((t: any) => t.raw ?? t.text ?? '')
         .join('');

@@ -60,12 +60,21 @@
 </div>
 
 <script>
+  interface Notification {
+    id: string;
+    title: string;
+    body: string;
+    link?: string;
+    read: boolean;
+    createdAt: string;
+  }
+
   // ── Fetch unread count ──
   async function fetchUnreadCount(): Promise<number> {
     try {
       const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
       if (!res.ok) return 0;
-      const data = await res.json();
+      const data = await res.json() as { count?: number };
       return data.count ?? 0;
     } catch { return 0; }
   }
@@ -87,11 +96,11 @@
   }
 
   // ── Fetch notifications ──
-  async function fetchNotifications() {
+  async function fetchNotifications(): Promise<Notification[]> {
     try {
       const res = await fetch('/api/notifications', { credentials: 'include' });
       if (!res.ok) return [];
-      return await res.json();
+      return await res.json() as Notification[];
     } catch { return []; }
   }
 

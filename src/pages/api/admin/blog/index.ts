@@ -39,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
       cover_alt: body.cover_alt ?? undefined,
       category_id: body.category_id ?? undefined,
       author_name: body.author_name ?? 'Dental Empire',
-      status: body.status ?? 'draft',
+      status: (body.status ?? 'draft') as 'draft' | 'published',
       is_featured: body.is_featured != null ? Boolean(body.is_featured) : undefined,
       is_pinned: body.is_pinned != null ? Boolean(body.is_pinned) : undefined,
       is_recommended: body.is_recommended != null ? Boolean(body.is_recommended) : undefined,

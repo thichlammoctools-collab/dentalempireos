@@ -1790,6 +1790,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     let dragPlaceholder: HTMLElement | null = null;
     let dragFakeUl: HTMLElement | null = null; // temporary <ul> for "into" on leaf nodes
     let lastDropKey = ''; // cache "tgtId:zone" to avoid DOM thrashing
+    let lastDragOverItem: HTMLElement | null = null; // cached target from last dragover
 
     const SECTION_LIST_CLASSES = 'flex flex-col gap-2 pl-6 mt-1.5 border-l border-outline-variant/20';
 
@@ -1811,7 +1812,10 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     }
 
     function getDropZone(e: DragEvent, item: HTMLElement): 'above' | 'into' | 'below' {
-      const rect = item.getBoundingClientRect();
+      // Use the title row (first child div) for zone detection,
+      // NOT the full <li> which includes children and distorts the zones.
+      const titleRow = item.querySelector<HTMLElement>(':scope > div.flex');
+      const rect = (titleRow ?? item).getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
       if (ratio < 0.3) return 'above';
       if (ratio > 0.7) return 'below';
@@ -1862,6 +1866,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         dragFakeUl = null;
       }
       lastDropKey = '';
+      lastDragOverItem = null;
     }
 
     function showDndError(msg: string) {
@@ -1997,6 +2002,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const key = `${item.dataset.sectionId}:${zone}`;
       if (key === lastDropKey) return;
       lastDropKey = key;
+      lastDragOverItem = item;
 
       (e as DragEvent).dataTransfer!.dropEffect = 'move';
 
@@ -2028,13 +2034,15 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     sectionTree?.addEventListener('drop', async (e) => {
       e.preventDefault();
+      // Capture cached target BEFORE removePlaceholder clears it
+      const cachedItem = lastDragOverItem;
       removePlaceholder();
 
       if (!sectionDragSrc) return;
       const dragSrc: HTMLElement = sectionDragSrc;
 
-      const target = e.target as HTMLElement;
-      const item = target.closest<HTMLElement>('[data-section-item]');
+      // Prefer cached item from last dragover; fall back to DOM resolution
+      const item = cachedItem ?? (e.target as HTMLElement).closest<HTMLElement>('[data-section-item]');
       if (!item || item === dragSrc) return;
 
       const srcId = dragSrc.dataset.sectionId!;

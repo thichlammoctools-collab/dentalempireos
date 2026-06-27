@@ -30,7 +30,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     await upsertBlock(env.DB, {
       id,
       post_id: body.post_id,
-      type: body.type,
+      type: body.type as 'text' | 'image' | 'form' | 'rich',
       content: body.content ?? '',
       sort_order: body.sort_order ?? 0,
     });

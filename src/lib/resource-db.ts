@@ -76,11 +76,11 @@ export async function countResources(db: D1Database, opts: ListResourcesOptions 
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const { count } = await db
+  const result = await db
     .prepare(`SELECT COUNT(*) as count FROM "resource" ${where}`)
     .bind(...binds)
     .first<{ count: number }>();
-  return count ?? 0;
+  return result?.count ?? 0;
 }
 
 // ── Get ──────────────────────────────────────────────────────

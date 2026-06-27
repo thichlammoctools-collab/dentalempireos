@@ -196,9 +196,9 @@ const newId = nanoid();
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    const body = Object.fromEntries(formData.entries());
-    body.is_published = body.is_published ? 1 : 0;
-    body.sort_order = parseInt(body.sort_order as string) || 0;
+    const body: Record<string, FormDataEntryValue> = Object.fromEntries(formData.entries());
+    body.is_published = (body.is_published ? 1 : 0) as unknown as FormDataEntryValue;
+    body.sort_order = (parseInt(body.sort_order as string) || 0) as unknown as FormDataEntryValue;
 
     const res = await fetch('/api/admin/courses', {
       method: 'POST',

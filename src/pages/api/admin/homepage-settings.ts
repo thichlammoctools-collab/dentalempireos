@@ -15,7 +15,7 @@ export const GET: APIRoute = async () => {
 
 // PUT /api/admin/homepage-settings
 export const PUT: APIRoute = async ({ request }) => {
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return badRequest('Invalid JSON body');
 
   const allowedKeys = [

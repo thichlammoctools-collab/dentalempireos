@@ -204,7 +204,7 @@ export async function createSurveyResponse(
     if (col === 'score_stars') return scores.score_stars;
     if (col === 'score_living') return scores.score_living;
     if (col === 'score_total') return scores.score_total;
-    return (input as Record<string, unknown>)[col] ?? null;
+    return (input as unknown as Record<string, unknown>)[col] ?? null;
   });
 
   const placeholders = COLUMNS.map(() => '?').join(', ');

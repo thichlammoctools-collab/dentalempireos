@@ -15,7 +15,9 @@ export const prerender = false;
 
 // POST /api/survey — submit a survey response
 // Triggers AI analysis in the background, returns the new ID.
-export const POST: APIRoute = async ({ request, waitUntil }) => {
+export const POST: APIRoute = async (ctx) => {
+  const { request } = ctx;
+  const waitUntil = (ctx as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return badRequest('Invalid JSON body');
 
@@ -89,7 +91,6 @@ export const POST: APIRoute = async ({ request, waitUntil }) => {
   // Fire-and-forget AI analysis in the background.
   // Read config from DB ai_settings table.
   if (await isAiEnabled(env.DB)) {
-    // @ts-ignore — waitUntil is provided by Astro Cloudflare adapter at runtime
     waitUntil?.(runAiAnalysis(env.DB, id));
   }
 
