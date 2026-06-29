@@ -1,8 +1,17 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
-import { getSurveyResponse } from '../../../lib/survey-db';
 import { marked } from 'marked';
+import {
+  getSurveyDefinitionFull,
+  parseScoringRules,
+  parseAiConfig,
+} from '../../../lib/survey-config-db';
+import {
+  getScannerResponse,
+  parseScores,
+} from '../../../lib/scanner-response-db';
+import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
 
@@ -10,84 +19,122 @@ const idParam = Astro.params.id;
 const id = idParam ? parseInt(idParam, 10) : 0;
 
 if (!id || Number.isNaN(id)) {
-  return Astro.redirect('/survey');
+  return Astro.redirect('/');
 }
 
-const row = await getSurveyResponse(env.DB, id);
-if (!row) {
+const response = await getScannerResponse(env.DB, id);
+if (!response) {
+  return new Response('Response not found', { status: 404 });
+}
+
+const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
+if (!full) {
   return new Response('Survey not found', { status: 404 });
 }
 
-const lang = row.lang === 'en' ? 'en' : 'vi';
+const { definition } = full;
+const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
+const scoringRules = parseScoringRules(definition.scoring_rules);
+const aiConfig = parseAiConfig(definition.ai_config);
 
-const scoreRoots = row.score_roots ?? 0;
-const scoreSky = row.score_sky ?? 0;
-const scoreStars = row.score_stars ?? 0;
-const scoreLiving = row.score_living ?? 0;
-const scoreTotal = row.score_total ?? 0;
+const scores = parseScores(response.scores_json);
+const totalScore = scores.total ?? 0;
 
-function scoreLevel(s: number): { label: string; color: string } {
-  if (s >= 75) return { label: lang === 'vi' ? 'Vững mạnh' : 'Strong', color: '#10b981' };
-  if (s >= 55) return { label: lang === 'vi' ? 'Đang phát triển' : 'Growing', color: '#3b82f6' };
-  if (s >= 35) return { label: lang === 'vi' ? 'Cần chú ý' : 'Needs attention', color: '#f59e0b' };
-  return { label: lang === 'vi' ? 'Cần soi chiếu' : 'Needs illumination', color: '#ef4444' };
+// Build dimension list with names
+type DimRow = { id: string; name: string; score: number; level: ReturnType<typeof getScoreLevel> };
+const dimensions: DimRow[] = [];
+if (scoringRules) {
+  for (const dim of scoringRules.dimensions) {
+    const score = scores[dim.id] ?? 0;
+    dimensions.push({
+      id: dim.id,
+      name: lang === 'vi' ? (dim.name_vi ?? dim.id) : (dim.name_en ?? dim.name_vi ?? dim.id),
+      score,
+      level: getScoreLevel(score, scoringRules, lang),
+    });
+  }
 }
 
-const totalLevel = scoreLevel(scoreTotal);
-const parts = [
-  { key: 'roots', name: 'ROOTS', score: scoreRoots, ...scoreLevel(scoreRoots) },
-  { key: 'sky', name: 'SKY', score: scoreSky, ...scoreLevel(scoreSky) },
-  { key: 'stars', name: 'S.T.A.R.S', score: scoreStars, ...scoreLevel(scoreStars) },
-  { key: 'living', name: lang === 'vi' ? 'Hệ thống sống' : 'Living System', score: scoreLiving, ...scoreLevel(scoreLiving) },
-];
+const totalLevel = getScoreLevel(totalScore, scoringRules ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } }, lang);
 
-// Pre-render the analysis HTML for unlocked state
+// Pre-render analysis
 marked.setOptions({ gfm: true, breaks: true });
-const analysisHtml = row.ai_analysis ? (marked.parse(row.ai_analysis) as string) : '';
+const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) as string) : '';
 const hasAnalysis = !!analysisHtml;
 
-// Dynamic product resolution from ai_application registry
-const SURVEY_APP_ID = 'survey-rootsgoc-1-app';
-const SURVEY_PRODUCT_FALLBACK = 'survey-rootsgoc-1';
-
-let linkedProduct: { id: string; name: string; price: number; description: string } | null = null;
+// Resolve linked product (for paywall)
+let linkedProduct: { id: string; name: string; price: number } | null = null;
 try {
-  linkedProduct = await env.DB
-    .prepare('SELECT * FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
-    .bind(SURVEY_APP_ID)
-    .first<{ id: string; name: string; price: number; description: string }>();
+  // Find ai_application row matching this survey
+  const app = await env.DB
+    .prepare('SELECT id FROM "ai_application" WHERE "slug" = ? OR "id" = ?')
+    .bind(definition.slug, `survey-${definition.id}`)
+    .first<{ id: string }>();
+  if (app) {
+    linkedProduct = await env.DB
+      .prepare('SELECT id, name, price FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
+      .bind(app.id)
+      .first<{ id: string; name: string; price: number }>();
+  }
 } catch {
-  // Table may not have app_id column yet — use fallback
+  // ignore
 }
 
-const productId = linkedProduct?.id ?? SURVEY_PRODUCT_FALLBACK;
+const productId = linkedProduct?.id ?? `survey-${definition.id}`;
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
   : '199.000';
+
+const surveyTitle = lang === 'vi' ? definition.title_vi : (definition.title_en || definition.title_vi);
+
+// AI analysis sections from ai_config (optional, used for header)
+const analysisSections = aiConfig.analysis_sections ?? [];
+
+// Cross-sell suggestions: pick 2 other active surveys
+let crossSells: Array<{ id: string; slug: string; title_vi: string; title_en: string; description_vi: string | null }> = [];
+try {
+  const result = await env.DB
+    .prepare(
+      `SELECT id, slug, title_vi, title_en, description_vi
+       FROM "survey_definition"
+       WHERE status = 'active' AND id != ?
+       ORDER BY order_index ASC
+       LIMIT 3`,
+    )
+    .bind(definition.id)
+    .all<any>();
+  crossSells = (result.results ?? []).map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title_vi: r.title_vi,
+    title_en: r.title_en || r.title_vi,
+    description_vi: r.description_vi,
+  }));
+} catch {}
 ---
 
 <BaseLayout
-  title={`Hồ Sơ Gốc Rễ #${id} | Dental Empire OS`}
-  description="Bản phân tích hệ thống quản trị phòng khám"
+  title={`${surveyTitle} #${id} | Dental Empire OS`}
+  description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-survey-id={id} data-product-id={productId} data-lang={lang}>
+  <section class="result-wrap" data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free}>
     <!-- Header -->
     <div class="result-header">
       <div>
         <p class="text-xs uppercase tracking-wider text-amber-500 font-bold mb-1">
-          {lang === 'vi' ? 'Hồ Sơ Gốc Rễ' : 'Roots Profile'}
+          {surveyTitle}
         </p>
         <h1 class="result-title">
-          {row.clinic_name ?? (lang === 'vi' ? 'Phòng khám' : 'Clinic')}
+          {response.clinic_name ?? (lang === 'vi' ? 'Phòng khám' : 'Clinic')}
         </h1>
-        <p class="text-sm text-[var(--on-surface-variant)] mt-1">
-          {row.owner_name ? `${row.owner_name} · ` : ''}
-          {row.created_at}
+        <p class="text-sm text-on-surface-variant mt-1">
+          {response.owner_name ? `${response.owner_name} · ` : ''}
+          {new Date(response.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
         </p>
       </div>
       <div class="flex gap-2 flex-wrap">
-        <a href="/survey" class="btn btn-ghost">
+        <a href={`/scanner/${definition.slug}`} class="btn btn-ghost">
           {lang === 'vi' ? 'Làm khảo sát mới' : 'New survey'}
         </a>
       </div>
@@ -97,46 +144,54 @@ const priceFormatted = linkedProduct
     <div class="card score-card">
       <div class="score-header">
         <div>
-          <p class="text-xs uppercase tracking-wider text-[var(--on-surface-variant)] font-bold">
+          <p class="text-xs uppercase tracking-wider text-on-surface-variant font-bold">
             {lang === 'vi' ? 'Điểm tổng hợp' : 'Overall Score'}
           </p>
           <div class="score-total">
-            <span class="score-num" style={`color: ${totalLevel.color}`}>{scoreTotal}</span>
+            <span class="score-num" style={`color: ${totalLevel.color}`}>{totalScore}</span>
             <span class="score-suffix">/100</span>
           </div>
-          <p class="text-sm font-semibold" style={`color: ${totalLevel.color}`}>{totalLevel.label}</p>
+          <p class="text-sm font-semibold" style={`color: ${totalLevel.color}`}>{totalLevel.label_vi}</p>
         </div>
         <div class="score-summary">
           {lang === 'vi' ? (
             <p>
-              Phòng khám đang ở giai đoạn <strong>{scoreTotal < 40 ? 'sơ khai' : scoreTotal < 70 ? 'đang hình thành' : 'trưởng thành'}</strong>.
-              {scoreTotal >= 70 ? ' Hệ thống đang sinh trưởng đúng hướng.' : ' Đây là thời điểm tốt để soi chiếu và đào sâu.'}
+              {totalScore < 40
+                ? 'Phòng khám đang ở giai đoạn sơ khai — đây là thời điểm tốt để soi chiếu.'
+                : totalScore < 70
+                ? 'Phòng khám đang hình thành — tiếp tục đào sâu để vững mạnh.'
+                : 'Phòng khám đang trưởng thành — giữ vững momentum và lan tỏa giá trị.'}
             </p>
           ) : (
             <p>
-              Your clinic is in the <strong>{scoreTotal < 40 ? 'early' : scoreTotal < 70 ? 'forming' : 'maturing'}</strong> stage.
-              {scoreTotal >= 70 ? ' The system is growing in the right direction.' : ' This is a good time to illuminate and deepen.'}
+              {totalScore < 40
+                ? 'Your clinic is in the early stage — this is a good time to illuminate and deepen.'
+                : totalScore < 70
+                ? 'Your clinic is forming — keep deepening to grow strong.'
+                : 'Your clinic is maturing — keep the momentum and spread the value.'}
             </p>
           )}
         </div>
       </div>
 
       <div class="score-bars">
-        {parts.map((p) => (
+        {dimensions.map((p) => (
           <div class="bar-item">
             <div class="bar-label">
               <span class="bar-name">{p.name}</span>
-              <span class="bar-value" style={`color: ${p.color}`}>{p.score} <span class="bar-level">· {p.label}</span></span>
+              <span class="bar-value" style={`color: ${p.level.color}`}>
+                {p.score} <span class="bar-level">· {lang === 'vi' ? p.level.label_vi : p.level.label_en}</span>
+              </span>
             </div>
             <div class="bar-track">
-              <div class="bar-fill" style={`width: ${p.score}%; background: ${p.color}`}></div>
+              <div class="bar-fill" style={`width: ${p.score}%; background: ${p.level.color}`}></div>
             </div>
           </div>
         ))}
       </div>
     </div>
 
-    <!-- AI Analysis — LOCKED behind paywall -->
+    <!-- AI Analysis — LOCKED behind paywall (unless is_free=1) -->
     <div class="card analysis-card" id="analysis-section">
       <div class="analysis-header">
         <div>
@@ -149,66 +204,71 @@ const priceFormatted = linkedProduct
         </div>
       </div>
 
-      <!-- Unlocked content (hidden by default, shown by JS if access granted) -->
       <div id="analysis-unlocked" class="hidden">
         {hasAnalysis ? (
           <article class="prose-content" set:html={analysisHtml}></article>
         ) : (
-          <div class="text-center py-8 text-[var(--on-surface-variant)]">
+          <div class="text-center py-8 text-on-surface-variant">
             <div class="spinner mb-4"></div>
             <p>{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
           </div>
         )}
       </div>
 
-      <!-- Paywall overlay (shown by default, hidden by JS if access granted) -->
       <div id="analysis-locked">
-        <div class="paywall-overlay">
-          <div class="paywall-icon">
-            <span class="material-symbols-outlined" style="font-size:3rem;color:#f59e0b;">lock</span>
+        {definition.is_free === 1 ? (
+          <div class="text-center py-6 text-on-surface-variant">
+            <p>{lang === 'vi' ? 'Bản phân tích đang được tạo...' : 'Analysis is being generated...'}</p>
           </div>
-          <h3 class="paywall-title">
-            {lang === 'vi' ? 'Mở khóa Bản Phân Tích AI' : 'Unlock AI Analysis'}
-          </h3>
-          <p class="paywall-desc">
-            {lang === 'vi'
-              ? `Bản phân tích chi tiết 9 phần theo framework ROOTS, SKY, S.T.A.R.S — bao gồm gợi ý hành động ưu tiên và lời nhắn từ BS. Vinh.`
-              : `Detailed 9-part analysis using the ROOTS, SKY, S.T.A.R.S framework — including priority actions and a personal note from Dr. Vinh.`}
-          </p>
-          <div class="paywall-price">
-            <span class="paywall-amount">{priceFormatted}</span>
-            <span class="paywall-currency">VND</span>
+        ) : (
+          <div class="paywall-overlay">
+            <div class="paywall-icon">
+              <span class="material-symbols-outlined" style="font-size:3rem;color:#f59e0b;">lock</span>
+            </div>
+            <h3 class="paywall-title">
+              {lang === 'vi' ? 'Mở khóa Bản Phân Tích AI' : 'Unlock AI Analysis'}
+            </h3>
+            <p class="paywall-desc">
+              {lang === 'vi'
+                ? `Bản phân tích chi tiết theo framework — bao gồm gợi ý hành động ưu tiên và lời nhắn từ chuyên gia.`
+                : `Detailed framework-based analysis — including priority actions and a personal note from the expert.`}
+            </p>
+            <div class="paywall-price">
+              <span class="paywall-amount">{priceFormatted}</span>
+              <span class="paywall-currency">VND</span>
+            </div>
+            <button id="btn-unlock" class="btn btn-primary paywall-btn">
+              <span class="material-symbols-outlined text-base">lock_open</span>
+              {lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}
+            </button>
+            <p class="paywall-note">
+              {lang === 'vi' ? 'Thanh toán qua PayOS • Truy cập vĩnh viễn' : 'Pay via PayOS • Lifetime access'}
+            </p>
           </div>
-          <button id="btn-unlock" class="btn btn-primary paywall-btn">
-            <span class="material-symbols-outlined text-base">lock_open</span>
-            {lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}
-          </button>
-          <p class="paywall-note">
-            {lang === 'vi' ? 'Thanh toán qua PayOS • Truy cập vĩnh viễn • Tải PDF không giới hạn' : 'Pay via PayOS • Lifetime access • Unlimited PDF downloads'}
-          </p>
-        </div>
+        )}
       </div>
     </div>
 
-    <!-- Footer CTA — always visible -->
-    <div class="card cta-card">
-      <h3 class="cta-title">
-        {lang === 'vi' ? 'Bước tiếp theo' : 'Next steps'}
-      </h3>
-      <p class="text-sm text-[var(--on-surface-variant)] mb-4">
-        {lang === 'vi'
-          ? 'Bản phân tích này là điểm khởi đầu. Trong buổi tư vấn "Khám Phục" (Giai đoạn 1 R.O.A.D.M.A.P), chúng ta sẽ cùng nhau đi sâu vào từng chiều — xác định gốc rễ, soi lại đạo đức và chuẩn hóa năng lực đội ngũ.'
-          : 'This analysis is a starting point. In the "Awakening" consulting session (Phase 1 of R.O.A.D.M.A.P), we\'ll dive deep into each dimension — define the roots, re-illuminate ethics, and standardize team capability.'}
-      </p>
-      <div class="flex gap-3 flex-wrap">
-        <a href="/about" class="btn btn-primary">
-          {lang === 'vi' ? 'Về BS. Vinh' : 'About Dr. Vinh'}
-        </a>
-        <a href="/book" class="btn btn-ghost">
-          {lang === 'vi' ? 'Đọc sách miễn phí' : 'Read the free book'}
-        </a>
+    <!-- Cross-sell (other scanners) -->
+    {crossSells.length > 0 && (
+      <div class="card cross-sell-card">
+        <h3 class="cross-sell-title">
+          {lang === 'vi' ? 'Khám phá thêm các máy quét khác' : 'Explore other scanners'}
+        </h3>
+        <div class="cross-sell-grid">
+          {crossSells.map((s) => (
+            <a href={`/scanner/${s.slug}`} class="cross-sell-item">
+              <span class="material-symbols-outlined text-primary text-2xl">fact_check</span>
+              <div>
+                <p class="text-sm font-semibold text-on-surface">{lang === 'vi' ? s.title_vi : s.title_en}</p>
+                {s.description_vi && <p class="text-xs text-on-surface-variant line-clamp-2 mt-0.5">{s.description_vi}</p>}
+              </div>
+              <span class="material-symbols-outlined text-on-surface-variant/50">arrow_forward</span>
+            </a>
+          ))}
+        </div>
       </div>
-    </div>
+    )}
   </section>
 </BaseLayout>
 
@@ -241,7 +301,6 @@ const priceFormatted = linkedProduct
     margin-bottom: 1.25rem;
   }
 
-  /* Score card */
   .score-header {
     display: flex;
     justify-content: space-between;
@@ -301,10 +360,7 @@ const priceFormatted = linkedProduct
     transition: width 1s ease;
   }
 
-  /* Analysis card */
-  .analysis-header {
-    margin-bottom: 1.5rem;
-  }
+  .analysis-header { margin-bottom: 1.5rem; }
   .analysis-title {
     font-size: 1.5rem;
     font-weight: 700;
@@ -355,7 +411,6 @@ const priceFormatted = linkedProduct
     margin: 2rem 0;
   }
 
-  /* Paywall overlay */
   .paywall-overlay {
     display: flex;
     flex-direction: column;
@@ -406,7 +461,6 @@ const priceFormatted = linkedProduct
     opacity: 0.7;
   }
 
-  /* Pending spinner */
   .spinner {
     width: 36px;
     height: 36px;
@@ -418,15 +472,34 @@ const priceFormatted = linkedProduct
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* CTA */
-  .cta-title {
-    font-size: 1.25rem;
+  .cross-sell-card { padding: 1.5rem; }
+  .cross-sell-title {
+    font-size: 1.05rem;
     font-weight: 700;
     color: var(--on-surface);
-    margin: 0 0 0.5rem;
+    margin: 0 0 1rem;
+  }
+  .cross-sell-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .cross-sell-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.6rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .cross-sell-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
   }
 
-  /* Buttons */
   .btn {
     padding: 0.6rem 1.25rem;
     border-radius: 0.5rem;
@@ -467,7 +540,8 @@ const priceFormatted = linkedProduct
   const wrap = document.querySelector('.result-wrap') as HTMLElement;
   const surveyId = wrap?.dataset.surveyId;
   const productId = wrap?.dataset.productId;
-  const lang = wrap?.dataset.lang ?? 'vi';
+  const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
+  const isFree = wrap?.dataset.isFree === '1';
   const btnUnlock = document.getElementById('btn-unlock');
   const locked = document.getElementById('analysis-locked');
   const unlocked = document.getElementById('analysis-unlocked');
@@ -475,7 +549,7 @@ const priceFormatted = linkedProduct
   async function checkAccess() {
     if (!surveyId || !productId) return false;
     try {
-      const res = await fetch(`/api/survey/check-access?id=${surveyId}&product_id=${productId}`);
+      const res = await fetch(`/api/scanner/check-access?id=${surveyId}&product_id=${productId}`);
       const data = await res.json() as { hasAccess?: boolean };
       return data.hasAccess === true;
     } catch {
@@ -493,13 +567,12 @@ const priceFormatted = linkedProduct
     if (unlocked) unlocked.classList.add('hidden');
   }
 
-  // Auto-refresh for pending analysis (only if unlocked)
   function startPolling() {
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/survey?id=${surveyId}`);
+        const res = await fetch(`/api/scanner/${surveyId}`);
         const data = await res.json() as { ai_analysis?: string };
         if (data.ai_analysis) {
           clearInterval(interval);
@@ -510,21 +583,25 @@ const priceFormatted = linkedProduct
     }, 4000);
   }
 
-  // Init
-  checkAccess().then((hasAccess) => {
-    if (hasAccess) {
-      showUnlocked();
-      // Poll for analysis if not yet generated
-      const analysisEl = document.querySelector('.spinner');
-      if (analysisEl) startPolling();
-    } else {
-      showLocked();
-    }
-  });
+  // Init: if is_free → no paywall, just check if analysis exists
+  if (isFree) {
+    showUnlocked();
+    const analysisEl = document.querySelector('.spinner');
+    if (analysisEl) startPolling();
+  } else {
+    checkAccess().then((hasAccess) => {
+      if (hasAccess) {
+        showUnlocked();
+        const analysisEl = document.querySelector('.spinner');
+        if (analysisEl) startPolling();
+      } else {
+        showLocked();
+      }
+    });
+  }
 
-  // Unlock button — redirect to payment
   btnUnlock?.addEventListener('click', async () => {
-    btnUnlock.textContent = lang === 'vi' ? 'Đang chuyển...' : 'Redirecting...';
+    btnUnlock.innerHTML = `<span>${lang === 'vi' ? 'Đang chuyển...' : 'Redirecting...'}</span>`;
     btnUnlock.setAttribute('disabled', 'true');
 
     try {
@@ -538,12 +615,12 @@ const priceFormatted = linkedProduct
         window.location.href = data.checkoutUrl;
       } else {
         alert(data.error || 'Payment failed');
-        btnUnlock.textContent = lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now';
+        btnUnlock.innerHTML = `<span class="material-symbols-outlined text-base">lock_open</span> ${lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}`;
         btnUnlock.removeAttribute('disabled');
       }
     } catch {
       alert(lang === 'vi' ? 'Không thể kết nối thanh toán' : 'Payment connection failed');
-      btnUnlock.textContent = lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now';
+      btnUnlock.innerHTML = `<span class="material-symbols-outlined text-base">lock_open</span> ${lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}`;
       btnUnlock.removeAttribute('disabled');
     }
   });

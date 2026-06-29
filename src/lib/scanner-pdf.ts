@@ -1,12 +1,22 @@
-// PDF Generator for the Hồ Sơ Gốc Rễ Survey
-// Uses pdf-lib (Workers-compatible) to render a structured report.
-// Font: Be Vietnam Pro (embedded, full Vietnamese support).
+// Generic PDF generator for scanner responses.
+// Reads dimension names from survey_definition.scoring_rules + responses from scanner_response.
+// Replaces the hardcoded generateSurveyPdf() in pdf-generator.ts.
 
 import { PDFDocument, rgb, PDFPage, PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { marked } from 'marked';
-import type { SurveyResponseRow } from './survey-db';
+import {
+  type ScannerResponseRow,
+  parseResponses,
+  parseScores,
+} from './scanner-response-db';
+import {
+  type SurveyDefinitionFull,
+  type ScoringRules,
+  parseScoringRules,
+} from './survey-config-db';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
+import { getScoreLevel } from './scoring-engine';
 
 const NAVY = rgb(0.13, 0.27, 0.55);
 const AMBER = rgb(0.96, 0.62, 0.04);
@@ -27,7 +37,7 @@ interface PdfContext {
   lang: 'vi' | 'en';
 }
 
-const PAGE_WIDTH = 595.28;   // A4
+const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const MARGIN_X = 50;
 const MARGIN_TOP = 60;
@@ -36,43 +46,39 @@ const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
 
 const T = {
   vi: {
-    coverTitle: 'HỒ SƠ GỐC RỄ',
-    coverSubtitle: 'Bản soi chiếu hệ thống quản trị phòng khám',
     date: 'Ngày',
     clinic: 'Phòng khám',
     owner: 'Chủ phòng khám',
+    address: 'Địa chỉ',
+    years: 'Số năm',
+    staff: 'Nhân sự',
     section1: 'I. ĐIỂM TỔNG HỢP',
-    section2: 'II. CHI TIẾT 4 CHIỀU',
-    section3: 'III. PHÂN TÍCH TỪ BS. VINH',
-    label: {
-      roots: 'ROOTS — Bản sắc & Giá trị cốt lõi',
-      sky: 'SKY — Trục đạo đức',
-      stars: 'S.T.A.R.S — Bản đồ năng lực',
-      living: 'Hệ thống sống',
-    },
+    section2: 'II. CHI TIẾT CÂU TRẢ LỜI',
+    section3: 'III. PHÂN TÍCH AI',
+    totalLabel: 'TỔNG ĐIỂM',
+    siteUrl: 'dentalempireos.com',
+    pageLabel: 'Trang',
   },
   en: {
-    coverTitle: 'ROOTS PROFILE',
-    coverSubtitle: 'Clinic Management System Illumination',
     date: 'Date',
     clinic: 'Clinic',
     owner: 'Owner',
+    address: 'Address',
+    years: 'Years',
+    staff: 'Staff',
     section1: 'I. OVERALL SCORE',
-    section2: 'II. FOUR DIMENSIONS IN DETAIL',
-    section3: 'III. ANALYSIS FROM DR. VINH',
-    label: {
-      roots: 'ROOTS — Identity & Core Values',
-      sky: 'SKY — Ethical Pillar',
-      stars: 'S.T.A.R.S — Capability Map',
-      living: 'Living System',
-    },
+    section2: 'II. ANSWERS IN DETAIL',
+    section3: 'III. AI ANALYSIS',
+    totalLabel: 'TOTAL SCORE',
+    siteUrl: 'dentalempireos.com',
+    pageLabel: 'Page',
   },
 };
 
-function scoreColor(s: number) {
-  if (s >= 75) return SUCCESS;
-  if (s >= 55) return NAVY;
-  if (s >= 35) return WARN;
+function scoreColor(s: number, rules: ScoringRules) {
+  if (s >= rules.thresholds.excellent) return SUCCESS;
+  if (s >= rules.thresholds.good) return NAVY;
+  if (s >= rules.thresholds.needs_work) return WARN;
   return DANGER;
 }
 
@@ -93,8 +99,8 @@ function drawHeader(ctx: PdfContext) {
     x: MARGIN_X, y: PAGE_HEIGHT - 35, size: 9,
     font: ctx.font, color: AMBER,
   });
-  ctx.page.drawText(T[ctx.lang].coverSubtitle, {
-    x: PAGE_WIDTH - MARGIN_X - 200, y: PAGE_HEIGHT - 35, size: 9,
+  ctx.page.drawText('Clinic Management Audit', {
+    x: PAGE_WIDTH - MARGIN_X - 130, y: PAGE_HEIGHT - 35, size: 9,
     font: ctx.font, color: MUTED,
   });
   ctx.page.drawLine({
@@ -105,12 +111,12 @@ function drawHeader(ctx: PdfContext) {
 }
 
 function drawFooter(ctx: PdfContext) {
-  ctx.page.drawText(`Trang ${ctx.pageNum}`, {
+  ctx.page.drawText(`${T[ctx.lang].pageLabel} ${ctx.pageNum}`, {
     x: MARGIN_X, y: 30, size: 8,
     font: ctx.font, color: MUTED,
   });
-  ctx.page.drawText('dentalempireos.com', {
-    x: PAGE_WIDTH - MARGIN_X - 90, y: 30, size: 8,
+  ctx.page.drawText(T[ctx.lang].siteUrl, {
+    x: PAGE_WIDTH - MARGIN_X - 110, y: 30, size: 8,
     font: ctx.font, color: MUTED,
   });
 }
@@ -131,7 +137,7 @@ function drawSectionTitle(ctx: PdfContext, title: string) {
 function drawParagraph(
   ctx: PdfContext,
   text: string,
-  opts: { bold?: boolean; size?: number; color?: any } = {},
+  opts: { bold?: boolean; size?: number; color?: any; italic?: boolean } = {},
 ) {
   const font = opts.bold ? ctx.fontBold : ctx.font;
   const size = opts.size ?? 10;
@@ -169,10 +175,10 @@ function drawBullet(ctx: PdfContext, text: string) {
   }
 }
 
-function drawScoreBar(ctx: PdfContext, label: string, score: number) {
+function drawScoreBar(ctx: PdfContext, label: string, score: number, rules: ScoringRules) {
   const barH = 8;
-  const barW = CONTENT_WIDTH - 110;
-  const x = MARGIN_X + 100;
+  const barW = CONTENT_WIDTH - 130;
+  const x = MARGIN_X + 120;
 
   ensureSpace(ctx, 30);
   ctx.page.drawText(label, {
@@ -180,19 +186,17 @@ function drawScoreBar(ctx: PdfContext, label: string, score: number) {
     font: ctx.font, color: TEXT,
   });
   ctx.page.drawText(String(score), {
-    x: MARGIN_X + 80, y: ctx.y - 10, size: 10,
-    font: ctx.fontBold, color: scoreColor(score),
+    x: MARGIN_X + 100, y: ctx.y - 10, size: 10,
+    font: ctx.fontBold, color: scoreColor(score, rules),
   });
   ctx.y -= 14;
 
-  // Track
   ctx.page.drawRectangle({
     x, y: ctx.y - barH, width: barW, height: barH, color: LIGHT,
   });
-  // Fill
   const w = Math.max(1, (barW * score) / 100);
   ctx.page.drawRectangle({
-    x, y: ctx.y - barH, width: w, height: barH, color: scoreColor(score),
+    x, y: ctx.y - barH, width: w, height: barH, color: scoreColor(score, rules),
   });
   ctx.y -= 24;
 }
@@ -215,7 +219,6 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
           current = test;
         }
       } catch {
-        // Fallback: just append (some chars may not have glyphs, but we try anyway)
         current += ' ' + word;
       }
     }
@@ -224,27 +227,75 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
   return lines;
 }
 
-// ── Main export ──────────────────────────────────────────
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(?<!\*)\*([^\*]+)\*(?!\*)/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1');
+}
 
-export async function generateSurveyPdf(row: SurveyResponseRow): Promise<Uint8Array> {
+// ── Main export ─────────────────────────────────────────
+
+export async function generateScannerPdf(
+  db: D1Database,
+  response: ScannerResponseRow,
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Hồ Sơ Gốc Rễ — ${row.clinic_name ?? ''}`);
+
+  // Load full definition
+  const definitionRow = await db
+    .prepare('SELECT * FROM "survey_definition" WHERE "id" = ?')
+    .bind(response.survey_id)
+    .first<{ id: string; title_vi: string; title_en: string }>();
+  if (!definitionRow) throw new Error('Survey definition not found');
+
+  const sectionsResult = await db
+    .prepare(
+      `SELECT s.*, q.* FROM "survey_section" s
+       LEFT JOIN "survey_question" q ON q."section_id" = s."id"
+       WHERE s."survey_id" = ?
+       ORDER BY s."order_idx" ASC, q."order_idx" ASC`,
+    )
+    .bind(response.survey_id)
+    .all<any>();
+
+  const sectionsMap = new Map<number, { section: any; questions: any[] }>();
+  for (const row of sectionsResult.results ?? []) {
+    if (!sectionsMap.has(row.id)) {
+      sectionsMap.set(row.id, { section: row, questions: [] });
+    }
+    const entry = sectionsMap.get(row.id)!;
+    if (row.question_id) {
+      entry.questions.push(row);
+    }
+  }
+
+  const sections = Array.from(sectionsMap.values()).map((e) => ({
+    ...e.section,
+    questions: e.questions,
+  }));
+
+  const scoringRules: ScoringRules = parseScoringRules(
+    (await db.prepare('SELECT scoring_rules FROM "survey_definition" WHERE id = ?').bind(response.survey_id).first<{ scoring_rules: string | null }>())?.scoring_rules,
+  ) ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } };
+
+  const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
+  const t = T[lang];
+
+  doc.setTitle(`${definitionRow.title_vi} — ${response.clinic_name ?? ''}`);
   doc.setAuthor('Dental Empire OS');
-  doc.setSubject('Roots Profile Survey Report');
   doc.setProducer('Dental Empire OS — dentalempireos.com');
 
-  // Register fontkit and embed Unicode fonts
   doc.registerFontkit(fontkit);
   const font = await doc.embedFont(new Uint8Array(BE_VIETNAM_PRO_REGULAR));
   const fontBold = await doc.embedFont(new Uint8Array(BE_VIETNAM_PRO_BOLD));
 
-  const lang = row.lang === 'en' ? 'en' : 'vi';
-  const t = T[lang];
-
   // ── Cover page ──────────────────────────────────────
   const cover = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
 
-  // Background band
   cover.drawRectangle({
     x: 0, y: PAGE_HEIGHT - 200, width: PAGE_WIDTH, height: 200,
     color: NAVY,
@@ -259,38 +310,51 @@ export async function generateSurveyPdf(row: SurveyResponseRow): Promise<Uint8Ar
     font: fontBold, color: AMBER,
   });
 
-  cover.drawText(t.coverTitle, {
-    x: 50, y: PAGE_HEIGHT - 130, size: 32,
+  cover.drawText(lang === 'vi' ? definitionRow.title_vi : (definitionRow.title_en || definitionRow.title_vi), {
+    x: 50, y: PAGE_HEIGHT - 130, size: 28,
     font: fontBold, color: rgb(1, 1, 1),
   });
 
-  cover.drawText(t.coverSubtitle, {
+  cover.drawText('Báo cáo phân tích hệ thống quản trị', {
     x: 50, y: PAGE_HEIGHT - 155, size: 12,
     font, color: rgb(0.85, 0.85, 0.9),
   });
 
-  // Info box
   let infoY = PAGE_HEIGHT - 280;
   cover.drawText(t.clinic, { x: 50, y: infoY, size: 10, font, color: MUTED });
-  cover.drawText(row.clinic_name ?? '—', { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
+  cover.drawText(response.clinic_name ?? '—', { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
   infoY -= 22;
 
-  if (row.owner_name) {
+  if (response.owner_name) {
     cover.drawText(t.owner, { x: 50, y: infoY, size: 10, font, color: MUTED });
-    cover.drawText(row.owner_name, { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
+    cover.drawText(response.owner_name, { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
+    infoY -= 22;
+  }
+  if (response.clinic_address) {
+    cover.drawText(t.address, { x: 50, y: infoY, size: 10, font, color: MUTED });
+    cover.drawText(response.clinic_address, { x: 200, y: infoY, size: 11, font, color: TEXT });
+    infoY -= 22;
+  }
+  if (response.years_in_operation !== null) {
+    cover.drawText(t.years, { x: 50, y: infoY, size: 10, font, color: MUTED });
+    cover.drawText(String(response.years_in_operation), { x: 200, y: infoY, size: 11, font, color: TEXT });
+    infoY -= 22;
+  }
+  if (response.staff_count !== null) {
+    cover.drawText(t.staff, { x: 50, y: infoY, size: 10, font, color: MUTED });
+    cover.drawText(String(response.staff_count), { x: 200, y: infoY, size: 11, font, color: TEXT });
     infoY -= 22;
   }
 
   cover.drawText(t.date, { x: 50, y: infoY, size: 10, font, color: MUTED });
-  cover.drawText(row.created_at, { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
+  cover.drawText(response.created_at.slice(0, 10), { x: 200, y: infoY, size: 11, font: fontBold, color: TEXT });
 
-  // Big score
-  const total = row.score_total ?? 0;
-  cover.drawText('TOTAL', { x: 50, y: 240, size: 10, font, color: MUTED });
-  cover.drawText(String(total), { x: 50, y: 170, size: 90, font: fontBold, color: scoreColor(total) });
+  const total = parseScores(response.scores_json).total ?? 0;
+  cover.drawText(t.totalLabel, { x: 50, y: 240, size: 10, font, color: MUTED });
+  cover.drawText(String(total), { x: 50, y: 170, size: 90, font: fontBold, color: scoreColor(total, scoringRules) });
   cover.drawText('/100', { x: 180, y: 200, size: 22, font, color: MUTED });
 
-  cover.drawText('Generated by Dental Empire OS · dentalempireos.com', {
+  cover.drawText(`Generated by Dental Empire OS · ${t.siteUrl}`, {
     x: 50, y: 50, size: 9, font, color: MUTED,
   });
 
@@ -305,49 +369,61 @@ export async function generateSurveyPdf(row: SurveyResponseRow): Promise<Uint8Ar
   drawHeader(ctx);
   drawFooter(ctx);
 
-  // Section 1: Overall score
+  // Section 1: Overall scores
   drawSectionTitle(ctx, t.section1);
-  drawScoreBar(ctx, t.label.roots, row.score_roots ?? 0);
-  drawScoreBar(ctx, t.label.sky, row.score_sky ?? 0);
-  drawScoreBar(ctx, t.label.stars, row.score_stars ?? 0);
-  drawScoreBar(ctx, t.label.living, row.score_living ?? 0);
+  for (const dim of scoringRules.dimensions) {
+    const score = parseScores(response.scores_json)[dim.id] ?? 0;
+    const label = lang === 'vi' ? dim.name_vi : (dim.name_en ?? dim.name_vi);
+    drawScoreBar(ctx, label, score, scoringRules);
+  }
   ctx.y -= 8;
 
-  // Section 2: Detailed dimensions
+  // Section 2: Detailed answers (highlight scoring dimensions first)
   drawSectionTitle(ctx, t.section2);
 
-  drawParagraph(ctx, `${t.label.roots} (${row.score_roots ?? 0}/100)`, { bold: true, size: 11, color: NAVY });
-  drawParagraph(ctx, row.roots_q2 || row.roots_q1 || '—', { bold: false });
-  ctx.y -= 4;
+  const responses = parseResponses(response.responses_json);
 
-  drawParagraph(ctx, `${t.label.sky} (${row.score_sky ?? 0}/100)`, { bold: true, size: 11, color: NAVY });
-  if (row.sky_sin_open) drawParagraph(ctx, `Sincerity: ${row.sky_sin_open}`);
-  if (row.sky_k_open) drawParagraph(ctx, `Kindness: ${row.sky_k_open}`);
-  if (row.sky_y_open) drawParagraph(ctx, `Yielding: ${row.sky_y_open}`);
-  ctx.y -= 4;
+  for (const section of sections) {
+    if (section.questions.length === 0) continue;
+    drawParagraph(ctx, section.title_vi, { bold: true, size: 11, color: NAVY });
+    ctx.y -= 4;
 
-  drawParagraph(ctx, `${t.label.stars} (${row.score_stars ?? 0}/100)`, { bold: true, size: 11, color: NAVY });
-  if (row.stars_t_open) drawParagraph(ctx, `Traits: ${row.stars_t_open}`);
-  if (row.stars_a_open) drawParagraph(ctx, `Actions: ${row.stars_a_open}`);
-  ctx.y -= 4;
+    for (const q of section.questions) {
+      const val = responses[q.question_id];
+      const questionText = lang === 'vi' ? q.label_vi : (q.label_en || q.label_vi);
+      drawParagraph(ctx, `${questionText}`, { bold: false, size: 9, color: MUTED });
 
-  drawParagraph(ctx, `${t.label.living} (${row.score_living ?? 0}/100)`, { bold: true, size: 11, color: NAVY });
-  if (row.living_o1) drawParagraph(ctx, row.living_o1);
-  ctx.y -= 8;
+      let answerText: string;
+      if (val === undefined || val === null || val === '') {
+        answerText = '—';
+      } else if (q.type === 'select' || q.type === 'yesno') {
+        const labels = q.scale_labels_vi ? JSON.parse(q.scale_labels_vi) : null;
+        const label = labels?.[String(val)] ?? String(val);
+        answerText = `${val} — ${label}`;
+      } else if (q.type === 'radio') {
+        answerText = String(val);
+      } else {
+        answerText = String(val);
+      }
+
+      drawParagraph(ctx, answerText, { bold: false, size: 9 });
+      ctx.y -= 2;
+    }
+    ctx.y -= 6;
+  }
 
   // Section 3: AI analysis
-  drawSectionTitle(ctx, t.section3);
-
-  if (row.ai_analysis) {
-    renderMarkdownToPdf(ctx, row.ai_analysis);
+  if (response.ai_analysis) {
+    drawSectionTitle(ctx, t.section3);
+    renderMarkdownToPdf(ctx, response.ai_analysis);
   } else {
-    drawParagraph(ctx, 'Bản phân tích AI đang được tạo. Vui lòng tải lại trang sau vài phút.', { bold: false, color: MUTED });
+    drawSectionTitle(ctx, t.section3);
+    drawParagraph(ctx, 'Bản phân tích AI đang được tạo. Vui lòng tải lại sau vài phút.', { color: MUTED });
   }
 
   return doc.save();
 }
 
-/** Render AI markdown into the PDF */
 function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
   marked.setOptions({ gfm: true, breaks: true });
   const tokens = marked.lexer(markdown);
@@ -405,14 +481,4 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
       ctx.y -= 4;
     }
   }
-}
-
-function stripMarkdown(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/__(.+?)__/g, '$1')
-    .replace(/(?<!\*)\*([^\*]+)\*(?!\*)/g, '$1')
-    .replace(/_(.+?)_/g, '$1')
-    .replace(/`(.+?)`/g, '$1')
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1');
 }
