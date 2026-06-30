@@ -21,8 +21,7 @@ export const adminNav: AdminNavSection[] = [
     key: 'overview',
     label: 'TỔNG QUAN',
     items: [
-      { href: '/admin',          label: 'Bảng điều khiển', icon: 'dashboard',     match: '/admin' },
-      { href: '/admin/scanners', label: 'Máy quét',        icon: 'fact_check',    match: '/admin/scanners' },
+      { href: '/admin', label: 'Bảng điều khiển', icon: 'dashboard', match: '/admin' },
     ],
   },
   {
@@ -55,11 +54,12 @@ export const adminNav: AdminNavSection[] = [
     ],
   },
   {
-    key: 'system',
-    label: 'HỆ THỐNG & AI',
+    key: 'ai',
+    label: 'AI & CẤU HÌNH',
     items: [
-      { href: '/admin/apps',         label: 'Ứng dụng AI', icon: 'smart_toy', match: '/admin/apps' },
-      { href: '/admin/ai-settings',  label: 'Cài đặt AI',  icon: 'tune',      match: '/admin/ai-settings' },
+      { href: '/admin/scanners',    label: 'Máy quét',     icon: 'fact_check', match: '/admin/scanners' },
+      { href: '/admin/apps',        label: 'Ứng dụng AI',  icon: 'smart_toy', match: '/admin/apps' },
+      { href: '/admin/ai-settings', label: 'Cài đặt AI',   icon: 'tune',      match: '/admin/ai-settings' },
     ],
   },
 ];

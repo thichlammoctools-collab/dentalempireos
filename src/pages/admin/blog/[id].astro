@@ -83,6 +83,10 @@ function formatDate(iso: string | null): string {
               <span class="material-symbols-outlined text-[16px] align-middle mr-1">upload</span>
               Tải ảnh lên
             </button>
+            <p id="cover-warning" class={`text-xs font-semibold text-yellow-400 mt-1 flex items-start gap-1.5 ${post.cover_url ? 'hidden' : ''}`}>
+              <span class="material-symbols-outlined text-[14px] mt-0.5">warning</span>
+              <span>Bài này chưa có ảnh bìa — khi share Facebook/Zalo sẽ dùng ảnh mặc định của site.</span>
+            </p>
           </div>
         </div>
       </section>
@@ -228,7 +232,20 @@ function formatDate(iso: string | null): string {
     coverUrlInput.value = ''; coverAltInput.value = '';
     coverPreview!.classList.add('hidden'); coverPlaceholder!.classList.remove('hidden');
     coverRemove!.classList.add('hidden');
+    syncCoverWarning();
   });
+
+  // ── Cover warning toggle ────────────────────────────────────
+  const coverWarning = document.getElementById('cover-warning');
+  function syncCoverWarning() {
+    if (!coverWarning || !coverUrlInput) return;
+    coverWarning.classList.toggle('hidden', coverUrlInput.value.trim().length > 0);
+  }
+  if (coverUrlInput) {
+    coverUrlInput.addEventListener('change', syncCoverWarning);
+    new MutationObserver(syncCoverWarning).observe(coverUrlInput, { attributes: true, attributeFilter: ['value'] });
+    syncCoverWarning();
+  }
 
   // ── Rich Text Editor ────────────────────────────────────────
   const richEditorContainer = document.getElementById('rich-editor-container') as HTMLDivElement;
