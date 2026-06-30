@@ -1,157 +1,23 @@
-// Pure-JS client for scanner edit page. NO TypeScript syntax — to avoid build issues
-// when Astro bundles this into the SSR worker.
-//
+// Pure-JS client for scanner edit page. NO TypeScript syntax.
 // All data passed via data-* attributes on buttons/inputs.
-// Server endpoints called via fetch.
 
 const wrap = document.querySelector('[data-def-id]');
 const defId = wrap ? wrap.getAttribute('data-def-id') : '';
 
+// ── Helpers ─────────────────────────────────────────────
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, function(c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
 
-// ── Section modal ──────────────────────────────────────
-const sectionModal = document.getElementById('section-modal');
-const sectionBackdrop = document.getElementById('section-modal-backdrop');
-const sectionPanel = document.getElementById('section-modal-panel');
-const sectionForm = document.getElementById('section-form');
-const sectionFormId = document.getElementById('section-form-id');
-const sectionFormTitle = document.getElementById('section-modal-title');
-const sectionFormError = document.getElementById('section-form-error');
-
-function openSectionModal(id) {
-  if (!sectionForm || !sectionModal) return;
-  sectionForm.reset();
-  if (sectionFormError) sectionFormError.classList.add('hidden');
-  if (id) {
-    if (sectionFormTitle) sectionFormTitle.textContent = 'Sửa section';
-    if (sectionFormId) sectionFormId.value = String(id);
-    fetchSection(id);
-  } else {
-    if (sectionFormTitle) sectionFormTitle.textContent = 'Thêm section';
-    if (sectionFormId) sectionFormId.value = '';
-    showSectionModal();
-  }
+function showToast(msg, type) {
+  if (window.showToast) window.showToast(msg, type);
+  else if (type === 'error') alert(msg);
 }
 
-async function fetchSection(id) {
-  try {
-    const res = await fetch(`/api/admin/scanner-definitions/${defId}/sections/${id}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    setSectionForm(data);
-    showSectionModal();
-  } catch (err) {
-    if (sectionFormError) {
-      sectionFormError.textContent = err instanceof Error ? err.message : 'Load failed';
-      sectionFormError.classList.remove('hidden');
-    }
-  }
-}
+// ── Question Modal: type-conditional UI + live preview ──
 
-function setSectionForm(data) {
-  if (!sectionForm) return;
-  const fields = ['title_vi', 'title_en', 'subtitle_vi', 'ref', 'icon'];
-  fields.forEach(function(name) {
-    const el = sectionForm.elements.namedItem(name);
-    if (el) el.value = data[name] || '';
-  });
-}
-
-function showSectionModal() {
-  if (!sectionModal) return;
-  sectionModal.classList.remove('hidden');
-  requestAnimationFrame(function() {
-    if (sectionBackdrop) sectionBackdrop.classList.replace('bg-black/0', 'bg-black/60');
-    if (sectionPanel) {
-      sectionPanel.classList.remove('scale-95', 'opacity-0');
-      sectionPanel.classList.add('scale-100', 'opacity-100');
-    }
-  });
-}
-
-function closeSectionModal() {
-  if (!sectionModal) return;
-  if (sectionBackdrop) sectionBackdrop.classList.replace('bg-black/60', 'bg-black/0');
-  if (sectionPanel) {
-    sectionPanel.classList.remove('scale-100', 'opacity-100');
-    sectionPanel.classList.add('scale-95', 'opacity-0');
-  }
-  setTimeout(function() { sectionModal.classList.add('hidden'); }, 300);
-}
-
-document.getElementById('btn-add-section')?.addEventListener('click', function() { openSectionModal(); });
-document.getElementById('section-modal-close')?.addEventListener('click', closeSectionModal);
-document.getElementById('section-modal-cancel')?.addEventListener('click', closeSectionModal);
-sectionBackdrop?.addEventListener('click', closeSectionModal);
-
-document.querySelectorAll('.btn-edit-section').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    const id = parseInt(btn.getAttribute('data-section-id') || '0', 10);
-    openSectionModal(id);
-  });
-});
-
-document.querySelectorAll('.btn-delete-section').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
-    const id = btn.getAttribute('data-section-id');
-    const name = btn.getAttribute('data-name');
-    if (!id) return;
-    if (!confirm('Xóa section "' + name + '"?\n\nToàn bộ câu hỏi sẽ bị xoá.')) return;
-    try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}/sections/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Xóa thất bại');
-      }
-      window.showToast?.('Đã xóa section', 'success');
-      setTimeout(function() { window.location.reload(); }, 400);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại');
-    }
-  });
-});
-
-if (sectionForm) {
-  sectionForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    if (sectionFormError) sectionFormError.classList.add('hidden');
-    const fd = new FormData(sectionForm);
-    const id = sectionFormId ? sectionFormId.value : '';
-    const body = {
-      title_vi: String(fd.get('title_vi') || '').trim(),
-      title_en: String(fd.get('title_en') || '').trim(),
-      subtitle_vi: String(fd.get('subtitle_vi') || '').trim() || null,
-      ref: String(fd.get('ref') || '').trim() || null,
-      icon: String(fd.get('icon') || '').trim() || null,
-    };
-    const url = id
-      ? `/api/admin/scanner-definitions/${defId}/sections/${id}`
-      : `/api/admin/scanner-definitions/${defId}/sections`;
-    const method = id ? 'PATCH' : 'POST';
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
-      window.showToast?.('Đã lưu section', 'success');
-      setTimeout(function() { window.location.reload(); }, 500);
-    } catch (err) {
-      if (sectionFormError) {
-        sectionFormError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
-        sectionFormError.classList.remove('hidden');
-      }
-    }
-  });
-}
-
-// ── Question modal ──────────────────────────────────────
 const qModal = document.getElementById('question-modal');
 const qBackdrop = document.getElementById('question-modal-backdrop');
 const qPanel = document.getElementById('question-modal-panel');
@@ -160,69 +26,11 @@ const qFormId = document.getElementById('question-form-id');
 const qFormSectionId = document.getElementById('question-form-section-id');
 const qFormTitle = document.getElementById('question-modal-title');
 const qFormError = document.getElementById('question-form-error');
+const qTypeSelect = qForm ? qForm.elements.namedItem('type') : null;
+const qLabelVi = qForm ? qForm.elements.namedItem('label_vi') : null;
+const qQuestionIdInput = qForm ? qForm.elements.namedItem('question_id') : null;
 
-async function openQuestionModal(sectionId, questionId) {
-  if (!qForm || !qModal) return;
-  qForm.reset();
-  if (qFormError) qFormError.classList.add('hidden');
-  if (qFormSectionId) qFormSectionId.value = String(sectionId);
-  if (questionId) {
-    if (qFormTitle) qFormTitle.textContent = 'Sửa câu hỏi';
-    if (qFormId) qFormId.value = String(questionId);
-    try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}/sections/${sectionId}/questions/${questionId}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setQuestionForm(data);
-      showQuestionModal();
-    } catch (err) {
-      if (qFormError) {
-        qFormError.textContent = err instanceof Error ? err.message : 'Load failed';
-        qFormError.classList.remove('hidden');
-      }
-      return;
-    }
-  } else {
-    if (qFormTitle) qFormTitle.textContent = 'Thêm câu hỏi';
-    if (qFormId) qFormId.value = '';
-    showQuestionModal();
-  }
-}
-
-function setQuestionForm(data) {
-  if (!qForm) return;
-  const fields = ['question_id', 'type', 'dimension', 'label_vi', 'label_en', 'placeholder_vi', 'placeholder_en'];
-  fields.forEach(function(name) {
-    const el = qForm.elements.namedItem(name);
-    if (el) el.value = data[name] || '';
-  });
-  const optionsField = qForm.elements.namedItem('options_vi_text');
-  if (optionsField && data.options_vi) {
-    try {
-      const opts = JSON.parse(data.options_vi);
-      optionsField.value = Array.isArray(opts) ? opts.join('\n') : '';
-    } catch (e) {}
-  }
-  if (data.scale_labels_vi) {
-    for (let n = 1; n <= 5; n++) {
-      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
-      if (el && data.scale_labels_vi[String(n)]) el.value = data.scale_labels_vi[String(n)];
-    }
-  } else {
-    for (let n = 1; n <= 5; n++) {
-      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
-      if (el) el.value = '';
-    }
-  }
-  const requiredField = qForm.elements.namedItem('required');
-  if (requiredField) requiredField.checked = data.required === 1;
-  const anchorField = qForm.elements.namedItem('anchor');
-  if (anchorField) anchorField.checked = data.anchor === 1;
-  updateTypeFields();
-  updatePreview();
-}
-
-// Tab switching VI/EN for question modal
+// Tab switching VI/EN
 document.querySelectorAll('.q-tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     const tab = btn.getAttribute('data-q-tab');
@@ -236,27 +44,27 @@ document.querySelectorAll('.q-tab-btn').forEach(function(btn) {
     document.querySelectorAll('.q-tab-panel').forEach(function(p) {
       p.classList.toggle('hidden', p.getAttribute('data-q-tab-panel') !== tab);
     });
+    // Update preview language
     updatePreview();
   });
 });
 
-// Show/hide fields based on question type
+// Show/hide fields based on type
 function updateTypeFields() {
-  const qTypeSelect = qForm ? qForm.elements.namedItem('type') : null;
   if (!qTypeSelect) return;
   const type = qTypeSelect.value;
   const optionsField = document.getElementById('q-field-options');
   const scaleField = document.getElementById('q-field-scale');
   if (optionsField) optionsField.classList.toggle('hidden', type !== 'radio');
   if (scaleField) scaleField.classList.toggle('hidden', type !== 'select');
+  updatePreview();
 }
 
-const qTypeSelectGlobal = qForm ? qForm.elements.namedItem('type') : null;
-if (qTypeSelectGlobal) {
-  qTypeSelectGlobal.addEventListener('change', updateTypeFields);
+if (qTypeSelect) {
+  qTypeSelect.addEventListener('change', updateTypeFields);
 }
 
-// Quick templates for scale labels
+// Quick templates for scale labels — fills 5 individual input fields
 document.querySelectorAll('.q-scale-template').forEach(function(btn) {
   btn.addEventListener('click', function() {
     const tmpl = btn.getAttribute('data-template');
@@ -272,12 +80,49 @@ document.querySelectorAll('.q-scale-template').forEach(function(btn) {
   });
 });
 
-// Real-time preview
+// Real-time preview update when scale inputs change
 for (let n = 1; n <= 5; n++) {
   const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
   if (el) el.addEventListener('input', updatePreview);
 }
 
+function setFieldValid(field, valid, errMsg) {
+  if (!field) return;
+  field.classList.toggle('border-red-500/60', !valid);
+  field.classList.toggle('border-green-500/60', valid);
+  let helpEl = field.parentElement.querySelector('.field-help');
+  if (!helpEl && !valid && errMsg) {
+    helpEl = document.createElement('p');
+    helpEl.className = 'field-help text-xs text-red-400 mt-1';
+    field.parentElement.appendChild(helpEl);
+  }
+  if (helpEl) helpEl.textContent = valid ? '' : errMsg;
+}
+
+// Auto-generate question_id from label
+if (qLabelVi && qQuestionIdInput) {
+  let userTypedId = false;
+  qQuestionIdInput.addEventListener('input', function() { userTypedId = true; });
+  qLabelVi.addEventListener('input', function() {
+    if (userTypedId) return;
+    // Slugify Vietnamese label
+    const slug = qLabelVi.value
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .replace(/[^a-z0-9\s_]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 40);
+    qQuestionIdInput.value = slug;
+    qQuestionIdInput.classList.add('ring-2', 'ring-primary/30');
+    setTimeout(function() {
+      qQuestionIdInput.classList.remove('ring-2', 'ring-primary/30');
+    }, 500);
+  });
+}
+
+// Live preview
 function updatePreview() {
   const previewEl = document.getElementById('q-preview');
   if (!previewEl || !qForm) return;
@@ -347,28 +192,70 @@ if (qForm) {
   });
 }
 
-// Auto-generate question_id from label
-const qLabelVi = qForm ? qForm.elements.namedItem('label_vi') : null;
-const qQuestionIdInput = qForm ? qForm.elements.namedItem('question_id') : null;
-if (qLabelVi && qQuestionIdInput) {
-  let userTypedId = false;
-  qQuestionIdInput.addEventListener('input', function() { userTypedId = true; });
-  qLabelVi.addEventListener('input', function() {
-    if (userTypedId) return;
-    const slug = qLabelVi.value
-      .toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-      .replace(/[^a-z0-9\s_]/g, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .slice(0, 40);
-    qQuestionIdInput.value = slug;
-    qQuestionIdInput.classList.add('ring-2', 'ring-primary/30');
-    setTimeout(function() {
-      qQuestionIdInput.classList.remove('ring-2', 'ring-primary/30');
-    }, 500);
+// ── Open question modal ─────────────────────────────────
+async function openQuestionModal(sectionId, questionId) {
+  if (!qForm || !qModal) return;
+  qForm.reset();
+  if (qFormError) qFormError.classList.add('hidden');
+  if (qFormSectionId) qFormSectionId.value = String(sectionId);
+  if (questionId) {
+    if (qFormTitle) qFormTitle.textContent = 'Sửa câu hỏi';
+    if (qFormId) qFormId.value = String(questionId);
+    try {
+      const res = await fetch('/api/admin/scanner-definitions/' + defId + '/sections/' + sectionId + '/questions/' + questionId);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setQuestionForm(data);
+      showQuestionModal();
+    } catch (err) {
+      if (qFormError) {
+        qFormError.textContent = err instanceof Error ? err.message : 'Load failed';
+        qFormError.classList.remove('hidden');
+      }
+      return;
+    }
+  } else {
+    if (qFormTitle) qFormTitle.textContent = 'Thêm câu hỏi';
+    if (qFormId) qFormId.value = '';
+    showQuestionModal();
+  }
+  // Reset to VI tab
+  document.querySelectorAll('.q-tab-btn').forEach(function(b) {
+    if (b.getAttribute('data-q-tab') === 'vi') b.click();
   });
+  updateTypeFields();
+  updatePreview();
+}
+
+function setQuestionForm(data) {
+  if (!qForm) return;
+  const fields = ['question_id', 'type', 'dimension', 'label_vi', 'label_en', 'placeholder_vi', 'placeholder_en'];
+  fields.forEach(function(name) {
+    const el = qForm.elements.namedItem(name);
+    if (el) el.value = data[name] || '';
+  });
+  const optionsField = qForm.elements.namedItem('options_vi_text');
+  if (optionsField && data.options_vi) {
+    try {
+      const opts = JSON.parse(data.options_vi);
+      optionsField.value = Array.isArray(opts) ? opts.join('\n') : '';
+    } catch (e) {}
+  }
+  if (data.scale_labels_vi) {
+    for (let n = 1; n <= 5; n++) {
+      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+      if (el && data.scale_labels_vi[String(n)]) el.value = data.scale_labels_vi[String(n)];
+    }
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+      if (el) el.value = '';
+    }
+  }
+  const requiredField = qForm.elements.namedItem('required');
+  if (requiredField) requiredField.checked = data.required === 1;
+  const anchorField = qForm.elements.namedItem('anchor');
+  if (anchorField) anchorField.checked = data.anchor === 1;
 }
 
 function showQuestionModal() {
@@ -421,19 +308,20 @@ document.querySelectorAll('.btn-delete-question').forEach(function(btn) {
     if (!id) return;
     if (!confirm('Xóa câu hỏi "' + label + '"?')) return;
     try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}/sections/0/questions/${id}`, { method: 'DELETE' });
+      const res = await fetch('/api/admin/scanner-definitions/' + defId + '/sections/0/questions/' + id, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Xóa thất bại');
       }
-      window.showToast?.('Đã xóa câu hỏi', 'success');
+      showToast('Đã xóa câu hỏi', 'success');
       setTimeout(function() { window.location.reload(); }, 400);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại');
+      showToast(err instanceof Error ? err.message : 'Xóa thất bại', 'error');
     }
   });
 });
 
+// Submit question form
 if (qForm) {
   qForm.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -447,6 +335,7 @@ if (qForm) {
       ? optionsText.split('\n').map(function(s) { return s.trim(); }).filter(Boolean)
       : null;
 
+    // Build scale_labels_vi from 5 individual inputs
     const scale_1 = String(fd.get('scale_1') || '').trim();
     const scale_2 = String(fd.get('scale_2') || '').trim();
     const scale_3 = String(fd.get('scale_3') || '').trim();
@@ -456,6 +345,7 @@ if (qForm) {
       ? { 1: scale_1, 2: scale_2, 3: scale_3, 4: scale_4, 5: scale_5 }
       : null;
 
+    // Validate question_id format
     const qid = String(fd.get('question_id') || '').trim();
     if (!qid || !/^[a-z0-9_]+$/.test(qid)) {
       if (qFormError) {
@@ -474,14 +364,15 @@ if (qForm) {
       placeholder_vi: String(fd.get('placeholder_vi') || '').trim() || null,
       placeholder_en: String(fd.get('placeholder_en') || '').trim() || null,
       options_vi: optionsVi,
+      options_en: optionsText ? optionsText.split('\n').map(function(s) { return s.trim(); }).filter(Boolean) : null,
       scale_labels_vi: scaleLabelsVi,
       required: fd.get('required') === '1' ? 1 : 0,
       anchor: fd.get('anchor') === '1' ? 1 : 0,
     };
 
     const url = questionId
-      ? `/api/admin/scanner-definitions/${defId}/sections/${sectionId}/questions/${questionId}`
-      : `/api/admin/scanner-definitions/${defId}/sections/${sectionId}/questions`;
+      ? '/api/admin/scanner-definitions/' + defId + '/sections/' + sectionId + '/questions/' + questionId
+      : '/api/admin/scanner-definitions/' + defId + '/sections/' + sectionId + '/questions';
     const method = questionId ? 'PATCH' : 'POST';
 
     try {
@@ -492,7 +383,7 @@ if (qForm) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
-      window.showToast?.('Đã lưu câu hỏi', 'success');
+      showToast('Đã lưu câu hỏi', 'success');
       setTimeout(function() { window.location.reload(); }, 500);
     } catch (err) {
       if (qFormError) {
@@ -502,6 +393,197 @@ if (qForm) {
     }
   });
 }
+
+// ── Section modal (giữ nguyên logic cũ, đơn giản) ──
+const sectionModal = document.getElementById('section-modal');
+const sectionBackdrop = document.getElementById('section-modal-backdrop');
+const sectionPanel = document.getElementById('section-modal-panel');
+const sectionForm = document.getElementById('section-form');
+const sectionFormId = document.getElementById('section-form-id');
+const sectionFormTitle = document.getElementById('section-modal-title');
+const sectionFormError = document.getElementById('section-form-error');
+
+function openSectionModal(id) {
+  if (!sectionForm || !sectionModal) return;
+  sectionForm.reset();
+  if (sectionFormError) sectionFormError.classList.add('hidden');
+  if (id) {
+    if (sectionFormTitle) sectionFormTitle.textContent = 'Sửa section';
+    if (sectionFormId) sectionFormId.value = String(id);
+    fetchSection(id);
+  } else {
+    if (sectionFormTitle) sectionFormTitle.textContent = 'Thêm section';
+    if (sectionFormId) sectionFormId.value = '';
+    showSectionModal();
+  }
+}
+
+async function fetchSection(id) {
+  try {
+    const res = await fetch('/api/admin/scanner-definitions/' + defId + '/sections/' + id);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    setSectionForm(data);
+    showSectionModal();
+  } catch (err) {
+    if (sectionFormError) {
+      sectionFormError.textContent = err instanceof Error ? err.message : 'Load failed';
+      sectionFormError.classList.remove('hidden');
+    }
+  }
+}
+
+function setSectionForm(data) {
+  if (!sectionForm) return;
+  const fields = ['title_vi', 'title_en', 'subtitle_vi', 'ref', 'icon'];
+  fields.forEach(function(name) {
+    const el = sectionForm.elements.namedItem(name);
+    if (el) el.value = data[name] || '';
+  });
+}
+
+function showSectionModal() {
+  if (!sectionModal) return;
+  sectionModal.classList.remove('hidden');
+  requestAnimationFrame(function() {
+    if (sectionBackdrop) sectionBackdrop.classList.replace('bg-black/0', 'bg-black/60');
+    if (sectionPanel) {
+      sectionPanel.classList.remove('scale-95', 'opacity-0');
+      sectionPanel.classList.add('scale-100', 'opacity-100');
+    }
+  });
+}
+
+function closeSectionModal() {
+  if (!sectionModal) return;
+  if (sectionBackdrop) sectionBackdrop.classList.replace('bg-black/60', 'bg-black/0');
+  if (sectionPanel) {
+    sectionPanel.classList.remove('scale-100', 'opacity-100');
+    sectionPanel.classList.add('scale-95', 'opacity-0');
+  }
+  setTimeout(function() { sectionModal.classList.add('hidden'); }, 300);
+}
+
+document.getElementById('btn-add-section')?.addEventListener('click', function() { openSectionModal(); });
+document.getElementById('section-modal-close')?.addEventListener('click', closeSectionModal);
+document.getElementById('section-modal-cancel')?.addEventListener('click', closeSectionModal);
+sectionBackdrop?.addEventListener('click', closeSectionModal);
+
+document.querySelectorAll('.btn-edit-section').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const id = parseInt(btn.getAttribute('data-section-id') || '0', 10);
+    openSectionModal(id);
+  });
+});
+
+document.querySelectorAll('.btn-delete-section').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    const id = btn.getAttribute('data-section-id');
+    const name = btn.getAttribute('data-name');
+    if (!id) return;
+    if (!confirm('Xóa section "' + name + '"?\n\nToàn bộ câu hỏi sẽ bị xoá.')) return;
+    try {
+      const res = await fetch('/api/admin/scanner-definitions/' + defId + '/sections/' + id, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Xóa thất bại');
+      }
+      showToast('Đã xóa section', 'success');
+      setTimeout(function() { window.location.reload(); }, 400);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Xóa thất bại', 'error');
+    }
+  });
+});
+
+if (sectionForm) {
+  sectionForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (sectionFormError) sectionFormError.classList.add('hidden');
+    const fd = new FormData(sectionForm);
+    const id = sectionFormId ? sectionFormId.value : '';
+    const body = {
+      title_vi: String(fd.get('title_vi') || '').trim(),
+      title_en: String(fd.get('title_en') || '').trim(),
+      subtitle_vi: String(fd.get('subtitle_vi') || '').trim() || null,
+      ref: String(fd.get('ref') || '').trim() || null,
+      icon: String(fd.get('icon') || '').trim() || null,
+    };
+    const url = id
+      ? '/api/admin/scanner-definitions/' + defId + '/sections/' + id
+      : '/api/admin/scanner-definitions/' + defId + '/sections';
+    const method = id ? 'PATCH' : 'POST';
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
+      showToast('Đã lưu section', 'success');
+      setTimeout(function() { window.location.reload(); }, 500);
+    } catch (err) {
+      if (sectionFormError) {
+        sectionFormError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
+        sectionFormError.classList.remove('hidden');
+      }
+    }
+  });
+}
+
+// ── Tab handlers for new dedicated page ────────────────
+
+// AI config tabs
+document.querySelectorAll('.ai-tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('.ai-tab-btn').forEach(function(b) {
+      const active = b === btn;
+      b.classList.toggle('border-primary', active);
+      b.classList.toggle('text-primary', active);
+      b.classList.toggle('border-transparent', !active);
+      b.classList.toggle('text-on-surface-variant', !active);
+    });
+    document.querySelectorAll('.ai-tab-panel').forEach(function(p) {
+      p.classList.toggle('hidden', p.getAttribute('data-ai-tab') !== tab);
+    });
+  });
+});
+
+// Scoring tabs
+document.querySelectorAll('.scoring-tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('.scoring-tab-btn').forEach(function(b) {
+      const active = b === btn;
+      b.classList.toggle('border-primary', active);
+      b.classList.toggle('text-primary', active);
+      b.classList.toggle('border-transparent', !active);
+      b.classList.toggle('text-on-surface-variant', !active);
+    });
+    document.querySelectorAll('.scoring-tab-panel').forEach(function(p) {
+      p.classList.toggle('hidden', p.getAttribute('data-scoring-tab') !== tab);
+    });
+  });
+});
+
+// Basic info tabs
+document.querySelectorAll('.info-tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('.info-tab-btn').forEach(function(b) {
+      const active = b === btn;
+      b.classList.toggle('border-primary', active);
+      b.classList.toggle('text-primary', active);
+      b.classList.toggle('border-transparent', !active);
+      b.classList.toggle('text-on-surface-variant', !active);
+    });
+    document.querySelectorAll('.info-tab-panel').forEach(function(p) {
+      p.classList.toggle('hidden', p.getAttribute('data-info-tab') !== tab);
+    });
+  });
+});
 
 // ── Info form ───────────────────────────────────────────
 const infoForm = document.getElementById('form-info');
@@ -528,14 +610,14 @@ if (infoForm) {
       chapter_refs: chapterRefs,
     };
     try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}`, {
+      const res = await fetch('/api/admin/scanner-definitions/' + defId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
-      window.showToast?.('Đã lưu thông tin', 'success');
+      showToast('Đã lưu thông tin', 'success');
       setTimeout(function() { window.location.reload(); }, 600);
     } catch (err) {
       if (infoError) {
@@ -546,8 +628,220 @@ if (infoForm) {
   });
 }
 
+// ── AI Config: structured form ─────────────────────────────
+
+// Char counters
+const promptVi = document.getElementById('ai-prompt-vi');
+const promptEn = document.getElementById('ai-prompt-en');
+const charCountVi = document.getElementById('char-count-vi');
+const charCountEn = document.getElementById('char-count-en');
+promptVi?.addEventListener('input', function() {
+  if (charCountVi) charCountVi.textContent = promptVi.value.length + ' ký tự';
+});
+promptEn?.addEventListener('input', function() {
+  if (charCountEn) charCountEn.textContent = promptEn.value.length + ' ký tự';
+});
+
+// Model/token preview
+const modelInput = document.getElementById('ai-model-override');
+const tokensInput = document.getElementById('ai-max-tokens');
+const previewModel = document.getElementById('ai-preview-model');
+const previewTokens = document.getElementById('ai-preview-tokens');
+function updateModelPreview() {
+  if (previewModel) {
+    previewModel.innerHTML = (modelInput?.value || '').trim()
+      || '<span class="text-on-surface-variant/40 italic">mặc định</span>';
+  }
+  if (previewTokens) {
+    previewTokens.innerHTML = (tokensInput?.value || '').trim()
+      || '<span class="text-on-surface-variant/40 italic">mặc định</span>';
+  }
+}
+modelInput?.addEventListener('input', updateModelPreview);
+tokensInput?.addEventListener('input', updateModelPreview);
+updateModelPreview();
+
+// JSON raw toggle
+const jsonToggle = document.getElementById('btn-ai-json-toggle');
+const jsonToggleLabel = document.getElementById('ai-json-toggle-label');
+const jsonPanel = document.getElementById('ai-panel-json');
+const structuredPanel = document.getElementById('ai-panel-structured');
+let isJsonMode = false;
+jsonToggle?.addEventListener('click', function() {
+  isJsonMode = !isJsonMode;
+  if (jsonPanel) jsonPanel.classList.toggle('hidden', !isJsonMode);
+  if (structuredPanel) structuredPanel.classList.toggle('hidden', isJsonMode);
+  if (jsonToggleLabel) jsonToggleLabel.textContent = isJsonMode ? 'Form' : 'JSON thô';
+  if (isJsonMode) {
+    const config = buildAiConfigFromForm();
+    const jsonTextarea = document.querySelector('textarea[name="ai_config_json"]');
+    if (jsonTextarea) jsonTextarea.value = JSON.stringify(config, null, 2);
+  }
+});
+
+// Build AiConfig from structured form fields
+function buildAiConfigFromForm() {
+  const fd = new FormData(document.getElementById('form-ai') || document.createElement('form'));
+  const promptViVal = String(fd.get('prompt_vi') || '').trim();
+  const promptEnVal = String(fd.get('prompt_en') || '').trim();
+  const modelVal = String(fd.get('model_override') || '').trim();
+  const tokensVal = String(fd.get('max_tokens_override') || '').trim();
+
+  const sections = [];
+  const sectionItems = document.querySelectorAll('.analysis-section-item');
+  sectionItems.forEach(function(item) {
+    var idx = item.getAttribute('data-section-idx');
+    if (idx === null) return;
+    var titleVi = (item.querySelector('input[name="section_title_vi_' + idx + '"]') || { value: '' }).value.trim();
+    if (!titleVi) return;
+    var titleEn = (item.querySelector('input[name="section_title_en_' + idx + '"]') || { value: '' }).value.trim();
+    var idVal = (item.querySelector('input[name="section_id_' + idx + '"]') || { value: '' }).value.trim();
+    var entry = { title_vi: titleVi };
+    if (titleEn) entry.title_en = titleEn;
+    if (idVal) entry.id = idVal;
+    sections.push(entry);
+  });
+
+  var config = {};
+  if (promptViVal) config.prompt_vi = promptViVal;
+  if (promptEnVal) config.prompt_en = promptEnVal;
+  if (modelVal) config.model_override = modelVal;
+  if (tokensVal) config.max_tokens_override = parseInt(tokensVal, 10);
+  if (sections.length > 0) config.analysis_sections = sections;
+  return config;
+}
+
+// Add analysis section
+var sectionCount = document.querySelectorAll('.analysis-section-item').length;
+const sectionsList = document.getElementById('analysis-sections-list');
+const sectionsEmpty = document.getElementById('ai-sections-empty');
+
+function addAnalysisSection(secData) {
+  if (sectionsEmpty) sectionsEmpty.classList.add('hidden');
+  var idx = sectionCount++;
+  var html = '<div class="analysis-section-item flex flex-col sm:flex-row gap-3 bg-surface-container/40 rounded-xl p-4 border border-outline-variant/15" data-section-idx="' + idx + '">' +
+    '<div class="flex-1 flex flex-col gap-2">' +
+      '<div class="flex items-center gap-2">' +
+        '<span class="text-xs font-mono text-on-surface-variant/40 bg-surface-container px-2 py-0.5 rounded">' + (idx + 1) + '</span>' +
+        '<input type="text" name="section_title_vi_' + idx + '" value="' + escapeHtml(secData?.title_vi || '') + '" placeholder="Tiêu đề mục (VI) *" class="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-all" />' +
+      '</div>' +
+      '<input type="text" name="section_title_en_' + idx + '" value="' + escapeHtml(secData?.title_en || '') + '" placeholder="Title (EN) — tùy chọn" class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-all" />' +
+    '</div>' +
+    '<input type="hidden" name="section_id_' + idx + '" value="' + escapeHtml(secData?.id || '') + '" />' +
+    '<button type="button" class="btn-remove-section self-start sm:self-center p-2 rounded-lg hover:bg-red-500/20 text-on-surface-variant hover:text-red-400 transition-all" title="Xóa mục này">' +
+      '<span class="material-symbols-outlined text-[18px]">delete</span>' +
+    '</button>' +
+  '</div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  var el = div.firstElementChild;
+  if (el && sectionsList) sectionsList.appendChild(el);
+
+  sectionsList?.querySelectorAll('.btn-remove-section').forEach(function(btn) {
+    btn.onclick = function() {
+      var parent = btn.closest('.analysis-section-item');
+      if (parent) parent.remove();
+      if (document.querySelectorAll('.analysis-section-item').length === 0 && sectionsEmpty) {
+        sectionsEmpty.classList.remove('hidden');
+      }
+    };
+  });
+}
+
+document.getElementById('btn-add-analysis-section')?.addEventListener('click', function() {
+  addAnalysisSection({});
+});
+
+// Remove existing analysis sections
+sectionsList?.querySelectorAll('.btn-remove-section').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var parent = btn.closest('.analysis-section-item');
+    if (parent) parent.remove();
+    if (document.querySelectorAll('.analysis-section-item').length === 0 && sectionsEmpty) {
+      sectionsEmpty.classList.remove('hidden');
+    }
+  });
+});
+
+// AI form submit
+const aiForm = document.getElementById('form-ai');
+const aiError = document.getElementById('ai-error');
+const aiSubmitBtn = document.getElementById('btn-ai-submit');
+if (aiForm) {
+  aiForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (aiError) aiError.classList.add('hidden');
+    if (aiSubmitBtn) {
+      aiSubmitBtn.disabled = true;
+      aiSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang lưu...';
+    }
+
+    var aiConfig;
+    if (isJsonMode) {
+      var raw = String(document.querySelector('textarea[name="ai_config_json"]')?.value || '').trim();
+      if (raw) {
+        try { aiConfig = JSON.parse(raw); }
+        catch (err) {
+          if (aiError) {
+            aiError.textContent = 'JSON không hợp lệ';
+            aiError.classList.remove('hidden');
+          }
+          if (aiSubmitBtn) {
+            aiSubmitBtn.disabled = false;
+            aiSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu AI Config';
+          }
+          return;
+        }
+      }
+    } else {
+      aiConfig = buildAiConfigFromForm();
+    }
+
+    try {
+      var res = await fetch('/api/admin/scanner-definitions/' + defId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ai_config: Object.keys(aiConfig || {}).length ? aiConfig : null }),
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
+      showToast('Đã lưu AI Config', 'success');
+    } catch (err) {
+      if (aiError) {
+        aiError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
+        aiError.classList.remove('hidden');
+      }
+    } finally {
+      if (aiSubmitBtn) {
+        aiSubmitBtn.disabled = false;
+        aiSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu AI Config';
+      }
+    }
+  });
+}
+
+// AI reset
+document.getElementById('btn-ai-reset')?.addEventListener('click', async function() {
+  if (!confirm('Xóa toàn bộ AI Config và quay về mặc định?')) return;
+  try {
+    var r = await fetch('/api/admin/scanner-definitions/' + defId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ai_config: null }),
+    });
+    if (r.ok) {
+      showToast('Đã reset AI Config', 'success');
+      setTimeout(function() { window.location.reload(); }, 600);
+    } else {
+      showToast('Reset thất bại', 'error');
+    }
+  } catch {
+    showToast('Lỗi kết nối', 'error');
+  }
+});
+
 // ════════════════════════════════════════════════════════════
-// SCORING RULES EDITOR (Visual UI)
+// SCORING RULES EDITOR
 // ════════════════════════════════════════════════════════════
 
 const allQuestions = JSON.parse(wrap?.getAttribute('data-all-questions') || '[]');
@@ -567,7 +861,7 @@ let dimensions = (scoringInit.dimensions || []).map(function(d) {
 let totalFormula = scoringInit.total_formula || 'average';
 let thresholds = Object.assign({ excellent: 75, good: 55, needs_work: 35, critical: 0 }, scoringInit.thresholds || {});
 
-// ── Render dimension cards ──────────────────────────────
+// ── Render ─────────────────────────────────────────────
 
 function renderDimensions() {
   const list = document.getElementById('dimensions-list');
@@ -585,7 +879,7 @@ function renderDimensions() {
     var selectedQs = allQuestions.filter(function(q) { return dim.question_ids.indexOf(q.id) !== -1; });
     var availableQs = allQuestions.filter(function(q) { return dim.question_ids.indexOf(q.id) === -1; });
     var formulaOptions = [
-      { value: 'avg', label: 'avg — tr.bình (1-5 → 0-100)' },
+      { value: 'avg', label: 'avg — trung bình (1-5 → 0-100)' },
       { value: 'sum', label: 'sum — tổng số' },
       { value: 'count_if', label: 'count_if — đếm câu "Có"' },
     ];
@@ -622,7 +916,7 @@ function renderDimensions() {
               '<input type="number" class="dim-weight w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary" value="' + dim.weight + '" min="0" max="10" step="0.5" data-dim="' + escapeHtml(dim.id) + '" />' +
             '</div>' +
             '<div class="flex items-end">' +
-              '<button type="button" class="btn-delete-dim w-full px-3 py-2 rounded-lg text-sm font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-all flex items-center justify-center gap-1" data-dim="' + escapeHtml(dim.id) + '">' +
+              '<button type="button" class="btn-delete-dim w-full px-3 py-2 rounded-lg text-sm font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-all" data-dim="' + escapeHtml(dim.id) + '">' +
                 '<span class="material-symbols-outlined text-[16px]">delete</span> Xóa' +
               '</button>' +
             '</div>' +
@@ -632,7 +926,7 @@ function renderDimensions() {
       '<div>' +
         '<div class="flex items-center justify-between mb-2">' +
           '<label class="text-[10px] font-semibold text-on-surface-variant/70">Câu hỏi đã gán (' + selectedQs.length + ')</label>' +
-          '<span class="text-[10px] text-on-surface-variant/40">Chỉ select/yesno tính điểm</span>' +
+          '<span class="text-[10px] text-on-surface-variant/40">Chỉ select/yesno mới tính điểm</span>' +
         '</div>' +
         (selectedQs.length > 0
           ? '<div class="flex flex-wrap gap-1.5 mb-2">' + qBadges + '</div>'
@@ -641,7 +935,7 @@ function renderDimensions() {
           '<select class="dim-q-picker flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary" data-dim="' + escapeHtml(dim.id) + '">' +
             '<option value="">+ Thêm câu hỏi...</option>' +
             availableQs.map(function(q) {
-              return '<option value="' + escapeHtml(q.id) + '">[' + escapeHtml(q.section.slice(0, 18)) + '] ' + escapeHtml(q.id) + '</option>';
+              return '<option value="' + escapeHtml(q.id) + '">[' + escapeHtml(q.section.slice(0, 20)) + '] ' + escapeHtml(q.id) + '</option>';
             }).join('') +
           '</select>' +
           '<button type="button" class="btn-add-dim-q px-3 py-2 rounded-lg bg-primary/20 text-primary text-xs font-semibold hover:bg-primary/30 transition-all" data-dim="' + escapeHtml(dim.id) + '"' + (availableQs.length === 0 ? ' disabled' : '') + '>Thêm</button>' +
@@ -739,13 +1033,6 @@ function updateThresholdBar() {
 
 // ── Preview ─────────────────────────────────────────────
 
-function getScoreColor(score) {
-  if (score >= 75) return 'bg-emerald-500/70';
-  if (score >= 55) return 'bg-blue-500/70';
-  if (score >= 35) return 'bg-amber-500/70';
-  return 'bg-red-500/70';
-}
-
 function updateScoringPreview() {
   var container = document.getElementById('scoring-preview');
   var content = document.getElementById('scoring-preview-content');
@@ -762,7 +1049,7 @@ function updateScoringPreview() {
   var total;
   if (tf === 'weighted_average') {
     var tw = 0, ts = 0;
-    dimensions.forEach(function(d) {
+    dimensions.forEach(function(d, i) {
       var w = d.weight || 1;
       tw += w;
       ts += (scores[d.id] || 0) * w;
@@ -795,6 +1082,13 @@ function updateScoringPreview() {
     '</div>' +
   '</div>';
   content.innerHTML = html;
+}
+
+function getScoreColor(score) {
+  if (score >= 75) return 'bg-emerald-500/70';
+  if (score >= 55) return 'bg-blue-500/70';
+  if (score >= 35) return 'bg-amber-500/70';
+  return 'bg-red-500/70';
 }
 
 // ── JSON toggle ─────────────────────────────────────────
@@ -918,14 +1212,14 @@ if (scoringForm) {
     }
 
     try {
-      var res = await fetch(`/api/admin/scanner-definitions/${defId}`, {
+      var res = await fetch('/api/admin/scanner-definitions/' + defId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scoring_rules: rules }),
       });
       var data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
-      window.showToast?.('Đã lưu Scoring Rules', 'success');
+      showToast('Đã lưu Scoring Rules', 'success');
     } catch (err) {
       if (scoringError) {
         scoringError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
@@ -938,4 +1232,5 @@ if (scoringForm) {
       }
     }
   });
+}
 }
