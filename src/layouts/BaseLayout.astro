@@ -10,6 +10,7 @@ interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  ogImageAlt?: string;
   // Mobile nav context
   isReading?: boolean;
   currentSlug?: string;
@@ -24,6 +25,7 @@ const {
   title,
   description = 'Nền tảng chia sẻ tri thức quản trị nha khoa hàng đầu Việt Nam. Giúp bác sĩ làm chủ vận hành — Nâng tầm dịch vụ.',
   ogImage = '/images/og-image.png',
+  ogImageAlt,
   isReading = false,
   currentSlug = '',
   groupedChapters = [],
@@ -32,8 +34,33 @@ const {
   keywords = 'quản trị nha khoa, dental clinic management, bác sĩ nha khoa, vận hành phòng khám, Dental Empire OS',
 } = Astro.props;
 
+const siteOrigin = Astro.site ? Astro.site.origin : 'https://dentalempireos.com';
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalempireos.com');
-const ogImageURL = new URL(ogImage, Astro.site ?? 'https://dentalempireos.com');
+const fallbackOgURL = new URL(ogImage, siteOrigin);
+
+// Wrap ogImage URL through Cloudflare Images transform when the asset lives on
+// our zone (so it gets a proper 1200x630 social card). External hosts (eg
+// imgur) fall through to the raw URL — Cloudflare Images can only resize
+// assets served from the same zone.
+const ogImageURL = (() => {
+  try {
+    const parsed = new URL(ogImage, siteOrigin);
+    const isSameZone = parsed.origin === siteOrigin;
+    const isAlreadyTransformed = parsed.pathname.startsWith('/cdn-cgi/image/');
+    if (isSameZone && !isAlreadyTransformed) {
+      const transformed = new URL(
+        `/cdn-cgi/image/width=1200,height=630,fit=cover,quality=85${parsed.pathname}${parsed.search}`,
+        siteOrigin,
+      );
+      return transformed;
+    }
+    return parsed;
+  } catch {
+    return fallbackOgURL;
+  }
+})();
+
+const finalOgImageAlt = ogImageAlt ?? title;
 
 const robotsContent = noindex
   ? 'noindex, nofollow'
@@ -73,6 +100,7 @@ const sameAs = [
     <meta property="og:image" content={ogImageURL} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={finalOgImageAlt} />
     <meta property="og:locale" content="vi_VN" />
     <meta property="og:site_name" content="Dental Empire OS" />
 
@@ -81,6 +109,7 @@ const sameAs = [
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:image:alt" content={finalOgImageAlt} />
     <meta name="twitter:site" content="@dentalempireos" />
 
     <!-- Favicon & App Icons -->

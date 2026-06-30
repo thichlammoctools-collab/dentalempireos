@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlogSectionNav from '../../components/blog/BlogSectionNav.astro';
+import BlogEbookCta from '../../components/blog/BlogEbookCta.astro';
+import AuthorBio from '../../components/blog/AuthorBio.astro';
 import StructuredData from '../../components/seo/StructuredData.astro';
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
@@ -165,6 +167,7 @@ const breadcrumbSchema = {
   title={`${post.title} | Blog Dental Empire`}
   description={post.description}
   ogImage={ogImage}
+  ogImageAlt={post.title}
   ogType="article"
 >
   <StructuredData type="article" data={articleSchema} />
@@ -238,6 +241,18 @@ const breadcrumbSchema = {
           <span class="material-symbols-outlined text-[16px]">schedule</span>
           {post.read_time_minutes} phút đọc
         </span>
+        {post.updated_at && post.published_at && new Date(post.updated_at) > new Date(post.published_at) && (
+          <>
+            <span class="opacity-40 hidden sm:inline">·</span>
+            <span
+              class="flex items-center gap-1 text-primary font-semibold"
+              title={`Cập nhật lần cuối: ${formatDate(post.updated_at)}`}
+            >
+              <span class="material-symbols-outlined text-[16px]">edit</span>
+              Cập nhật: {formatDate(post.updated_at)}
+            </span>
+          </>
+        )}
         <span class="opacity-40 hidden sm:inline">·</span>
         <span class="flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">visibility</span>
@@ -339,27 +354,58 @@ const breadcrumbSchema = {
           </div>
         </div>
 
+        <!-- In-body CTA + Author + End CTA -->
+        <BlogEbookCta position="mid" postSlug={post.slug} />
+        <AuthorBio name={post.author_name} />
+        <BlogEbookCta position="end" postSlug={post.slug} />
+
         <!-- Share -->
         <div class="flex items-center justify-between mt-6 glass-card rounded-2xl p-5">
           <div>
             <p class="text-sm font-semibold text-white mb-1">Chia sẻ bài viết</p>
-            <div class="flex gap-3 mt-2">
+            <div class="flex gap-2 mt-2 flex-wrap">
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(Astro.url.href)}`}
                 target="_blank"
-                rel="noopener"
-                class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
+                rel="noopener noreferrer"
+                aria-label="Chia sẻ lên Facebook"
+                class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
               >
-                <span class="material-symbols-outlined text-[18px]">share</span>
+                <svg class="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
               </a>
               <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(Astro.url.href)}&text=${encodeURIComponent(post.title)}`}
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(Astro.url.href)}`}
                 target="_blank"
-                rel="noopener"
-                class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
+                rel="noopener noreferrer"
+                aria-label="Chia sẻ lên LinkedIn"
+                class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
+              >
+                <svg class="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </a>
+              <a
+                href={`https://sp.zalo.me/share_inline?url=${encodeURIComponent(Astro.url.href)}&title=${encodeURIComponent(post.title)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Chia sẻ qua Zalo"
+                class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
+              >
+                <svg class="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M24 4C12.954 4 4 11.611 4 21.24c0 5.802 3.061 10.945 7.852 14.31-.284 1.078-1.045 3.389-1.232 4.146-.18.728.255.733.563.508.247-.18 2.886-1.802 4.236-2.61C18.6 38.51 21.236 39 24 39c11.046 0 20-7.611 20-17.76C44 11.611 35.046 4 24 4z"/>
+                </svg>
+              </a>
+              <button
+                type="button"
+                id="copy-link-btn"
+                aria-label="Sao chép liên kết"
+                class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-all"
+                data-url={Astro.url.href}
               >
                 <span class="material-symbols-outlined text-[18px]">link</span>
-              </a>
+              </button>
             </div>
           </div>
           <a href="/blog" class="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary transition-colors">
@@ -480,6 +526,32 @@ const breadcrumbSchema = {
         const text = heading.textContent ?? '';
         const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         heading.id = id;
+      }
+    });
+  }
+
+  // Copy Link handler
+  const copyBtn = document.getElementById('copy-link-btn') as HTMLButtonElement | null;
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      const url = copyBtn.dataset.url ?? window.location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        const original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check</span>';
+        copyBtn.classList.add('border-green-400', 'text-green-400');
+        setTimeout(() => {
+          copyBtn.innerHTML = original;
+          copyBtn.classList.remove('border-green-400', 'text-green-400');
+        }, 1500);
+      } catch {
+        // Fallback: select-and-copy via temp input
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
       }
     });
   }

@@ -1,0 +1,47 @@
+---
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+
+const isHouse = name === 'Dental Empire';
+
+// Split avatar initials (max 2 chars)
+const initials = name
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((w) => w[0]?.toUpperCase() ?? '')
+  .join('');
+---
+
+<aside class="glass-card rounded-2xl p-6 flex flex-col sm:flex-row items-start gap-5 mt-10">
+  <div class="shrink-0 w-16 h-16 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center">
+    <span class="text-lg font-bold text-primary">{initials || 'DE'}</span>
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="flex flex-wrap items-baseline gap-2 mb-2">
+      <p class="text-base font-bold text-white">{name}</p>
+      <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+        Tác giả
+      </span>
+    </div>
+    {isHouse ? (
+      <p class="text-sm text-on-surface-variant leading-relaxed">
+        Đội ngũ <strong class="text-white">Dental Empire</strong> — chia sẻ kiến thức quản trị nha khoa, mẹo vận hành và case study thực tế từ hệ thống phòng khám trên toàn quốc.
+      </p>
+    ) : (
+      <p class="text-sm text-on-surface-variant leading-relaxed">
+        Bác sĩ quản lý phòng khám, chia sẻ kinh nghiệm thực chiến trong vận hành và phát triển doanh nghiệp nha khoa.
+      </p>
+    )}
+    <a
+      href="/about"
+      class="inline-flex items-center gap-1.5 mt-3 text-sm font-bold text-primary hover:underline"
+    >
+      Tìm hiểu thêm về chúng tôi
+      <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+    </a>
+  </div>
+</aside>
