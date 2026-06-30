@@ -35,28 +35,26 @@ const {
 } = Astro.props;
 
 const siteOrigin = Astro.site ? Astro.site.origin : 'https://dentalempireos.com';
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://dentalempireos.com');
-const fallbackOgURL = new URL(ogImage, siteOrigin);
-
+const canonicalURL = new URL(Astro.url.pathname, siteOrigin).href;
 // Wrap ogImage URL through Cloudflare Images transform when the asset lives on
-// our zone (so it gets a proper 1200x630 social card). External hosts (eg
-// imgur) fall through to the raw URL — Cloudflare Images can only resize
-// assets served from the same zone.
+// our zone (so it gets a proper 1200x630 social card). SVG API endpoints
+// (e.g. /api/og/chapter/...) skip the transform since Cloudflare Images
+// only works on static raster images.
 const ogImageURL = (() => {
   try {
     const parsed = new URL(ogImage, siteOrigin);
     const isSameZone = parsed.origin === siteOrigin;
     const isAlreadyTransformed = parsed.pathname.startsWith('/cdn-cgi/image/');
-    if (isSameZone && !isAlreadyTransformed) {
-      const transformed = new URL(
+    const isSvgEndpoint = parsed.pathname.startsWith('/api/');
+    if (isSameZone && !isAlreadyTransformed && !isSvgEndpoint) {
+      return new URL(
         `/cdn-cgi/image/width=1200,height=630,fit=cover,quality=85${parsed.pathname}${parsed.search}`,
         siteOrigin,
       );
-      return transformed;
     }
     return parsed;
   } catch {
-    return fallbackOgURL;
+    return new URL('/images/og-image.png', siteOrigin);
   }
 })();
 

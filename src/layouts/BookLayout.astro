@@ -168,7 +168,9 @@ const breadcrumbSchema = {
   currentSlug={currentSlug}
   groupedChapters={groupedChapters}
   ogType="book"
+  ogImage={`/api/og/chapter/${currentSlug}.svg`}
 >
+
   <StructuredData type="book" data={bookSchema} />
   <StructuredData type="article" data={chapterSchema} />
   <StructuredData type="breadcrumb" data={breadcrumbSchema} />
