@@ -729,9 +729,6 @@ export function validateQuestionInput(input: Partial<SurveyQuestionInput>): Vali
   if (input.type === 'radio' && !input.options_vi?.length) {
     errors.push('radio type cần options_vi');
   }
-  if (input.type === 'select' && !input.scale_labels_vi) {
-    errors.push('select type cần scale_labels_vi');
-  }
 
   return { ok: errors.length === 0, errors };
 }
