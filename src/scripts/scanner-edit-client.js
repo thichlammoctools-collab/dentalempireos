@@ -7,7 +7,11 @@
 const wrap = document.querySelector('[data-def-id]');
 const defId = wrap ? wrap.getAttribute('data-def-id') : '';
 
-// ── Tab navigation (pure CSS via anchor links, no JS needed) ──
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
 
 // ── Section modal ──────────────────────────────────────
 const sectionModal = document.getElementById('section-modal');
@@ -187,7 +191,7 @@ async function openQuestionModal(sectionId, questionId) {
 
 function setQuestionForm(data) {
   if (!qForm) return;
-  const fields = ['question_id', 'type', 'dimension', 'label_vi', 'label_en', 'placeholder_vi'];
+  const fields = ['question_id', 'type', 'dimension', 'label_vi', 'label_en', 'placeholder_vi', 'placeholder_en'];
   fields.forEach(function(name) {
     const el = qForm.elements.namedItem(name);
     if (el) el.value = data[name] || '';
@@ -199,14 +203,168 @@ function setQuestionForm(data) {
       optionsField.value = Array.isArray(opts) ? opts.join('\n') : '';
     } catch (e) {}
   }
-  const scaleField = qForm.elements.namedItem('scale_labels_vi_text');
-  if (scaleField && data.scale_labels_vi) {
-    scaleField.value = data.scale_labels_vi;
+  if (data.scale_labels_vi) {
+    for (let n = 1; n <= 5; n++) {
+      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+      if (el && data.scale_labels_vi[String(n)]) el.value = data.scale_labels_vi[String(n)];
+    }
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+      if (el) el.value = '';
+    }
   }
   const requiredField = qForm.elements.namedItem('required');
   if (requiredField) requiredField.checked = data.required === 1;
   const anchorField = qForm.elements.namedItem('anchor');
   if (anchorField) anchorField.checked = data.anchor === 1;
+  updateTypeFields();
+  updatePreview();
+}
+
+// Tab switching VI/EN for question modal
+document.querySelectorAll('.q-tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = btn.getAttribute('data-q-tab');
+    document.querySelectorAll('.q-tab-btn').forEach(function(b) {
+      const active = b === btn;
+      b.classList.toggle('border-primary', active);
+      b.classList.toggle('text-primary', active);
+      b.classList.toggle('border-transparent', !active);
+      b.classList.toggle('text-on-surface-variant', !active);
+    });
+    document.querySelectorAll('.q-tab-panel').forEach(function(p) {
+      p.classList.toggle('hidden', p.getAttribute('data-q-tab-panel') !== tab);
+    });
+    updatePreview();
+  });
+});
+
+// Show/hide fields based on question type
+function updateTypeFields() {
+  const qTypeSelect = qForm ? qForm.elements.namedItem('type') : null;
+  if (!qTypeSelect) return;
+  const type = qTypeSelect.value;
+  const optionsField = document.getElementById('q-field-options');
+  const scaleField = document.getElementById('q-field-scale');
+  if (optionsField) optionsField.classList.toggle('hidden', type !== 'radio');
+  if (scaleField) scaleField.classList.toggle('hidden', type !== 'select');
+}
+
+const qTypeSelectGlobal = qForm ? qForm.elements.namedItem('type') : null;
+if (qTypeSelectGlobal) {
+  qTypeSelectGlobal.addEventListener('change', updateTypeFields);
+}
+
+// Quick templates for scale labels
+document.querySelectorAll('.q-scale-template').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tmpl = btn.getAttribute('data-template');
+    if (!tmpl) return;
+    try {
+      const labels = JSON.parse(tmpl);
+      for (let n = 1; n <= 5; n++) {
+        const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+        if (el) el.value = labels[String(n)] || '';
+      }
+    } catch (e) {}
+    updatePreview();
+  });
+});
+
+// Real-time preview
+for (let n = 1; n <= 5; n++) {
+  const el = qForm ? qForm.elements.namedItem('scale_' + n) : null;
+  if (el) el.addEventListener('input', updatePreview);
+}
+
+function updatePreview() {
+  const previewEl = document.getElementById('q-preview');
+  if (!previewEl || !qForm) return;
+  const lang = document.querySelector('.q-tab-btn.border-primary')?.getAttribute('data-q-tab') || 'vi';
+  const fd = new FormData(qForm);
+  const type = String(fd.get('type') || 'select') || 'select';
+  const label = String(fd.get('label_' + lang) || fd.get('label_vi') || '').trim();
+  const placeholder = String(fd.get('placeholder_' + lang) || fd.get('placeholder_vi') || '').trim();
+  const required = fd.get('required') === '1';
+  const anchor = fd.get('anchor') === '1';
+
+  let inputHtml = '';
+  if (type === 'textarea') {
+    inputHtml = '<textarea class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface" placeholder="' + escapeHtml(placeholder) + '"' + (required ? ' required' : '') + '></textarea>';
+  } else if (type === 'select') {
+    let scaleRaw = String(fd.get('scale_labels_vi_text') || '');
+    let labels = {};
+    try { labels = JSON.parse(scaleRaw); } catch (e) {}
+    if (!labels || Object.keys(labels).length === 0) {
+      labels = { '1': 'Chưa có', '2': 'Đang bắt đầu', '3': 'Đã có', '4': 'Ổn định', '5': 'Đầu tàu' };
+    }
+    const pills = [1, 2, 3, 4, 5].map(function(n) {
+      return '<label class="scale-option flex-1 min-w-[80px] cursor-pointer">' +
+        '<input type="radio" disabled class="hidden" />' +
+        '<span class="scale-pill flex flex-col items-center p-2 bg-surface-container border border-outline-variant rounded-lg">' +
+        '<span class="scale-num font-bold text-on-surface">' + n + '</span>' +
+        '<span class="scale-text text-[10px] text-on-surface-variant text-center">' + escapeHtml(labels[String(n)] || '') + '</span>' +
+        '</span></label>';
+    }).join('');
+    inputHtml = '<div class="flex gap-2 flex-wrap">' + pills + '</div>';
+  } else if (type === 'radio') {
+    const optsRaw = String(fd.get('options_vi_text') || '');
+    const opts = optsRaw.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
+    if (opts.length === 0) {
+      inputHtml = '<p class="text-xs text-on-surface-variant italic">Chưa có options (cần thêm cho radio)</p>';
+    } else {
+      inputHtml = '<div class="flex flex-col gap-2">' + opts.map(function(o) {
+        return '<label class="flex items-start gap-2 p-2 bg-surface-container border border-outline-variant rounded-lg">' +
+          '<input type="radio" disabled class="mt-0.5" />' +
+          '<span class="text-sm text-on-surface">' + escapeHtml(o) + '</span></label>';
+      }).join('') + '</div>';
+    }
+  } else if (type === 'yesno') {
+    inputHtml = '<div class="flex gap-2">' +
+      '<label class="flex-1 px-4 py-2 bg-surface-container border border-outline-variant rounded-lg text-center text-on-surface cursor-pointer">Có</label>' +
+      '<label class="flex-1 px-4 py-2 bg-surface-container border border-outline-variant rounded-lg text-center text-on-surface cursor-pointer">Chưa</label>' +
+      '</div>';
+  }
+
+  previewEl.innerHTML =
+    '<div class="bg-surface-container/40 rounded-xl p-4 border border-outline-variant/15">' +
+      (anchor ? '<span class="inline-block text-[10px] font-bold text-amber-400 mb-1 uppercase tracking-wider">⭐ Anchor</span>' : '') +
+      '<p class="text-sm font-medium text-on-surface mb-2">' + (label || '<span class="italic text-on-surface-variant">Câu hỏi...</span>') +
+      (required ? ' <span class="text-red-400">*</span>' : '') + '</p>' +
+      inputHtml +
+      '<p class="text-xs text-on-surface-variant/70 mt-3">Type: ' + type + ' · ID: ' + escapeHtml(String(fd.get('question_id') || '—')) + '</p>' +
+    '</div>';
+}
+
+if (qForm) {
+  ['input', 'change'].forEach(function(evt) {
+    qForm.addEventListener(evt, updatePreview);
+  });
+}
+
+// Auto-generate question_id from label
+const qLabelVi = qForm ? qForm.elements.namedItem('label_vi') : null;
+const qQuestionIdInput = qForm ? qForm.elements.namedItem('question_id') : null;
+if (qLabelVi && qQuestionIdInput) {
+  let userTypedId = false;
+  qQuestionIdInput.addEventListener('input', function() { userTypedId = true; });
+  qLabelVi.addEventListener('input', function() {
+    if (userTypedId) return;
+    const slug = qLabelVi.value
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .replace(/[^a-z0-9\s_]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 40);
+    qQuestionIdInput.value = slug;
+    qQuestionIdInput.classList.add('ring-2', 'ring-primary/30');
+    setTimeout(function() {
+      qQuestionIdInput.classList.remove('ring-2', 'ring-primary/30');
+    }, 500);
+  });
 }
 
 function showQuestionModal() {
@@ -285,26 +443,32 @@ if (qForm) {
       ? optionsText.split('\n').map(function(s) { return s.trim(); }).filter(Boolean)
       : null;
 
-    const scaleLabelsText = String(fd.get('scale_labels_vi_text') || '').trim();
-    let scaleLabelsVi = null;
-    if (scaleLabelsText) {
-      try { scaleLabelsVi = JSON.parse(scaleLabelsText); }
-      catch (err) {
-        if (qFormError) {
-          qFormError.textContent = 'Scale labels JSON không hợp lệ';
-          qFormError.classList.remove('hidden');
-        }
-        return;
+    const scale_1 = String(fd.get('scale_1') || '').trim();
+    const scale_2 = String(fd.get('scale_2') || '').trim();
+    const scale_3 = String(fd.get('scale_3') || '').trim();
+    const scale_4 = String(fd.get('scale_4') || '').trim();
+    const scale_5 = String(fd.get('scale_5') || '').trim();
+    const scaleLabelsVi = (scale_1 || scale_2 || scale_3 || scale_4 || scale_5)
+      ? { 1: scale_1, 2: scale_2, 3: scale_3, 4: scale_4, 5: scale_5 }
+      : null;
+
+    const qid = String(fd.get('question_id') || '').trim();
+    if (!qid || !/^[a-z0-9_]+$/.test(qid)) {
+      if (qFormError) {
+        qFormError.textContent = 'question_id phải là chữ thường, số, gạch dưới (vd: hr_q1)';
+        qFormError.classList.remove('hidden');
       }
+      return;
     }
 
     const body = {
-      question_id: String(fd.get('question_id') || '').trim(),
+      question_id: qid,
       type: String(fd.get('type') || 'select'),
       dimension: String(fd.get('dimension') || '').trim() || null,
       label_vi: String(fd.get('label_vi') || '').trim(),
       label_en: String(fd.get('label_en') || '').trim(),
       placeholder_vi: String(fd.get('placeholder_vi') || '').trim() || null,
+      placeholder_en: String(fd.get('placeholder_en') || '').trim() || null,
       options_vi: optionsVi,
       scale_labels_vi: scaleLabelsVi,
       required: fd.get('required') === '1' ? 1 : 0,
@@ -335,7 +499,7 @@ if (qForm) {
   });
 }
 
-// ── Info form (basic info save) ─────────────────────────
+// ── Info form ───────────────────────────────────────────
 const infoForm = document.getElementById('form-info');
 const infoError = document.getElementById('info-error');
 if (infoForm) {
@@ -378,77 +542,395 @@ if (infoForm) {
   });
 }
 
-// ── AI form ────────────────────────────────────────────
-const aiForm = document.getElementById('form-ai');
-const aiError = document.getElementById('ai-error');
-if (aiForm) {
-  aiForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    if (aiError) aiError.classList.add('hidden');
-    const fd = new FormData(aiForm);
-    let aiConfig = null;
-    const raw = String(fd.get('ai_config') || '').trim();
-    if (raw) {
-      try { aiConfig = JSON.parse(raw); }
-      catch (err) {
-        if (aiError) {
-          aiError.textContent = 'JSON không hợp lệ';
-          aiError.classList.remove('hidden');
-        }
-        return;
+// ════════════════════════════════════════════════════════════
+// SCORING RULES EDITOR (Visual UI)
+// ════════════════════════════════════════════════════════════
+
+const allQuestions = JSON.parse(wrap?.getAttribute('data-all-questions') || '[]');
+const scoringInit = JSON.parse(wrap?.getAttribute('data-scoring-init') || '{"dimensions":[],"total_formula":"average","thresholds":{"excellent":75,"good":55,"needs_work":35,"critical":0}}');
+
+let dimensions = (scoringInit.dimensions || []).map(function(d) {
+  return {
+    id: d.id || 'dim_' + Math.random().toString(36).slice(2, 7),
+    name_vi: d.name_vi || '',
+    name_en: d.name_en || '',
+    formula: d.formula || 'avg',
+    question_ids: d.question_ids || [],
+    weight: d.weight != null ? d.weight : 1,
+  };
+});
+
+let totalFormula = scoringInit.total_formula || 'average';
+let thresholds = Object.assign({ excellent: 75, good: 55, needs_work: 35, critical: 0 }, scoringInit.thresholds || {});
+
+// ── Render dimension cards ──────────────────────────────
+
+function renderDimensions() {
+  const list = document.getElementById('dimensions-list');
+  const empty = document.getElementById('dimensions-empty');
+  if (!list) return;
+
+  if (dimensions.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  list.innerHTML = dimensions.map(function(dim) {
+    var selectedQs = allQuestions.filter(function(q) { return dim.question_ids.indexOf(q.id) !== -1; });
+    var availableQs = allQuestions.filter(function(q) { return dim.question_ids.indexOf(q.id) === -1; });
+    var formulaOptions = [
+      { value: 'avg', label: 'avg — tr.bình (1-5 → 0-100)' },
+      { value: 'sum', label: 'sum — tổng số' },
+      { value: 'count_if', label: 'count_if — đếm câu "Có"' },
+    ];
+    var qBadges = selectedQs.map(function(q) {
+      return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/15 text-primary border border-primary/20">' +
+        escapeHtml(q.id) +
+        '<button type="button" class="dim-q-remove hover:text-red-400 leading-none" data-qid="' + escapeHtml(q.id) + '" data-dim="' + escapeHtml(dim.id) + '">×</button></span>';
+    }).join('');
+
+    return '<div class="dim-card bg-surface-container/40 rounded-xl p-4 border border-outline-variant/15" data-dim-id="' + escapeHtml(dim.id) + '">' +
+      '<div class="flex items-start gap-3 mb-3">' +
+        '<div class="flex-1 flex flex-col gap-2">' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
+            '<div>' +
+              '<label class="text-[10px] font-semibold text-on-surface-variant/70 block mb-1">Tên chiều (VI) *</label>' +
+              '<input type="text" class="dim-name-vi w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" value="' + escapeHtml(dim.name_vi) + '" data-dim="' + escapeHtml(dim.id) + '" placeholder="VD: Nhân sự, Tài chính..." />' +
+            '</div>' +
+            '<div>' +
+              '<label class="text-[10px] font-semibold text-on-surface-variant/70 block mb-1">Tên (EN)</label>' +
+              '<input type="text" class="dim-name-en w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" value="' + escapeHtml(dim.name_en) + '" data-dim="' + escapeHtml(dim.id) + '" placeholder="e.g., HR, Finance..." />' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">' +
+            '<div>' +
+              '<label class="text-[10px] font-semibold text-on-surface-variant/70 block mb-1">Công thức</label>' +
+              '<select class="dim-formula w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" data-dim="' + escapeHtml(dim.id) + '">' +
+                formulaOptions.map(function(o) {
+                  return '<option value="' + o.value + '"' + (dim.formula === o.value ? ' selected' : '') + '>' + o.label + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="text-[10px] font-semibold text-on-surface-variant/70 block mb-1">Trọng số (weight)</label>' +
+              '<input type="number" class="dim-weight w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary" value="' + dim.weight + '" min="0" max="10" step="0.5" data-dim="' + escapeHtml(dim.id) + '" />' +
+            '</div>' +
+            '<div class="flex items-end">' +
+              '<button type="button" class="btn-delete-dim w-full px-3 py-2 rounded-lg text-sm font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-all flex items-center justify-center gap-1" data-dim="' + escapeHtml(dim.id) + '">' +
+                '<span class="material-symbols-outlined text-[16px]">delete</span> Xóa' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="flex items-center justify-between mb-2">' +
+          '<label class="text-[10px] font-semibold text-on-surface-variant/70">Câu hỏi đã gán (' + selectedQs.length + ')</label>' +
+          '<span class="text-[10px] text-on-surface-variant/40">Chỉ select/yesno tính điểm</span>' +
+        '</div>' +
+        (selectedQs.length > 0
+          ? '<div class="flex flex-wrap gap-1.5 mb-2">' + qBadges + '</div>'
+          : '<p class="text-[11px] text-on-surface-variant/40 italic mb-2">Chưa gán câu hỏi nào.</p>') +
+        '<div class="flex gap-2">' +
+          '<select class="dim-q-picker flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary" data-dim="' + escapeHtml(dim.id) + '">' +
+            '<option value="">+ Thêm câu hỏi...</option>' +
+            availableQs.map(function(q) {
+              return '<option value="' + escapeHtml(q.id) + '">[' + escapeHtml(q.section.slice(0, 18)) + '] ' + escapeHtml(q.id) + '</option>';
+            }).join('') +
+          '</select>' +
+          '<button type="button" class="btn-add-dim-q px-3 py-2 rounded-lg bg-primary/20 text-primary text-xs font-semibold hover:bg-primary/30 transition-all" data-dim="' + escapeHtml(dim.id) + '"' + (availableQs.length === 0 ? ' disabled' : '') + '>Thêm</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  bindDimensionEvents();
+  updateScoringPreview();
+}
+
+function bindDimensionEvents() {
+  document.querySelectorAll('.dim-name-vi').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      var id = inp.getAttribute('data-dim');
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d) d.name_vi = inp.value;
+      updateScoringPreview();
+    });
+  });
+  document.querySelectorAll('.dim-name-en').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      var id = inp.getAttribute('data-dim');
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d) d.name_en = inp.value;
+    });
+  });
+  document.querySelectorAll('.dim-formula').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+      var id = sel.getAttribute('data-dim');
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d) d.formula = sel.value;
+      updateScoringPreview();
+    });
+  });
+  document.querySelectorAll('.dim-weight').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      var id = inp.getAttribute('data-dim');
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d) d.weight = parseFloat(inp.value) || 0;
+      updateScoringPreview();
+    });
+  });
+  document.querySelectorAll('.btn-delete-dim').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-dim');
+      if (!confirm('Xóa dimension này?')) return;
+      dimensions = dimensions.filter(function(d) { return d.id !== id; });
+      renderDimensions();
+    });
+  });
+  document.querySelectorAll('.btn-add-dim-q').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-dim');
+      var picker = document.querySelector('.dim-q-picker[data-dim="' + id + '"]');
+      if (!picker || !picker.value) return;
+      var qid = picker.value;
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d && d.question_ids.indexOf(qid) === -1) {
+        d.question_ids.push(qid);
+        renderDimensions();
       }
-    }
-    try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ai_config: aiConfig }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
-      window.showToast?.('Đã lưu AI Config', 'success');
-    } catch (err) {
-      if (aiError) {
-        aiError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
-        aiError.classList.remove('hidden');
+    });
+  });
+  document.querySelectorAll('.dim-q-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var qid = btn.getAttribute('data-qid');
+      var id = btn.getAttribute('data-dim');
+      var d = dimensions.find(function(x) { return x.id === id; });
+      if (d) {
+        d.question_ids = d.question_ids.filter(function(q) { return q !== qid; });
+        renderDimensions();
       }
-    }
+    });
   });
 }
 
-// ── Scoring form ───────────────────────────────────────
+// ── Threshold bar ──────────────────────────────────────
+
+function updateThresholdBar() {
+  var exc = parseInt(document.querySelector('input[name="threshold_excellent"]')?.value || '75', 10);
+  var good = parseInt(document.querySelector('input[name="threshold_good"]')?.value || '55', 10);
+  var needs = parseInt(document.querySelector('input[name="threshold_needs_work"]')?.value || '35', 10);
+  var crit = parseInt(document.querySelector('input[name="threshold_critical"]')?.value || '0', 10);
+  var c = document.getElementById('bar-critical');
+  var n = document.getElementById('bar-needs-work');
+  var g = document.getElementById('bar-good');
+  var ex = document.getElementById('bar-excellent');
+  if (c) c.style.width = Math.max(0, crit) + '%';
+  if (n) n.style.width = Math.max(0, needs - crit) + '%';
+  if (g) g.style.width = Math.max(0, good - needs) + '%';
+  if (ex) ex.style.width = Math.max(0, 100 - good) + '%';
+}
+
+// ── Preview ─────────────────────────────────────────────
+
+function getScoreColor(score) {
+  if (score >= 75) return 'bg-emerald-500/70';
+  if (score >= 55) return 'bg-blue-500/70';
+  if (score >= 35) return 'bg-amber-500/70';
+  return 'bg-red-500/70';
+}
+
+function updateScoringPreview() {
+  var container = document.getElementById('scoring-preview');
+  var content = document.getElementById('scoring-preview-content');
+  if (!container || !content) return;
+  if (dimensions.length === 0) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+
+  var tf = document.querySelector('input[name="total_formula"]:checked')?.value || 'average';
+  var scores = {};
+  dimensions.forEach(function(d, i) {
+    scores[d.id] = Math.min(100, Math.round(30 + (i * 15) + (d.question_ids.length * 5)));
+  });
+  var dimScores = dimensions.map(function(d) { return scores[d.id] || 0; });
+  var total;
+  if (tf === 'weighted_average') {
+    var tw = 0, ts = 0;
+    dimensions.forEach(function(d) {
+      var w = d.weight || 1;
+      tw += w;
+      ts += (scores[d.id] || 0) * w;
+    });
+    total = tw > 0 ? Math.round(ts / tw) : 0;
+  } else {
+    total = dimScores.length > 0 ? Math.round(dimScores.reduce(function(s, v) { return s + v; }, 0) / dimScores.length) : 0;
+  }
+
+  var html = '';
+  dimensions.forEach(function(d) {
+    var score = scores[d.id] || 0;
+    html += '<div class="flex-1 min-w-[120px]">' +
+      '<p class="text-[10px] text-on-surface-variant/60 truncate mb-1">' + escapeHtml(d.name_vi || d.id) + '</p>' +
+      '<div class="flex items-center gap-1.5">' +
+        '<div class="flex-1 h-2 rounded-full bg-surface-container overflow-hidden">' +
+          '<div class="h-full rounded-full ' + getScoreColor(score) + '" style="width:' + score + '%"></div>' +
+        '</div>' +
+        '<span class="text-xs font-bold font-mono">' + score + '</span>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '<div class="w-full col-span-full border-t border-outline-variant/20 pt-2 mt-1">' +
+    '<div class="flex items-center gap-2">' +
+      '<span class="text-[10px] font-semibold text-primary">TỔNG</span>' +
+      '<div class="flex-1 h-3 rounded-full bg-surface-container overflow-hidden">' +
+        '<div class="h-full rounded-full ' + getScoreColor(total) + '" style="width:' + total + '%"></div>' +
+      '</div>' +
+      '<span class="text-sm font-bold font-mono">' + total + '</span>' +
+    '</div>' +
+  '</div>';
+  content.innerHTML = html;
+}
+
+// ── JSON toggle ─────────────────────────────────────────
+
+var isScoringJsonMode = false;
+document.getElementById('btn-scoring-json-toggle')?.addEventListener('click', function() {
+  isScoringJsonMode = !isScoringJsonMode;
+  var jsonPanel = document.getElementById('scoring-panel-json');
+  var structPanel = document.getElementById('scoring-panel-structured');
+  var label = document.getElementById('scoring-json-toggle-label');
+  if (jsonPanel) jsonPanel.classList.toggle('hidden', !isScoringJsonMode);
+  if (structPanel) structPanel.classList.toggle('hidden', isScoringJsonMode);
+  if (label) label.textContent = isScoringJsonMode ? 'Form' : 'JSON thô';
+  if (isScoringJsonMode) {
+    var ta = document.getElementById('scoring-rules-json-ta');
+    if (ta) ta.value = JSON.stringify(buildScoringRulesFromState(), null, 2);
+  }
+});
+
+// ── State → Rules object ────────────────────────────────
+
+function buildScoringRulesFromState() {
+  var tExc = parseInt(document.querySelector('input[name="threshold_excellent"]')?.value || '75', 10);
+  var tGood = parseInt(document.querySelector('input[name="threshold_good"]')?.value || '55', 10);
+  var tNeeds = parseInt(document.querySelector('input[name="threshold_needs_work"]')?.value || '35', 10);
+  var tCrit = parseInt(document.querySelector('input[name="threshold_critical"]')?.value || '0', 10);
+  var tf = document.querySelector('input[name="total_formula"]:checked')?.value || 'average';
+  return {
+    dimensions: dimensions.map(function(d) {
+      return {
+        id: d.id,
+        name_vi: d.name_vi,
+        name_en: d.name_en || undefined,
+        formula: d.formula,
+        question_ids: d.question_ids,
+        weight: d.weight !== 1 ? d.weight : undefined,
+      };
+    }),
+    total_formula: tf,
+    thresholds: { excellent: tExc, good: tGood, needs_work: tNeeds, critical: tCrit },
+  };
+}
+
+// ── Init ───────────────────────────────────────────────
+
+document.querySelectorAll('input[name="total_formula"]').forEach(function(r) {
+  if (r.value === totalFormula) r.checked = true;
+  r.addEventListener('change', function() { totalFormula = r.value; updateScoringPreview(); });
+});
+
+var thExc = document.querySelector('input[name="threshold_excellent"]');
+var thGood = document.querySelector('input[name="threshold_good"]');
+var thNeeds = document.querySelector('input[name="threshold_needs_work"]');
+var thCrit = document.querySelector('input[name="threshold_critical"]');
+if (thExc) thExc.value = thresholds.excellent;
+if (thGood) thGood.value = thresholds.good;
+if (thNeeds) thNeeds.value = thresholds.needs_work;
+if (thCrit) thCrit.value = thresholds.critical;
+[thExc, thGood, thNeeds, thCrit].forEach(function(inp) {
+  if (inp) inp.addEventListener('input', function() { updateThresholdBar(); updateScoringPreview(); });
+});
+
+document.getElementById('btn-add-dimension')?.addEventListener('click', function() {
+  var newId = 'dim_' + Math.random().toString(36).slice(2, 7);
+  dimensions.push({ id: newId, name_vi: '', name_en: '', formula: 'avg', question_ids: [], weight: 1 });
+  renderDimensions();
+  setTimeout(function() {
+    var inp = document.querySelector('.dim-name-vi[data-dim="' + newId + '"]');
+    if (inp) inp.focus();
+  }, 50);
+});
+
+renderDimensions();
+updateThresholdBar();
+
+// ── Scoring form submit ─────────────────────────────────
+
 const scoringForm = document.getElementById('form-scoring');
 const scoringError = document.getElementById('scoring-error');
+const scoringSubmitBtn = document.getElementById('btn-scoring-submit');
 if (scoringForm) {
   scoringForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     if (scoringError) scoringError.classList.add('hidden');
-    const fd = new FormData(scoringForm);
-    let scoringRules = null;
-    const raw = String(fd.get('scoring_rules') || '').trim();
-    if (raw) {
-      try { scoringRules = JSON.parse(raw); }
-      catch (err) {
-        if (scoringError) {
-          scoringError.textContent = 'JSON không hợp lệ';
-          scoringError.classList.remove('hidden');
-        }
-        return;
-      }
+    if (scoringSubmitBtn) {
+      scoringSubmitBtn.disabled = true;
+      scoringSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang lưu...';
     }
+
+    var rules;
+    if (isScoringJsonMode) {
+      var raw = String(document.getElementById('scoring-rules-json-ta')?.value || '').trim();
+      if (raw) {
+        try { rules = JSON.parse(raw); }
+        catch (err) {
+          if (scoringError) {
+            scoringError.textContent = 'JSON không hợp lệ: ' + (err.message || '');
+            scoringError.classList.remove('hidden');
+          }
+          if (scoringSubmitBtn) {
+            scoringSubmitBtn.disabled = false;
+            scoringSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu Scoring Rules';
+          }
+          return;
+        }
+      }
+    } else {
+      rules = buildScoringRulesFromState();
+    }
+
+    if (!rules.dimensions || rules.dimensions.length === 0) {
+      if (scoringError) {
+        scoringError.textContent = 'Cần ít nhất 1 dimension.';
+        scoringError.classList.remove('hidden');
+      }
+      if (scoringSubmitBtn) {
+        scoringSubmitBtn.disabled = false;
+        scoringSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu Scoring Rules';
+      }
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/admin/scanner-definitions/${defId}`, {
+      var res = await fetch(`/api/admin/scanner-definitions/${defId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scoring_rules: scoringRules }),
+        body: JSON.stringify({ scoring_rules: rules }),
       });
-      const data = await res.json();
+      var data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lưu thất bại');
       window.showToast?.('Đã lưu Scoring Rules', 'success');
     } catch (err) {
       if (scoringError) {
         scoringError.textContent = err instanceof Error ? err.message : 'Lưu thất bại';
         scoringError.classList.remove('hidden');
+      }
+    } finally {
+      if (scoringSubmitBtn) {
+        scoringSubmitBtn.disabled = false;
+        scoringSubmitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu Scoring Rules';
       }
     }
   });
