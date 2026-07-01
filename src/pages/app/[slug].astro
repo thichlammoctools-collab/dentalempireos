@@ -196,6 +196,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
     .sop-btn.print:hover { background: #047857; }
     .sop-btn.new { background: rgba(51, 65, 85, 0.5); color: #94a3b8; border: 1px solid rgba(51, 65, 85, 0.8); }
     .sop-btn.new:hover { background: rgba(51, 65, 85, 0.8); color: #e2e8f0; }
+    /* SOP Document (print-ready) */
     .sop-content {
       background: white;
       color: #1e293b;
@@ -219,17 +220,365 @@ const promptVi = (config.prompt_vi as string) ?? '';
     .sop-content strong { color: #0f172a; }
     .sop-content .sop-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
 
-    /* Print styles for A4 */
+    /* === Print Template (hidden, cloned for printing) === */
+    #sop-print-root { display: none; }
+
+    /* Print document page */
+    .sop-page {
+      background: white;
+      color: #1a1a2e;
+      font-family: 'Be Vietnam Pro', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 20mm 20mm;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Print header */
+    .sop-print-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #4f46e5;
+      margin-bottom: 16px;
+    }
+    .sop-print-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sop-print-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .sop-print-logo-text {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .sop-print-logo-sub {
+      font-size: 7pt;
+      color: #64748b;
+      font-weight: 400;
+    }
+    .sop-print-doc-info {
+      text-align: right;
+      font-size: 8pt;
+      color: #64748b;
+    }
+    .sop-print-doc-info strong { color: #1a1a2e; }
+
+    /* Cover page */
+    .sop-cover {
+      text-align: center;
+      padding: 20mm 0;
+      min-height: 200mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .sop-cover-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .sop-cover-title {
+      font-size: 24pt;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+    .sop-cover-subtitle {
+      font-size: 12pt;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+    .sop-cover-divider {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      border-radius: 2px;
+      margin: 0 auto 32px;
+    }
+    .sop-cover-meta {
+      display: inline-block;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 32px;
+      text-align: left;
+      font-size: 9pt;
+    }
+    .sop-cover-meta table { border-collapse: collapse; }
+    .sop-cover-meta td {
+      padding: 4px 0;
+      vertical-align: top;
+    }
+    .sop-cover-meta td:first-child {
+      color: #64748b;
+      width: 120px;
+      font-weight: 500;
+    }
+    .sop-cover-meta td:last-child {
+      color: #1a1a2e;
+      font-weight: 600;
+    }
+    .sop-cover-signatures {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      text-align: center;
+    }
+    .sop-cover-sig-box {
+      padding-top: 8px;
+    }
+    .sop-cover-sig-box-title {
+      font-size: 8pt;
+      color: #64748b;
+      font-weight: 500;
+      margin-bottom: 40px;
+    }
+    .sop-cover-sig-box-name {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .sop-cover-sig-line {
+      width: 100%;
+      height: 1px;
+      background: #e2e8f0;
+      margin-top: 50px;
+    }
+
+    /* Print TOC */
+    .sop-toc {
+      margin: 16px 0;
+      page-break-after: avoid;
+    }
+    .sop-toc-title {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #4f46e5;
+      margin-bottom: 10px;
+    }
+    .sop-toc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sop-toc-list li {
+      display: flex;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 10pt;
+    }
+    .sop-toc-list li:last-child { border-bottom: none; }
+    .sop-toc-num {
+      color: #4f46e5;
+      font-weight: 700;
+      width: 24px;
+      flex-shrink: 0;
+    }
+    .sop-toc-text { flex: 1; color: #334155; }
+    .sop-toc-dots {
+      flex: 1;
+      border-bottom: 1px dotted #cbd5e1;
+      margin: 0 8px 4px;
+    }
+    .sop-toc-page { color: #94a3b8; font-size: 9pt; }
+
+    /* Print body content */
+    .sop-print-body {
+      margin-top: 16px;
+    }
+    .sop-print-body h1 {
+      font-size: 16pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 20px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #4f46e5;
+      page-break-after: avoid;
+    }
+    .sop-print-body h2 {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #4f46e5;
+      margin: 16px 0 8px;
+      padding: 6px 10px;
+      background: #f8fafc;
+      border-left: 3px solid #4f46e5;
+      border-radius: 0 4px 4px 0;
+      page-break-after: avoid;
+    }
+    .sop-print-body h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #334155;
+      margin: 12px 0 6px;
+      page-break-after: avoid;
+    }
+    .sop-print-body p {
+      margin: 5px 0;
+      text-align: justify;
+    }
+    .sop-print-body > p:first-child { margin-top: 0; }
+    .sop-print-body ol {
+      padding-left: 22px;
+      margin: 8px 0;
+      counter-reset: item;
+    }
+    .sop-print-body ol li {
+      margin-bottom: 7px;
+      padding-left: 4px;
+      position: relative;
+    }
+    .sop-print-body ol li::marker { color: #4f46e5; font-weight: 700; }
+    .sop-print-body ul {
+      padding-left: 20px;
+      margin: 6px 0;
+      list-style-type: disc;
+    }
+    .sop-print-body ul li {
+      margin-bottom: 4px;
+    }
+    .sop-print-body ul li::marker { color: #4f46e5; }
+    .sop-print-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 9.5pt;
+    }
+    .sop-print-body th {
+      background: #f1f5f9;
+      padding: 7px 10px;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+    }
+    .sop-print-body td {
+      padding: 6px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .sop-print-body tr:nth-child(even) td { background: #fafafa; }
+    .sop-print-body strong { color: #0f172a; font-weight: 700; }
+    .sop-print-body em { font-style: italic; color: #475569; }
+
+    /* Step block (numbered procedure) */
+    .sop-step {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #4f46e5;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      margin: 10px 0;
+      page-break-inside: avoid;
+    }
+    .sop-step-num {
+      display: inline-block;
+      background: #4f46e5;
+      color: white;
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    /* Warning / Note boxes */
+    .sop-note {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 3px solid #f59e0b;
+      border-radius: 0 6px 6px 0;
+      padding: 8px 12px;
+      margin: 10px 0;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    .sop-note-label { font-weight: 700; color: #92400e; font-size: 8pt; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Print footer */
+    .sop-print-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 20mm;
+      font-size: 8pt;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+    }
+    .sop-print-footer-left { color: #64748b; }
+    .sop-print-footer-center { color: #64748b; font-weight: 600; }
+    .sop-print-footer-right { color: #94a3b8; }
+    @page { size: A4; margin: 0; }
+    .sop-page:last-child .sop-print-footer { position: absolute; bottom: 18mm; left: 20mm; right: 20mm; }
+
+    /* Page breaks */
+    .sop-section-break { page-break-before: always; }
+    .sop-page-break { page-break-before: always; }
+
+    /* Print styles — hide everything except the print root */
     @media print {
-      body { background: white; color: black; }
-      .app-header, .input-area, .sop-toolbar { display: none !important; }
-      .sop-panel { display: block !important; padding: 0; max-width: 100%; }
-      .sop-content {
-        box-shadow: none; border-radius: 0; padding: 40px 48px;
-        font-size: 11pt; line-height: 1.6;
-        page-break-inside: avoid;
+      body { background: white; margin: 0; padding: 0; }
+      body > * { display: none !important; visibility: hidden !important; }
+      #sop-print-root {
+        display: block !important;
+        visibility: visible !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 210mm;
       }
-      @page { size: A4; margin: 15mm; }
+      #sop-print-root * {
+        visibility: visible !important;
+      }
+      .sop-page {
+        visibility: visible !important;
+        box-shadow: none;
+      }
+      .sop-print-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        visibility: visible !important;
+        display: flex !important;
+      }
+      .sop-cover { page-break-after: avoid; }
+      .sop-step { page-break-inside: avoid; }
+      .sop-note { page-break-inside: avoid; }
+      table { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -267,7 +616,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
   <div id="sop-view" class="sop-panel">
     <div class="sop-toolbar">
       <h2>Kết quả SOP</h2>
-      <button class="sop-btn print" onclick="window.print()">
+      <button class="sop-btn print" id="print-sop-btn">
         <span class="material-symbols-outlined" style="font-size:16px">print</span>
         In / Xuất PDF
       </button>
@@ -278,6 +627,9 @@ const promptVi = (config.prompt_vi as string) ?? '';
     </div>
     <div id="sop-content" class="sop-content"></div>
   </div>
+
+  <!-- Print-only template (hidden, cloned for printing) -->
+  <div id="sop-print-root"></div>
 
   <!-- Input area -->
   <div class="input-area">
@@ -310,10 +662,12 @@ const promptVi = (config.prompt_vi as string) ?? '';
     const chatView = document.getElementById('chat-view');
     const sopView = document.getElementById('sop-view');
     const sopContent = document.getElementById('sop-content');
+    const sopPrintRoot = document.getElementById('sop-print-root');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
     const resetBtn = document.getElementById('reset-btn');
     const newChatBtn = document.getElementById('new-chat-btn');
+    const printSopBtn = document.getElementById('print-sop-btn');
 
     let conversationHistory = [];
     let isLoading = false;
@@ -491,48 +845,318 @@ const promptVi = (config.prompt_vi as string) ?? '';
       }
     }
 
+    // ─── Print Button ───
+    printSopBtn.addEventListener('click', () => window.print());
+
+    // ─── Markdown to HTML parser ───
+    function parseMarkdownToHtml(text) {
+      // Strip SOP markers
+      text = text
+        .replace(/^---SOP---\s*$/gm, '')
+        .replace(/^---END-SOP---\s*$/gm, '');
+
+      const lines = text.split('\n');
+      const blocks = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+
+        // Skip separator lines
+        if (/^---+$/.test(line.trim())) { i++; continue; }
+
+        // H1 – section title
+        if (/^# (.+)/.test(line)) {
+          blocks.push({ type: 'h1', text: line.replace(/^# /, '') });
+          i++; continue;
+        }
+
+        // H2 – subsection
+        if (/^## (.+)/.test(line)) {
+          blocks.push({ type: 'h2', text: line.replace(/^## /, '') });
+          i++; continue;
+        }
+
+        // H3
+        if (/^### (.+)/.test(line)) {
+          blocks.push({ type: 'h3', text: line.replace(/^### /, '') });
+          i++; continue;
+        }
+
+        // Numbered list (e.g. "1. Do something")
+        if (/^\d+\.\s/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+            items.push(lines[i].replace(/^\d+\.\s/, ''));
+            i++;
+          }
+          blocks.push({ type: 'ol', items });
+          continue;
+        }
+
+        // Bullet list
+        if (/^[-*]\s/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^[-*]\s/.test(lines[i])) {
+            items.push(lines[i].replace(/^[-*]\s/, ''));
+            i++;
+          }
+          blocks.push({ type: 'ul', items });
+          continue;
+        }
+
+        // Table
+        if (/^\|/.test(line) && i + 1 < lines.length && /^\|[-| ]/.test(lines[i + 1])) {
+          const headerCells = lines[i].split('|').filter(c => c.trim());
+          i++; // skip separator
+          const rows = [];
+          while (i < lines.length && /^\|/.test(lines[i])) {
+            const cells = lines[i].split('|').filter((c, idx, arr) => idx > 0 && idx < arr.length - 1 && c.trim());
+            if (cells.length) rows.push(cells);
+            i++;
+          }
+          blocks.push({ type: 'table', headers: headerCells, rows });
+          continue;
+        }
+
+        // Empty line → skip
+        if (!line.trim()) { i++; continue; }
+
+        // Paragraph
+        let para = '';
+        while (i < lines.length && lines[i].trim() && !/^#+\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i]) && !/^[-*]\s/.test(lines[i]) && !/^\|/.test(lines[i])) {
+          para += (para ? ' ' : '') + lines[i].trim();
+          i++;
+        }
+        if (para) blocks.push({ type: 'p', text: para });
+      }
+
+      // Convert blocks to HTML
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function inline(s) {
+        return esc(s)
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+          .replace(/`(.+?)`/g, '<code>$1</code>');
+      }
+
+      return blocks.map(b => {
+        if (b.type === 'h1') return `<h1>${inline(b.text)}</h1>`;
+        if (b.type === 'h2') return `<h2>${inline(b.text)}</h2>`;
+        if (b.type === 'h3') return `<h3>${inline(b.text)}</h3>`;
+        if (b.type === 'ol') return `<ol>${b.items.map(it => `<li>${inline(it)}</li>`).join('')}</ol>`;
+        if (b.type === 'ul') return `<ul>${b.items.map(it => `<li>${inline(it)}</li>`).join('')}</ul>`;
+        if (b.type === 'table') {
+          const ths = b.headers.map(h => `<th>${inline(h.trim())}</th>`).join('');
+          const rows = b.rows.map(r => `<tr>${r.map(c => `<td>${inline(c.trim())}</td>`).join('')}</tr>`).join('');
+          return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        if (b.type === 'p') return `<p>${inline(b.text)}</p>`;
+        return '';
+      }).join('\n');
+    }
+
+    // ─── Extract TOC from blocks ───
+    function extractToc(blocks) {
+      const tocBlocks = blocks.filter(b => b.type === 'h2');
+      return tocBlocks.map((b, i) => ({
+        num: i + 1,
+        text: b.text,
+      }));
+    }
+
+    // ─── Parse markdown text back to blocks ───
+    function parseMarkdownToBlocks(text) {
+      text = text
+        .replace(/^---SOP---\s*$/gm, '')
+        .replace(/^---END-SOP---\s*$/gm, '');
+
+      const lines = text.split('\n');
+      const blocks = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+        if (/^---+$/.test(line.trim())) { i++; continue; }
+        if (/^# (.+)/.test(line)) { blocks.push({ type: 'h1', text: line.replace(/^# /, '') }); i++; continue; }
+        if (/^## (.+)/.test(line)) { blocks.push({ type: 'h2', text: line.replace(/^## /, '') }); i++; continue; }
+        if (/^### (.+)/.test(line)) { blocks.push({ type: 'h3', text: line.replace(/^### /, '') }); i++; continue; }
+        if (/^\d+\.\s/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\d+\.\s/.test(lines[i])) { items.push(lines[i].replace(/^\d+\.\s/, '')); i++; }
+          blocks.push({ type: 'ol', items }); continue;
+        }
+        if (/^[-*]\s/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^[-*]\s/.test(lines[i])) { items.push(lines[i].replace(/^[-*]\s/, '')); i++; }
+          blocks.push({ type: 'ul', items }); continue;
+        }
+        if (/^\|/.test(line) && i + 1 < lines.length && /^\|[-| ]/.test(lines[i + 1])) {
+          const headerCells = lines[i].split('|').filter(c => c.trim());
+          i++;
+          const rows = [];
+          while (i < lines.length && /^\|/.test(lines[i])) {
+            const cells = lines[i].split('|').filter((c, idx, arr) => idx > 0 && idx < arr.length - 1 && c.trim());
+            if (cells.length) rows.push(cells);
+            i++;
+          }
+          blocks.push({ type: 'table', headers: headerCells, rows }); continue;
+        }
+        if (!line.trim()) { i++; continue; }
+        let para = '';
+        while (i < lines.length && lines[i].trim() && !/^#+\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i]) && !/^[-*]\s/.test(lines[i]) && !/^\|/.test(lines[i])) {
+          para += (para ? ' ' : '') + lines[i].trim();
+          i++;
+        }
+        if (para) blocks.push({ type: 'p', text: para });
+      }
+      return blocks;
+    }
+
+    // ─── Extract title (first H1) from markdown ───
+    function extractTitle(md) {
+      const m = md.match(/^#\s+(.+)$/m);
+      return m ? m[1].trim() : 'Quy trình vận hành chuẩn (SOP)';
+    }
+
+    // ─── Build print document ───
+    function buildPrintDocument(markdownText) {
+      const title = extractTitle(markdownText);
+      const today = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' });
+      const blocks = parseMarkdownToBlocks(markdownText);
+      const toc = extractToc(blocks);
+
+      function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      function inline(s) {
+        return esc(s)
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+          .replace(/`(.+?)`/g, '<code>$1</code>');
+      }
+
+      function renderBlocks(bs, targetClass) {
+        return bs.map(b => {
+          if (b.type === 'h1') return `<h1>${inline(b.text)}</h1>`;
+          if (b.type === 'h2') return `<h2>${inline(b.text)}</h2>`;
+          if (b.type === 'h3') return `<h3>${inline(b.text)}</h3>`;
+          if (b.type === 'ol') return `<ol>${b.items.map(it => `<li>${inline(it)}</li>`).join('')}</ol>`;
+          if (b.type === 'ul') return `<ul>${b.items.map(it => `<li>${inline(it)}</li>`).join('')}</ul>`;
+          if (b.type === 'table') {
+            const ths = b.headers.map(h => `<th>${inline(h.trim())}</th>`).join('');
+            const rows = b.rows.map(r => `<tr>${r.map(c => `<td>${inline(c.trim())}</td>`).join('')}</tr>`).join('');
+            return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+          }
+          if (b.type === 'p') return `<p>${inline(b.text)}</p>`;
+          return '';
+        }).join('\n');
+      }
+
+      // Cover page + body as one continuous page (for print)
+      // TOC rendered as visible list after cover info
+      const tocHtml = toc.length > 0
+        ? `<div class="sop-toc">
+            <div class="sop-toc-title">MỤC LỤC</div>
+            <ul class="sop-toc-list">
+              ${toc.map(t => `
+                <li>
+                  <span class="sop-toc-num">${t.num}</span>
+                  <span class="sop-toc-text">${inline(t.text)}</span>
+                  <span class="sop-toc-dots"></span>
+                  <span class="sop-toc-page">1</span>
+                </li>`).join('')}
+            </ul>
+          </div>`
+        : '';
+
+      return `
+<div class="sop-page">
+  <div class="sop-print-header">
+    <div class="sop-print-logo">
+      <div class="sop-print-logo-icon">DE</div>
+      <div>
+        <div class="sop-print-logo-text">Dental Empire OS</div>
+        <div class="sop-print-logo-sub">Quản lý Phòng khám Nha khoa</div>
+      </div>
+    </div>
+    <div class="sop-print-doc-info">
+      <strong>${inline(title)}</strong><br>
+      Ngày ban hành: ${today}<br>
+      Mã tài liệu: SOP-${new Date().getFullYear()}-001
+    </div>
+  </div>
+
+  <div class="sop-cover">
+    <div class="sop-cover-badge">Phòng khám Nha khoa</div>
+    <div class="sop-cover-title">${inline(title)}</div>
+    <div class="sop-cover-subtitle">Quy trình vận hành chuẩn (SOP)</div>
+    <div class="sop-cover-divider"></div>
+    <div class="sop-cover-meta">
+      <table>
+        <tr><td>Ngày ban hành</td><td>${today}</td></tr>
+        <tr><td>Phiên bản</td><td>1.0</td></tr>
+        <tr><td>Người phê duyệt</td><td>_______________</td></tr>
+        <tr><td>Người soạn thảo</td><td>_______________</td></tr>
+        <tr><td>Đơn vị</td><td>Phòng khám Nha khoa</td></tr>
+      </table>
+    </div>
+    <div class="sop-cover-signatures">
+      <div class="sop-cover-sig-box">
+        <div class="sop-cover-sig-box-title">Người soạn thảo</div>
+        <div class="sop-cover-sig-line"></div>
+        <div class="sop-cover-sig-box-name" style="margin-top:6px;font-size:8pt;color:#64748b">Họ và tên</div>
+      </div>
+      <div class="sop-cover-sig-box">
+        <div class="sop-cover-sig-box-title">Người kiểm tra</div>
+        <div class="sop-cover-sig-line"></div>
+        <div class="sop-cover-sig-box-name" style="margin-top:6px;font-size:8pt;color:#64748b">Họ và tên</div>
+      </div>
+      <div class="sop-cover-sig-box">
+        <div class="sop-cover-sig-box-title">Người phê duyệt</div>
+        <div class="sop-cover-sig-line"></div>
+        <div class="sop-cover-sig-box-name" style="margin-top:6px;font-size:8pt;color:#64748b">Họ và tên</div>
+      </div>
+    </div>
+  </div>
+
+  ${tocHtml}
+
+  <div class="sop-print-body">
+    ${renderBlocks(blocks, 'sop-print-body')}
+  </div>
+
+  <div class="sop-print-footer">
+    <div class="sop-print-footer-left">Dental Empire OS · ${today}</div>
+    <div class="sop-print-footer-center">${inline(title)}</div>
+    <div class="sop-print-footer-right">Trang <span class="sop-page-num"></span></div>
+  </div>
+</div>`;
+    }
+
+    // ─── Show SOP result ───
     function showSopResult(markdownText) {
       // Hide chat, show SOP
       chatView.style.display = 'none';
       sopView.classList.add('visible');
 
-      // Convert markdown to HTML for print
-      let html = markdownText
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/^---SOP---\s*$/gm, '')
-        .replace(/^---END-SOP---\s*$/gm, '');
+      // Render on-screen preview (simplified)
+      const html = parseMarkdownToHtml(markdownText);
+      const title = extractTitle(markdownText);
+      sopContent.innerHTML = `
+        <h1>${title}</h1>
+        ${html}
+        <div class="sop-footer">Tạo bởi Dental Empire OS · ${new Date().toLocaleDateString('vi-VN')}</div>
+      `;
 
-      // Parse numbered lists properly
-      html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-      // Wrap consecutive <li> in <ol>
-      html = html.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, (match) => {
-        const items = match.match(/<li>[\s\S]*?<\/li>/g) || [];
-        return '<ol>' + items.join('') + '</ol>';
-      });
-      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-
-      // Tables
-      html = html.replace(/\|(.+)\|\n\|[-| ]+\|\n((?:\|.+\|\n?)+)/g, (_, header, body) => {
-        const ths = header.split('|').filter(Boolean).map(h => `<th>${h.trim()}</th>`).join('');
-        const rows = body.trim().split('\n').map(row =>
-          '<tr>' + row.split('|').filter((c, i, a) => i > 0 && i < a.length - 1).map(c => `<td>${c.trim()}</td>`).join('') + '</tr>'
-        ).join('');
-        return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
-      });
-
-      html = html
-        .replace(/\n{2,}/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-      html = '<p>' + html + '</p>';
-
-      // Clean up empty paragraphs
-      html = html.replace(/<p><\/p>/g, '');
-
-      sopContent.innerHTML = html + '<div class="sop-footer">Tạo bởi Dental Empire OS · ' + new Date().toLocaleDateString('vi-VN') + '</div>';
+      // Build print template
+      sopPrintRoot.innerHTML = buildPrintDocument(markdownText);
     }
 
     function resetChat() {
@@ -541,6 +1165,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
       fullSopText = '';
       sopView.classList.remove('visible');
       sopContent.innerHTML = '';
+      sopPrintRoot.innerHTML = '';
       chatView.style.display = '';
       chatView.innerHTML = `
         <div class="msg-wrap">

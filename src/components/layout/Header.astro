@@ -56,20 +56,20 @@ const currentPath = Astro.url.pathname;
       </a>
     )}
 
-    <!-- Mobile: hamburger menu button -->
-    <button
-      id="mobile-nav-menu"
-      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all ml-2"
-      aria-label="Mở menu"
+    <!-- Mobile: video/courses icon -->
+    <a
+      href="/courses"
+      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+      aria-label="Khóa học"
     >
-      <span class="material-symbols-outlined text-xl">menu</span>
-    </button>
+      <span class="material-symbols-outlined text-xl">play_circle</span>
+    </a>
 
     <!-- Mobile: profile icon (top-right, only when logged in) -->
     <a
       id="mobile-profile-link"
       href="/account/profile"
-      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all ml-2 hidden"
+      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hidden"
     >
       <span class="material-symbols-outlined text-xl">account_circle</span>
     </a>
@@ -139,11 +139,6 @@ const currentPath = Astro.url.pathname;
     document.getElementById('auth-logout')?.addEventListener('click', async () => {
       await signOut();
       window.location.href = '/';
-    });
-
-    // Mobile hamburger → open user menu drawer
-    document.getElementById('header-mobile-menu')?.addEventListener('click', () => {
-      (window as any).openUserMenu?.();
     });
   }
 
