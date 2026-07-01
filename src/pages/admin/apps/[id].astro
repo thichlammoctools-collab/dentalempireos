@@ -2,6 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getApp, parseAppConfig } from '../../../lib/app-db';
+import { getActiveModelsWithProvider } from '../../../lib/ai-provider-db';
 
 export const prerender = false;
 
@@ -21,6 +22,18 @@ const promptVi = (config.prompt_vi as string) ?? '';
 const promptEn = (config.prompt_en as string) ?? '';
 const modelOverride = (config.model_override as string) ?? '';
 const maxTokensOverride = (config.max_tokens_override as number) ?? '';
+
+let activeModels: Array<{ providerName: string; modelId: string; modelName: string }> = [];
+try {
+  const map = await getActiveModelsWithProvider(env.DB);
+  for (const [, { provider, models }] of map) {
+    for (const m of models) {
+      if (m.is_active) {
+        activeModels.push({ providerName: provider.name, modelId: m.model_id, modelName: m.name });
+      }
+    }
+  }
+} catch {}
 
 const typeLabels: Record<string, string> = {
   survey: 'Khảo sát',
@@ -167,9 +180,20 @@ const avatarColors = [
             <form id="config-form" class="space-y-4">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model override</label>
-                  <input type="text" name="model_override" value={modelOverride} placeholder="claude-sonnet-4-6" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30" />
-                  <p class="text-[11px] text-on-surface-variant/40 mt-1.5">Để trống để dùng model mặc định từ AI Settings</p>
+                  <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">AI Model</label>
+                  {activeModels.length > 0 ? (
+                    <select name="model_override" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all">
+                      <option value="">— Mặc định —</option>
+                      {activeModels.map((m) => (
+                        <option value={m.modelId} selected={modelOverride === m.modelId}>
+                          {m.providerName} · {m.modelName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input type="text" name="model_override" value={modelOverride} placeholder="claude-sonnet-4-6" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all" />
+                  )}
+                  <p class="text-[11px] text-on-surface-variant/40 mt-1.5">Để trống để dùng model mặc định</p>
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Max tokens override</label>

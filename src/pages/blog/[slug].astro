@@ -57,6 +57,24 @@ try {
   related = [];
 }
 
+// Fetch linked chapter and scanner
+let linkedChapter: { id: string; title: string; chapter_number: number; slug: string } | null = null;
+let linkedScanner: { id: string; name: string; description: string } | null = null;
+
+if (post.chapter_id) {
+  try {
+    const ch = await env.DB.prepare('SELECT id, title, chapter_number, slug FROM "chapter" WHERE id = ?').bind(post.chapter_id).first<{ id: string; title: string; chapter_number: number; slug: string }>();
+    if (ch) linkedChapter = ch;
+  } catch { /* column may not exist yet */ }
+}
+
+if (post.scanner_id) {
+  try {
+    const sc = await env.DB.prepare('SELECT id, name, description FROM "survey_definition" WHERE id = ?').bind(post.scanner_id).first<{ id: string; name: string; description: string }>();
+    if (sc) linkedScanner = sc;
+  } catch { /* table may not exist yet */ }
+}
+
 const htmlContent = marked(post.content_md);
 
 function formatDate(iso: string | null): string {
@@ -186,7 +204,7 @@ const breadcrumbSchema = {
     )}
     {!post.cover_url && <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest to-surface"></div>}
 
-    <div class="relative z-10 px-6 max-w-[800px] mx-auto text-center">
+    <div class="relative z-10 px-6 xl:max-w-[1200px] xl:mx-auto max-w-[800px] mx-auto text-center xl:text-left xl:max-w-none">
       <!-- Breadcrumb -->
       <div class="flex items-center justify-center gap-2 text-xs text-on-surface-variant mb-6">
         <a href="/" class="hover:text-primary transition-colors">Home</a>
@@ -224,7 +242,7 @@ const breadcrumbSchema = {
       <p class="text-on-surface-variant text-base mb-6">{post.description}</p>
 
       <!-- Meta -->
-      <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-on-surface-variant">
+      <div class="flex flex-wrap items-center justify-center xl:justify-start gap-x-4 gap-y-2 text-sm text-on-surface-variant">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
             <span class="text-xs font-bold text-primary">{post.author_name.charAt(0)}</span>
@@ -261,7 +279,7 @@ const breadcrumbSchema = {
       </div>
 
       {post.tags.length > 0 && (
-        <div class="flex flex-wrap gap-2 mt-4 justify-center">
+        <div class="flex flex-wrap gap-2 mt-4 justify-center xl:justify-start">
           {post.tags.map((tag) => (
             <a
               href={`/blog?tag=${tag.slug}`}
@@ -413,6 +431,53 @@ const breadcrumbSchema = {
             Quay lại blog
           </a>
         </div>
+
+        <!-- Linked Content CTAs -->
+        {(linkedChapter || linkedScanner) && (
+          <div class="mt-6 space-y-4">
+            {linkedChapter && (
+              <a href={`/book/${linkedChapter.slug}`} class="block glass-card rounded-2xl p-5 border border-primary/20 hover:border-primary/50 transition-all group">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-primary">menu_book</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 border border-primary/20 text-primary">SÁCH</span>
+                      <span class="text-[10px] text-on-surface-variant">Chương {linkedChapter.chapter_number}</span>
+                    </div>
+                    <h3 class="font-bold text-white group-hover:text-primary transition-colors">{linkedChapter.title}</h3>
+                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">Tìm hiểu đầy đủ chủ đề này trong chương sách chi tiết của chúng tôi, cùng hàng chục chiến lược vận hành phòng khám được đúc kết từ thực tế.</p>
+                    <div class="flex items-center gap-1 mt-2 text-primary text-xs font-bold">
+                      <span>Đọc chương sách</span>
+                      <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            )}
+            {linkedScanner && (
+              <a href={`/app/${linkedScanner.id}`} class="block glass-card rounded-2xl p-5 border border-tertiary/20 hover:border-tertiary/50 transition-all group">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-tertiary/10 border border-tertiary/20 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-tertiary">quiz</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary">BÀI TEST</span>
+                    </div>
+                    <h3 class="font-bold text-white group-hover:text-tertiary transition-colors">{linkedScanner.name}</h3>
+                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{linkedScanner.description || 'Làm bài test để đánh giá kiến thức và nhận kết quả chi tiết.'}</p>
+                    <div class="flex items-center gap-1 mt-2 text-tertiary text-xs font-bold">
+                      <span>Làm bài test</span>
+                      <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            )}
+          </div>
+        )}
 
         <!-- Related Posts -->
         {related.length > 0 && (

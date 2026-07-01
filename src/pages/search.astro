@@ -138,11 +138,15 @@ function formatDate(iso: string | null): string {
           <span class="text-xs font-normal text-on-surface-variant">({resources.length})</span>
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {resources.map((res) => (
+          {resources.map((res) => {
+            function resourceUrl(fileUrl: string): string {
+              if (!fileUrl) return '#';
+              if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
+              return `/media/${fileUrl}`;
+            }
+            return (
             <a
-              href={res.file_url || '#'}
-              target={res.file_url ? '_blank' : undefined}
-              rel={res.file_url ? 'noopener noreferrer' : undefined}
+              href={resourceUrl(res.file_url)}
               class="glass-card rounded-2xl p-5 flex items-start gap-4 hover:-translate-y-0.5 transition-all group"
             >
               <span class="material-symbols-outlined text-3xl text-primary shrink-0 mt-0.5">
@@ -163,7 +167,8 @@ function formatDate(iso: string | null): string {
                 </div>
               </div>
             </a>
-          ))}
+          );
+          })}
         </div>
       </div>
     )}

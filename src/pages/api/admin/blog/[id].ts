@@ -28,6 +28,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
       is_featured?: number | boolean;
       is_pinned?: number | boolean;
       is_recommended?: number | boolean;
+      chapter_id?: string | null;
+      scanner_id?: string | null;
     };
 
     if (!body.title || !body.slug) {
@@ -51,6 +53,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
       is_featured: body.is_featured != null ? Boolean(body.is_featured) : undefined,
       is_pinned: body.is_pinned != null ? Boolean(body.is_pinned) : undefined,
       is_recommended: body.is_recommended != null ? Boolean(body.is_recommended) : undefined,
+      chapter_id: body.chapter_id ?? undefined,
+      scanner_id: body.scanner_id ?? undefined,
     });
 
     return new Response(JSON.stringify({ success: true, id, slug: body.slug }), {

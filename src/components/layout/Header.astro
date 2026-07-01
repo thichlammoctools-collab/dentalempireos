@@ -3,6 +3,7 @@ const navLinks = [
   { href: '/book', label: 'Đọc sách' },
   { href: '/videos', label: 'Xem Video' },
   { href: '/resources', label: 'Tài liệu' },
+  { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
   { href: '/blog', label: 'Blog' },
 ];
 
@@ -27,13 +28,18 @@ const currentPath = Astro.url.pathname;
             href={link.href}
             aria-current={isActive ? 'page' : undefined}
             class:list={[
-              'label-md font-semibold transition-colors',
+              'label-md font-semibold transition-colors flex items-center gap-1.5',
               isActive
                 ? 'text-primary border-b-2 border-primary pb-1'
                 : 'text-on-surface-variant hover:text-primary',
             ]}
           >
             {link.label}
+            {link.badge && (
+              <span class="px-1.5 py-0.5 bg-amber-500 text-[9px] font-bold text-black rounded-full leading-none">
+                {link.badge}
+              </span>
+            )}
           </a>
         );
       })}
@@ -49,6 +55,15 @@ const currentPath = Astro.url.pathname;
         <span class="truncate">Tìm kiếm...</span>
       </a>
     )}
+
+    <!-- Mobile: hamburger menu button -->
+    <button
+      id="mobile-nav-menu"
+      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all ml-2"
+      aria-label="Mở menu"
+    >
+      <span class="material-symbols-outlined text-xl">menu</span>
+    </button>
 
     <!-- Mobile: profile icon (top-right, only when logged in) -->
     <a

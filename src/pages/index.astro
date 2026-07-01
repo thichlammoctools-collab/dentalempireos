@@ -94,7 +94,7 @@ const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number 
         {tiers.map((mod, index) => {
           const stats = tierStatsMap[mod.tier];
           if (index === 0) {
-            // Tier 1: dual CTA (Book + Survey) — Hồ Sơ Gốc Rễ
+            // Tier 1: Book CTA — AI tools moved to /ai-tools
             return (
               <div
                 class="group relative p-8 rounded-[2rem] border transition-all duration-500 bg-surface-container border-primary/30 hover:border-primary hover:shadow-[0_0_40px_rgba(146,204,255,0.15)] shadow-[0_0_30px_rgba(146,204,255,0.1)]"
@@ -129,16 +129,6 @@ const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number 
                     >
                       <span class="material-symbols-outlined text-[18px]">menu_book</span>
                       Đọc sách
-                    </a>
-                    <a
-                      href="/survey"
-                      class="relative inline-flex items-center gap-2 px-5 py-2.5 border-2 border-primary/50 text-primary font-semibold rounded-xl hover:bg-primary/10 hover:border-primary active:scale-95 transition-all"
-                    >
-                      <span class="absolute -top-2 -right-2 px-1.5 py-0.5 bg-amber-500 text-[10px] font-bold text-black rounded-full leading-none shadow-md tracking-wider">
-                        AI
-                      </span>
-                      <span class="material-symbols-outlined text-[18px]">psychology</span>
-                      Hồ Sơ Gốc Rễ
                     </a>
                   </div>
                 </div>

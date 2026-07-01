@@ -28,6 +28,7 @@ export interface AppInput {
   status?: AppStatus;
   is_free?: number;
   config_json?: string | null;
+  linked_scanner_id?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -68,13 +69,20 @@ export async function getApp(db: D1Database, id: string): Promise<App | null> {
     .first<App>();
 }
 
+export async function getAppBySlug(db: D1Database, slug: string): Promise<App | null> {
+  return db
+    .prepare('SELECT * FROM "ai_application" WHERE "slug" = ?')
+    .bind(slug)
+    .first<App>();
+}
+
 export async function upsertApp(db: D1Database, input: AppInput): Promise<App> {
   const ts = now();
   await db
     .prepare(
       `INSERT INTO "ai_application"
-         ("id","slug","name","description","type","status","is_free","config_json","created_at","updated_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?)
+         ("id","slug","name","description","type","status","is_free","config_json","linked_scanner_id","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "slug"=excluded."slug",
          "name"=excluded."name",
@@ -83,6 +91,7 @@ export async function upsertApp(db: D1Database, input: AppInput): Promise<App> {
          "status"=excluded."status",
          "is_free"=excluded."is_free",
          "config_json"=excluded."config_json",
+         "linked_scanner_id"=excluded."linked_scanner_id",
          "updated_at"=excluded."updated_at"`,
     )
     .bind(
@@ -94,6 +103,7 @@ export async function upsertApp(db: D1Database, input: AppInput): Promise<App> {
       input.status ?? 'draft',
       input.is_free ?? 0,
       input.config_json ?? null,
+      input.linked_scanner_id ?? null,
       ts,
       ts,
     )

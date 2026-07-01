@@ -19,6 +19,8 @@ export interface BlogPost {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  chapter_id: string | null;
+  scanner_id: string | null;
 }
 
 export interface BlogCategory {
@@ -69,6 +71,8 @@ export interface BlogPostInput {
   is_pinned?: boolean;
   is_recommended?: boolean;
   published_at?: string | null;
+  chapter_id?: string | null;
+  scanner_id?: string | null;
 }
 
 export interface BlogCategoryInput {
@@ -453,16 +457,16 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       : input.published_at ?? null;
 
   // NOTE: placeholder count MUST match the number of bind args below.
-  // INSERT VALUES = 17, ON CONFLICT read_time = 1 → 18 total.
+  // INSERT VALUES = 19, ON CONFLICT read_time = 1 → 20 total.
   // published_at on conflict preserves the existing row value, so no bind needed.
   await db
     .prepare(
       `INSERT INTO "blog_post" (
          "id","title","slug","description","content_md","cover_url","cover_alt",
          "category_id","author_name","status","is_featured","is_pinned","is_recommended",
-         "read_time_minutes","published_at","created_at","updated_at"
+         "read_time_minutes","published_at","chapter_id","scanner_id","created_at","updated_at"
        )
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "title"=excluded."title",
          "slug"=excluded."slug",
@@ -478,6 +482,8 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
          "is_recommended"=excluded."is_recommended",
          "read_time_minutes"=?,
          "published_at"=COALESCE("blog_post"."published_at", excluded."published_at"),
+         "chapter_id"=excluded."chapter_id",
+         "scanner_id"=excluded."scanner_id",
          "updated_at"=excluded."updated_at"`,
     )
     .bind(
@@ -496,6 +502,8 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       input.is_recommended ? 1 : 0,
       readTime,
       publishedAt,
+      input.chapter_id ?? null,
+      input.scanner_id ?? null,
       ts,
       ts,
       readTime,

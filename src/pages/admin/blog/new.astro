@@ -6,9 +6,11 @@ import { listCategories, listTags, buildCategoryTree, flattenCategoryTree } from
 export const prerender = false;
 
 const db = env.DB;
-const [flatCategories, tags] = await Promise.all([
+const [flatCategories, tags, chapters, scanners] = await Promise.all([
   listCategories(db),
   listTags(db),
+  db.prepare('SELECT id, title, chapter_number FROM "chapter" ORDER BY "order"').all<{ id: string; title: string; chapter_number: number }>(),
+  db.prepare('SELECT id, name FROM "survey_definition" ORDER BY "created_at" DESC').all<{ id: string; name: string }>(),
 ]);
 const categoryTree = buildCategoryTree(flatCategories);
 const categoryOptions = flattenCategoryTree(categoryTree);
@@ -192,6 +194,28 @@ const categoryOptions = flattenCategoryTree(categoryTree);
             </label>
           </div>
         </div>
+
+        <!-- Liên kết Sách & Scanner -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-outline-variant/50 mt-2">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Chương sách liên quan</label>
+            <select name="chapter_id" id="chapter-id" class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+              <option value="">— Không chọn —</option>
+              {chapters.results.map((ch) => (
+                <option value={ch.id}>Chương {ch.chapter_number}: {ch.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Scanner/Bài test liên quan</label>
+            <select name="scanner_id" id="scanner-id" class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+              <option value="">— Không chọn —</option>
+              {scanners.results.map((s) => (
+                <option value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </section>
 
       <!-- Submit -->
@@ -321,6 +345,8 @@ const categoryOptions = flattenCategoryTree(categoryTree);
     const isPinned = (form.elements.namedItem('is_pinned') as HTMLInputElement).checked;
     const isRecommended = (form.elements.namedItem('is_recommended') as HTMLInputElement).checked;
     const statusPublished = (form.elements.namedItem('status_published') as HTMLInputElement).checked;
+    const chapterId = (form.elements.namedItem('chapter_id') as HTMLSelectElement).value || null;
+    const scannerId = (form.elements.namedItem('scanner_id') as HTMLSelectElement).value || null;
 
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Đang lưu...';
@@ -338,6 +364,7 @@ const categoryOptions = flattenCategoryTree(categoryTree);
           cover_url: coverUrl, cover_alt: coverAlt,
           category_id: categoryId,
           is_featured: isFeatured, is_pinned: isPinned, is_recommended: isRecommended,
+          chapter_id: chapterId, scanner_id: scannerId,
           status: statusPublished ? 'published' : 'draft',
         }),
       });

@@ -35,6 +35,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     status: (typeof body.status === 'string' ? body.status : existing.status) as 'draft' | 'active' | 'archived',
     is_free: typeof body.is_free === 'number' ? body.is_free : existing.is_free,
     config_json: body.config_json !== undefined ? (body.config_json as string | null) : existing.config_json,
+    linked_scanner_id: existing.linked_scanner_id,
   });
 
   return json({ success: true });
@@ -60,6 +61,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     status: (body.status as 'draft' | 'active' | 'archived') ?? existing.status,
     is_free: (body.is_free as number) ?? existing.is_free,
     config_json: (body.config_json as string | null) ?? existing.config_json,
+    linked_scanner_id: existing.linked_scanner_id,
   });
 
   return json({ id, updated: true });

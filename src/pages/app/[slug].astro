@@ -1,0 +1,586 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getAppBySlug, parseAppConfig } from '../../lib/app-db';
+
+export const prerender = false;
+
+const slugParam = Astro.params.slug;
+const slug = slugParam ?? '';
+
+const app = await getAppBySlug(env.DB, slug);
+
+if (!app) return new Response('Không tìm thấy ứng dụng', { status: 404 });
+if (app.status !== 'active') return new Response('Ứng dụng chưa kích hoạt', { status: 404 });
+
+const config = parseAppConfig(app.config_json);
+const promptVi = (config.prompt_vi as string) ?? '';
+---
+
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{app.name}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  </style>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Be Vietnam Pro', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+    .app-header {
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+    .header-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(99, 102, 241, 0.15);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .header-text { flex: 1; min-width: 0; }
+    .header-title { font-size: 15px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-desc { font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .chat-area {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 120px;
+    }
+
+    .msg-wrap { display: flex; gap: 10px; margin-bottom: 16px; animation: msgIn 0.3s ease; }
+    .msg-wrap.user { flex-direction: row-reverse; }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .msg-avatar {
+      width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    }
+    .ai-avatar { background: rgba(99, 102, 241, 0.15); }
+    .user-avatar { background: rgba(99, 102, 241, 0.3); }
+    .msg-bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .ai-bubble {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: 16px 16px 16px 4px;
+    }
+    .user-bubble {
+      background: #4f46e5;
+      border-radius: 16px 16px 4px 16px;
+      color: white;
+    }
+    .msg-bubble p { margin-bottom: 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble strong { font-weight: 600; }
+    .msg-bubble ul, .msg-bubble ol { padding-left: 20px; margin: 6px 0; }
+    .msg-bubble li { margin-bottom: 4px; }
+    .msg-bubble code {
+      background: rgba(99, 102, 241, 0.15);
+      padding: 1px 6px; border-radius: 4px;
+      font-size: 12px; color: #a5b4fc;
+    }
+    .sug-wrap { margin-top: 10px; }
+    .sug-opt {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: rgba(99, 102, 241, 0.08);
+      color: #c7d2fe;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sug-opt:hover { background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.5); color: white; }
+
+    .typing-wrap { display: flex; gap: 10px; margin-bottom: 16px; }
+    .typing-bubble {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: 16px 16px 16px 4px;
+      padding: 12px 16px;
+    }
+    .typing-dots { display: flex; gap: 4px; align-items: center; height: 20px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #64748b; animation: bounce 1.4s infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    .input-area {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid rgba(51, 65, 85, 0.5);
+      padding: 16px;
+      z-index: 100;
+    }
+    .input-inner { max-width: 720px; margin: 0 auto; }
+    .input-row {
+      display: flex; gap: 8px; align-items: flex-end;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 16px;
+      padding: 6px 6px 6px 14px;
+      transition: border-color 0.2s;
+    }
+    .input-row:focus-within { border-color: rgba(99, 102, 241, 0.5); }
+    .input-row textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-family: inherit;
+      line-height: 1.5;
+      resize: none;
+      padding: 6px 0;
+      max-height: 120px;
+    }
+    .input-row textarea::placeholder { color: #64748b; }
+    .input-row textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+    .send-btn {
+      width: 36px; height: 36px; border-radius: 12px; border: none;
+      background: #4f46e5; color: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+    }
+    .send-btn:hover:not(:disabled) { background: #4338ca; transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .input-hint { display: flex; justify-content: space-between; padding: 6px 2px 0; }
+    .input-hint span { font-size: 11px; color: #475569; }
+    .reset-link { font-size: 11px; color: #475569; cursor: pointer; background: none; border: none; font-family: inherit; }
+    .reset-link:hover { color: #94a3b8; }
+
+    /* SOP Result Panel */
+    .sop-panel {
+      display: none;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    .sop-panel.visible { display: block; }
+    .sop-toolbar {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .sop-toolbar h2 { font-size: 18px; font-weight: 700; color: #f8fafc; flex: 1; }
+    .sop-btn {
+      padding: 8px 16px; border-radius: 10px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; display: flex; align-items: center; gap: 6px;
+      transition: all 0.15s;
+    }
+    .sop-btn.print { background: #059669; color: white; }
+    .sop-btn.print:hover { background: #047857; }
+    .sop-btn.new { background: rgba(51, 65, 85, 0.5); color: #94a3b8; border: 1px solid rgba(51, 65, 85, 0.8); }
+    .sop-btn.new:hover { background: rgba(51, 65, 85, 0.8); color: #e2e8f0; }
+    .sop-content {
+      background: white;
+      color: #1e293b;
+      border-radius: 16px;
+      padding: 48px;
+      font-size: 13px;
+      line-height: 1.8;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .sop-content h1 { font-size: 22px; font-weight: 700; text-align: center; color: #0f172a; margin-bottom: 4px; padding-bottom: 12px; border-bottom: 2px solid #4f46e5; }
+    .sop-content h2 { font-size: 16px; font-weight: 700; color: #4f46e5; margin: 20px 0 8px; border-left: 3px solid #4f46e5; padding-left: 10px; }
+    .sop-content h3 { font-size: 14px; font-weight: 600; color: #334155; margin: 14px 0 6px; }
+    .sop-content p { margin: 6px 0; }
+    .sop-content ol { padding-left: 24px; }
+    .sop-content ol li { margin-bottom: 8px; }
+    .sop-content ul { padding-left: 24px; }
+    .sop-content ul li { margin-bottom: 4px; }
+    .sop-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .sop-content th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-weight: 600; border: 1px solid #e2e8f0; }
+    .sop-content td { padding: 6px 12px; border: 1px solid #e2e8f0; }
+    .sop-content strong { color: #0f172a; }
+    .sop-content .sop-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+
+    /* Print styles for A4 */
+    @media print {
+      body { background: white; color: black; }
+      .app-header, .input-area, .sop-toolbar { display: none !important; }
+      .sop-panel { display: block !important; padding: 0; max-width: 100%; }
+      .sop-content {
+        box-shadow: none; border-radius: 0; padding: 40px 48px;
+        font-size: 11pt; line-height: 1.6;
+        page-break-inside: avoid;
+      }
+      @page { size: A4; margin: 15mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-inner">
+      <div class="header-icon">
+        <span class="material-symbols-outlined" style="font-size:22px;color:#818cf8">smart_toy</span>
+      </div>
+      <div class="header-text">
+        <div class="header-title">{app.name}</div>
+        {app.description && <div class="header-desc">{app.description}</div>}
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat area -->
+  <div id="chat-view" class="chat-area">
+    <!-- Welcome message -->
+    <div class="msg-wrap" id="welcome-msg">
+      <div class="msg-avatar ai-avatar">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8">smart_toy</span>
+      </div>
+      <div class="msg-bubble ai-bubble">
+        Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> cho phòng khám nha khoa.<br><br>
+        Chúng ta sẽ đi qua từng bước một cách từ từ. Bạn sẵn sàng chưa?<br><br>
+        <strong>Câu hỏi đầu tiên:</strong> Phòng khám của bạn hiện có bao nhiêu nha sĩ và nhân viên?
+      </div>
+    </div>
+  </div>
+
+  <!-- SOP Result -->
+  <div id="sop-view" class="sop-panel">
+    <div class="sop-toolbar">
+      <h2>Kết quả SOP</h2>
+      <button class="sop-btn print" onclick="window.print()">
+        <span class="material-symbols-outlined" style="font-size:16px">print</span>
+        In / Xuất PDF
+      </button>
+      <button class="sop-btn new" id="new-chat-btn">
+        <span class="material-symbols-outlined" style="font-size:16px">add</span>
+        Tạo SOP mới
+      </button>
+    </div>
+    <div id="sop-content" class="sop-content"></div>
+  </div>
+
+  <!-- Input area -->
+  <div class="input-area">
+    <div class="input-inner">
+      <div class="input-row">
+        <textarea
+          id="user-input"
+          rows="1"
+          placeholder="Nhập câu trả lời..."
+          autocomplete="off"
+        ></textarea>
+        <button class="send-btn" id="send-btn">
+          <span class="material-symbols-outlined" style="font-size:18px">arrow_upward</span>
+        </button>
+      </div>
+      <div class="input-hint">
+        <span>Enter gửi · Shift+Enter xuống dòng</span>
+        <button class="reset-link" id="reset-btn">Bắt đầu lại</button>
+      </div>
+    </div>
+  </div>
+
+  <script
+    define:vars={{
+      appId: app.id,
+      appName: app.name,
+      promptVi,
+    }}
+  >
+    const chatView = document.getElementById('chat-view');
+    const sopView = document.getElementById('sop-view');
+    const sopContent = document.getElementById('sop-content');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const newChatBtn = document.getElementById('new-chat-btn');
+
+    let conversationHistory = [];
+    let isLoading = false;
+    let fullSopText = '';
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function renderMarkdown(text) {
+      return escapeHtml(text)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function addMsg(role, html, options) {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-wrap' + (role === 'user' ? ' user' : '');
+      if (role === 'ai') {
+        let optsHtml = '';
+        if (options && options.length) {
+          optsHtml = '<div class="sug-wrap" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">' +
+            options.map(o => `<button class="sug-opt" data-val="${escapeAttr(o)}">${escapeHtml(o)}</button>`).join('') +
+            '</div>';
+        }
+        // Text goes into .msg-text, options go outside so streaming doesn't wipe them
+        wrap.innerHTML = `
+          <div class="msg-avatar ai-avatar">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8">smart_toy</span>
+          </div>
+          <div class="msg-bubble ai-bubble">
+            <div class="msg-text">${html}</div>${optsHtml}
+          </div>`;
+
+        wrap.querySelectorAll('.sug-opt').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userInput.value = btn.dataset.val;
+            autoResize(userInput);
+            sendMessage();
+          });
+        });
+      } else {
+        wrap.innerHTML = `
+          <div class="msg-avatar user-avatar">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#c7d2fe">person</span>
+          </div>
+          <div class="msg-bubble user-bubble"><div class="msg-text">${html}</div></div>`;
+      }
+      chatView.appendChild(wrap);
+      chatView.scrollTop = chatView.scrollHeight;
+      return wrap;
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/"/g, '&quot;');
+    }
+
+    function addTyping() {
+      const wrap = document.createElement('div');
+      wrap.className = 'typing-wrap';
+      wrap.id = 'typing';
+      wrap.innerHTML = `
+        <div class="msg-avatar ai-avatar">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8">smart_toy</span>
+        </div>
+        <div class="typing-bubble">
+          <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>`;
+      chatView.appendChild(wrap);
+      chatView.scrollTop = chatView.scrollHeight;
+    }
+
+    function removeTyping() {
+      document.getElementById('typing')?.remove();
+    }
+
+    async function streamText(msgWrap, text, speed = 15) {
+      return new Promise((resolve) => {
+        const textEl = msgWrap.querySelector('.msg-text');
+        if (!textEl) { resolve(); return; }
+        let i = 0;
+        textEl.innerHTML = '';
+        function type() {
+          if (i < text.length) {
+            const partial = text.substring(0, i + 1);
+            textEl.innerHTML = renderMarkdown(partial);
+            chatView.scrollTop = chatView.scrollHeight;
+            i++;
+            setTimeout(type, speed);
+          } else {
+            resolve();
+          }
+        }
+        type();
+      });
+    }
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text || isLoading) return;
+
+      userInput.value = '';
+      autoResize(userInput);
+      addMsg('user', escapeHtml(text), []);
+      conversationHistory.push({ role: 'user', content: text });
+      setLoading(true);
+
+      addTyping();
+
+      try {
+        const resp = await fetch(`/api/app/${appId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: conversationHistory,
+            prompt_vi: promptVi,
+            app_name: appName,
+          }),
+        });
+
+        removeTyping();
+
+        if (!resp.ok) {
+          const data = await resp.json();
+          addMsg('ai', `<span style="color:#f87171">Lỗi: ${data.error || 'Không thể kết nối AI.'}</span>`, []);
+          conversationHistory.pop();
+        } else {
+          const data = await resp.json();
+          const reply = data.reply || '';
+
+          // Extract options from [data]...[/data] blocks
+          let options = [];
+          let cleanReply = reply;
+          const dataStart = reply.indexOf('[data]');
+          const dataEnd = reply.indexOf('[/data]');
+          if (dataStart !== -1 && dataEnd !== -1 && dataEnd > dataStart) {
+            const jsonStr = reply.slice(dataStart + 6, dataEnd).trim();
+            try {
+              const parsed = JSON.parse(jsonStr);
+              options = Array.isArray(parsed.options) ? parsed.options : [];
+            } catch {}
+            cleanReply = reply.slice(0, dataStart).trim();
+          }
+
+          // Stream the reply
+          const msgWrap = addMsg('ai', '', options);
+          await streamText(msgWrap, cleanReply);
+
+          conversationHistory.push({ role: 'assistant', content: reply });
+
+          if (data.sop_complete && data.full_sop_text) {
+            fullSopText = data.full_sop_text;
+            showSopResult(data.full_sop_text);
+          }
+        }
+      } catch (err) {
+        removeTyping();
+        addMsg('ai', '<span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span>', []);
+        conversationHistory.pop();
+      } finally {
+        setLoading(false);
+        userInput.focus();
+      }
+    }
+
+    function showSopResult(markdownText) {
+      // Hide chat, show SOP
+      chatView.style.display = 'none';
+      sopView.classList.add('visible');
+
+      // Convert markdown to HTML for print
+      let html = markdownText
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/^---SOP---\s*$/gm, '')
+        .replace(/^---END-SOP---\s*$/gm, '');
+
+      // Parse numbered lists properly
+      html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+      // Wrap consecutive <li> in <ol>
+      html = html.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, (match) => {
+        const items = match.match(/<li>[\s\S]*?<\/li>/g) || [];
+        return '<ol>' + items.join('') + '</ol>';
+      });
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+
+      // Tables
+      html = html.replace(/\|(.+)\|\n\|[-| ]+\|\n((?:\|.+\|\n?)+)/g, (_, header, body) => {
+        const ths = header.split('|').filter(Boolean).map(h => `<th>${h.trim()}</th>`).join('');
+        const rows = body.trim().split('\n').map(row =>
+          '<tr>' + row.split('|').filter((c, i, a) => i > 0 && i < a.length - 1).map(c => `<td>${c.trim()}</td>`).join('') + '</tr>'
+        ).join('');
+        return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+      });
+
+      html = html
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      html = '<p>' + html + '</p>';
+
+      // Clean up empty paragraphs
+      html = html.replace(/<p><\/p>/g, '');
+
+      sopContent.innerHTML = html + '<div class="sop-footer">Tạo bởi Dental Empire OS · ' + new Date().toLocaleDateString('vi-VN') + '</div>';
+    }
+
+    function resetChat() {
+      if (!confirm('Bắt đầu lại SOP? Mọi thông tin sẽ bị xóa.')) return;
+      conversationHistory = [];
+      fullSopText = '';
+      sopView.classList.remove('visible');
+      sopContent.innerHTML = '';
+      chatView.style.display = '';
+      chatView.innerHTML = `
+        <div class="msg-wrap">
+          <div class="msg-avatar ai-avatar">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8">smart_toy</span>
+          </div>
+          <div class="msg-bubble ai-bubble">
+            Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> cho phòng khám nha khoa.<br><br>
+            Chúng ta sẽ đi qua từng bước một cách từ từ. Bạn sẵn sàng chưa?<br><br>
+            <strong>Câu hỏi đầu tiên:</strong> Phòng khám của bạn hiện có bao nhiêu nha sĩ và nhân viên?
+          </div>
+        </div>`;
+      userInput.focus();
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    function setLoading(state) {
+      isLoading = state;
+      sendBtn.disabled = state;
+      userInput.disabled = state;
+      userInput.placeholder = state ? 'Đang suy nghĩ...' : 'Nhập câu trả lời...';
+    }
+
+    // Events
+    userInput.addEventListener('input', () => autoResize(userInput));
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    sendBtn.addEventListener('click', sendMessage);
+    resetBtn.addEventListener('click', resetChat);
+    newChatBtn.addEventListener('click', resetChat);
+
+    userInput.focus();
+  </script>
+</body>
+</html>

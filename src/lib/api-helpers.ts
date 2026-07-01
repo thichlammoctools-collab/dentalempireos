@@ -26,3 +26,19 @@ export function slugify(input: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 }
+
+/** Generate a unique app ID. */
+export function generateAppId(_type: string, name: string): string {
+  const base = slugify(name).replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 5);
+  return `app-${base}-${ts}${rand}`.slice(0, 64);
+}
+
+/** Generate a unique scanner ID. */
+export function generateScannerId(name: string): string {
+  const base = slugify(name).replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 5);
+  return `scan-${base}-${ts}${rand}`.slice(0, 64);
+}

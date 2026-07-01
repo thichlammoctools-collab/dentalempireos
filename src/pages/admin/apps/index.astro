@@ -227,22 +227,35 @@ const avatarColors = [
                   {formatDate(app.created_at)}
                 </td>
                 <td class="py-3.5 px-5">
-                  <div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
-                    <a
-                      href={`/admin/apps/${app.id}`}
-                      class="btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
-                      title="Chỉnh sửa"
-                    >
-                      <span class="material-symbols-outlined text-[18px]">edit</span>
-                    </a>
-                    <button
-                      class="delete-btn btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      data-id={app.id}
-                      data-name={app.name}
-                      title="Xóa"
-                    >
-                      <span class="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                  <div class="flex items-center gap-1.5">
+                    {app.status === 'active' && (
+                      <a
+                        href={app.type === 'survey' ? `/scanner/${app.slug}` : `/app/${app.slug}`}
+                        target="_blank"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-semibold transition-all"
+                        title="Mở công cụ"
+                      >
+                        <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                        Mở
+                      </a>
+                    )}
+                    <div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity duration-150 ml-auto">
+                      <a
+                        href={`/admin/apps/${app.id}`}
+                        class="btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
+                        title="Chỉnh sửa"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                      </a>
+                      <button
+                        class="delete-btn btn-icon w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        data-id={app.id}
+                        data-name={app.name}
+                        title="Xóa"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
