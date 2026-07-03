@@ -91,6 +91,9 @@ for (const m of models) {
               <button class="toggle-provider-btn w-8 h-8 rounded-lg flex items-center justify-center transition-all" data-id={p.id} data-active={p.is_active ? 1 : 0} title={p.is_active ? 'Tắt' : 'Bật'}>
                 <span class={`material-symbols-outlined text-[18px] ${p.is_active ? 'text-emerald-400' : 'text-slate-500'}`}>{p.is_active ? 'toggle_on' : 'toggle_off'}</span>
               </button>
+              <button class="test-provider-btn w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-emerald-400 hover:bg-emerald-500/10" data-id={p.id} data-url={p.base_url} data-key={p.api_key} title="Test">
+                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+              </button>
               <button class="edit-provider-btn w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10" data-id={p.id} title="Sửa">
                 <span class="material-symbols-outlined text-[18px]">edit</span>
               </button>
@@ -236,7 +239,10 @@ for (const m of models) {
       max_tokens: 4096,
     };
     const keyVal = wizKey.value.trim();
-    if (keyVal && !keyVal.includes('•')) body.api_key = keyVal;
+    // Only send api_key if user typed something new (not just the masked dots)
+    if (keyVal && keyVal.replace(/[^\S ]/g, '').length > 0 && !/^[\s•]+$/.test(keyVal)) {
+      body.api_key = keyVal;
+    }
     const res = await fetch('/api/admin/ai-settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
@@ -297,15 +303,40 @@ for (const m of models) {
     });
   });
 
+  // Test provider button
+  document.querySelectorAll('.test-provider-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = btn.getAttribute('data-url') || '';
+      const key = btn.getAttribute('data-key') || '';
+      if (!key) { alert('Provider này chưa có API key'); return; }
+      const icon = btn.querySelector('span');
+      if (icon) { icon.textContent = 'sync'; icon.style.animation = 'spin 1s linear infinite'; }
+      try {
+        const base = url.replace(/\/+$/, '').replace(/\/v1$/, '');
+        // Try OpenAI-compatible endpoint
+        const res = await fetch(`${base}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+          body: JSON.stringify({ model: 'gpt-4o', max_tokens: 5, messages: [{ role: 'user', content: 'Hi' }] }),
+        });
+        const msg = res.ok ? '✅ Kết nối thành công!' : `❌ Lỗi ${res.status}`;
+        alert(msg);
+      } catch { alert('❌ Không kết nối được'); }
+      if (icon) { icon.textContent = 'play_arrow'; icon.style.animation = ''; }
+    });
+  });
+
   document.getElementById('pm-save')?.addEventListener('click', async () => {
     const id = (document.getElementById('pm-id') as HTMLInputElement).value;
+    const keyVal = (document.getElementById('pm-key') as HTMLInputElement).value.trim();
     const body: any = {
       action: 'upsert_provider',
       provider: {
         name: (document.getElementById('pm-name') as HTMLInputElement).value.trim(),
         slug: (document.getElementById('pm-slug') as HTMLInputElement).value.trim(),
         base_url: (document.getElementById('pm-url') as HTMLInputElement).value.trim(),
-        api_key: (document.getElementById('pm-key') as HTMLInputElement).value.trim(),
+        // Only send api_key if user typed a real value (not the masked dots placeholder)
+        ...(keyVal && !/^[\s•]+$/.test(keyVal) ? { api_key: keyVal } : {}),
         is_active: (document.getElementById('pm-active') as HTMLInputElement).checked,
       },
     };

@@ -31,14 +31,7 @@ const { searchPlaceholder = 'Search resources, users, content...' } = Astro.prop
         <span class="material-symbols-outlined">visibility</span>
         <span class="text-sm font-semibold">Preview Site</span>
       </a>
-      <button
-        id="publish-btn"
-        type="button"
-        class="bg-primary-container text-white px-6 py-2 rounded-full font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all text-sm flex items-center gap-2"
-      >
-        <span class="material-symbols-outlined text-[18px] publish-icon">rocket_launch</span>
-        <span class="publish-label">Publish Changes</span>
-      </button>
+      <!-- No publish button needed — D1 data is live immediately (SSR, no CDN cache) -->
     </div>
 
     <div class="h-6 w-px bg-outline-variant/30"></div>
@@ -60,109 +53,4 @@ const { searchPlaceholder = 'Search resources, users, content...' } = Astro.prop
     </div>
   </div>
 
-  <!-- Toast notification -->
-  <div id="publish-toast" class="publish-toast" aria-live="polite"></div>
 </header>
-
-<script>
-  const btn = document.getElementById('publish-btn') as HTMLButtonElement | null;
-  const label = btn?.querySelector('.publish-label') as HTMLElement | null;
-  const icon = btn?.querySelector('.publish-icon') as HTMLElement | null;
-  const toast = document.getElementById('publish-toast');
-
-  let publishing = false;
-
-  function showToast(message: string, type: 'success' | 'error' = 'success') {
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = `publish-toast publish-toast--visible publish-toast--${type}`;
-    setTimeout(() => {
-      toast.className = 'publish-toast';
-    }, 4000);
-  }
-
-  async function publish() {
-    if (publishing) return;
-    publishing = true;
-
-    if (btn) btn.disabled = true;
-    if (label) label.textContent = 'Đang xuất bản...';
-    if (icon) icon.textContent = 'sync';
-    if (icon) icon.style.animation = 'spin 1s linear infinite';
-
-    try {
-      const res = await fetch('/api/admin/publish', { method: 'POST' });
-      const data: { ok?: boolean; message?: string; error?: string } = await res.json();
-
-      if (data.ok) {
-        showToast(data.message || 'Đã xuất bản thành công!', 'success');
-      } else {
-        showToast(data.error || 'Xuất bản thất bại.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Lỗi mạng: ${err.message}`, 'error');
-    } finally {
-      publishing = false;
-      if (btn) btn.disabled = false;
-      if (label) label.textContent = 'Publish Changes';
-      if (icon) {
-        icon.textContent = 'rocket_launch';
-        icon.style.animation = '';
-      }
-    }
-  }
-
-  btn?.addEventListener('click', publish);
-</script>
-
-<style>
-  /* Spinner animation for the publish icon */
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  /* Toast notification */
-  .publish-toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    padding: 14px 24px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    z-index: 9999;
-    opacity: 0;
-    transform: translateY(12px);
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-
-  .publish-toast--visible {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-
-  .publish-toast--success {
-    background: rgba(46, 160, 67, 0.9);
-    border: 1px solid rgba(46, 160, 67, 0.4);
-    color: #fff;
-  }
-
-  .publish-toast--error {
-    background: rgba(200, 50, 50, 0.9);
-    border: 1px solid rgba(200, 50, 50, 0.4);
-    color: #fff;
-  }
-
-  /* Disable cursor on button while loading */
-  button:disabled {
-    opacity: 0.7;
-    cursor: wait;
-  }
-</style>

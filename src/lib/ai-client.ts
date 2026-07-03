@@ -28,10 +28,11 @@ export async function chatCompletion(
   const model = config.model_id;
   const maxTokens = config.max_tokens || 8192;
 
-  if (isOpenAIUrl(baseUrl)) {
-    return chatOpenAI(baseUrl, apiKey, model, messages, systemPrompt, maxTokens);
+  const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+  if (isOpenAIUrl(cleanBase)) {
+    return chatOpenAI(cleanBase, apiKey, model, messages, systemPrompt, maxTokens);
   } else {
-    return chatAnthropic(baseUrl, apiKey, model, messages, systemPrompt, maxTokens);
+    return chatAnthropic(cleanBase, apiKey, model, messages, systemPrompt, maxTokens);
   }
 }
 
@@ -53,7 +54,8 @@ async function chatOpenAI(
   };
   if (maxTokens) body.max_tokens = maxTokens;
 
-  const resp = await fetch(`${baseUrl}/chat/completions`, {
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const resp = await fetch(`${cleanBase}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

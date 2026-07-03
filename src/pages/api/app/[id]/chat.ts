@@ -117,10 +117,27 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
 
   const systemPrompt = buildSystemPrompt(body.app_name || app.name, config.prompt_vi as string || '');
-  const messages = body.messages.map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-  }));
+
+  // Strip [data] UI tags, limit to last 10 messages, and truncate long content
+  const MAX_MESSAGES = 10;
+  const MAX_CONTENT_LENGTH = 2000;
+  const stripTags = (text: string) =>
+    text
+      .replace(/\[data\][\s\S]*?\[\/data\]/g, '')
+      .replace(/\[score\][\s\S]*?\[\/score\]/g, '')
+      .replace(/\[result\][\s\S]*?\[\/result\]/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  const truncate = (text: string) =>
+    text.length > MAX_CONTENT_LENGTH ? text.slice(0, MAX_CONTENT_LENGTH) + '…' : text;
+
+  const messages = body.messages
+    .slice(-MAX_MESSAGES)
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: truncate(stripTags(m.content)),
+    }));
 
   try {
     const reply = await chatCompletion(modelCfg, messages, systemPrompt);

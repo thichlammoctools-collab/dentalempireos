@@ -452,7 +452,8 @@ if (qForm) {
     const scale_3 = String(fd.get('scale_3') || '').trim();
     const scale_4 = String(fd.get('scale_4') || '').trim();
     const scale_5 = String(fd.get('scale_5') || '').trim();
-    const scaleLabelsVi = (scale_1 || scale_2 || scale_3 || scale_4 || scale_5)
+    const hasScale = [scale_1, scale_2, scale_3, scale_4, scale_5].some(function(s) { return s.length > 0; });
+    const scaleLabelsVi = hasScale
       ? { 1: scale_1, 2: scale_2, 3: scale_3, 4: scale_4, 5: scale_5 }
       : null;
 
