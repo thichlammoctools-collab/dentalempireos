@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getSurveyDefinitionFullBySlug } from '../../lib/survey-config-db';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+const full = await getSurveyDefinitionFullBySlug(env.DB, slug);
+
+if (!full) {
+  return new Response('Not found', { status: 404 });
+}
+
+const { definition, sections } = full;
+---
+
+<BaseLayout title={`Test: ${definition.title_vi}`} noindex={true}>
+  <div class="min-h-screen bg-surface text-white pt-24 p-8">
+    <h1>DEBUG: {definition.title_vi}</h1>
+    <p>Slug: {definition.slug}</p>
+    <p>Sections: {sections.length}</p>
+    <p>Status: {definition.status}</p>
+    <pre>{JSON.stringify(Object.keys(definition), null, 2)}</pre>
+  </div>
+</BaseLayout>
