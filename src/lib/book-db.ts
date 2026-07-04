@@ -419,3 +419,69 @@ export async function getTierStats(db: D1Database, tier: number): Promise<TierSt
     sectionCount: sectionRow?.cnt ?? 0,
   };
 }
+
+// ── Chapter Refs for Scanner ─────────────────────────────
+
+export interface ChapterWithExcerpt {
+  id: string;
+  title: string;
+  chapter_no: number;
+  excerpt: string | null;
+  url: string;
+}
+
+export async function getChaptersByRefs(
+  db: D1Database,
+  refs: string[],
+): Promise<ChapterRow[]> {
+  if (!refs || refs.length === 0) return [];
+
+  const chapterNos = refs
+    .map((r) => {
+      const m = r.match(/^Ch\.\s*(\d+)$/i);
+      return m ? parseInt(m[1], 10) : null;
+    })
+    .filter((n): n is number => n !== null);
+
+  if (chapterNos.length === 0) return [];
+
+  const placeholders = chapterNos.map(() => '?').join(',');
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM "chapter"
+       WHERE "chapter_no" IN (${placeholders}) AND "status" = 'published'
+       ORDER BY "tier", "order"`,
+    )
+    .bind(...chapterNos)
+    .all<ChapterRow>();
+
+  return results ?? [];
+}
+
+export async function getChapterExcerpt(
+  db: D1Database,
+  chapterId: string,
+  maxChars = 280,
+): Promise<string | null> {
+  const { results } = await db
+    .prepare(
+      `SELECT b."text_md" FROM "block" b
+       JOIN "section" s ON s."id" = b."section_id"
+       WHERE s."chapter_id" = ? AND b."type" = 'text' AND b."text_md" IS NOT NULL
+       ORDER BY s."order", b."order"
+       LIMIT 1`,
+    )
+    .bind(chapterId)
+    .all<{ text_md: string | null }>();
+
+  const text = results?.[0]?.text_md;
+  if (!text) return null;
+
+  const plain = text
+    .replace(/[*_#`[\]()]/g, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]+)\]\(.*?\)/g, '$1')
+    .replace(/\n+/g, ' ')
+    .trim();
+  return plain.length > maxChars ? plain.slice(0, maxChars - 3) + '...' : plain;
+}

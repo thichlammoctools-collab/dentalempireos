@@ -56,6 +56,8 @@ export interface AiConfig {
     title_vi: string;
     title_en?: string;
   }>;
+  plan_prompt_vi?: string;
+  plan_prompt_en?: string;
 }
 
 export interface UiTranslations {
