@@ -1,6 +1,5 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import DynamicForm from '../../components/scanner/DynamicForm.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations } from '../../lib/survey-config-db';
 import { createAuth } from '../../lib/auth';
@@ -20,17 +19,16 @@ try {
 }
 
 if (!full) {
-  return new Response('Scanner not found', { status: 404 });
+  return Astro.redirect('/scanner');
 }
 
 if (full.definition.status !== 'active') {
-  return new Response('Scanner not available', { status: 404 });
+  return Astro.redirect('/scanner');
 }
 
 const { definition, sections } = full;
 
-// Load clinic profile for prefill if logged in
-let clinicProfile = null;
+let clinicProfile: any = null;
 try {
   const auth = createAuth(env);
   const session = await auth.api.getSession({ headers: Astro.request.headers });
@@ -41,14 +39,13 @@ try {
   console.error('[scanner/slug] Auth error:', err);
 }
 
-// Build a JSON-serializable snapshot for the client component
 const surveyData = {
   id: definition.id,
   slug: definition.slug,
   title_vi: definition.title_vi,
   title_en: definition.title_en || definition.title_vi,
-  description_vi: definition.description_vi,
-  description_en: definition.description_en,
+  description_vi: definition.description_vi || '',
+  description_en: definition.description_en || '',
   lead_fields: parseLeadFields(definition.lead_fields),
   translations_vi: parseUiTranslations(definition.translations_vi, 'vi'),
   translations_en: parseUiTranslations(definition.translations_en, 'en'),
@@ -56,61 +53,372 @@ const surveyData = {
     id: s.id,
     title_vi: s.title_vi,
     title_en: s.title_en || s.title_vi,
-    subtitle_vi: s.subtitle_vi,
-    subtitle_en: s.subtitle_en,
-    ref: s.ref,
+    subtitle_vi: s.subtitle_vi || null,
+    subtitle_en: s.subtitle_en || null,
+    ref: s.ref || null,
     questions: s.questions.map((q) => ({
       id: q.id,
       question_id: q.question_id,
       type: q.type,
       label_vi: q.label_vi,
       label_en: q.label_en || q.label_vi,
-      placeholder_vi: q.placeholder_vi,
-      placeholder_en: q.placeholder_en,
+      placeholder_vi: q.placeholder_vi || '',
+      placeholder_en: q.placeholder_en || '',
       options_vi: q.options_vi ? JSON.parse(q.options_vi) : null,
       options_en: q.options_en ? JSON.parse(q.options_en) : null,
       scale_labels_vi: q.scale_labels_vi ? JSON.parse(q.scale_labels_vi) : null,
       scale_labels_en: q.scale_labels_en ? JSON.parse(q.scale_labels_en) : null,
-      required: q.required,
-      anchor: q.anchor,
+      required: q.required || false,
+      anchor: q.anchor || false,
     })),
   })),
 };
 
-const titleVi = definition.title_vi;
-const titleEn = definition.title_en || definition.title_vi;
-const descVi = definition.description_vi ?? '';
-const descEn = definition.description_en ?? definition.description_vi ?? '';
+// Default scale labels (used when survey doesn't define custom ones)
+const defaultScaleVi: Record<string, string> = {
+  '1': 'Chưa có',
+  '2': 'Đang bắt đầu',
+  '3': 'Đã có nhưng chưa ổn định',
+  '4': 'Ổn định',
+  '5': 'Đầu tàu và nhất quán',
+};
+const defaultScaleEn: Record<string, string> = {
+  '1': 'None',
+  '2': 'Starting',
+  '3': 'Inconsistent',
+  '4': 'Stable',
+  '5': 'Exemplary',
+};
 ---
 
-<BaseLayout
-  title={`${titleVi} | Dental Empire OS`}
-  description={descVi}
->
+<BaseLayout title={`${definition.title_vi} | Dental Empire OS`} description={definition.description_vi || undefined}>
   <section class="relative">
     <div
       class="absolute inset-x-0 top-0 h-[420px] pointer-events-none opacity-50"
       style="background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.15), transparent 60%);"
-    >
-    </div>
+    ></div>
 
     <div class="relative">
-      <DynamicForm surveyData={surveyData} clinicProfile={clinicProfile} />
+      <!-- PASS DATA VIA DATA ATTRIBUTES — no define:vars to avoid SSR truncation -->
+      <div
+        id="survey-form"
+        class="survey-wrap"
+        data-default-lang="vi"
+        data-survey-id={surveyData.id}
+        data-survey-slug={surveyData.slug}
+        data-survey={JSON.stringify(surveyData)}
+        data-clinic={clinicProfile ? JSON.stringify(clinicProfile) : ''}
+        data-scale-vi={JSON.stringify(defaultScaleVi)}
+        data-scale-en={JSON.stringify(defaultScaleEn)}
+      >
+        <div class="lang-toggle">
+          <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
+          <button type="button" class="lang-btn" data-lang="en">English</button>
+        </div>
+
+        <!-- Stepper -->
+        <div class="stepper">
+          <div id="stepper-fill" class="stepper-fill"></div>
+          <div id="step-labels" class="step-labels"></div>
+        </div>
+
+        <!-- Parts container -->
+        <div id="parts-container"></div>
+
+        <!-- Intro card -->
+        <div id="card-intro" class="intro-card card">
+          <div class="intro-top">
+            <h1 class="intro-title">{definition.title_vi}</h1>
+            <p class="intro-desc">{definition.description_vi}</p>
+          </div>
+          <div class="intro-info">
+            <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
+          </div>
+          <div id="intro-fields"></div>
+          <button type="button" class="btn btn-primary" id="btn-start">Bắt đầu →</button>
+        </div>
+
+        <!-- Submit card -->
+        <div id="card-submit" class="card submit-card hidden">
+          <div class="submit-top">
+            <p id="submit-title" class="submit-title">Sẵn sàng gửi?</p>
+            <p id="submit-desc" class="submit-desc">Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...</p>
+          </div>
+          <div id="submit-fields"></div>
+          <div class="flex gap-3 mt-4">
+            <button type="button" class="btn btn-ghost" id="btn-back-submit">← Quay lại</button>
+            <button type="button" class="btn btn-primary" id="btn-submit">
+              <span id="submit-btn-label">Gửi Hồ Sơ</span>
+            </button>
+          </div>
+          <p id="submit-error" class="error-text hidden"></p>
+        </div>
+      </div>
     </div>
   </section>
 </BaseLayout>
 
+<!-- External script to avoid SSR stream truncation with inline <script> tags -->
+<script src="/scripts/scanner-form-client.js"></script>
+
 <style is:global>
-  .intro-card .form-title {
+  .survey-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1rem 0 4rem;
+  }
+  .lang-toggle {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  .lang-toggle .lang-btn {
+    padding: 0.35rem 0.85rem;
+    border-radius: 2rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--on-surface-variant);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-toggle .lang-btn.active {
+    background: rgba(245,158,11,0.15);
+    color: #f59e0b;
+    border-color: rgba(245,158,11,0.3);
+  }
+  .stepper {
+    position: relative;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    overflow: visible;
+  }
+  .stepper-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f59e0b, #f97316);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+  .step-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--on-surface-variant);
+  }
+  .step-labels span {
+    transition: color 0.2s;
+  }
+  .step-labels span.active {
+    color: #f59e0b;
+    font-weight: 600;
+  }
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .intro-card .intro-top { margin-bottom: 1.5rem; }
+  .intro-card .intro-title {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 800;
     background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+  }
+  .intro-card .intro-desc {
+    color: var(--on-surface-variant);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .intro-info { margin: 1.25rem 0 0.75rem; }
+  .intro-info-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  .form-row { margin-bottom: 0.875rem; }
+  .form-col { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--on-surface);
+  }
+  .form-label .req { color: #ef4444; }
+  .form-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 0.5rem;
+    color: var(--on-surface);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: #f59e0b; }
+  .form-input::placeholder { color: rgba(255,255,255,0.25); }
+  .form-textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 0.5rem;
+    color: var(--on-surface);
+    font-size: 0.875rem;
+    outline: none;
+    min-height: 100px;
+    resize: vertical;
+    transition: border-color 0.2s;
+  }
+  .form-textarea:focus { border-color: #f59e0b; }
+  .form-textarea::placeholder { color: rgba(255,255,255,0.25); }
+  .save-profile-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: white;
+    width: 100%;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--on-surface-variant);
+    flex: 1;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+  .part-header { margin-bottom: 1.25rem; }
+  .part-ref {
+    font-size: 0.75rem;
+    color: var(--primary, #f59e0b);
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+  .part-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin-bottom: 0.3rem;
+  }
+  .part-subtitle { font-size: 0.8rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .question { margin-bottom: 1.25rem; }
+  .question.anchor { border-left: 3px solid #f59e0b; padding-left: 1rem; }
+  .anchor-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    color: #f59e0b;
+    margin-bottom: 0.3rem;
+  }
+  .q-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--on-surface);
+    margin-bottom: 0.6rem;
+    line-height: 1.5;
+  }
+  .scale-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .scale-option { display: block; cursor: pointer; }
+  .scale-option input { display: none; }
+  .scale-option .scale-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    transition: all 0.15s;
+  }
+  .scale-option input:checked + .scale-pill {
+    background: rgba(245,158,11,0.12);
+    border-color: rgba(245,158,11,0.4);
+  }
+  .scale-num {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    min-width: 1.5rem;
+  }
+  .scale-option input:checked + .scale-pill .scale-num { color: #f59e0b; }
+  .scale-text { font-size: 0.8rem; color: var(--on-surface); }
+  .scale-option input:checked + .scale-pill .scale-text { color: #f59e0b; }
+  .radio-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .radio-option { display: block; cursor: pointer; }
+  .radio-option input { display: none; }
+  .radio-option .radio-label {
+    display: block;
+    padding: 0.6rem 0.85rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--on-surface);
+    transition: all 0.15s;
+  }
+  .radio-option input:checked + .radio-label {
+    background: rgba(245,158,11,0.12);
+    border-color: rgba(245,158,11,0.4);
+    color: #f59e0b;
+  }
+  .nav-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .submit-top { margin-bottom: 1.25rem; }
+  .submit-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin-bottom: 0.4rem;
+  }
+  .submit-desc { font-size: 0.8rem; color: var(--on-surface-variant); }
+  .error-text { color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; }
+  .hidden { display: none !important; }
+  @media (max-width: 640px) {
+    .survey-wrap { padding: 0.75rem 0 3rem; }
+    .card { padding: 1rem; }
+    .scale-pill { padding: 0.5rem 0.65rem; }
+    .scale-text { font-size: 0.7rem; }
   }
 </style>
 
 <style is:global>
-  .intro-card .form-title {
+  .intro-card .intro-title {
     background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
     -webkit-background-clip: text;
     background-clip: text;
