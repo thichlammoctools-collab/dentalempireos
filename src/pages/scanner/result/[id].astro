@@ -6,12 +6,18 @@ import {
   getSurveyDefinitionFull,
   parseScoringRules,
   parseAiConfig,
+  parseScaleLabels,
 } from '../../../lib/survey-config-db';
 import {
   getScannerResponse,
   parseScores,
+  parseResponses,
 } from '../../../lib/scanner-response-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
+import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
+import { createAuth } from '../../../lib/auth';
+import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
+import { getUserByEmail } from '../../../lib/user-db';
 
 export const prerender = false;
 
@@ -25,6 +31,26 @@ if (!id || Number.isNaN(id)) {
 const response = await getScannerResponse(env.DB, id);
 if (!response) {
   return new Response('Response not found', { status: 404 });
+}
+
+// Auth check — require login
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session?.user) {
+  return Astro.redirect(`/login?redirect=/scanner/result/${id}`);
+}
+
+// Ownership check — must own this response (via scanner_history or email match)
+const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
+const ownsByEmail = response.email
+  ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+  : false;
+
+if (!owned && !ownsByEmail) {
+  return new Response(
+    'Bạn không có quyền xem kết quả này.',
+    { status: 403 },
+  );
 }
 
 const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
@@ -57,10 +83,49 @@ if (scoringRules) {
 
 const totalLevel = getScoreLevel(totalScore, scoringRules ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } }, lang);
 
-// Pre-render analysis
+// Pre-render analysis and plan
 marked.setOptions({ gfm: true, breaks: true });
 const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) as string) : '';
 const hasAnalysis = !!analysisHtml;
+const hasPlan = !!response.ai_plan;
+const planHtml = response.ai_plan ? (marked.parse(response.ai_plan) as string) : '';
+
+// ── Section 1: Strengths & Needs Work (computed server-side) ──────────────────
+type InsightItem = { question: string; value: number; label: string; score: number };
+const insights: { strengths: InsightItem[]; needsWork: InsightItem[] } = { strengths: [], needsWork: [] };
+
+const parsedResponses = parseResponses(response.responses_json);
+for (const section of full.sections) {
+  for (const q of section.questions) {
+    if (q.type === 'select') {
+      const v = parsedResponses[q.question_id];
+      if (typeof v === 'number') {
+        const labels = parseScaleLabels(q.scale_labels_vi);
+        const label = labels[String(v)] ?? String(v);
+        const rawScore = (v / 5) * 100;
+        if (v >= 4) {
+          insights.strengths.push({ question: lang === 'vi' ? q.label_vi : (q.label_en ?? q.label_vi), value: v, label, score: rawScore });
+        } else {
+          insights.needsWork.push({ question: lang === 'vi' ? q.label_vi : (q.label_en ?? q.label_vi), value: v, label, score: rawScore });
+        }
+      }
+    }
+  }
+}
+
+// ── Section 2: Reading recommendations ───────────────────────────────────────
+type ChapterRef = { chapter_no: number; title: string; id: string; excerpt: string | null };
+const chapterRefs: ChapterRef[] = [];
+if (definition.chapter_refs) {
+  try {
+    const refs: string[] = JSON.parse(definition.chapter_refs);
+    const chapters = await getChaptersByRefs(env.DB, refs);
+    for (const ch of chapters) {
+      const excerpt = await getChapterExcerpt(env.DB, ch.id);
+      chapterRefs.push({ chapter_no: ch.chapter_no, title: ch.title, id: ch.id, excerpt });
+    }
+  } catch { /* ignore */ }
+}
 
 // Resolve linked product (for paywall)
 let linkedProduct: { id: string; name: string; price: number } | null = null;
@@ -203,6 +268,111 @@ try {
           </div>
         ))}
       </div>
+    </div>
+
+    <!-- Section 1: What does this score mean? — ALWAYS FREE -->
+    {insights.strengths.length > 0 || insights.needsWork.length > 0 ? (
+      <div class="card insight-card">
+        <div class="insight-header">
+          <span class="material-symbols-outlined text-amber-400 text-xl">lightbulb</span>
+          <h2 class="insight-title">
+            {lang === 'vi' ? 'Điểm này có ý nghĩa gì?' : 'What does this score mean?'}
+          </h2>
+        </div>
+        {insights.strengths.length > 0 && (
+          <div class="insight-section">
+            <p class="insight-section-label success">
+              <span class="material-symbols-outlined text-sm">thumb_up</span>
+              {lang === 'vi' ? 'Điểm mạnh' : 'Strengths'}
+            </p>
+            <div class="insight-items">
+              {insights.strengths.map((item) => (
+                <div class="insight-item insight-item--success">
+                  <div class="insight-item-header">
+                    <span class="insight-question">{item.question}</span>
+                    <span class="insight-badge success-badge">
+                      {item.value}/5 — {item.label}
+                    </span>
+                  </div>
+                  <div class="insight-bar-track">
+                    <div class="insight-bar-fill" style={`width:${item.score}%;background:#22c55e`}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {insights.needsWork.length > 0 && (
+          <div class="insight-section">
+            <p class="insight-section-label warning">
+              <span class="material-symbols-outlined text-sm">construction</span>
+              {lang === 'vi' ? 'Cần cải thiện' : 'Needs improvement'}
+            </p>
+            <div class="insight-items">
+              {insights.needsWork.map((item) => (
+                <div class="insight-item insight-item--warning">
+                  <div class="insight-item-header">
+                    <span class="insight-question">{item.question}</span>
+                    <span class="insight-badge warning-badge">
+                      {item.value}/5 — {item.label}
+                    </span>
+                  </div>
+                  <div class="insight-bar-track">
+                    <div class="insight-bar-fill" style={`width:${item.score}%;background:#f59e0b`}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    ) : null}
+
+    <!-- Section 2: Nên đọc thêm — ALWAYS FREE -->
+    {chapterRefs.length > 0 && (
+      <div class="card reading-card">
+        <div class="insight-header">
+          <span class="material-symbols-outlined text-amber-400 text-xl">menu_book</span>
+          <h2 class="insight-title">
+            {lang === 'vi' ? 'Nên đọc thêm' : 'Recommended reading'}
+          </h2>
+        </div>
+        <div class="reading-list">
+          {chapterRefs.map((ch) => (
+            <a href={`/book/${ch.id}`} class="reading-item">
+              <div class="reading-meta">
+                <span class="reading-tag">Ch.{ch.chapter_no}</span>
+                <h3 class="reading-title">{ch.title}</h3>
+              </div>
+              {ch.excerpt && <p class="reading-excerpt">{ch.excerpt}</p>}
+              <div class="reading-cta">
+                <span class="reading-link">
+                  {lang === 'vi' ? 'Đọc chương này' : 'Read this chapter'}
+                  <span class="material-symbols-outlined text-base">arrow_forward</span>
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- Section 3: 30-day plan — FREE (AI-generated, polled) -->
+    <div class="card plan-card" id="plan-section">
+      <div class="insight-header">
+        <span class="material-symbols-outlined text-amber-400 text-xl">calendar_month</span>
+        <h2 class="insight-title">
+          {lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}
+        </h2>
+      </div>
+      {hasPlan ? (
+        <article class="prose-content" set:html={planHtml}></article>
+      ) : (
+        <div class="text-center py-6 text-on-surface-variant" id="plan-loading">
+          <div class="spinner mb-3"></div>
+          <p class="text-sm">{lang === 'vi' ? 'Đang tạo kế hoạch cá nhân hóa...' : 'Creating your personalized plan...'}</p>
+        </div>
+      )}
     </div>
 
     <!-- AI Analysis — LOCKED behind paywall (unless is_free=1) -->
@@ -514,6 +684,128 @@ try {
     transform: translateY(-1px);
   }
 
+  /* ── Section 1: Insight card ── */
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .insight-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0;
+  }
+  .insight-section { margin-bottom: 1.25rem; }
+  .insight-section:last-child { margin-bottom: 0; }
+  .insight-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+  }
+  .insight-section-label.success { color: #22c55e; }
+  .insight-section-label.warning { color: #f59e0b; }
+  .insight-items { display: flex; flex-direction: column; gap: 0.6rem; }
+  .insight-item {
+    background: var(--surface-container);
+    border-radius: 0.6rem;
+    padding: 0.75rem 1rem;
+  }
+  .insight-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .insight-question {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--on-surface);
+    flex: 1;
+    min-width: 0;
+  }
+  .insight-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.3rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .success-badge { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .warning-badge { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .insight-bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .insight-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 1s ease;
+  }
+
+  /* ── Section 2: Reading card ── */
+  .reading-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .reading-item {
+    display: block;
+    background: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .reading-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .reading-meta { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .reading-tag {
+    font-size: 0.75rem;
+    font-weight: 800;
+    background: rgba(245,158,11,0.15);
+    color: #f59e0b;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.3rem;
+    border: 1px solid rgba(245,158,11,0.3);
+  }
+  .reading-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0;
+  }
+  .reading-excerpt {
+    font-size: 0.85rem;
+    color: var(--on-surface-variant);
+    line-height: 1.6;
+    margin: 0 0 0.6rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .reading-cta { display: flex; }
+  .reading-link {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
   .btn {
     padding: 0.6rem 1.25rem;
     border-radius: 0.5rem;
@@ -590,14 +882,14 @@ try {
       try {
         const res = await fetch(`/api/scanner/${responseId}`);
         if (res.ok) {
-          const data = await res.json() as { ai_analysis?: string | null };
-          if (data.ai_analysis) {
+          const data = await res.json() as { ai_analysis?: string | null; ai_plan?: string | null };
+          if (data.ai_analysis || data.ai_plan) {
             clearInterval(interval);
             window.location.reload();
           }
         }
       } catch {}
-      if (attempts >= 15) clearInterval(interval);
+      if (attempts >= 20) clearInterval(interval);
     }, 4000);
   }
 

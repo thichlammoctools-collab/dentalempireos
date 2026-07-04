@@ -29,6 +29,7 @@ export interface ScannerResponseRow {
   scores_json: string | null;
   ai_analysis: string | null;
   ai_analyzed_at: string | null;
+  ai_plan: string | null;
 }
 
 // ── Input Types ─────────────────────────────────────────
@@ -241,6 +242,21 @@ export async function updateAiAnalysis(
        WHERE "id" = ?`,
     )
     .bind(analysis, id)
+    .run();
+}
+
+export async function updateAiPlan(
+  db: D1Database,
+  id: number,
+  plan: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE "scanner_response"
+       SET "ai_plan" = ?
+       WHERE "id" = ?`,
+    )
+    .bind(plan, id)
     .run();
 }
 

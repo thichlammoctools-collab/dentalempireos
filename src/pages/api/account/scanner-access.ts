@@ -33,9 +33,12 @@ export const GET: APIRoute = async ({ locals }) => {
         }
       } catch { /* ignore */ }
 
-      const has_access = productId
-        ? await hasAccess(env.DB, locals.user!.id, productId)
-        : false;
+      let has_access = false;
+      if (productId) {
+        try {
+          has_access = await hasAccess(env.DB, locals.user!.id, productId);
+        } catch { /* fail-safe: treat as no access */ }
+      }
 
       return {
         id: s.id,

@@ -225,16 +225,16 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
 
     btn.setAttribute('disabled', 'true');
     btn.innerHTML = '<span>Đang phân tích...</span>';
-    (window).showToast?.('Đang gọi AI...', 'info');
+    window.showToast?.('Đang gọi AI...', 'info');
 
     try {
       // Use the AI endpoint if it exists, otherwise just trigger via fetch
-      const res = await fetch(`/api/admin/scan-response/${responseId}/reanalyze`, { method: 'POST' });
+      const res = await fetch(`/api/admin/scanner/regenerate-ai?id=${responseId}`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Re-analyze thất bại');
       }
-      (window).showToast?.('Đã tạo AI analysis mới', 'success');
+      window.showToast?.('Đã tạo AI analysis mới', 'success');
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Re-analyze thất bại');

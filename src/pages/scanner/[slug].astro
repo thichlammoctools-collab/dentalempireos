@@ -3,6 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import DynamicForm from '../../components/scanner/DynamicForm.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations } from '../../lib/survey-config-db';
+import { createAuth } from '../../lib/auth';
+import { getClinicProfile } from '../../lib/clinic-profile-db';
 
 export const prerender = false;
 
@@ -20,6 +22,14 @@ if (full.definition.status !== 'active') {
 }
 
 const { definition, sections } = full;
+
+// Load clinic profile for prefill if logged in
+let clinicProfile = null;
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (session?.user) {
+  clinicProfile = await getClinicProfile(env.DB, session.user.id);
+}
 
 // Build a JSON-serializable snapshot for the client component
 const surveyData = {
@@ -75,7 +85,7 @@ const descEn = definition.description_en ?? definition.description_vi ?? '';
     </div>
 
     <div class="relative">
-      <DynamicForm surveyData={surveyData} />
+      <DynamicForm surveyData={surveyData} clinicProfile={clinicProfile} />
     </div>
   </section>
 </BaseLayout>

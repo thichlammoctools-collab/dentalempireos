@@ -25,6 +25,15 @@ export async function getUser(db: D1Database, userId: string): Promise<UserRow |
   return row ?? null;
 }
 
+/** Get a single user by email. */
+export async function getUserByEmail(db: D1Database, email: string): Promise<UserRow | null> {
+  const row = await db
+    .prepare('SELECT "id", "name", "email", "is_active", "createdAt" FROM "user" WHERE LOWER("email") = LOWER(?)')
+    .bind(email)
+    .first<UserRow>();
+  return row ?? null;
+}
+
 /** Toggle a user's is_active flag (0 -> 1, 1 -> 0) and return the updated row. */
 export async function toggleUserActive(db: D1Database, userId: string): Promise<UserRow | null> {
   await db

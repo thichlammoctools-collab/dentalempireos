@@ -9,6 +9,15 @@
 //   - localStorage draft persistence keyed by survey id
 //   - Submits JSON body to /api/scanner/submit
 
+interface ClinicProfile {
+  id: string;
+  name: string | null;
+  clinic_name: string | null;
+  clinic_address: string | null;
+  phone: string | null;
+  logo_url: string | null;
+}
+
 interface Props {
   surveyData: {
     id: string;
@@ -44,6 +53,7 @@ interface Props {
       }>;
     }>;
   };
+  clinicProfile?: ClinicProfile | null;
 }
 
 const { surveyData } = Astro.props;
@@ -113,7 +123,7 @@ const defaultScaleEn: Record<string, string> = {
   </div>
 </div>
 
-<script define:vars={{ surveyData, defaultScaleVi, defaultScaleEn }}>
+<script define:vars={{ surveyData, clinicProfile: clinicProfile || null, defaultScaleVi, defaultScaleEn }}>
   // NOTE: define:vars passes data as JS literals — no TypeScript allowed here
   const STORAGE_KEY = `dentalempire-scanner-draft-${surveyData.id}`;
 
@@ -175,6 +185,23 @@ const defaultScaleEn: Record<string, string> = {
         </div>
       `;
       container.appendChild(div);
+    }
+
+    // Add "Save profile" checkbox if logged in
+    if (clinicProfile) {
+      const saveDiv = document.createElement('div');
+      saveDiv.className = 'form-row';
+      saveDiv.innerHTML = `
+        <div class="form-col" style="grid-column:1/-1">
+          <label class="save-profile-row">
+            <input type="checkbox" id="save-profile-check" checked style="accent-color:var(--primary);width:16px;height:16px;" />
+            <span class="form-label" style="margin:0;font-weight:400;color:var(--on-surface-variant);cursor:pointer;">
+              ${currentLang === 'vi' ? 'Lưu thông tin này cho lần sau' : 'Save this info for next time'}
+            </span>
+          </label>
+        </div>
+      `;
+      container.appendChild(saveDiv);
     }
   }
 
@@ -409,14 +436,30 @@ const defaultScaleEn: Record<string, string> = {
     });
     answers.lang = currentLang;
 
+    // Check auth — redirect to login if not logged in
+    if (!clinicProfile) {
+      const currentUrl = encodeURIComponent(window.location.pathname);
+      window.location.href = `/login?redirect=${currentUrl}`;
+      return;
+    }
+
+    // Show save checkbox if clinicProfile exists
+    const saveChecked = document.getElementById('save-profile-check')?.checked ?? false;
+
     try {
       const res = await fetch('/api/scanner/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(answers),
+        body: JSON.stringify({ ...answers, save_profile: saveChecked }),
       });
       const data = await res.json();
+
       if (!res.ok) {
+        if (data.requiresAuth) {
+          const currentUrl = encodeURIComponent(window.location.pathname);
+          window.location.href = `/login?redirect=${currentUrl}`;
+          return;
+        }
         throw new Error(data.error || 'Submit failed');
       }
       clearDraft();
@@ -476,11 +519,17 @@ const defaultScaleEn: Record<string, string> = {
   btnSubmit.addEventListener('click', () => submit());
   btnBackSubmit.addEventListener('click', () => goTo(surveyData.sections.length - 1));
 
-  // Populate intro from draft
+  // Populate intro from draft, then clinicProfile
   buildIntroFields();
   document.querySelectorAll('.intro-card input[name]').forEach((el) => {
     const v = answers[el.name];
-    if (v != null && v !== '') el.value = String(v);
+    if (v != null && v !== '') {
+      el.value = String(v);
+    } else if (clinicProfile && el.name) {
+      // Prefill from clinic profile if no draft value
+      const val = clinicProfile[el.name];
+      if (val) el.value = String(val);
+    }
   });
 
   if (hasDraft && typeof currentStep === 'number' && currentStep >= 0 && currentStep < surveyData.sections.length) {

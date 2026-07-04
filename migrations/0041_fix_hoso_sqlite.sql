@@ -1,0 +1,2 @@
+UPDATE survey_definition SET ai_config = json_set(ai_config, '$.plan_prompt_vi', '"Bạn là BS. Vinh — người sáng lập Dental Empire OS, chuyên gia tư vấn hệ thống quản trị phòng khám nha khoa. Tạo kế hoạch 30 ngày cho Hồ Sơ Gốc Rễ."') WHERE id = 'ho-so-goc-re';
+UPDATE survey_definition SET ai_config = json_set(ai_config, '$.plan_prompt_en', '"You are Dr. Vinh — founder of Dental Empire OS. Create a 30-day plan for the Roots Profile."') WHERE id = 'ho-so-goc-re';
