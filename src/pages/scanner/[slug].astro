@@ -11,7 +11,13 @@ export const prerender = false;
 const slugParam = Astro.params.slug;
 const slug = slugParam ?? '';
 
-const full = await getSurveyDefinitionFullBySlug(env.DB, slug);
+let full;
+try {
+  full = await getSurveyDefinitionFullBySlug(env.DB, slug);
+} catch (err) {
+  console.error('[scanner/slug] DB error:', err);
+  return new Response('Database error: ' + String(err), { status: 500 });
+}
 
 if (!full) {
   return new Response('Scanner not found', { status: 404 });
@@ -25,10 +31,15 @@ const { definition, sections } = full;
 
 // Load clinic profile for prefill if logged in
 let clinicProfile = null;
-const auth = createAuth(env);
-const session = await auth.api.getSession({ headers: Astro.request.headers });
-if (session?.user) {
-  clinicProfile = await getClinicProfile(env.DB, session.user.id);
+try {
+  const auth = createAuth(env);
+  const session = await auth.api.getSession({ headers: Astro.request.headers });
+  if (session?.user) {
+    clinicProfile = await getClinicProfile(env.DB, session.user.id);
+  }
+} catch (err) {
+  console.error('[scanner/slug] Auth error:', err);
+  // Continue without clinicProfile
 }
 
 // Build a JSON-serializable snapshot for the client component
