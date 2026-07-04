@@ -10,6 +10,9 @@
 import { HO_SO_GOC_RE_SEED } from './ho-so-goc-re';
 import { HE_THONG_CHECK_SEED } from './he-thong-check';
 import { NHAN_SU_CHECK_SEED } from './nhan-su-check';
+import { QUY_TRINH_CHECK_SEED } from './quy-trinh-check';
+import { TIEP_DON_CHECK_SEED } from './tiep-don-check';
+import { TAI_CHINH_CHECK_SEED } from './tai-chinh-check';
 
 export interface SeedQuestion {
   question_id: string;
@@ -66,4 +69,7 @@ export const SEED_REGISTRY: Record<string, SeedScanner> = {
   [HO_SO_GOC_RE_SEED.id as string]: HO_SO_GOC_RE_SEED as unknown as SeedScanner,
   [HE_THONG_CHECK_SEED.id as string]: HE_THONG_CHECK_SEED as unknown as SeedScanner,
   [NHAN_SU_CHECK_SEED.id as string]: NHAN_SU_CHECK_SEED as unknown as SeedScanner,
+  [QUY_TRINH_CHECK_SEED.id as string]: QUY_TRINH_CHECK_SEED as unknown as SeedScanner,
+  [TIEP_DON_CHECK_SEED.id as string]: TIEP_DON_CHECK_SEED as unknown as SeedScanner,
+  [TAI_CHINH_CHECK_SEED.id as string]: TAI_CHINH_CHECK_SEED as unknown as SeedScanner,
 };

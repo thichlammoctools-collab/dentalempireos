@@ -260,6 +260,8 @@ export async function hasAccess(
   productId: string,
 ): Promise<boolean> {
   const now = new Date().toISOString();
+
+  // Direct access check
   const row = await db
     .prepare(
       `SELECT 1 FROM "access"
@@ -269,7 +271,30 @@ export async function hasAccess(
     )
     .bind(userId, productId, now)
     .first();
-  return !!row;
+  if (row) return true;
+
+  // Scanner Pack check: if product is a survey_unlock with an app_id,
+  // and user has Scanner Pack → grant access
+  const appRow = await db
+    .prepare('SELECT "app_id" FROM "product" WHERE "id" = ? AND "type" = \'survey_unlock\'')
+    .bind(productId)
+    .first<{ app_id: string | null }>();
+
+  if (appRow?.app_id) {
+    const packRow = await db
+      .prepare(
+        `SELECT 1 FROM "access"
+         WHERE "user_id" = ? AND "product_id" = 'prod-scanner-pack'
+           AND "is_active" = 1
+           AND ("expires_at" IS NULL OR "expires_at" > ?)
+         LIMIT 1`,
+      )
+      .bind(userId, now)
+      .first();
+    if (packRow) return true;
+  }
+
+  return false;
 }
 
 export async function listUserAccess(db: D1Database, userId: string): Promise<Access[]> {

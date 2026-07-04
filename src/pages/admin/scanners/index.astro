@@ -166,20 +166,32 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
                 </>
               )}
             </div>
-            <button
-              type="button"
-              class={`btn-seed w-full px-3 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
-                seed.inDb
-                  ? 'bg-surface-container border border-outline-variant/30 text-on-surface hover:bg-surface-container-high'
-                  : 'bg-primary-container text-white cyan-glow hover:opacity-90 active:scale-95'
-              }`}
-              data-seed-id={seed.id}
-              data-seed-name={seed.title_vi}
-              data-reimport={seed.inDb ? '1' : '0'}
-            >
-              <span class="material-symbols-outlined text-[16px]">{seed.inDb ? 'refresh' : 'download'}</span>
-              {seed.inDb ? 'Re-import' : 'Import'}
-            </button>
+            <div class="flex gap-2">
+              <a
+                href={`/scanner/${seed.slug}`}
+                target="_blank"
+                rel="noopener"
+                class="btn-preview flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 text-on-surface hover:bg-surface-container-high"
+                title="Mở trang public của scanner"
+              >
+                <span class="material-symbols-outlined text-[16px]">visibility</span>
+                Xem
+              </a>
+              <button
+                type="button"
+                class={`btn-seed flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                  seed.inDb
+                    ? 'bg-surface-container border border-outline-variant/30 text-on-surface hover:bg-surface-container-high'
+                    : 'bg-primary-container text-white cyan-glow hover:opacity-90 active:scale-95'
+                }`}
+                data-seed-id={seed.id}
+                data-seed-name={seed.title_vi}
+                data-reimport={seed.inDb ? '1' : '0'}
+              >
+                <span class="material-symbols-outlined text-[16px]">{seed.inDb ? 'refresh' : 'download'}</span>
+                {seed.inDb ? 'Re-import' : 'Import'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -287,6 +299,15 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
                 </td>
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-1">
+                    <a
+                      href={`/scanner/${def.slug}`}
+                      target="_blank"
+                      rel="noopener"
+                      class="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors"
+                      title="Xem trang public của scanner"
+                    >
+                      <span class="material-symbols-outlined text-[18px]">visibility</span>
+                    </a>
                     <a
                       href={`/admin/scanners/${def.id}/responses`}
                       class="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"

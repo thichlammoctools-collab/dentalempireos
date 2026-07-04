@@ -278,6 +278,95 @@ const totalSpent = purchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
             )}
           </section>
 
+          <!-- Reading Progress -->
+          <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20" id="reading-stats-section">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm md:text-base font-bold text-white">Tiến độ đọc</h2>
+              <span class="material-symbols-outlined text-primary text-lg">auto_stories</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="reading-stats-grid">
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg" id="rp-completed-icon">trending_up</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-completed">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đã đọc</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg" id="rp-progress-icon">menu_book</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-progress">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đang đọc</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg">bookmark</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-bookmarked">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đánh dấu</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg">calendar_today</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-last-read">...</p>
+                <p class="text-[10px] text-on-surface-variant">Lần cuối</p>
+              </div>
+            </div>
+            <!-- Week bar -->
+            <div class="mt-4 pt-4 border-t border-outline-variant/15">
+              <p class="text-[10px] text-on-surface-variant mb-2">Tuần này</p>
+              <div class="flex gap-1" id="week-bar">
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-0"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T2</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-1"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T3</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-2"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T4</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-3"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T5</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-4"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T6</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-5"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T7</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-6"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">CN</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Scanner unlock banner -->
+          <div id="scanner-unlock-banner" class="hidden glass-card rounded-2xl p-5 border border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary text-2xl">workspace_premium</span>
+              <div class="flex-1">
+                <p class="text-sm font-bold text-white">Bạn đủ điều kiện nhận Mini Scanner Pro miễn phí!</p>
+                <p class="text-xs text-on-surface-variant mt-0.5" id="unlock-msg">Đã hoàn thành 3+ chương Tier 1 — mã kích hoạt đang chờ bạn.</p>
+              </div>
+              <button id="claim-scanner-btn" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all">
+                Nhận ngay
+              </button>
+            </div>
+          </div>
+
+          <!-- Scanner access -->
+          <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm md:text-base font-bold text-white">Scanners & AI Mentor</h2>
+              <span class="material-symbols-outlined text-primary text-lg">psychology</span>
+            </div>
+            <div id="scanner-access-list" class="flex flex-col gap-2">
+              <p class="text-xs text-on-surface-variant">Đang tải...</p>
+            </div>
+          </section>
+
           <!-- My Questions -->
           <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
             <div class="flex items-center justify-between mb-4">
@@ -339,6 +428,107 @@ const totalSpent = purchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
 
   <script>
     import { authClient } from '../../lib/auth-client';
+
+    // ── Reading Progress Stats ──
+    (async () => {
+      const setEl = (id: string, val: string | number) => {
+        const e = document.getElementById(id);
+        if (e) e.textContent = String(val);
+      };
+
+      try {
+        const res = await fetch('/api/reading-progress');
+        if (!res.ok) return;
+        const data = await res.json() as { progress: Array<{ chapter_id: string; max_pct: number; bookmarked: number; last_read_at: string }>; stats: { totalChapters: number; completed: number; inProgress: number; bookmarked: number; lastReadAt: string | null } };
+
+        const stats = data.stats;
+        if (!stats) return;
+
+        setEl('rp-completed', stats.completed);
+        setEl('rp-progress', stats.inProgress);
+        setEl('rp-bookmarked', stats.bookmarked);
+
+        const completedIcon = document.getElementById('rp-completed-icon');
+        const progressIcon = document.getElementById('rp-progress-icon');
+        if (stats.completed > 0 && completedIcon) completedIcon.textContent = 'check_circle';
+        if (stats.inProgress > 0 && progressIcon) progressIcon.textContent = 'menu_book';
+
+        if (stats.lastReadAt) {
+          const days = Math.floor((Date.now() - new Date(stats.lastReadAt).getTime()) / 86400000);
+          setEl('rp-last-read', days === 0 ? 'Hôm nay' : days === 1 ? '1 ngày' : `${days} ngày`);
+        } else {
+          setEl('rp-last-read', '—');
+        }
+
+        // Week bar
+        const dayMap: Record<string, number> = {};
+        const now = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(d.getDate() - i);
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          dayMap[key] = 0;
+        }
+        for (const p of data.progress) {
+          const key = p.last_read_at.slice(0, 10);
+          if (key in dayMap) dayMap[key]++;
+        }
+        Object.entries(dayMap).forEach(([key, count], idx) => {
+          const bar = document.getElementById(`day-bar-${idx}`);
+          if (bar && count > 0) {
+            bar.classList.remove('bg-white/5');
+            bar.classList.add('bg-primary');
+            (bar as HTMLElement).style.opacity = String(Math.min(1, 0.3 + count * 0.35));
+          }
+        });
+      } catch (_) { /* non-critical */ }
+    })();
+
+    // ── Scanner unlock banner ──
+    (async () => {
+      try {
+        const res = await fetch('/api/reading-progress/unlock-check');
+        if (!res.ok) return;
+        const data = await res.json() as { qualified?: boolean; hasPro?: boolean; message?: string; completedTier1?: number; totalTier1?: number };
+        const banner = document.getElementById('scanner-unlock-banner');
+        if (!banner) return;
+        const claimBtn = document.getElementById('claim-scanner-btn');
+        if (data.qualified && !data.hasPro) {
+          banner.classList.remove('hidden');
+          const msg = document.getElementById('unlock-msg');
+          if (msg && data.message) msg.textContent = data.message;
+          claimBtn?.addEventListener('click', () => { window.location.href = '/scanner/he-thong-check'; });
+        }
+      } catch (_) { /* non-critical */ }
+    })();
+
+    // ── Scanner list ──
+    (async () => {
+      const list = document.getElementById('scanner-access-list');
+      if (!list) return;
+      try {
+        const res = await fetch('/api/account/scanner-access');
+        if (!res.ok) return;
+        const data = await res.json() as { items?: Array<{ slug: string; title: string; is_free: boolean; has_access: boolean; price: number | null }> };
+        if (!data.items?.length) {
+          list.innerHTML = '<p class="text-xs text-on-surface-variant">Chưa có scanner nào. <a href="/scanner" class="text-primary underline">Khám phá ngay</a></p>';
+          return;
+        }
+        list.innerHTML = data.items.map(item => `
+          <a href="/scanner/${item.slug}" class="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+            <span class="material-symbols-outlined text-primary">${item.is_free || item.has_access ? 'check_circle' : 'lock'}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">${item.title}</p>
+              <p class="text-[10px] text-on-surface-variant">${item.is_free || item.has_access ? 'Đã mở khóa' : item.price ? item.price.toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}</p>
+            </div>
+            ${item.is_free || item.has_access
+              ? '<span class="material-symbols-outlined text-primary text-lg">arrow_forward</span>'
+              : item.price ? `<span class="text-xs text-amber-400 font-semibold">${item.price.toLocaleString('vi-VN')}đ</span>` : ''}
+          </a>`).join('');
+      } catch (_) {
+        if (list) list.innerHTML = '<p class="text-xs text-on-surface-variant/60">Không tải được danh sách</p>';
+      }
+    })();
 
     declare function showToast(msg: string, type?: string, duration?: number): void;
 

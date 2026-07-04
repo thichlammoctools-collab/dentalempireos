@@ -363,6 +363,8 @@ const breadcrumbSchema = {
           class="max-w-[760px] mx-auto px-5 sm:px-8 lg:px-14 py-8 lg:py-12 reader-content"
           id="reader-content"
           data-chapter-id={currentSlug}
+          data-is-logged-in={isLoggedIn ? 'true' : 'false'}
+          data-user-id={currentUserId ?? ''}
           data-chapter-title={title}
           data-chapter-tier={tier}
           data-chapter-tier-label={tierLabel}
@@ -599,6 +601,34 @@ const breadcrumbSchema = {
           if (keys.length > 20) keys.slice(20).forEach(k => delete rp[k]);
           setReadProgress(rp);
         }, 5000);
+
+        // -- DB sync (30s interval + on unload) --
+        const isLoggedIn = readerContent?.getAttribute('data-is-logged-in') === 'true';
+        const currentUserId = readerContent?.getAttribute('data-user-id');
+        let lastSyncedPct = -1;
+        let lastSyncedBookmark = false;
+
+        async function syncToDb() {
+          if (!isLoggedIn || !currentUserId || !chapterId) return;
+          const pct = getScrollPct();
+          const bookmarks = getBookmarks();
+          const bookmarked = bookmarks.some(b => b.id === chapterId);
+          if (pct === lastSyncedPct && bookmarked === lastSyncedBookmark) return;
+          try {
+            await fetch('/api/reading-progress', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chapter_id: chapterId, pct, bookmarked }),
+            });
+            lastSyncedPct = pct;
+            lastSyncedBookmark = bookmarked;
+          } catch (_) { /* non-critical */ }
+        }
+
+        // Sync every 30s
+        setInterval(() => { syncToDb(); }, 30_000);
+        // Sync on page unload
+        window.addEventListener('beforeunload', () => { syncToDb(); });
 
         // -- Restore scroll position on load --
         const rp = getReadProgress();
