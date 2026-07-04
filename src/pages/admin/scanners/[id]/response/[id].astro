@@ -17,24 +17,20 @@ import { marked } from 'marked';
 
 export const prerender = false;
 
-const surveyId = Astro.params.id ?? '';
-const responseId = parseInt(Astro.params.id_2 ?? Astro.params.id ?? '0', 10);
-
-// Astro nested dynamic params: [id]/response/[id].astro → params.id is "x", params.id_2 won't exist.
-// Actually for [id]/response/[id].astro, params.id is surveyId, params.id (the inner) doesn't exist.
-// Need to read responseId from URL instead.
-
+// Extract both surveyId and responseId from URL path to avoid Astro param conflicts.
+// URL: /admin/scanners/<surveyId>/response/<responseId>
 const url = new URL(Astro.request.url);
 const pathParts = url.pathname.split('/').filter(Boolean);
 // pathParts example: ['admin', 'scanners', '<surveyId>', 'response', '<responseId>']
-const responseIdFromPath = parseInt(pathParts[pathParts.length - 1] ?? '0', 10);
+const surveyId = pathParts[2] ?? '';
+const responseId = parseInt(pathParts[4] ?? '0', 10);
 
 let full: Awaited<ReturnType<typeof getSurveyDefinitionFull>> = null;
 let response: Awaited<ReturnType<typeof getScannerResponse>> = null;
 
 try {
   full = await getSurveyDefinitionFull(env.DB, surveyId);
-  response = await getScannerResponse(env.DB, responseIdFromPath);
+  response = await getScannerResponse(env.DB, responseId);
 } catch {
   // ignore
 }
