@@ -77,6 +77,8 @@ const sameAs = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
+    <!-- Disable Cloudflare Browser Insights to prevent HTML injection that breaks SSR -->
+    <meta name="cf-admin-accelerate" content="off" />
 
     <!-- SEO Core -->
     <title>{title}</title>
