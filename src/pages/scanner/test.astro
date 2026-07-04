@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getSurveyDefinitionFullBySlug } from '../../lib/survey-config-db';
+
+export const prerender = false;
+
+const slug = 'marketing-check';
+const full = await getSurveyDefinitionFullBySlug(env.DB, slug);
+---
+
+<BaseLayout title="Test Scanner">
+  <section class="relative">
+    <div class="absolute inset-x-0 top-0 h-[420px] pointer-events-none opacity-50" style="background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.15), transparent 60%);"></div>
+    <div class="relative max-w-[860px] mx-auto px-4 pt-32 pb-16">
+      <h1 class="text-2xl font-bold text-white mb-4">TEST PAGE</h1>
+      <p class="text-on-surface-variant mb-4">Slug: {full ? full.definition.title_vi : 'NOT FOUND'}</p>
+      <p class="text-on-surface-variant mb-4">Sections: {full ? full.sections.length : 0}</p>
+      <div class="glass-card rounded-2xl p-6 border border-outline-variant/20">
+        <p class="text-white">Testing survey page render...</p>
+        <pre class="text-xs text-on-surface-variant mt-4 overflow-auto max-h-64">{JSON.stringify(full ? { title: full.definition.title_vi, sections: full.sections.length } : null, null, 2)}</pre>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

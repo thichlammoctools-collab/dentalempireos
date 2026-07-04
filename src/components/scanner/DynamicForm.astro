@@ -75,7 +75,7 @@ const defaultScaleEn: Record<string, string> = {
 };
 ---
 
-<div id="survey-form" class="survey-wrap" data-default-lang="vi" data-survey-id={surveyData.id} data-survey-slug={surveyData.slug}>
+<div id="survey-form" class="survey-wrap" data-default-lang="vi" data-survey-id={surveyData.id} data-survey-slug={surveyData.slug} data-survey={JSON.stringify(surveyData)} data-clinic={clinicProfile ? JSON.stringify(clinicProfile) : ''} data-scale-vi={JSON.stringify(defaultScaleVi)} data-scale-en={JSON.stringify(defaultScaleEn)}>
   <!-- Language toggle -->
   <div class="lang-toggle">
     <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
@@ -123,11 +123,17 @@ const defaultScaleEn: Record<string, string> = {
   </div>
 </div>
 
-<script define:vars={{ surveyData, clinicProfile: clinicProfile || null, defaultScaleVi, defaultScaleEn }}>
-  // NOTE: define:vars passes data as JS literals — no TypeScript allowed here
+<script>
+  // Read ALL data from data attributes — define:vars causes SSR stream truncation in Astro
+  const wrap = document.getElementById('survey-form');
+  const surveyData = JSON.parse(wrap.dataset.survey || '{}');
+  const rawProfile = wrap.dataset.clinic;
+  const clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
+  const defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
+  const defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
+
   const STORAGE_KEY = `dentalempire-scanner-draft-${surveyData.id}`;
 
-  const wrap = document.getElementById('survey-form');
   const partsContainer = document.getElementById('parts-container');
   const stepperFill = document.getElementById('stepper-fill');
   const stepLabels = document.getElementById('step-labels');
