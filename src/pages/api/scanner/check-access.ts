@@ -5,6 +5,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import { getScannerResponse } from '../../../lib/scanner-response-db';
+import { hasAccess } from '../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -25,16 +26,7 @@ export const GET: APIRoute = async ({ url }) => {
     .first<{ id: string }>();
   if (!user) return json({ hasAccess: false });
 
-  // Check active access
-  const access = await env.DB
-    .prepare(
-      `SELECT id FROM "access"
-       WHERE user_id = ? AND product_id = ? AND is_active = 1
-         AND (expires_at IS NULL OR expires_at > datetime('now'))
-       LIMIT 1`,
-    )
-    .bind(user.id, productId)
-    .first<{ id: string }>();
-
-  return json({ hasAccess: !!access });
+  // Check access (handles Scanner Pack, direct product, and Mini Scanner Pro)
+  const access = await hasAccess(env.DB, user.id, productId);
+  return json({ hasAccess: access });
 };

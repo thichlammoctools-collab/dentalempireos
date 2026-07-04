@@ -369,6 +369,80 @@ const currentUser = Astro.locals.user;
     );
   })()}
 
+  <!-- Newsletter Subscription Widget -->
+  <section id="newsletter-widget" class="mt-10 mb-8" data-chapter-slug={slug}>
+    <div class="rounded-2xl p-5 border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-amber-400 text-[20px]">mail</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-amber-400/70 mb-0.5">Nhận tips hàng tuần</p>
+          <h3 class="text-sm font-bold text-white mb-1">Cập nhật nội dung mới qua email</h3>
+          <p class="text-xs text-on-surface-variant mb-3">Không spam — chỉ gửi khi có bài mới hoặc tips hữu ích từ BS. Vinh.</p>
+          <form id="newsletter-form" class="flex gap-2">
+            <input
+              type="email"
+              id="newsletter-email"
+              placeholder="email@example.com"
+              required
+              class="flex-1 px-3 py-2 bg-white/5 border border-outline-variant/30 rounded-lg text-white placeholder:text-white/30 focus:ring-2 focus:ring-amber-400/50 focus:outline-none text-sm"
+            />
+            <button
+              type="submit"
+              id="newsletter-submit"
+              class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm rounded-lg transition-colors shrink-0"
+            >
+              Đăng ký
+            </button>
+          </form>
+          <p id="newsletter-success" class="hidden text-xs text-emerald-400 mt-2"></p>
+          <p id="newsletter-error" class="hidden text-xs text-rose-400 mt-2"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Chapter Navigation -->
   <KeywordAutoLink autoKeywords={autoKeywords} />
+
+  <script>
+    const form = document.getElementById('newsletter-form') as HTMLFormElement | null;
+    const emailInput = document.getElementById('newsletter-email') as HTMLInputElement | null;
+    const submitBtn = document.getElementById('newsletter-submit') as HTMLButtonElement | null;
+    const successEl = document.getElementById('newsletter-success');
+    const errorEl = document.getElementById('newsletter-error');
+    const widget = document.getElementById('newsletter-widget');
+    const chapterSlug = widget?.dataset.chapterSlug || '';
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = emailInput?.value.trim();
+      if (!email) return;
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '...'; }
+      if (successEl) successEl.classList.add('hidden');
+      if (errorEl) errorEl.classList.add('hidden');
+      try {
+        const res = await fetch('/api/newsletter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, source: 'book', post_slug: chapterSlug }),
+        });
+        const data = await res.json() as { success?: boolean; error?: string; message?: string };
+        if (data.success) {
+          if (successEl) {
+            successEl.textContent = data.message || 'Đăng ký thành công!';
+            successEl.classList.remove('hidden');
+          }
+          if (form) form.classList.add('hidden');
+        } else {
+          if (errorEl) { errorEl.textContent = data.error || 'Có lỗi xảy ra.'; errorEl.classList.remove('hidden'); }
+        }
+      } catch {
+        if (errorEl) { errorEl.textContent = 'Không thể kết nối.'; errorEl.classList.remove('hidden'); }
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Đăng ký'; }
+      }
+    });
+  </script>
 </BookLayout>

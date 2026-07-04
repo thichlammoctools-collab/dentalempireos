@@ -65,7 +65,7 @@ const hasAnalysis = !!analysisHtml;
 // Resolve linked product (for paywall)
 let linkedProduct: { id: string; name: string; price: number } | null = null;
 try {
-  // Find ai_application row matching this survey
+  // Try: ai_application → product (for scanners with AI app)
   const app = await env.DB
     .prepare('SELECT id FROM "ai_application" WHERE "slug" = ? OR "id" = ?')
     .bind(definition.slug, `survey-${definition.id}`)
@@ -76,6 +76,20 @@ try {
       .bind(app.id)
       .first<{ id: string; name: string; price: number }>();
   }
+  // Try: product.reference_id = survey id (for scanners without AI app)
+  if (!linkedProduct) {
+    linkedProduct = await env.DB
+      .prepare('SELECT id, name, price FROM "product" WHERE "reference_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
+      .bind(definition.id)
+      .first<{ id: string; name: string; price: number }>();
+  }
+  // Try: scanner pack — always grant access
+  if (!linkedProduct) {
+    const packProduct = await env.DB
+      .prepare('SELECT id, name, price FROM "product" WHERE "id" = \'prod-scanner-pack\' AND "is_active" = 1 LIMIT 1')
+      .first<{ id: string; name: string; price: number }>();
+    if (packProduct) linkedProduct = packProduct;
+  }
 } catch {
   // ignore
 }
@@ -83,7 +97,7 @@ try {
 const productId = linkedProduct?.id ?? `survey-${definition.id}`;
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
-  : '199.000';
+  : linkedProduct === null && definition.is_free === 1 ? '0' : '199.000';
 
 const surveyTitle = lang === 'vi' ? definition.title_vi : (definition.title_en || definition.title_vi);
 
