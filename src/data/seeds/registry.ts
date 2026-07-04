@@ -13,6 +13,11 @@ import { NHAN_SU_CHECK_SEED } from './nhan-su-check';
 import { QUY_TRINH_CHECK_SEED } from './quy-trinh-check';
 import { TIEP_DON_CHECK_SEED } from './tiep-don-check';
 import { TAI_CHINH_CHECK_SEED } from './tai-chinh-check';
+import { AN_TOAN_CHECK_SEED } from './an-toan-check';
+import { MARKETING_CHECK_SEED } from './marketing-check';
+import { CSKH_CHECK_SEED } from './cskh-check';
+import { VAN_HOA_CHECK_SEED } from './van-hoa-check';
+import { THUONG_HIEU_CHECK_SEED } from './thuong-hieu-check';
 
 export interface SeedQuestion {
   question_id: string;
@@ -72,4 +77,9 @@ export const SEED_REGISTRY: Record<string, SeedScanner> = {
   [QUY_TRINH_CHECK_SEED.id as string]: QUY_TRINH_CHECK_SEED as unknown as SeedScanner,
   [TIEP_DON_CHECK_SEED.id as string]: TIEP_DON_CHECK_SEED as unknown as SeedScanner,
   [TAI_CHINH_CHECK_SEED.id as string]: TAI_CHINH_CHECK_SEED as unknown as SeedScanner,
+  [AN_TOAN_CHECK_SEED.id as string]: AN_TOAN_CHECK_SEED as unknown as SeedScanner,
+  [MARKETING_CHECK_SEED.id as string]: MARKETING_CHECK_SEED as unknown as SeedScanner,
+  [CSKH_CHECK_SEED.id as string]: CSKH_CHECK_SEED as unknown as SeedScanner,
+  [VAN_HOA_CHECK_SEED.id as string]: VAN_HOA_CHECK_SEED as unknown as SeedScanner,
+  [THUONG_HIEU_CHECK_SEED.id as string]: THUONG_HIEU_CHECK_SEED as unknown as SeedScanner,
 };

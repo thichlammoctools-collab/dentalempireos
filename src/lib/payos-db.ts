@@ -273,14 +273,14 @@ export async function hasAccess(
     .first();
   if (row) return true;
 
-  // Scanner Pack check: if product is a survey_unlock with an app_id,
-  // and user has Scanner Pack → grant access
-  const appRow = await db
-    .prepare('SELECT "app_id" FROM "product" WHERE "id" = ? AND "type" = \'survey_unlock\'')
+  // Scanner Pack check: if product is a survey_unlock type,
+  // and user has Scanner Pack → grant access to any scanner
+  const prodRow = await db
+    .prepare('SELECT "type" FROM "product" WHERE "id" = ?')
     .bind(productId)
-    .first<{ app_id: string | null }>();
+    .first<{ type: string }>();
 
-  if (appRow?.app_id) {
+  if (prodRow?.type === 'survey_unlock') {
     const packRow = await db
       .prepare(
         `SELECT 1 FROM "access"

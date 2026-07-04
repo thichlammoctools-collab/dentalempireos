@@ -1,5 +1,6 @@
 // Seed: Tài Chính Check (Finance Check) — based on Tier 1, Ch.5
 // Mini scanner, free (no AI paywall), lead magnet for finance chapter.
+// 2 sections: 5 select (dimension) + 2 open-ended, bám sát Chương 5.
 
 import type { SeedScanner } from './registry';
 
@@ -8,8 +9,8 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
   slug: 'tai-chinh-check',
   title_vi: 'Tài Chính Check',
   title_en: 'Finance Check',
-  description_vi: 'Tiền vào ra không kiểm soát = phòng khám đi đến bờ vực mà không biết. 5 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính và chỉ số cần theo dõi ngay.',
-  description_en: 'Untracked cash flow = clinic heading to the edge without knowing. 5 questions to see your financial health and key metrics to monitor now.',
+  description_vi: 'Tiền vào ra không kiểm soát = phòng khám đi đến bờ vực mà không biết. 7 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính và chỉ số cần theo dõi ngay.',
+  description_en: 'Untracked cash flow = clinic heading to the edge without knowing. 7 questions to see your financial health and key metrics to monitor now.',
   subtitle_vi: 'Chẩn đoán nhanh theo Chương 5 — Quản Trị Tài Chính Cơ Bản',
   subtitle_en: 'Quick diagnosis based on Chapter 5 — Basic Finance Management',
   chapter_refs: ['Ch.5'],
@@ -51,7 +52,7 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
     next: 'Tiếp tục →',
     prev: '← Quay lại',
     intro_title: 'Tài Chính Check',
-    intro_desc: 'Không biết tiền vào ra = không kiểm soát được tương lai. 5 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính — và 3 chỉ số cần theo dõi sát trong tháng tới.',
+    intro_desc: 'Không biết tiền vào ra = không kiểm soát được tương lai. 7 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính — và 3 chỉ số cần theo dõi sát trong tháng tới.',
     restore_draft: 'Bạn có bản nháp chưa hoàn thành.',
     clear_draft: 'Xoá & bắt đầu lại',
     submit_title: 'Sẵn sàng xem kết quả?',
@@ -68,7 +69,7 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
     next: 'Next →',
     prev: '← Back',
     intro_title: 'Finance Check',
-    intro_desc: 'Without knowing cash flow = no control over your future. 5 questions to see your financial health — and 3 key metrics to track closely next month.',
+    intro_desc: 'Without knowing cash flow = no control over your future. 7 questions to see your financial health — and 3 key metrics to track closely next month.',
     restore_draft: 'You have an unfinished draft.',
     clear_draft: 'Clear & start over',
     submit_title: 'Ready to see results?',
@@ -83,7 +84,7 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
         id: 'finance',
         name_vi: 'Sức khỏe tài chính',
         name_en: 'Financial health',
-        question_ids: ['tc_q1', 'tc_q2', 'tc_q3', 'tc_q4'],
+        question_ids: ['tc_q1', 'tc_q2', 'tc_q3', 'tc_q4', 'tc_q5'],
         formula: 'avg',
       },
     ],
@@ -97,8 +98,8 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Tài Chính Check (điểm {{SCORE_FINANCE}}/100 và câu trả lời open), phân tích ngắn gọn sức khỏe tài chính và đưa ra 3 chỉ số cần theo dõi sát trong tháng tới. Dùng tiếng Việt, giọng thẳng thắn ấm áp.',
-    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Finance Check score ({{SCORE_FINANCE}}/100 and open answer), briefly analyze financial health and suggest 3 metrics to track closely next month. English, candid and warm tone.',
+    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Tài Chính Check (điểm {{SCORE_FINANCE}}/100 kèm 2 câu open-ended), phân tích sức khỏe tài chính và đưa ra 3 chỉ số cần theo dõi sát. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.',
+    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Finance Check score ({{SCORE_FINANCE}}/100 with 2 open-ended answers), analyze financial health and suggest 3 metrics to track closely. English, candid and warm tone. Quote their open-ended answers.',
     model_override: null,
     max_tokens_override: 2048,
   },
@@ -106,10 +107,10 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
   sections: [
     {
       order_idx: 0,
-      title_vi: '5 CÂU HỎI VỀ TÀI CHÍNH',
-      title_en: '5 QUESTIONS ABOUT FINANCE',
-      subtitle_vi: 'Trả lời trung thực — chỉ bạn mới biết thật.',
-      subtitle_en: 'Answer honestly — only you know the truth.',
+      title_vi: 'PHẦN 1: ĐÁNH GIÁ TÀI CHÍNH',
+      title_en: 'PART 1: FINANCIAL EVALUATION',
+      subtitle_vi: '5 chiều đánh giá: P&L, cash flow, phân loại chi phí, quỹ dự phòng, và lập kế hoạch.',
+      subtitle_en: '5 evaluation dimensions: P&L, cash flow, expense categorization, emergency fund, and planning.',
       ref: 'Ch.5 — Quản Trị Tài Chính Cơ Bản',
       icon: 'payments',
       questions: [
@@ -204,11 +205,53 @@ export const TAI_CHINH_CHECK_SEED: SeedScanner = {
         {
           question_id: 'tc_q5',
           order_idx: 4,
+          type: 'select',
+          label_vi: 'Bạn có kế hoạch tài chính (ngân sách, mục tiêu lợi nhuận) cho 6-12 tháng tới không?',
+          label_en: 'Do you have a financial plan (budget, profit targets) for the next 6-12 months?',
+          scale_labels_vi: {
+            '1': 'Không có kế hoạch',
+            '2': 'Có mục tiêu chung nhưng không chi tiết',
+            '3': 'Có ngân sách cơ bản cho từng tháng',
+            '4': 'Có kế hoạch chi tiết + theo dõi sát',
+            '5': 'Kế hoạch + scenario planning + dự báo',
+          },
+          scale_labels_en: {
+            '1': 'No financial plan',
+            '2': 'Vague goals but no detail',
+            '3': 'Basic monthly budget',
+            '4': 'Detailed plan + close tracking',
+            '5': 'Plan + scenario planning + forecasting',
+          },
+          dimension: 'finance',
+        },
+      ],
+    },
+    {
+      order_idx: 1,
+      title_vi: 'PHẦN 2: TỰ SOI CHIẾU',
+      title_en: 'PART 2: SELF-REFLECTION',
+      subtitle_vi: 'Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế tài chính.',
+      subtitle_en: 'Two open questions to face financial reality honestly.',
+      ref: 'Ch.5 — Quản Trị Tài Chính Cơ Bản',
+      icon: 'psychology_alt',
+      questions: [
+        {
+          question_id: 'tc_open1',
+          order_idx: 0,
           type: 'textarea',
-          label_vi: 'Khó khăn tài chính lớn nhất của phòng khám bạn hiện tại là gì?',
-          label_en: 'What is the biggest financial challenge of your clinic right now?',
+          label_vi: 'Khó khăn tài chính lớn nhất của phòng khám bạn hiện tại là gì? Mô tả một tình huống cụ thể — ví dụ: "Dòng tiền tháng vừa qua bị căng thẳng vì..."',
+          label_en: 'What is the biggest financial challenge of your clinic right now? Describe a specific situation — e.g.: "Cash flow last month was tight because..."',
           placeholder_vi: 'Mô tả ngắn gọn — thiếu vốn, dòng tiền bấp bênh, chi phí tăng, không biết lỗ/lãi...?',
-          placeholder_en: 'Brief description — capital shortage, cash flow volatility, rising costs, no profit visibility...?',
+          placeholder_en: 'Brief — capital shortage, cash flow volatility, rising costs, no profit visibility...?',
+        },
+        {
+          question_id: 'tc_open2',
+          order_idx: 1,
+          type: 'textarea',
+          label_vi: 'Nếu bạn phải chọn chỉ 1 chỉ số tài chính để theo dõi sát nhất, bạn sẽ chọn chỉ số nào? Tại sao?',
+          label_en: 'If you had to choose only 1 financial metric to track most closely, which would it be? Why?',
+          placeholder_vi: 'Ví dụ: biên lợi nhuận, cash flow, hay doanh thu per bác sĩ...?',
+          placeholder_en: 'e.g.: profit margin, cash flow, or revenue per doctor...?',
         },
       ],
     },

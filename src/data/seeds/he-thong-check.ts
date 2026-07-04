@@ -1,7 +1,6 @@
 // Seed: Hệ Thống Check (Systems Check) — based on Tier 1, Ch.1
 // Mini scanner, free (no AI paywall), lead magnet for Tier 1 chapter.
-//
-// 1 section, 6 questions covering the basics of clinic systemization.
+// 2 sections: 5 select (dimension) + 2 open-ended, bám sát Chương 1.
 
 import type { SeedScanner } from './registry';
 
@@ -10,8 +9,8 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
   slug: 'he-thong-check',
   title_vi: 'Hệ Thống Check',
   title_en: 'Systems Check',
-  description_vi: 'Phòng khám của bạn đã thực sự là một hệ thống chưa? 6 câu hỏi nhanh giúp bạn nhìn rõ mức độ hệ thống hóa hiện tại.',
-  description_en: 'Is your clinic truly a system? 6 quick questions to see your current systemization level.',
+  description_vi: 'Phòng khám của bạn đã thực sự là một hệ thống chưa? 7 câu hỏi giúp bạn nhìn rõ mức độ hệ thống hóa hiện tại — và đâu là điểm cần ưu tiên xây dựng ngay.',
+  description_en: 'Is your clinic truly a system? 7 questions to see your current systemization level — and what to prioritize building first.',
   subtitle_vi: 'Chẩn đoán nhanh theo Chương 1 — Triển Khai Hệ Thống',
   subtitle_en: 'Quick diagnosis based on Chapter 1 — System Deployment',
   chapter_refs: ['Ch.1'],
@@ -46,7 +45,7 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
     next: 'Tiếp tục →',
     prev: '← Quay lại',
     intro_title: 'Hệ Thống Check',
-    intro_desc: 'Trước khi vận hành hiệu quả, phòng khám cần có HỆ THỐNG. 6 câu hỏi nhanh giúp bạn nhìn rõ mức độ hệ thống hóa — và những điểm cần soi chiếu ngay.',
+    intro_desc: 'Trước khi vận hành hiệu quả, phòng khám cần có HỆ THỐNG. 7 câu hỏi giúp bạn nhìn rõ mức độ hệ thống hóa — và những điểm cần soi chiếu ngay.',
     restore_draft: 'Bạn có bản nháp chưa hoàn thành.',
     clear_draft: 'Xoá & bắt đầu lại',
     submit_title: 'Sẵn sàng xem kết quả?',
@@ -63,7 +62,7 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
     next: 'Next →',
     prev: '← Back',
     intro_title: 'Systems Check',
-    intro_desc: 'Before running efficiently, your clinic needs SYSTEMS. 6 quick questions to see your systemization level — and what needs immediate illumination.',
+    intro_desc: 'Before running efficiently, your clinic needs SYSTEMS. 7 questions to see your systemization level — and what needs immediate illumination.',
     restore_draft: 'You have an unfinished draft.',
     clear_draft: 'Clear & start over',
     submit_title: 'Ready to see results?',
@@ -78,7 +77,7 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
         id: 'systems',
         name_vi: 'Hệ thống hóa',
         name_en: 'Systemization',
-        question_ids: ['sys_q1', 'sys_q2', 'sys_q3', 'sys_q4', 'sys_q5', 'sys_q6'],
+        question_ids: ['sys_q1', 'sys_q2', 'sys_q3', 'sys_q4', 'sys_q5'],
         formula: 'avg',
       },
     ],
@@ -92,8 +91,8 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Hệ Thống Check (điểm {{SCORE_SYSTEMS}}/100), phân tích ngắn gọn mức độ hệ thống hóa của phòng khám và đưa ra 3 hành động cụ thể trong tuần này. Dùng tiếng Việt, giọng thẳng thắn ấm áp.',
-    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Systems Check score ({{SCORE_SYSTEMS}}/100), briefly analyze the clinic systemization level and suggest 3 concrete actions for this week. English, candid and warm tone.',
+    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Hệ Thống Check (điểm {{SCORE_SYSTEMS}}/100 kèm 2 câu open-ended), phân tích ngắn gọn mức độ hệ thống hóa và đưa ra 3 hành động ưu tiên trong tuần này. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended của họ.',
+    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Systems Check score ({{SCORE_SYSTEMS}}/100 with 2 open-ended answers), briefly analyze the systemization level and suggest 3 priority actions this week. English, candid and warm tone. Quote their open-ended answers.',
     model_override: null,
     max_tokens_override: 2048,
   },
@@ -101,10 +100,10 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
   sections: [
     {
       order_idx: 0,
-      title_vi: '6 CÂU HỎI VỀ HỆ THỐNG',
-      title_en: '6 QUESTIONS ABOUT SYSTEMS',
-      subtitle_vi: 'Trả lời trung thực — không có câu đúng/sai.',
-      subtitle_en: 'Answer honestly — there are no right/wrong answers.',
+      title_vi: 'PHẦN 1: MỨC ĐỘ HỆ THỐNG HÓA',
+      title_en: 'PART 1: SYSTEMIZATION LEVEL',
+      subtitle_vi: 'Đánh giá 5 chiều hệ thống — tài liệu, vận hành, công cụ, ra quyết định, và học từ sai sót.',
+      subtitle_en: 'Evaluate 5 system dimensions — documentation, operations, tools, decision-making, and learning from mistakes.',
       ref: 'Ch.1 — Triển Khai Hệ Thống',
       icon: 'settings',
       questions: [
@@ -112,11 +111,11 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
           question_id: 'sys_q1',
           order_idx: 0,
           type: 'select',
-          label_vi: 'Phòng khám của bạn đã có quy trình vận hành được viết ra (SOP) cho các hoạt động chính chưa?',
+          label_vi: 'Phòng khám đã có quy trình vận hành được viết ra (SOP) cho các hoạt động chính chưa?',
           label_en: 'Has your clinic written SOPs for its main operations?',
           scale_labels_vi: {
             '1': 'Chưa có gì',
-            '2': 'Có vài quy trình trong đầu, chưa viết',
+            '2': 'Vài quy trình trong đầu, chưa viết',
             '3': 'Có viết nhưng nằm trên giấy, ít ai dùng',
             '4': 'Có, mọi người đều biết và dùng',
             '5': 'Đầy đủ, sống trong văn hóa làm việc',
@@ -134,8 +133,8 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
           question_id: 'sys_q2',
           order_idx: 1,
           type: 'select',
-          label_vi: 'Khi một nhân sự nghỉ việc, phòng khám có thể tiếp tục vận hành bình thường trong bao lâu?',
-          label_en: 'When a staff member leaves, how long can the clinic keep operating normally?',
+          label_vi: 'Khi một nhân sự nghỉ đột ngột, phòng khám có thể tiếp tục vận hành bình thường trong bao lâu?',
+          label_en: 'When a staff member leaves abruptly, how long can the clinic keep operating normally?',
           scale_labels_vi: {
             '1': 'Ngay lập tức khủng hoảng',
             '2': '1-2 tuần lộn xộn',
@@ -160,7 +159,7 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
           label_en: 'Do you use management tools (software, app, sheets) to track daily work?',
           scale_labels_vi: {
             '1': 'Chỉ dùng giấy/Excel rời rạc',
-            '2': 'Có vài công cụ nhưng không liên kết',
+            '2': 'Vài công cụ nhưng không liên kết',
             '3': 'Có phần mềm chính + Excel phụ',
             '4': 'Có hệ thống liên kết, mọi người dùng',
             '5': 'Tích hợp đầy đủ, dữ liệu chảy tự động',
@@ -200,7 +199,7 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
           question_id: 'sys_q5',
           order_idx: 4,
           type: 'select',
-          label_vi: 'Khi có sự cố (tai biến, complaint, sai sót), phòng khám có quy trình xử lý và học từ đó không?',
+          label_vi: 'Khi có sự cố (tai biến, khiếu nại, sai sót), phòng khám có quy trình xử lý và học từ đó không?',
           label_en: 'When incidents happen (adverse events, complaints, errors), do you have a process to handle and learn from them?',
           scale_labels_vi: {
             '1': 'Không có quy trình, mỗi lần xử lý khác nhau',
@@ -218,12 +217,32 @@ export const HE_THONG_CHECK_SEED: SeedScanner = {
           },
           dimension: 'systems',
         },
+      ],
+    },
+    {
+      order_idx: 1,
+      title_vi: 'PHẦN 2: TỰ SOI CHIẾU',
+      title_en: 'PART 2: SELF-REFLECTION',
+      subtitle_vi: 'Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế — và chọn điểm ưu tiên xây dựng trước.',
+      subtitle_en: 'Two open questions to face the reality — and choose what to build first.',
+      ref: 'Ch.1 — Triển Khai Hệ Thống',
+      icon: 'psychology_alt',
+      questions: [
         {
-          question_id: 'sys_q6',
-          order_idx: 5,
+          question_id: 'sys_open1',
+          order_idx: 0,
           type: 'textarea',
-          label_vi: 'Nếu bạn có 1 tháng để cải thiện hệ thống phòng khám, bạn sẽ làm gì đầu tiên?',
-          label_en: 'If you had 1 month to improve your clinic systems, what would you do first?',
+          label_vi: 'Hệ thống nào trong phòng khám đang gây ra nhiều vấn đề nhất? Mô tả một tình huống cụ thể gần đây mà hệ thống yếu đã ảnh hưởng đến bệnh nhân hoặc nhân sự.',
+          label_en: 'Which system in your clinic is causing the most problems? Describe a recent specific situation where a weak system affected a patient or staff member.',
+          placeholder_vi: 'Ví dụ: "Ca tết nhân sự bị lỗi vì không ai biết rõ SOP tiếp nhận BN mới..."',
+          placeholder_en: 'e.g.: "The New Year patient case failed because no one knew the new patient intake SOP..."',
+        },
+        {
+          question_id: 'sys_open2',
+          order_idx: 1,
+          type: 'textarea',
+          label_vi: 'Nếu bạn có 1 tháng để cải thiện hệ thống phòng khám, bạn sẽ làm gì đầu tiên? Tại sao lại chọn điều đó?',
+          label_en: 'If you had 1 month to improve your clinic systems, what would you do first? Why that choice?',
           placeholder_vi: 'Mô tả ngắn gọn — không cần hoàn hảo, chỉ cần thật.',
           placeholder_en: 'Brief description — perfect not required, just honest.',
         },

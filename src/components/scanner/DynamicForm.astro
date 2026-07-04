@@ -114,30 +114,30 @@ const defaultScaleEn: Record<string, string> = {
 </div>
 
 <script define:vars={{ surveyData, defaultScaleVi, defaultScaleEn }}>
-  type Lang = 'vi' | 'en';
+  // NOTE: define:vars passes data as JS literals — no TypeScript allowed here
   const STORAGE_KEY = `dentalempire-scanner-draft-${surveyData.id}`;
 
-  const wrap = document.getElementById('survey-form') as HTMLDivElement;
-  const partsContainer = document.getElementById('parts-container') as HTMLDivElement;
-  const stepperFill = document.getElementById('stepper-fill') as HTMLDivElement;
-  const stepLabels = document.getElementById('step-labels') as HTMLDivElement;
-  const cardIntro = document.getElementById('card-intro') as HTMLDivElement;
-  const cardSubmit = document.getElementById('card-submit') as HTMLDivElement;
-  const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
-  const btnSubmit = document.getElementById('btn-submit') as HTMLButtonElement;
-  const btnBackSubmit = document.getElementById('btn-back-submit') as HTMLButtonElement;
-  const submitError = document.getElementById('submit-error') as HTMLElement;
+  const wrap = document.getElementById('survey-form');
+  const partsContainer = document.getElementById('parts-container');
+  const stepperFill = document.getElementById('stepper-fill');
+  const stepLabels = document.getElementById('step-labels');
+  const cardIntro = document.getElementById('card-intro');
+  const cardSubmit = document.getElementById('card-submit');
+  const btnStart = document.getElementById('btn-start');
+  const btnSubmit = document.getElementById('btn-submit');
+  const btnBackSubmit = document.getElementById('btn-back-submit');
+  const submitError = document.getElementById('submit-error');
 
-  let currentLang: Lang = 'vi';
-  let currentStep = -1; // -1=intro, 0..N-1=sections, N=submit
-  const answers: Record<string, unknown> = { lang: 'vi', survey_id: surveyData.id };
-  const partEls: HTMLDivElement[] = [];
+  let currentLang = 'vi';
+  let currentStep = -1;
+  const answers = { lang: 'vi', survey_id: surveyData.id };
+  const partEls = [];
 
-  function t(vi: string | null | undefined, en: string | null | undefined): string {
+  function t(vi, en) {
     return currentLang === 'vi' ? (vi ?? en ?? '') : (en ?? vi ?? '');
   }
 
-  function getTrans(key: string, fallbackVi: string, fallbackEn: string): string {
+  function getTrans(key, fallbackVi, fallbackEn) {
     const t = currentLang === 'vi'
       ? (surveyData.translations_vi?.[key] ?? fallbackVi)
       : (surveyData.translations_en?.[key] ?? fallbackEn);
@@ -146,7 +146,7 @@ const defaultScaleEn: Record<string, string> = {
 
   // ── Lead fields rendering ────────────────────────
   function buildIntroFields() {
-    const container = document.getElementById('intro-fields')!;
+    const container = document.getElementById('intro-fields');
     container.innerHTML = '';
     const lead = surveyData.lead_fields ?? {};
     const order = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
@@ -169,7 +169,7 @@ const defaultScaleEn: Record<string, string> = {
             name="${fieldName}"
             class="form-input"
             ${required ? 'required' : ''}
-            placeholder="${escapeHtml(placeholder ?? '')}"
+            placeholder="${escapeHtml(placeholder ? placeholder : '')}"
             ${type === 'number' ? 'min="0" max="500"' : ''}
           />
         </div>
@@ -186,7 +186,7 @@ const defaultScaleEn: Record<string, string> = {
     } catch {}
   }
 
-  function loadDraft(): boolean {
+  function loadDraft() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
@@ -257,8 +257,8 @@ const defaultScaleEn: Record<string, string> = {
           }).join('');
           inputHtml = `<div class="scale-group">${pills}</div>`;
         } else if (q.type === 'radio') {
-          const opts = (q.options_vi ?? []) as string[];
-          const enOpts = (q.options_en ?? []) as string[];
+          const opts = q.options_vi ?? [];
+          const enOpts = q.options_en ?? [];
           const options = opts.map((opt, i) => {
             const enOpt = enOpts[i] ?? opt;
             const display = currentLang === 'en' ? enOpt : opt;
@@ -317,8 +317,8 @@ const defaultScaleEn: Record<string, string> = {
     applyAnswersToDom();
   }
 
-  function saveFromEvent(e: Event) {
-    const target = e.target as HTMLInputElement;
+  function saveFromEvent(e) {
+    const target = e.target;
     if (!target.name) return;
     if (target.type === 'radio') {
       answers[target.name] = target.value;
@@ -328,12 +328,12 @@ const defaultScaleEn: Record<string, string> = {
   }
 
   function applyAnswersToDom() {
-    document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach((el) => {
+    document.querySelectorAll('input, textarea').forEach((el) => {
       if (!el.name) return;
       const val = answers[el.name];
       if (val == null || val === '') return;
       if (el.type === 'radio') {
-        if ('checked' in el && el.value === String(val)) (el as HTMLInputElement).checked = true;
+        if (el.checked !== undefined && el.value === String(val)) el.checked = true;
       } else {
         el.value = String(val);
       }
@@ -353,15 +353,15 @@ const defaultScaleEn: Record<string, string> = {
   }
 
   // ── Navigation ──────────────────────────────────
-  function goTo(step: number) {
+  function goTo(step) {
     if (step < -1 || step > surveyData.sections.length) return;
 
     // Validate intro required fields when leaving intro
     if (currentStep === -1 && step >= 0) {
       const lead = surveyData.lead_fields ?? {};
       for (const [fieldName, cfg] of Object.entries(lead)) {
-        if ((cfg as any).required) {
-          const el = document.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+        if (cfg && cfg.required) {
+          const el = document.querySelector(`[name="${fieldName}"]`);
           if (!el?.value?.trim()) {
             alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
             return;
@@ -370,7 +370,7 @@ const defaultScaleEn: Record<string, string> = {
       }
       // Save intro fields
       ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'].forEach((k) => {
-        const el = document.querySelector(`[name="${k}"]`) as HTMLInputElement;
+        const el = document.querySelector(`[name="${k}"]`);
         if (el) answers[k] = el.value || null;
       });
     }
@@ -402,7 +402,7 @@ const defaultScaleEn: Record<string, string> = {
     btnSubmit.innerHTML = `<span>${getTrans('submitting', 'Đang xử lý...', 'Processing...')}</span>`;
 
     // Final read of all fields
-    document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach((el) => {
+    document.querySelectorAll('input, textarea').forEach((el) => {
       if (el.name && (el.type === 'text' || el.type === 'email' || el.type === 'number' || el.tagName === 'TEXTAREA')) {
         if (el.value) answers[el.name] = el.value;
       }
@@ -415,12 +415,12 @@ const defaultScaleEn: Record<string, string> = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
       });
-      const data = await res.json() as { error?: string; redirect?: string };
+      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Submit failed');
       }
       clearDraft();
-      window.location.href = data.redirect!;
+      window.location.href = data.redirect || `/scanner/result/${surveyData.id}`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Submit failed';
       submitError.textContent = msg;
@@ -431,25 +431,25 @@ const defaultScaleEn: Record<string, string> = {
   }
 
   // ── Language switching ──────────────────────────
-  function setLang(lang: Lang, skipNav = false) {
+  function setLang(lang, skipNav) {
     currentLang = lang;
     answers.lang = lang;
 
-    document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach((b) => {
+    document.querySelectorAll('.lang-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.lang === lang);
     });
 
     // Update intro
     buildIntroFields();
-    (document.getElementById('intro-title') as HTMLElement).textContent = t(surveyData.title_vi, surveyData.title_en);
-    (document.getElementById('intro-desc') as HTMLElement).textContent = t(surveyData.description_vi, surveyData.description_en) ?? '';
-    (document.getElementById('intro-info-title') as HTMLElement).textContent =
+    (document.getElementById('intro-title')).textContent = t(surveyData.title_vi, surveyData.title_en);
+    (document.getElementById('intro-desc') ).textContent = t(surveyData.description_vi, surveyData.description_en) || '';
+    (document.getElementById('intro-info-title') ).textContent =
       currentLang === 'vi' ? 'Thông tin cơ bản' : 'Basic Information';
-    (document.getElementById('submit-title') as HTMLElement).textContent =
+    (document.getElementById('submit-title') ).textContent =
       getTrans('submit_title', 'Sẵn sàng gửi?', 'Ready to submit?');
-    (document.getElementById('submit-desc') as HTMLElement).textContent =
+    (document.getElementById('submit-desc') ).textContent =
       getTrans('submit_desc', 'Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...', 'We will save your profile and begin the AI analysis...');
-    (document.getElementById('submit-btn-label') as HTMLElement).textContent =
+    (document.getElementById('submit-btn-label') ).textContent =
       getTrans('submitButton', 'Gửi Hồ Sơ', 'Submit Profile');
     btnStart.textContent = getTrans('start', 'Bắt đầu →', 'Start →');
     btnBackSubmit.textContent = getTrans('back', '← Quay lại', '← Back');
@@ -459,7 +459,7 @@ const defaultScaleEn: Record<string, string> = {
     if (!skipNav) goTo(currentStep);
   }
 
-  function escapeHtml(s: string): string {
+  function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c] ?? c));
@@ -469,8 +469,8 @@ const defaultScaleEn: Record<string, string> = {
   const hasDraft = loadDraft();
   setLang(currentLang, true);
 
-  document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach((b) => {
-    b.addEventListener('click', () => { setLang(b.dataset.lang as Lang); saveDraft(); });
+  document.querySelectorAll('.lang-btn').forEach((b) => {
+    b.addEventListener('click', () => { setLang(b.dataset.lang); saveDraft(); });
   });
   btnStart.addEventListener('click', () => goTo(0));
   btnSubmit.addEventListener('click', () => submit());
@@ -478,7 +478,7 @@ const defaultScaleEn: Record<string, string> = {
 
   // Populate intro from draft
   buildIntroFields();
-  document.querySelectorAll<HTMLInputElement>('.intro-card input[name]').forEach((el) => {
+  document.querySelectorAll('.intro-card input[name]').forEach((el) => {
     const v = answers[el.name];
     if (v != null && v !== '') el.value = String(v);
   });

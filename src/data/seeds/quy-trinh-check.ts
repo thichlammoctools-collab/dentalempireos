@@ -1,5 +1,6 @@
 // Seed: Quy Trình Check (Processes Check) — based on Tier 1, Ch.3
 // Mini scanner, free (no AI paywall), lead magnet for processes chapter.
+// 2 sections: 5 select (dimension) + 2 open-ended, bám sát Chương 3.
 
 import type { SeedScanner } from './registry';
 
@@ -8,8 +9,8 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
   slug: 'quy-trinh-check',
   title_vi: 'Quy Trình Check',
   title_en: 'Processes Check',
-  description_vi: 'Quy trình là xương sống vận hành. 5 câu hỏi giúp bạn nhìn rõ mức độ chuẩn hóa quy trình và điểm cần xây dựng ngay.',
-  description_en: 'Processes are the backbone of operations. 5 questions to see your process standardization level and what needs to be built now.',
+  description_vi: 'Quy trình là xương sống vận hành. 7 câu hỏi giúp bạn nhìn rõ mức độ chuẩn hóa — và đâu là "nỗi đau" cần ưu tiên xây dựng ngay.',
+  description_en: 'Processes are the backbone of operations. 7 questions to see your standardization level — and which "pain point" needs priority building.',
   subtitle_vi: 'Chẩn đoán nhanh theo Chương 3 — Triển Khai Quy Trình',
   subtitle_en: 'Quick diagnosis based on Chapter 3 — Process Deployment',
   chapter_refs: ['Ch.3'],
@@ -51,7 +52,7 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
     next: 'Tiếp tục →',
     prev: '← Quay lại',
     intro_title: 'Quy Trình Check',
-    intro_desc: 'Không có quy trình thì mỗi lần một kiểu. 5 câu hỏi giúp bạn nhìn rõ quy trình nào đã chuẩn, quy trình nào còn "nỗi đau" và đâu là điểm cần ưu tiên xây dựng trong tháng tới.',
+    intro_desc: 'Không có quy trình thì mỗi lần một kiểu. 7 câu hỏi giúp bạn nhìn rõ quy trình nào đã chuẩn, quy trình nào còn "nỗi đau" và đâu là điểm cần ưu tiên xây dựng trong tháng tới.',
     restore_draft: 'Bạn có bản nháp chưa hoàn thành.',
     clear_draft: 'Xoá & bắt đầu lại',
     submit_title: 'Sẵn sàng xem kết quả?',
@@ -68,7 +69,7 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
     next: 'Next →',
     prev: '← Back',
     intro_title: 'Processes Check',
-    intro_desc: 'Without processes, each time is different. 5 questions to see which processes are standardized, which are still "pain points", and where to prioritize building next month.',
+    intro_desc: 'Without processes, each time is different. 7 questions to see which processes are standardized, which are still "pain points", and where to prioritize building next month.',
     restore_draft: 'You have an unfinished draft.',
     clear_draft: 'Clear & start over',
     submit_title: 'Ready to see results?',
@@ -83,7 +84,7 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
         id: 'processes',
         name_vi: 'Chuẩn hóa quy trình',
         name_en: 'Process standardization',
-        question_ids: ['qt_q1', 'qt_q2', 'qt_q3', 'qt_q4'],
+        question_ids: ['qt_q1', 'qt_q2', 'qt_q3', 'qt_q4', 'qt_q5'],
         formula: 'avg',
       },
     ],
@@ -97,8 +98,8 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Quy Trình Check (điểm {{SCORE_PROCESSES}}/100 và câu trả lời open), phân tích ngắn gọn mức độ chuẩn hóa quy trình và đưa ra 3 quy trình cần ưu ti��n xây dựng trong tháng tới. Dùng tiếng Việt, giọng thẳng thắn ấm áp.',
-    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Processes Check score ({{SCORE_PROCESSES}}/100 and open answer), briefly analyze process standardization and suggest 3 processes to prioritize building next month. English, candid and warm tone.',
+    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Quy Trình Check (điểm {{SCORE_PROCESSES}}/100 kèm 2 câu open-ended), phân tích mức độ chuẩn hóa quy trình và đưa ra 3 quy trình cần ưu tiên xây dựng. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.',
+    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Processes Check score ({{SCORE_PROCESSES}}/100 with 2 open-ended answers), analyze process standardization and suggest 3 processes to prioritize. English, candid and warm tone. Quote their open-ended answers.',
     model_override: null,
     max_tokens_override: 2048,
   },
@@ -106,10 +107,10 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
   sections: [
     {
       order_idx: 0,
-      title_vi: '5 CÂU HỎI VỀ QUY TRÌNH',
-      title_en: '5 QUESTIONS ABOUT PROCESSES',
-      subtitle_vi: 'Trả lời trung thực — không có câu đúng/sai.',
-      subtitle_en: 'Answer honestly — there are no right/wrong answers.',
+      title_vi: 'PHẦN 1: ĐÁNH GIÁ QUY TRÌNH',
+      title_en: 'PART 1: PROCESS EVALUATION',
+      subtitle_vi: '5 chiều đánh giá: tiếp đón, tài chính, vô trùng, chuyển bệnh nhân, và đo lường cải tiến.',
+      subtitle_en: '5 evaluation dimensions: reception, finance, sterilization, patient handoff, and improvement measurement.',
       ref: 'Ch.3 — Triển Khai Quy Trình',
       icon: 'account_tree',
       questions: [
@@ -183,7 +184,7 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
           question_id: 'qt_q4',
           order_idx: 3,
           type: 'select',
-          label_vi: 'Khi bệnh nhân chuyển tay giữa các bộ phận (lễ tân → bác sĩ → thu ngân), quy trình có rõ ràng không?',
+          label_vi: 'Khi bệnh nhân chuyển tay giữa các bộ phận (lễ tân → bác sĩ → thu ngân), quy trình chuyển tiếp có rõ ràng không?',
           label_en: 'When patients move between departments (reception → doctor → cashier), is the handoff process clear?',
           scale_labels_vi: {
             '1': 'Bệnh nhân phải tự hỏi, ai rảnh đón',
@@ -204,11 +205,53 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
         {
           question_id: 'qt_q5',
           order_idx: 4,
+          type: 'select',
+          label_vi: 'Các quy trình quan trọng có được đo lường hiệu quả và cải tiến định kỳ không?',
+          label_en: 'Are key processes measured for effectiveness and improved periodically?',
+          scale_labels_vi: {
+            '1': 'Không đo, không cải tiến',
+            '2': 'Có cảm nhận nhưng không đo lường',
+            '3': 'Có đo nhưng không phân tích',
+            '4': 'Đo lường + họp review định kỳ',
+            '5': 'Đo lường + review + cải tiến liên tục (PDCA)',
+          },
+          scale_labels_en: {
+            '1': 'No measurement, no improvement',
+            '2': 'Feelings but no measurement',
+            '3': 'Measured but not analyzed',
+            '4': 'Measured + periodic review meetings',
+            '5': 'Measured + review + continuous improvement (PDCA)',
+          },
+          dimension: 'processes',
+        },
+      ],
+    },
+    {
+      order_idx: 1,
+      title_vi: 'PHẦN 2: TỰ SOI CHIẾU',
+      title_en: 'PART 2: SELF-REFLECTION',
+      subtitle_vi: 'Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế quy trình.',
+      subtitle_en: 'Two open questions to face process reality honestly.',
+      ref: 'Ch.3 — Triển Khai Quy Trình',
+      icon: 'psychology_alt',
+      questions: [
+        {
+          question_id: 'qt_open1',
+          order_idx: 0,
           type: 'textarea',
-          label_vi: 'Quy trình nào đang là "nỗi đau" lớn nhất của phòng khám bạn?',
-          label_en: 'Which process is the biggest "pain point" in your clinic?',
-          placeholder_vi: 'Mô tả ngắn gọn — quy trình nào hay sai, gây khó chịu cho bệnh nhân hoặc nhân sự nhất?',
-          placeholder_en: 'Brief description — which process often fails, causes most patient or staff frustration?',
+          label_vi: 'Quy trình nào đang là "nỗi đau" lớn nhất của phòng khám? Mô tả một tình huống cụ thể gần đây mà quy trình yếu gây ảnh hưởng đến bệnh nhân.',
+          label_en: 'Which process is the biggest "pain point" in your clinic? Describe a recent specific situation where a weak process affected a patient.',
+          placeholder_vi: 'Ví dụ: "BN phàn nàn vì không ai thông báo bác sĩ vắng mặt, phải chờ 45 phút..."',
+          placeholder_en: 'e.g.: "Patient complained because no one informed them the doctor was absent, waited 45 minutes..."',
+        },
+        {
+          question_id: 'qt_open2',
+          order_idx: 1,
+          type: 'textarea',
+          label_vi: 'Nếu bạn phải chuẩn hóa chỉ 1 quy trình trong tháng tới, bạn sẽ chọn quy trình nào? Tại sao?',
+          label_en: 'If you had to standardize only 1 process next month, which would you choose? Why?',
+          placeholder_vi: 'Mô tả ngắn gọn — quy trình nào gây nhiều vấn đề nhất hoặc ảnh hưởng bệnh nhân nhiều nhất.',
+          placeholder_en: 'Brief — which process causes the most problems or impacts patients the most.',
         },
       ],
     },

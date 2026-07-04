@@ -1,5 +1,6 @@
 // Seed: Tiếp Đón Check (Patient Reception Check) — based on Tier 1, Ch.4
 // Mini scanner, free (no AI paywall), lead magnet for patient experience chapter.
+// 2 sections: 5 select (dimension) + 2 open-ended, bám sát Chương 4.
 
 import type { SeedScanner } from './registry';
 
@@ -8,8 +9,8 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
   slug: 'tiep-don-check',
   title_vi: 'Tiếp Đón Check',
   title_en: 'Patient Reception Check',
-  description_vi: 'Trải nghiệm bệnh nhân bắt đầu từ khoảnh khắc đặt chân vào phòng khám. 5 câu hỏi giúp bạn nhìn rõ thực tế tiếp đón và điểm cần cải thiện ngay.',
-  description_en: 'Patient experience starts the moment they step into your clinic. 5 questions to see your current reception reality and what needs improvement.',
+  description_vi: 'Trải nghiệm bệnh nhân bắt đầu từ khoảnh khắc đặt chân vào phòng khám. 7 câu hỏi giúp bạn nhìn rõ thực tế tiếp đón — và đâu là điểm cần cải thiện ngay.',
+  description_en: 'Patient experience starts the moment they step into your clinic. 7 questions to see your current reception reality — and what needs immediate improvement.',
   subtitle_vi: 'Chẩn đoán nhanh theo Chương 4 — Trải Nghiệm Bệnh Nhân',
   subtitle_en: 'Quick diagnosis based on Chapter 4 — Patient Experience',
   chapter_refs: ['Ch.4'],
@@ -51,7 +52,7 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
     next: 'Tiếp tục →',
     prev: '← Quay lại',
     intro_title: 'Tiếp Đón Check',
-    intro_desc: 'Bệnh nhân đánh giá phòng khám qua cảm nhận 5 giây đầu tiên. 5 câu hỏi giúp bạn nhìn rõ thực tế tiếp đón — và 3 điểm cần cải thiện ngay trong tuần.',
+    intro_desc: 'Bệnh nhân đánh giá phòng khám qua cảm nhận 5 giây đầu tiên. 7 câu hỏi giúp bạn nhìn rõ thực tế tiếp đón — và 3 điểm cần cải thiện ngay trong tuần.',
     restore_draft: 'Bạn có bản nháp chưa hoàn thành.',
     clear_draft: 'Xoá & bắt đầu lại',
     submit_title: 'Sẵn sàng xem kết quả?',
@@ -68,7 +69,7 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
     next: 'Next →',
     prev: '← Back',
     intro_title: 'Patient Reception Check',
-    intro_desc: 'Patients judge your clinic in the first 5 seconds. 5 questions to see your reception reality — and 3 things to improve this week.',
+    intro_desc: 'Patients judge your clinic in the first 5 seconds. 7 questions to see your reception reality — and 3 things to improve this week.',
     restore_draft: 'You have an unfinished draft.',
     clear_draft: 'Clear & start over',
     submit_title: 'Ready to see results?',
@@ -83,7 +84,7 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
         id: 'experience',
         name_vi: 'Trải nghiệm bệnh nhân',
         name_en: 'Patient experience',
-        question_ids: ['td_q1', 'td_q2', 'td_q3', 'td_q4'],
+        question_ids: ['td_q1', 'td_q2', 'td_q3', 'td_q4', 'td_q5'],
         formula: 'avg',
       },
     ],
@@ -97,8 +98,8 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Tiếp Đón Check (điểm {{SCORE_EXPERIENCE}}/100 và câu trả lời open), phân tích ngắn gọn trải nghiệm bệnh nhân và đưa ra 3 điểm cần cải thiện ngay trong tuần. Dùng tiếng Việt, giọng thẳng thắn ấm áp.',
-    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Patient Reception Check score ({{SCORE_EXPERIENCE}}/100 and open answer), briefly analyze the patient experience and suggest 3 things to improve this week. English, candid and warm tone.',
+    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Tiếp Đón Check (điểm {{SCORE_EXPERIENCE}}/100 kèm 2 câu open-ended), phân tích trải nghiệm bệnh nhân và đưa ra 3 điểm cần cải thiện ngay trong tuần. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.',
+    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the Patient Reception Check score ({{SCORE_EXPERIENCE}}/100 with 2 open-ended answers), analyze patient experience and suggest 3 things to improve this week. English, candid and warm tone. Quote their open-ended answers.',
     model_override: null,
     max_tokens_override: 2048,
   },
@@ -106,10 +107,10 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
   sections: [
     {
       order_idx: 0,
-      title_vi: '5 CÂU HỎI VỀ TRẢI NGHIỆM BỆNH NHÂN',
-      title_en: '5 QUESTIONS ABOUT PATIENT EXPERIENCE',
-      subtitle_vi: 'Nhìn từ phía bệnh nhân — không phải từ phía phòng khám.',
-      subtitle_en: 'Look from patient perspective — not clinic perspective.',
+      title_vi: 'PHẦN 1: ĐÁNH GIÁ TRẢI NGHIỆM',
+      title_en: 'PART 1: EXPERIENCE EVALUATION',
+      subtitle_vi: '5 chiều đánh giá: chào đón, thời gian chờ, follow-up, xử lý phàn nàn, và cảm nhận tổng thể.',
+      subtitle_en: '5 evaluation dimensions: welcoming, wait time, follow-up, complaint handling, and overall perception.',
       ref: 'Ch.4 — Trải Nghiệm Bệnh Nhân',
       icon: 'sentiment_satisfied',
       questions: [
@@ -204,11 +205,53 @@ export const TIEP_DON_CHECK_SEED: SeedScanner = {
         {
           question_id: 'td_q5',
           order_idx: 4,
+          type: 'select',
+          label_vi: 'Bệnh nhân có cảm nhận rằng phòng khám quan tâm đến họ vượt ngoài việc điều trị không?',
+          label_en: 'Do patients feel that the clinic cares about them beyond just treatment?',
+          scale_labels_vi: {
+            '1': 'Không, chỉ thấy dịch vụ y tế',
+            '2': 'Thỉnh thoảng được hỏi thăm',
+            '3': 'Có quan tâm nhưng không nhất quán',
+            '4': 'Được quan tâm trong hầu hết tương tác',
+            '5': 'Được quan tâm cá nhân hóa — cảm giác như người thân',
+          },
+          scale_labels_en: {
+            '1': 'No, only feel the medical service',
+            '2': 'Sometimes asked about their wellbeing',
+            '3': 'Cared for but inconsistently',
+            '4': 'Cared for in most interactions',
+            '5': 'Individually cared for — feels like family',
+          },
+          dimension: 'experience',
+        },
+      ],
+    },
+    {
+      order_idx: 1,
+      title_vi: 'PHẦN 2: TỰ SOI CHIẾU',
+      title_en: 'PART 2: SELF-REFLECTION',
+      subtitle_vi: 'Hai câu hỏi mở giúp bạn nhìn từ góc nhìn bệnh nhân.',
+      subtitle_en: 'Two open questions to see from the patient perspective.',
+      ref: 'Ch.4 — Trải Nghiệm Bệnh Nhân',
+      icon: 'psychology_alt',
+      questions: [
+        {
+          question_id: 'td_open1',
+          order_idx: 0,
           type: 'textarea',
-          label_vi: 'Bệnh nhân hay phàn nàn điều gì nhất về phòng khám?',
-          label_en: 'What do patients complain about most?',
+          label_vi: 'Bệnh nhân hay phàn nàn điều gì nhất về phòng khám? Kể một tình huống cụ thể mà bạn nhớ rõ.',
+          label_en: 'What do patients complain about most? Share one specific situation you clearly remember.',
           placeholder_vi: 'Chỉ ra 1-2 điều bệnh nhân hay phàn nàn nhất — chờ lâu, giá cao, không tư vấn rõ, không follow-up...?',
           placeholder_en: 'Top 1-2 complaints — long wait, price, unclear consultation, no follow-up...?',
+        },
+        {
+          question_id: 'td_open2',
+          order_idx: 1,
+          type: 'textarea',
+          label_vi: 'Nếu bạn là bệnh nhân bước vào phòng khám của chính mình, bạn sẽ cảm thấy điều gì? Điều gì khiến bạn hài lòng? Điều gì khiến bạn không hài lòng?',
+          label_en: 'If you were a patient walking into your own clinic, what would you feel? What would satisfy you? What would dissatisfy you?',
+          placeholder_vi: 'Hãy trung thực — đặt mình vào vị trí bệnh nhân lần đầu.',
+          placeholder_en: 'Be honest — put yourself in the shoes of a first-time patient.',
         },
       ],
     },

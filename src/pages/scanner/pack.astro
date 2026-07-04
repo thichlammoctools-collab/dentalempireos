@@ -1,19 +1,69 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
 
 export const prerender = false;
+
+let scanners: Array<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }> = [];
+try {
+  const { results } = await env.DB
+    .prepare('SELECT id, slug, title_vi, chapter_refs FROM "survey_definition" WHERE status = \'active\' ORDER BY order_index ASC')
+    .all<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }>();
+  scanners = results ?? [];
+} catch {
+  scanners = [];
+}
+
+const scannerIcons: Record<string, string> = {
+  'he-thong-check': 'settings',
+  'nhan-su-check': 'groups',
+  'quy-trinh-check': 'account_tree',
+  'tiep-don-check': 'sentiment_satisfied',
+  'tai-chinh-check': 'payments',
+  'an-toan-check': 'health_and_safety',
+  'marketing-check': 'campaign',
+  'cskh-check': 'support_agent',
+  'van-hoa-check': 'diversity_3',
+  'thuong-hieu-check': 'stars',
+};
+
+const scannerColors: Record<string, string> = {
+  'he-thong-check': 'blue',
+  'nhan-su-check': 'emerald',
+  'quy-trinh-check': 'amber',
+  'tiep-don-check': 'pink',
+  'tai-chinh-check': 'violet',
+  'an-toan-check': 'red',
+  'marketing-check': 'cyan',
+  'cskh-check': 'purple',
+  'van-hoa-check': 'teal',
+  'thuong-hieu-check': 'orange',
+};
+
+const colorClasses: Record<string, { border: string; bg: string; text: string }> = {
+  blue: { border: 'border-blue-500/30', bg: 'from-blue-600/10', text: 'text-blue-400' },
+  emerald: { border: 'border-emerald-500/30', bg: 'from-emerald-600/10', text: 'text-emerald-400' },
+  amber: { border: 'border-amber-500/30', bg: 'from-amber-600/10', text: 'text-amber-400' },
+  pink: { border: 'border-pink-500/30', bg: 'from-pink-600/10', text: 'text-pink-400' },
+  violet: { border: 'border-violet-500/30', bg: 'from-violet-600/10', text: 'text-violet-400' },
+  red: { border: 'border-red-500/30', bg: 'from-red-600/10', text: 'text-red-400' },
+  cyan: { border: 'border-cyan-500/30', bg: 'from-cyan-600/10', text: 'text-cyan-400' },
+  purple: { border: 'border-purple-500/30', bg: 'from-purple-600/10', text: 'text-purple-400' },
+  teal: { border: 'border-teal-500/30', bg: 'from-teal-600/10', text: 'text-teal-400' },
+  orange: { border: 'border-orange-500/30', bg: 'from-orange-600/10', text: 'text-orange-400' },
+};
 ---
 
-<BaseLayout title="Scanner Pack | Dental Empire OS" description="Bộ 5 Mini Scanner + AI Analysis — chỉ 499K">
+<BaseLayout title="Scanner Pack | Dental Empire OS" description="Bộ 10 Mini Scanner + AI Analysis — chỉ 499K">
   <div class="min-h-screen bg-surface pt-20 pb-12">
-    <div class="max-w-3xl mx-auto px-4 text-center">
+    <div class="max-w-4xl mx-auto px-4 text-center">
 
       <!-- Header -->
       <div class="mb-2">
         <span class="inline-block px-3 py-1 text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-400/10 rounded-full mb-4">Bundle Deal</span>
         <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">Scanner Pack</h1>
-        <p class="text-on-surface-variant text-lg mb-2">Bộ 5 Mini Scanner + AI Analysis</p>
-        <p class="text-on-surface-variant text-sm">Mua 1 lần — mở khóa AI Analysis cho cả 5 scanner. Dùng mãi mãi.</p>
+        <p class="text-on-surface-variant text-lg mb-2">Bộ 10 Mini Scanner + AI Analysis</p>
+        <p class="text-on-surface-variant text-sm">Mua 1 lần — mở khóa AI Analysis cho tất cả scanners. Dùng mãi mãi.</p>
       </div>
 
       <!-- Price -->
@@ -25,36 +75,48 @@ export const prerender = false;
         <p class="text-xs text-emerald-400 mt-2">Tiết kiệm 95% so với mua lẻ từng scanner</p>
       </div>
 
-      <!-- Scanner list -->
+      <!-- Scanner list — dynamically loaded from DB -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-left mb-8">
-        <div class="glass-card rounded-xl p-4 border border-blue-500/30 bg-gradient-to-br from-blue-600/10 to-transparent">
-          <span class="material-symbols-outlined text-blue-400 text-xl mb-2 block">settings</span>
-          <h3 class="text-sm font-bold text-white mb-1">Hệ Thống Check</h3>
-          <p class="text-xs text-on-surface-variant">Triển Khai Hệ Thống</p>
-        </div>
-        <div class="glass-card rounded-xl p-4 border border-emerald-500/30 bg-gradient-to-br from-emerald-600/10 to-transparent">
-          <span class="material-symbols-outlined text-emerald-400 text-xl mb-2 block">groups</span>
-          <h3 class="text-sm font-bold text-white mb-1">Nhân Sự Check</h3>
-          <p class="text-xs text-on-surface-variant">Quản Trị Nhân Sự</p>
-        </div>
-        <div class="glass-card rounded-xl p-4 border border-amber-500/30 bg-gradient-to-br from-amber-600/10 to-transparent">
-          <span class="material-symbols-outlined text-amber-400 text-xl mb-2 block">account_tree</span>
-          <h3 class="text-sm font-bold text-white mb-1">Quy Trình Check</h3>
-          <p class="text-xs text-on-surface-variant">Triển Khai Quy Trình</p>
-        </div>
-        <div class="glass-card rounded-xl p-4 border border-pink-500/30 bg-gradient-to-br from-pink-600/10 to-transparent">
-          <span class="material-symbols-outlined text-pink-400 text-xl mb-2 block">sentiment_satisfied</span>
-          <h3 class="text-sm font-bold text-white mb-1">Tiếp Đón Check</h3>
-          <p class="text-xs text-on-surface-variant">Trải Nghiệm Bệnh Nhân</p>
-        </div>
-        <div class="glass-card rounded-xl p-4 border border-violet-500/30 bg-gradient-to-br from-violet-600/10 to-transparent">
-          <span class="material-symbols-outlined text-violet-400 text-xl mb-2 block">payments</span>
-          <h3 class="text-sm font-bold text-white mb-1">Tài Chính Check</h3>
-          <p class="text-xs text-on-surface-variant">Quản Trị Tài Chính</p>
-        </div>
+        {scanners.map((s) => {
+          const icon = scannerIcons[s.id] ?? 'fact_check';
+          const colorKey = colorClasses[s.id] ? s.id : 'blue';
+          const c = colorClasses[colorKey];
+          const refs = s.chapter_refs ? JSON.parse(s.chapter_refs) : [];
+          return (
+            <a
+              href={`/scanner/${s.slug}`}
+              class={`glass-card rounded-xl p-4 border ${c.border} bg-gradient-to-br ${c.bg} to-transparent hover:border-opacity-60 transition-all hover:scale-[1.02]`}
+            >
+              <span class={`material-symbols-outlined ${c.text} text-xl mb-2 block`}>{icon}</span>
+              <h3 class="text-sm font-bold text-white mb-1">{s.title_vi}</h3>
+              {refs.length > 0 && (
+                <p class="text-xs text-on-surface-variant">{refs[0]}</p>
+              )}
+            </a>
+          );
+        })}
         <div class="glass-card rounded-xl p-4 border border-surface-container bg-surface-container-high flex flex-col items-center justify-center gap-2">
           <span class="material-symbols-outlined text-primary text-2xl">auto_awesome</span>
           <p class="text-xs text-primary font-bold text-center">+ AI Analysis<br/>cho mỗi scanner</p>
+        </div>
+      </div>
+
+      <!-- Feature highlights -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left mb-8">
+        <div class="glass-card rounded-xl p-4">
+          <span class="material-symbols-outlined text-amber-400 text-2xl mb-2 block">auto_awesome</span>
+          <h3 class="text-sm font-bold text-white mb-1">AI Phân Tích Cá Nhân</h3>
+          <p class="text-xs text-on-surface-variant">Mỗi scanner đi kèm bản phân tích chi tiết từ BS. Vinh, dựa trên kết quả riêng của bạn.</p>
+        </div>
+        <div class="glass-card rounded-xl p-4">
+          <span class="material-symbols-outlined text-emerald-400 text-2xl mb-2 block">verified</span>
+          <h3 class="text-sm font-bold text-white mb-1">Mua 1 Lần, Dùng Mãi Mãi</h3>
+          <p class="text-xs text-on-surface-variant">Thanh toán 1 lần — truy cập vĩnh viễn cho tất cả scanners trong pack.</p>
+        </div>
+        <div class="glass-card rounded-xl p-4">
+          <span class="material-symbols-outlined text-blue-400 text-2xl mb-2 block">school</span>
+          <h3 class="text-sm font-bold text-white mb-1">Bám Sát Framework Sách</h3>
+          <p class="text-xs text-on-surface-variant">Mỗi câu hỏi được thiết kế dựa trên nội dung Dental Empire OS, Chương 1-10.</p>
         </div>
       </div>
 

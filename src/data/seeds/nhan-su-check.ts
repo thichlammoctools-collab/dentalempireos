@@ -1,5 +1,6 @@
 // Seed: Nhân Sự Check (People Check) — based on Tier 1, Ch.2
 // Mini scanner, free (no AI paywall), lead magnet for HR chapter.
+// 2 sections: 5 select (dimension) + 2 open-ended, bám sát Chương 2.
 
 import type { SeedScanner } from './registry';
 
@@ -8,8 +9,8 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
   slug: 'nhan-su-check',
   title_vi: 'Nhân Sự Check',
   title_en: 'People Check',
-  description_vi: 'Đội ngũ là xương sống phòng khám. 5 câu hỏi giúp bạn nhìn rõ sức khỏe đội ngũ và những điểm cần cải thiện ngay.',
-  description_en: 'Your team is the backbone of the clinic. 5 questions to see your team health and what needs immediate attention.',
+  description_vi: 'Đội ngũ là xương sống phòng khám. 7 câu hỏi giúp bạn nhìn rõ sức khỏe đội ngũ — và đâu là điểm cần ưu tiên cải thiện.',
+  description_en: 'Your team is the backbone of the clinic. 7 questions to see your team health — and what needs priority improvement.',
   subtitle_vi: 'Chẩn đoán nhanh theo Chương 2 — Quản Trị Nhân Sự',
   subtitle_en: 'Quick diagnosis based on Chapter 2 — People Management',
   chapter_refs: ['Ch.2'],
@@ -51,7 +52,7 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
     next: 'Tiếp tục →',
     prev: '← Quay lại',
     intro_title: 'Nhân Sự Check',
-    intro_desc: '5 câu hỏi giúp bạn nhìn rõ sức khỏe đội ngũ — tuyển dụng, đào tạo, giữ chân, và mức độ alignment giữa các thành viên.',
+    intro_desc: '7 câu hỏi giúp bạn nhìn rõ sức khỏe đội ngũ — tuyển dụng, đào tạo, giữ chân, và mức độ alignment giữa các thành viên.',
     restore_draft: 'Bạn có bản nháp chưa hoàn thành.',
     clear_draft: 'Xoá & bắt đầu lại',
     submit_title: 'Sẵn sàng xem kết quả?',
@@ -68,7 +69,7 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
     next: 'Next →',
     prev: '← Back',
     intro_title: 'People Check',
-    intro_desc: '5 questions to see your team health — hiring, training, retention, and team alignment.',
+    intro_desc: '7 questions to see your team health — hiring, training, retention, and team alignment.',
     restore_draft: 'You have an unfinished draft.',
     clear_draft: 'Clear & start over',
     submit_title: 'Ready to see results?',
@@ -97,8 +98,8 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Nhân Sự Check (điểm {{SCORE_PEOPLE}}/100), phân tích ngắn gọn sức khỏe đội ngũ và đưa ra 3 hành động cụ thể trong 2 tuần tới. Dùng tiếng Việt, giọng thẳng thắn ấm áp.',
-    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the People Check score ({{SCORE_PEOPLE}}/100), briefly analyze the team health and suggest 3 concrete actions in the next 2 weeks. English, candid and warm tone.',
+    prompt_vi: 'Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Nhân Sự Check (điểm {{SCORE_PEOPLE}}/100 kèm 2 câu open-ended), phân tích ngắn gọn sức khỏe đội ngũ và đưa ra 3 hành động ưu tiên trong 2 tuần tới. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.',
+    prompt_en: 'You are Dr. Vinh — dental clinic management consultant. Based on the People Check score ({{SCORE_PEOPLE}}/100 with 2 open-ended answers), briefly analyze team health and suggest 3 priority actions in 2 weeks. English, candid and warm tone. Quote their open-ended answers.',
     model_override: null,
     max_tokens_override: 2048,
   },
@@ -106,10 +107,10 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
   sections: [
     {
       order_idx: 0,
-      title_vi: '5 CÂU HỎI VỀ ĐỘI NGŨ',
-      title_en: '5 QUESTIONS ABOUT YOUR TEAM',
-      subtitle_vi: 'Không có câu trả lời đúng — chỉ có sự thật.',
-      subtitle_en: 'No right answers — only truth.',
+      title_vi: 'PHẦN 1: ĐÁNH GIÁ ĐỘI NGŨ',
+      title_en: 'PART 1: TEAM EVALUATION',
+      subtitle_vi: '5 chiều đánh giá: tuyển dụng, onboarding, đào tạo, giữ chân, và alignment giá trị.',
+      subtitle_en: '5 evaluation dimensions: hiring, onboarding, training, retention, and values alignment.',
       ref: 'Ch.2 — Quản Trị Nhân Sự',
       icon: 'groups',
       questions: [
@@ -204,11 +205,53 @@ export const NHAN_SU_CHECK_SEED: SeedScanner = {
         {
           question_id: 'ppl_q5',
           order_idx: 4,
+          type: 'select',
+          label_vi: 'Khi nhân sự có vấn đề (vi phạm SOP, thái độ, chậm tiến), bạn xử lý như thế nào?',
+          label_en: 'When staff have issues (SOP violations, attitude, stagnation), how do you handle it?',
+          scale_labels_vi: {
+            '1': 'Xử lý cảm tính, tùy trường hợp',
+            '2': 'Phạt nhẹ rồi thôi, không theo dõi',
+            '3': 'Có quy trình kỷ luật nhưng không nhất quán',
+            '4': 'Quy trình rõ ràng + coaching + theo dõi',
+            '5': 'Quy trình + coaching + kết nối với giá trị — mọi người hiểu TẠI SAO',
+          },
+          scale_labels_en: {
+            '1': 'Intuitive handling, case by case',
+            '2': 'Light punishment, then forget',
+            '3': 'Discipline process exists but inconsistent',
+            '4': 'Clear process + coaching + tracking',
+            '5': 'Process + coaching + values connection — everyone understands WHY',
+          },
+          dimension: 'people',
+        },
+      ],
+    },
+    {
+      order_idx: 1,
+      title_vi: 'PHẦN 2: TỰ SOI CHIẾU',
+      title_en: 'PART 2: SELF-REFLECTION',
+      subtitle_vi: 'Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế đội ngũ.',
+      subtitle_en: 'Two open questions to face the team reality honestly.',
+      ref: 'Ch.2 — Quản Trị Nhân Sự',
+      icon: 'psychology_alt',
+      questions: [
+        {
+          question_id: 'ppl_open1',
+          order_idx: 0,
           type: 'textarea',
-          label_vi: 'Bạn đang gặp khó khăn lớn nhất gì với đội ngũ hiện tại?',
-          label_en: 'What is the biggest challenge with your current team?',
+          label_vi: 'Trong đội ngũ hiện tại, người nào là "người phù hợp nhất với giá trị" và tại sao? Và người nào cần được phát triển thêm?',
+          label_en: 'In your current team, who is "most aligned with values" and why? And who needs more development?',
+          placeholder_vi: 'Không cần nêu tên — chỉ mô tả vai trò và lý do cảm nhận.',
+          placeholder_en: 'No names needed — just describe the role and the reason for your assessment.',
+        },
+        {
+          question_id: 'ppl_open2',
+          order_idx: 1,
+          type: 'textarea',
+          label_vi: 'Bạn đang gặp khó khăn lớn nhất gì với đội ngũ hiện tại? Tại sao bạn nghĩ điều đó xảy ra?',
+          label_en: 'What is the biggest challenge with your current team? Why do you think it happens?',
           placeholder_vi: 'Mô tả ngắn gọn — thiếu người, thiếu kỹ năng, không alignment giá trị, lương thưởng...?',
-          placeholder_en: 'Brief description — understaffed, skill gaps, value misalignment, compensation...?',
+          placeholder_en: 'Brief — understaffed, skill gaps, value misalignment, compensation...?',
         },
       ],
     },
