@@ -132,7 +132,7 @@ try {
   description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free}>
+  <section class="result-wrap" data-response-id={id} data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free}>
     <!-- Header -->
     <div class="result-header">
       <div>
@@ -552,6 +552,7 @@ try {
 
 <script>
   const wrap = document.querySelector('.result-wrap') as HTMLElement;
+  const responseId = wrap?.dataset.responseId;
   const surveyId = wrap?.dataset.surveyId;
   const productId = wrap?.dataset.productId;
   const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
@@ -561,9 +562,9 @@ try {
   const unlocked = document.getElementById('analysis-unlocked');
 
   async function checkAccess() {
-    if (!surveyId || !productId) return false;
+    if (!responseId || !productId) return false;
     try {
-      const res = await fetch(`/api/scanner/check-access?id=${surveyId}&product_id=${productId}`);
+      const res = await fetch(`/api/scanner/check-access?id=${responseId}&product_id=${productId}`);
       const data = await res.json() as { hasAccess?: boolean };
       return data.hasAccess === true;
     } catch {
@@ -582,15 +583,18 @@ try {
   }
 
   function startPolling() {
+    if (!responseId) return;
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/scanner/${surveyId}`);
-        const data = await res.json() as { ai_analysis?: string };
-        if (data.ai_analysis) {
-          clearInterval(interval);
-          window.location.reload();
+        const res = await fetch(`/api/scanner/${responseId}`);
+        if (res.ok) {
+          const data = await res.json() as { ai_analysis?: string | null };
+          if (data.ai_analysis) {
+            clearInterval(interval);
+            window.location.reload();
+          }
         }
       } catch {}
       if (attempts >= 15) clearInterval(interval);
