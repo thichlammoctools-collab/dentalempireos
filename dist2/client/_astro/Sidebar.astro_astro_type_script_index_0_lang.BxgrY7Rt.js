@@ -1,1 +1,0 @@
-import{s as o}from"./auth-client.D4n2Lz_0.js";globalThis.process??={};globalThis.process.env??={};document.getElementById("admin-logout")?.addEventListener("click",async()=>{await o(),window.location.href="/login"});
