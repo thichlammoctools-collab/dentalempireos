@@ -1,0 +1,255 @@
+globalThis.process ??= {};
+globalThis.process.env ??= {};
+const QUY_TRINH_CHECK_SEED = {
+  id: "quy-trinh-check",
+  slug: "quy-trinh-check",
+  title_vi: "Quy Trình Check",
+  title_en: "Processes Check",
+  description_vi: 'Quy trình là xương sống vận hành. 7 câu hỏi giúp bạn nhìn rõ mức độ chuẩn hóa — và đâu là "nỗi đau" cần ưu tiên xây dựng ngay.',
+  description_en: 'Processes are the backbone of operations. 7 questions to see your standardization level — and which "pain point" needs priority building.',
+  subtitle_vi: "Chẩn đoán nhanh theo Chương 3 — Triển Khai Quy Trình",
+  subtitle_en: "Quick diagnosis based on Chapter 3 — Process Deployment",
+  chapter_refs: ["Ch.3"],
+  status: "active",
+  is_free: 1,
+  survey_type: "mini",
+  order_index: 3,
+  lead_fields: {
+    clinic_name: {
+      label_vi: "Tên phòng khám",
+      label_en: "Clinic name",
+      required: true,
+      placeholder_vi: "Nha Khoa ABC",
+      type: "text"
+    },
+    email: {
+      label_vi: "Email liên hệ",
+      label_en: "Contact email",
+      required: true,
+      placeholder_vi: "ban@email.com",
+      type: "email"
+    },
+    years_in_operation: {
+      label_vi: "Số năm hoạt động",
+      label_en: "Years in operation",
+      required: false,
+      placeholder_vi: "3",
+      type: "number"
+    }
+  },
+  translations_vi: {
+    submitButton: "Xem kết quả",
+    submitting: "Đang xử lý...",
+    required: "bắt buộc",
+    start: "Bắt đầu →",
+    back: "← Quay lại",
+    next: "Tiếp tục →",
+    prev: "← Quay lại",
+    intro_title: "Quy Trình Check",
+    intro_desc: 'Không có quy trình thì mỗi lần một kiểu. 7 câu hỏi giúp bạn nhìn rõ quy trình nào đã chuẩn, quy trình nào còn "nỗi đau" và đâu là điểm cần ưu tiên xây dựng trong tháng tới.',
+    restore_draft: "Bạn có bản nháp chưa hoàn thành.",
+    clear_draft: "Xoá & bắt đầu lại",
+    submit_title: "Sẵn sàng xem kết quả?",
+    submit_desc: "Hệ thống sẽ tính điểm và hiển thị ngay.",
+    step_label: "Phần",
+    submit_label: "Gửi"
+  },
+  translations_en: {
+    submitButton: "See Result",
+    submitting: "Processing...",
+    required: "required",
+    start: "Start →",
+    back: "← Back",
+    next: "Next →",
+    prev: "← Back",
+    intro_title: "Processes Check",
+    intro_desc: 'Without processes, each time is different. 7 questions to see which processes are standardized, which are still "pain points", and where to prioritize building next month.',
+    restore_draft: "You have an unfinished draft.",
+    clear_draft: "Clear & start over",
+    submit_title: "Ready to see results?",
+    submit_desc: "We will calculate and display your score immediately.",
+    step_label: "Part",
+    submit_label: "Submit"
+  },
+  scoring_rules: {
+    dimensions: [
+      {
+        id: "processes",
+        name_vi: "Chuẩn hóa quy trình",
+        name_en: "Process standardization",
+        question_ids: ["qt_q1", "qt_q2", "qt_q3", "qt_q4", "qt_q5"],
+        formula: "avg"
+      }
+    ],
+    total_formula: "average",
+    thresholds: {
+      excellent: 75,
+      good: 55,
+      needs_work: 35,
+      critical: 0
+    }
+  },
+  ai_config: {
+    prompt_vi: "Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Quy Trình Check (điểm {{SCORE_PROCESSES}}/100 kèm 2 câu open-ended), phân tích mức độ chuẩn hóa quy trình và đưa ra 3 quy trình cần ưu tiên xây dựng. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.",
+    prompt_en: "You are Dr. Vinh — dental clinic management consultant. Based on the Processes Check score ({{SCORE_PROCESSES}}/100 with 2 open-ended answers), analyze process standardization and suggest 3 processes to prioritize. English, candid and warm tone. Quote their open-ended answers.",
+    plan_prompt_vi: "Bạn là BS. Vinh — người sáng lập Dental Empire OS, chuyên gia tư vấn hệ thống quản trị phòng khám nha khoa.\n\n# DỮ LIỆU ĐẦU VÀO\n- Điểm số: {{SCORE_QUY_TRINH}}/100\n- Câu trả lời mở: {{OPEN_RESPONSES}}\n\n# NHIỆM VỤ\nDựa trên dữ liệu trên, tạo một kế hoạch 30 ngày theo 4 tuần.\nMỗi tuần 2-3 hành động CỤ THỂ. Tuần 1 bắt đầu bằng hành động nhỏ nhất — tạo momentum.\n\n# CẤU TRÚC ĐẦU RA\n## Tuần 1 (Ngày 1-7)\n- **Hành động 1:** ... — ... — Hoàn thành khi: ...\n\n## Tuần 2 (Ngày 8-14)\n...\n\n# QUY TẮC\n- Mỗi hành động: LÀM GÌ + TẠI SAO + DẤU HIỆU HOÀN THÀNH\n- Tiếng Việt, giọng ấm áp, thẳng thắn\n- Độ dài: 400-700 từ",
+    plan_prompt_en: "You are Dr. Vinh — founder of Dental Empire OS, dental clinic management consultant.\n\n# INPUT DATA\n- Score: {{SCORE_QUY_TRINH}}/100\n- Open-ended answers: {{OPEN_RESPONSES}}\n\n# TASK\nBased on the data above, create a 30-day plan organized in 4 weeks.\nEach week: 2-3 SPECIFIC actions. Week 1 starts with the smallest action — build momentum.\n\n# OUTPUT STRUCTURE\n## Week 1 (Days 1-7)\n- **Action 1:** ... — ... — Complete when: ...\n\n## Week 2 (Days 8-14)\n...\n\n# RULES\n- Each action: WHAT + WHY + SIGN OF COMPLETION\n- English, warm and direct tone\n- Length: 400-700 words",
+    model_override: null,
+    max_tokens_override: 2048
+  },
+  sections: [
+    {
+      order_idx: 0,
+      title_vi: "PHẦN 1: ĐÁNH GIÁ QUY TRÌNH",
+      title_en: "PART 1: PROCESS EVALUATION",
+      subtitle_vi: "5 câu hỏi đánh giá hệ thống quy trình nội bộ: ra quyết định, xử lý sự cố, và cải tiến.",
+      subtitle_en: "5 questions assessing internal process systems: decision-making, incident handling, and improvement.",
+      ref: "Ch.3 — Triển Khai Quy Trình",
+      icon: "account_tree",
+      questions: [
+        {
+          question_id: "qt_q1",
+          order_idx: 0,
+          type: "select",
+          label_vi: "Quy trình tiếp đón bệnh nhân mới có được viết (SOP), đào tạo, và đánh giá định kỳ không?",
+          label_en: "Is the new patient reception process written (SOP), trained, and reviewed periodically?",
+          scale_labels_vi: {
+            "1": "Không có, mỗi nhân viên tự xử lý",
+            "2": "Có nhưng nằm trong đầu, chưa viết",
+            "3": "Có viết, nhưng ít ai đọc lại",
+            "4": "SOP đầy đủ, có đào tạo khi vào",
+            "5": "SOP + đào tạo + audit mỗi quý + cải tiến liên tục"
+          },
+          scale_labels_en: {
+            "1": "None, each staff handles their own way",
+            "2": "Some in heads, not written",
+            "3": "Written but rarely re-read",
+            "4": "Full SOP + onboarding training",
+            "5": "SOP + training + quarterly audit + continuous improvement"
+          },
+          dimension: "processes"
+        },
+        {
+          question_id: "qt_q2",
+          order_idx: 1,
+          type: "select",
+          label_vi: "Quy trình thanh toán & xử lý khiếu nại tài chính với bệnh nhân đang vận hành thế nào?",
+          label_en: "How does the payment and financial complaint handling process work?",
+          scale_labels_vi: {
+            "1": "Mỗi lần một kiểu, không có quy trình",
+            "2": "Có hướng dẫn miệng, không nhất quán",
+            "3": "Có quy trình viết, thu ngân theo",
+            "4": "Có SOP + báo cáo hàng tuần + escalation rõ ràng",
+            "5": "Tự động hóa + báo cáo realtime + liên tục tối ưu"
+          },
+          scale_labels_en: {
+            "1": "Each time different, no process",
+            "2": "Verbal guidance only, inconsistent",
+            "3": "Written, cashier follows",
+            "4": "SOP + weekly report + clear escalation",
+            "5": "Automated + realtime report + continuous optimization"
+          },
+          dimension: "processes"
+        },
+        {
+          question_id: "qt_q3",
+          order_idx: 2,
+          type: "select",
+          label_vi: "Quy trình vô trùng dụng cụ có đạt chuẩn Bộ Y Tế và được kiểm tra định kỳ không?",
+          label_en: "Does the instrument sterilization process meet MOH standards and get audited regularly?",
+          scale_labels_vi: {
+            "1": "Chưa kiểm tra, vô trùng theo cảm tính",
+            "2": "Có quy trình nhưng không ai giám sát",
+            "3": "Có SOP + checklist hàng ngày",
+            "4": "Đạt chuẩn Bộ Y Tế + audit nội bộ hàng quý",
+            "5": "Đạt ISO + tracking từng mẻ + culture an toàn bệnh nhân"
+          },
+          scale_labels_en: {
+            "1": "Not checked, intuition-based",
+            "2": "Process exists but no supervision",
+            "3": "SOP + daily checklist",
+            "4": "MOH standard + internal quarterly audit",
+            "5": "ISO + batch tracking + patient safety culture"
+          },
+          dimension: "processes"
+        },
+        {
+          question_id: "qt_q4",
+          order_idx: 3,
+          type: "select",
+          label_vi: "Khi bệnh nhân chuyển tay giữa các bộ phận (lễ tân → bác sĩ → thu ngân), quy trình chuyển tiếp có rõ ràng không?",
+          label_en: "When patients move between departments (reception → doctor → cashier), is the handoff process clear?",
+          scale_labels_vi: {
+            "1": "Bệnh nhân phải tự hỏi, ai rảnh đón",
+            "2": "Có hướng dẫn miệng, hay sót",
+            "3": "Có checklist ngầm, hầu hết thuộc",
+            "4": "Quy trình chuẩn + giám sát chéo",
+            "5": "Quy trình chuẩn + mọi người thuộc lòng + cải tiến từ feedback"
+          },
+          scale_labels_en: {
+            "1": "Patients ask, whoever is free helps",
+            "2": "Verbal guidance, often missed",
+            "3": "Implicit checklist, mostly known",
+            "4": "Standard process + cross-supervision",
+            "5": "Standard + everyone knows + improved from feedback"
+          },
+          dimension: "processes"
+        },
+        {
+          question_id: "qt_q5",
+          order_idx: 4,
+          type: "select",
+          label_vi: "Các quy trình quan trọng có được đo lường hiệu quả và cải tiến định kỳ không?",
+          label_en: "Are key processes measured for effectiveness and improved periodically?",
+          scale_labels_vi: {
+            "1": "Không đo, không cải tiến",
+            "2": "Có cảm nhận nhưng không đo lường",
+            "3": "Có đo nhưng không phân tích",
+            "4": "Đo lường + họp review định kỳ",
+            "5": "Đo lường + review + cải tiến liên tục (PDCA)"
+          },
+          scale_labels_en: {
+            "1": "No measurement, no improvement",
+            "2": "Feelings but no measurement",
+            "3": "Measured but not analyzed",
+            "4": "Measured + periodic review meetings",
+            "5": "Measured + review + continuous improvement (PDCA)"
+          },
+          dimension: "processes"
+        }
+      ]
+    },
+    {
+      order_idx: 1,
+      title_vi: "PHẦN 2: TỰ SOI CHIẾU",
+      title_en: "PART 2: SELF-REFLECTION",
+      subtitle_vi: "Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế quy trình.",
+      subtitle_en: "Two open questions to face process reality honestly.",
+      ref: "Ch.3 — Triển Khai Quy Trình",
+      icon: "psychology_alt",
+      questions: [
+        {
+          question_id: "qt_open1",
+          order_idx: 0,
+          type: "textarea",
+          label_vi: 'Quy trình nào đang là "nỗi đau" lớn nhất của phòng khám? Mô tả một tình huống cụ thể gần đây mà quy trình yếu gây ảnh hưởng đến bệnh nhân.',
+          label_en: 'Which process is the biggest "pain point" in your clinic? Describe a recent specific situation where a weak process affected a patient.',
+          placeholder_vi: 'Ví dụ: "BN phàn nàn vì không ai thông báo bác sĩ vắng mặt, phải chờ 45 phút..."',
+          placeholder_en: 'e.g.: "Patient complained because no one informed them the doctor was absent, waited 45 minutes..."'
+        },
+        {
+          question_id: "qt_open2",
+          order_idx: 1,
+          type: "textarea",
+          label_vi: "Nếu bạn phải chuẩn hóa chỉ 1 quy trình trong tháng tới, bạn sẽ chọn quy trình nào? Tại sao?",
+          label_en: "If you had to standardize only 1 process next month, which would you choose? Why?",
+          placeholder_vi: "Mô tả ngắn gọn — quy trình nào gây nhiều vấn đề nhất hoặc ảnh hưởng bệnh nhân nhiều nhất.",
+          placeholder_en: "Brief — which process causes the most problems or impacts patients the most."
+        }
+      ]
+    }
+  ]
+};
+export {
+  QUY_TRINH_CHECK_SEED as Q
+};

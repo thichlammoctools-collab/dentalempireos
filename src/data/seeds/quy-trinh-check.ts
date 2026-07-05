@@ -111,8 +111,8 @@ export const QUY_TRINH_CHECK_SEED: SeedScanner = {
       order_idx: 0,
       title_vi: 'PHẦN 1: ĐÁNH GIÁ QUY TRÌNH',
       title_en: 'PART 1: PROCESS EVALUATION',
-      subtitle_vi: '5 chiều đánh giá: tiếp đón, tài chính, vô trùng, chuyển bệnh nhân, và đo lường cải tiến.',
-      subtitle_en: '5 evaluation dimensions: reception, finance, sterilization, patient handoff, and improvement measurement.',
+      subtitle_vi: '5 câu hỏi đánh giá hệ thống quy trình nội bộ: ra quyết định, xử lý sự cố, và cải tiến.',
+      subtitle_en: '5 questions assessing internal process systems: decision-making, incident handling, and improvement.',
       ref: 'Ch.3 — Triển Khai Quy Trình',
       icon: 'account_tree',
       questions: [

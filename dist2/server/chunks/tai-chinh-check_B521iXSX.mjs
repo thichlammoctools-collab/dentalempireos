@@ -1,0 +1,255 @@
+globalThis.process ??= {};
+globalThis.process.env ??= {};
+const TAI_CHINH_CHECK_SEED = {
+  id: "tai-chinh-check",
+  slug: "tai-chinh-check",
+  title_vi: "Tài Chính Check",
+  title_en: "Finance Check",
+  description_vi: "Tiền vào ra không kiểm soát = phòng khám đi đến bờ vực mà không biết. 7 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính và chỉ số cần theo dõi ngay.",
+  description_en: "Untracked cash flow = clinic heading to the edge without knowing. 7 questions to see your financial health and key metrics to monitor now.",
+  subtitle_vi: "Chẩn đoán nhanh theo Chương 5 — Quản Trị Tài Chính Cơ Bản",
+  subtitle_en: "Quick diagnosis based on Chapter 5 — Basic Finance Management",
+  chapter_refs: ["Ch.5"],
+  status: "active",
+  is_free: 1,
+  survey_type: "mini",
+  order_index: 5,
+  lead_fields: {
+    clinic_name: {
+      label_vi: "Tên phòng khám",
+      label_en: "Clinic name",
+      required: true,
+      placeholder_vi: "Nha Khoa ABC",
+      type: "text"
+    },
+    email: {
+      label_vi: "Email liên hệ",
+      label_en: "Contact email",
+      required: true,
+      placeholder_vi: "ban@email.com",
+      type: "email"
+    },
+    years_in_operation: {
+      label_vi: "Doanh thu trung bình / tháng (triệu VND)",
+      label_en: "Average monthly revenue (M VND)",
+      required: false,
+      placeholder_vi: "500",
+      type: "number"
+    }
+  },
+  translations_vi: {
+    submitButton: "Xem kết quả",
+    submitting: "Đang xử lý...",
+    required: "bắt buộc",
+    start: "Bắt đầu →",
+    back: "← Quay lại",
+    next: "Tiếp tục →",
+    prev: "← Quay lại",
+    intro_title: "Tài Chính Check",
+    intro_desc: "Không biết tiền vào ra = không kiểm soát được tương lai. 7 câu hỏi giúp bạn nhìn rõ sức khỏe tài chính — và 3 chỉ số cần theo dõi sát trong tháng tới.",
+    restore_draft: "Bạn có bản nháp chưa hoàn thành.",
+    clear_draft: "Xoá & bắt đầu lại",
+    submit_title: "Sẵn sàng xem kết quả?",
+    submit_desc: "Hệ thống sẽ tính điểm và hiển thị ngay.",
+    step_label: "Phần",
+    submit_label: "Gửi"
+  },
+  translations_en: {
+    submitButton: "See Result",
+    submitting: "Processing...",
+    required: "required",
+    start: "Start →",
+    back: "← Back",
+    next: "Next →",
+    prev: "← Back",
+    intro_title: "Finance Check",
+    intro_desc: "Without knowing cash flow = no control over your future. 7 questions to see your financial health — and 3 key metrics to track closely next month.",
+    restore_draft: "You have an unfinished draft.",
+    clear_draft: "Clear & start over",
+    submit_title: "Ready to see results?",
+    submit_desc: "We will calculate and display your score immediately.",
+    step_label: "Part",
+    submit_label: "Submit"
+  },
+  scoring_rules: {
+    dimensions: [
+      {
+        id: "finance",
+        name_vi: "Sức khỏe tài chính",
+        name_en: "Financial health",
+        question_ids: ["tc_q1", "tc_q2", "tc_q3", "tc_q4", "tc_q5"],
+        formula: "avg"
+      }
+    ],
+    total_formula: "average",
+    thresholds: {
+      excellent: 75,
+      good: 55,
+      needs_work: 35,
+      critical: 0
+    }
+  },
+  ai_config: {
+    prompt_vi: "Bạn là BS. Vinh — chuyên gia tư vấn phòng khám nha khoa. Dựa trên kết quả Tài Chính Check (điểm {{SCORE_FINANCE}}/100 kèm 2 câu open-ended), phân tích sức khỏe tài chính và đưa ra 3 chỉ số cần theo dõi sát. Dùng tiếng Việt, giọng thẳng thắn ấm áp. Trích dẫn câu trả lời open-ended.",
+    prompt_en: "You are Dr. Vinh — dental clinic management consultant. Based on the Finance Check score ({{SCORE_FINANCE}}/100 with 2 open-ended answers), analyze financial health and suggest 3 metrics to track closely. English, candid and warm tone. Quote their open-ended answers.",
+    plan_prompt_vi: "Bạn là BS. Vinh — người sáng lập Dental Empire OS, chuyên gia tư vấn hệ thống quản trị phòng khám nha khoa.\n\n# DỮ LIỆU ĐẦU VÀO\n- Điểm số: {{SCORE_TAI_CHINH}}/100\n- Câu trả lời mở: {{OPEN_RESPONSES}}\n\n# NHIỆM VỤ\nDựa trên dữ liệu trên, tạo một kế hoạch 30 ngày theo 4 tuần.\nMỗi tuần 2-3 hành động CỤ THỂ. Tuần 1 bắt đầu bằng hành động nhỏ nhất — tạo momentum.\n\n# CẤU TRÚC ĐẦU RA\n## Tuần 1 (Ngày 1-7)\n- **Hành động 1:** ... — ... — Hoàn thành khi: ...\n\n## Tuần 2 (Ngày 8-14)\n...\n\n# QUY TẮC\n- Mỗi hành động: LÀM GÌ + TẠI SAO + DẤU HIỆU HOÀN THÀNH\n- Tiếng Việt, giọng ấm áp, thẳng thắn\n- Độ dài: 400-700 từ",
+    plan_prompt_en: "You are Dr. Vinh — founder of Dental Empire OS, dental clinic management consultant.\n\n# INPUT DATA\n- Score: {{SCORE_TAI_CHINH}}/100\n- Open-ended answers: {{OPEN_RESPONSES}}\n\n# TASK\nBased on the data above, create a 30-day plan organized in 4 weeks.\nEach week: 2-3 SPECIFIC actions. Week 1 starts with the smallest action — build momentum.\n\n# OUTPUT STRUCTURE\n## Week 1 (Days 1-7)\n- **Action 1:** ... — ... — Complete when: ...\n\n## Week 2 (Days 8-14)\n...\n\n# RULES\n- Each action: WHAT + WHY + SIGN OF COMPLETION\n- English, warm and direct tone\n- Length: 400-700 words",
+    model_override: null,
+    max_tokens_override: 2048
+  },
+  sections: [
+    {
+      order_idx: 0,
+      title_vi: "PHẦN 1: ĐÁNH GIÁ TÀI CHÍNH",
+      title_en: "PART 1: FINANCIAL EVALUATION",
+      subtitle_vi: "5 chiều đánh giá: P&L, cash flow, phân loại chi phí, quỹ dự phòng, và lập kế hoạch.",
+      subtitle_en: "5 evaluation dimensions: P&L, cash flow, expense categorization, emergency fund, and planning.",
+      ref: "Ch.5 — Quản Trị Tài Chính Cơ Bản",
+      icon: "payments",
+      questions: [
+        {
+          question_id: "tc_q1",
+          order_idx: 0,
+          type: "select",
+          label_vi: "Bạn có theo dõi doanh thu - chi phí - lợi nhuận hàng tháng không?",
+          label_en: "Do you track revenue - expenses - profit monthly?",
+          scale_labels_vi: {
+            "1": "Không biết, chỉ nhìn số dư cuối ngày",
+            "2": "Có nhưng rời rạc, không hệ thống",
+            "3": "Có báo cáo hàng tháng cơ bản",
+            "4": "Báo cáo P&L đầy đủ, hàng tuần cập nhật",
+            "5": "P&L hàng tuần + dashboard realtime + phân tích biên lợi nhuận"
+          },
+          scale_labels_en: {
+            "1": "Don't know, just see end-of-day balance",
+            "2": "Some but scattered, not systematic",
+            "3": "Basic monthly report",
+            "4": "Full P&L, updated weekly",
+            "5": "Weekly P&L + realtime dashboard + margin analysis"
+          },
+          dimension: "finance"
+        },
+        {
+          question_id: "tc_q2",
+          order_idx: 1,
+          type: "select",
+          label_vi: "Báo cáo dòng tiền (cash flow) được cập nhật khi nào?",
+          label_en: "When is the cash flow report updated?",
+          scale_labels_vi: {
+            "1": "Không có, không biết cash flow là gì",
+            "2": "Ngân hàng có nhưng không theo dõi",
+            "3": "Có theo dõi hàng tháng",
+            "4": "Cập nhật hàng tuần",
+            "5": "Hàng ngày + dự báo dòng tiền 3 tháng tới"
+          },
+          scale_labels_en: {
+            "1": "None, don't know cash flow",
+            "2": "Bank has it but not tracked",
+            "3": "Monthly tracking",
+            "4": "Weekly updates",
+            "5": "Daily + 3-month forecast"
+          },
+          dimension: "finance"
+        },
+        {
+          question_id: "tc_q3",
+          order_idx: 2,
+          type: "select",
+          label_vi: "Chi phí được phân loại (cố định, biến đổi, marketing, nhân sự) rõ ràng chưa?",
+          label_en: "Are expenses clearly categorized (fixed, variable, marketing, payroll)?",
+          scale_labels_vi: {
+            "1": "Tính chung, không phân loại",
+            "2": "Có chia nhưng không rõ ràng",
+            "3": "Phân loại cơ bản 3-4 nhóm",
+            "4": "Chi tiết theo từng danh mục + so sánh ngân sách",
+            "5": "Chi tiết + gắn với KPI + phân tích chi phí trên doanh thu"
+          },
+          scale_labels_en: {
+            "1": "All together, no categorization",
+            "2": "Some division but unclear",
+            "3": "Basic 3-4 categories",
+            "4": "Detailed by category + budget vs actual",
+            "5": "Detailed + KPI-linked + cost-to-revenue analysis"
+          },
+          dimension: "finance"
+        },
+        {
+          question_id: "tc_q4",
+          order_idx: 3,
+          type: "select",
+          label_vi: "Phòng khám có quỹ dự phòng cho 3-6 tháng khó khăn không?",
+          label_en: "Does the clinic have a 3-6 month emergency fund?",
+          scale_labels_vi: {
+            "1": "Không có, dùng tiền đến đâu chi đến đó",
+            "2": "Có nhưng chung với tiền hoạt động",
+            "3": "Có tách riêng nhưng chỉ 1-2 tháng chi phí",
+            "4": "Có 3-6 tháng chi phí, để riêng",
+            "5": "6 tháng chi phí + tự động tách % doanh thu hàng tháng"
+          },
+          scale_labels_en: {
+            "1": "No fund, spend as you earn",
+            "2": "Some but mixed with operating cash",
+            "3": "Separated but only 1-2 months expenses",
+            "4": "3-6 months expenses, separated",
+            "5": "6 months + auto-allocate % of monthly revenue"
+          },
+          dimension: "finance"
+        },
+        {
+          question_id: "tc_q5",
+          order_idx: 4,
+          type: "select",
+          label_vi: "Bạn có kế hoạch tài chính (ngân sách, mục tiêu lợi nhuận) cho 6-12 tháng tới không?",
+          label_en: "Do you have a financial plan (budget, profit targets) for the next 6-12 months?",
+          scale_labels_vi: {
+            "1": "Không có kế hoạch",
+            "2": "Có mục tiêu chung nhưng không chi tiết",
+            "3": "Có ngân sách cơ bản cho từng tháng",
+            "4": "Có kế hoạch chi tiết + theo dõi sát",
+            "5": "Kế hoạch + scenario planning + dự báo"
+          },
+          scale_labels_en: {
+            "1": "No financial plan",
+            "2": "Vague goals but no detail",
+            "3": "Basic monthly budget",
+            "4": "Detailed plan + close tracking",
+            "5": "Plan + scenario planning + forecasting"
+          },
+          dimension: "finance"
+        }
+      ]
+    },
+    {
+      order_idx: 1,
+      title_vi: "PHẦN 2: TỰ SOI CHIẾU",
+      title_en: "PART 2: SELF-REFLECTION",
+      subtitle_vi: "Hai câu hỏi mở giúp bạn nhìn thẳng vào thực tế tài chính.",
+      subtitle_en: "Two open questions to face financial reality honestly.",
+      ref: "Ch.5 — Quản Trị Tài Chính Cơ Bản",
+      icon: "psychology_alt",
+      questions: [
+        {
+          question_id: "tc_open1",
+          order_idx: 0,
+          type: "textarea",
+          label_vi: 'Khó khăn tài chính lớn nhất của phòng khám bạn hiện tại là gì? Mô tả một tình huống cụ thể — ví dụ: "Dòng tiền tháng vừa qua bị căng thẳng vì..."',
+          label_en: 'What is the biggest financial challenge of your clinic right now? Describe a specific situation — e.g.: "Cash flow last month was tight because..."',
+          placeholder_vi: "Mô tả ngắn gọn — thiếu vốn, dòng tiền bấp bênh, chi phí tăng, không biết lỗ/lãi...?",
+          placeholder_en: "Brief — capital shortage, cash flow volatility, rising costs, no profit visibility...?"
+        },
+        {
+          question_id: "tc_open2",
+          order_idx: 1,
+          type: "textarea",
+          label_vi: "Nếu bạn phải chọn chỉ 1 chỉ số tài chính để theo dõi sát nhất, bạn sẽ chọn chỉ số nào? Tại sao?",
+          label_en: "If you had to choose only 1 financial metric to track most closely, which would it be? Why?",
+          placeholder_vi: "Ví dụ: biên lợi nhuận, cash flow, hay doanh thu per bác sĩ...?",
+          placeholder_en: "e.g.: profit margin, cash flow, or revenue per doctor...?"
+        }
+      ]
+    }
+  ]
+};
+export {
+  TAI_CHINH_CHECK_SEED as T
+};
