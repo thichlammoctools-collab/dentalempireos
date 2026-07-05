@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { getSurveyDefinitionFull, parseScoringRules, parseAiConfig } from '../../../lib/survey-config-db';
+import { getSurveyDefinitionBySlug, getSurveyDefinitionFull, parseScoringRules, parseAiConfig } from '../../../lib/survey-config-db';
 
 export const prerender = false;
 
@@ -9,7 +9,11 @@ let full = null;
 let loadError = '';
 
 try {
-  full = await getSurveyDefinitionFull(env.DB, 'ho-so-goc-re');
+  // First get by slug to get the UUID, then pass that to getSurveyDefinitionFull
+  const defBySlug = await getSurveyDefinitionBySlug(env.DB, 'ho-so-goc-re');
+  if (defBySlug) {
+    full = await getSurveyDefinitionFull(env.DB, defBySlug.id);
+  }
 } catch (err) {
   loadError = err instanceof Error ? err.message : 'Lỗi tải dữ liệu';
 }
