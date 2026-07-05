@@ -138,6 +138,20 @@ const defaultScaleEn: Record<string, string> = {
           <button type="button" class="btn btn-primary" id="btn-start">Bắt đầu →</button>
         </div>
 
+        <!-- Sticky bottom nav (shows on section pages, always visible) -->
+        <div id="sticky-nav" class="sticky-nav hidden">
+          <div class="sticky-nav-center">
+            <div class="sticky-nav-inner">
+              <button type="button" class="btn btn-ghost sticky-btn-back" id="sticky-btn-back">← <span class="sticky-btn-text-back">Quay lại</span></button>
+              <div class="sticky-progress">
+                <span id="sticky-step-label">1/2</span>
+                <div class="sticky-progress-bar"><div id="sticky-progress-fill" class="sticky-progress-fill"></div></div>
+              </div>
+              <button type="button" class="btn btn-primary sticky-btn-next" id="sticky-btn-next">Tiếp tục →</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Submit card -->
         <div id="card-submit" class="card submit-card hidden">
           <div class="submit-top">
@@ -165,7 +179,7 @@ const defaultScaleEn: Record<string, string> = {
   .survey-wrap {
     max-width: 760px;
     margin: 0 auto;
-    padding: 1rem 0 4rem;
+    padding: 1rem 0 7rem;
   }
   .lang-toggle {
     display: flex;
@@ -392,12 +406,82 @@ const defaultScaleEn: Record<string, string> = {
     border-color: rgba(245,158,11,0.4);
     color: #f59e0b;
   }
+  .sticky-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 110;
+    padding: 0.75rem 0;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(10,10,20,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+  }
+  .sticky-nav.hidden { display: none !important; }
+  .sticky-nav-center {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  .sticky-nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .sticky-btn-back,
+  .sticky-btn-next {
+    flex: 0 0 auto;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .sticky-btn-back.hidden { visibility: hidden; }
+  .sticky-progress {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  #sticky-step-label {
+    font-size: 0.65rem;
+    color: var(--on-surface-variant);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .sticky-progress-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .sticky-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f59e0b, #f97316);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
   .nav-buttons {
     display: flex;
     gap: 0.75rem;
     margin-top: 1.5rem;
     padding-top: 1rem;
+    padding-bottom: 0.5rem;
     border-top: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: rgba(20,20,35,0.95);
+  }
+  .part-card {
+    padding-bottom: 0.5rem;
   }
   .submit-top { margin-bottom: 1.25rem; }
   .submit-title {
@@ -410,7 +494,7 @@ const defaultScaleEn: Record<string, string> = {
   .error-text { color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; }
   .hidden { display: none !important; }
   @media (max-width: 640px) {
-    .survey-wrap { padding: 0.75rem 0 3rem; }
+    .survey-wrap { padding: 0.75rem 0 6rem; }
     .card { padding: 1rem; }
     .scale-pill { padding: 0.5rem 0.65rem; }
     .scale-text { font-size: 0.7rem; }
@@ -418,6 +502,8 @@ const defaultScaleEn: Record<string, string> = {
 </style>
 
 <style is:global>
+  /* Hide mobile bottom nav on scanner pages — sticky nav handles navigation */
+  #mobile-bottom-nav { display: none !important; }
   .intro-card .intro-title {
     background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
     -webkit-background-clip: text;

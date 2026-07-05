@@ -141,11 +141,19 @@
         card.appendChild(block);
       });
 
+      var isLastSection = (sIdx === surveyData.sections.length - 1);
+      var nextLabel = isLastSection
+        ? (currentLang === 'vi' ? 'Gửi kết quả' : 'Submit')
+        : (currentLang === 'vi' ? 'Tiếp tục' : 'Next');
+      var nextClass = isLastSection ? 'btn btn-primary btn-submit-inline' : 'btn btn-primary';
+      var nextArrow = isLastSection ? '' : ' →';
       var nav = document.createElement('div');
       nav.className = 'nav-buttons';
-      nav.innerHTML = '<button type="button" class="btn btn-ghost" data-action="prev">← ' + (currentLang === 'vi' ? 'Quay lại' : 'Back') + '</button><button type="button" class="btn btn-primary" data-action="next">' + (currentLang === 'vi' ? 'Tiếp tục' : 'Next') + ' →</button>';
+      nav.innerHTML = '<button type="button" class="btn btn-ghost" data-action="prev">← ' + (currentLang === 'vi' ? 'Quay lại' : 'Back') + '</button><button type="button" class="' + nextClass + '" data-action="next">' + nextLabel + nextArrow + '</button>';
       nav.querySelector('[data-action="prev"]').addEventListener('click', function () { goTo(currentStep - 1); });
-      nav.querySelector('[data-action="next"]').addEventListener('click', function () { goTo(currentStep + 1); });
+      nav.querySelector('[data-action="next"]').addEventListener('click', function () {
+        if (isLastSection) { submit(); } else { goTo(currentStep + 1); }
+      });
       card.addEventListener('change', function (e) { saveFromEvent(e); saveDraft(); });
       card.addEventListener('input', function (e) { saveFromEvent(e); saveDraft(); });
 
@@ -228,7 +236,67 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
     saveDraft();
+    updateStickyNav();
   }
+
+  function updateStickyNav() {
+    var stickyNav = document.getElementById('sticky-nav');
+    var stickyBack = document.getElementById('sticky-btn-back');
+    var stickyNext = document.getElementById('sticky-btn-next');
+    var stickyStep = document.getElementById('sticky-step-label');
+    var stickyFill = document.getElementById('sticky-progress-fill');
+    if (!stickyNav) return;
+
+    var isIntro = currentStep === -1;
+    var isSubmit = currentStep === surveyData.sections.length;
+
+    // Hide on intro and submit pages
+    stickyNav.classList.toggle('hidden', isIntro || isSubmit);
+
+    // Back button
+    if (stickyBack) {
+      stickyBack.classList.toggle('hidden', isIntro);
+    }
+
+    // Step label and progress
+    if (stickyStep) {
+      if (isSubmit) {
+        stickyStep.textContent = currentLang === 'vi' ? 'Gửi' : 'Submit';
+      } else if (!isIntro) {
+        stickyStep.textContent = (currentStep + 1) + '/' + surveyData.sections.length;
+      }
+    }
+    if (stickyFill) {
+      var pct = currentStep < 0 ? 0 : currentStep >= surveyData.sections.length ? 100 : Math.round((currentStep / surveyData.sections.length) * 100);
+      stickyFill.style.width = pct + '%';
+    }
+
+    // Next button text
+    if (stickyNext) {
+      if (isSubmit || currentStep === surveyData.sections.length - 1) {
+        stickyNext.textContent = currentLang === 'vi' ? 'Gửi kết quả' : 'Submit';
+      } else {
+        stickyNext.textContent = (currentLang === 'vi' ? 'Tiếp tục' : 'Next') + ' →';
+      }
+    }
+
+    // Force reflow to ensure sticky nav renders above keyboard on mobile
+    stickyNav.style.transform = 'translateY(0)';
+    requestAnimationFrame(function () {
+      stickyNav.style.transform = '';
+    });
+  }
+
+  // Re-show sticky nav when keyboard opens/closes on mobile
+  window.addEventListener('resize', function () {
+    var stickyNav = document.getElementById('sticky-nav');
+    if (!stickyNav) return;
+    var isIntro = currentStep === -1;
+    var isSubmit = currentStep === surveyData.sections.length;
+    if (!isIntro && !isSubmit) {
+      stickyNav.classList.remove('hidden');
+    }
+  });
 
   function submit() {
     if (!submitError) return;
@@ -300,6 +368,18 @@
   if (btnStart) btnStart.addEventListener('click', function () { goTo(0); });
   if (btnSubmit) btnSubmit.addEventListener('click', function () { submit(); });
   if (btnBackSubmit) btnBackSubmit.addEventListener('click', function () { goTo(surveyData.sections.length - 1); });
+
+  // Sticky nav buttons
+  var stickyBack = document.getElementById('sticky-btn-back');
+  var stickyNext = document.getElementById('sticky-btn-next');
+  if (stickyBack) stickyBack.addEventListener('click', function () { goTo(currentStep - 1); });
+  if (stickyNext) stickyNext.addEventListener('click', function () {
+    if (currentStep === surveyData.sections.length - 1) {
+      submit();
+    } else {
+      goTo(currentStep + 1);
+    }
+  });
 
   document.querySelectorAll('.intro-card input[name]').forEach(function (el) {
     var input = el;
