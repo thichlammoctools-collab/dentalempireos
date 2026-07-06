@@ -140,10 +140,20 @@ const productName = orderInfo?.product_name ?? 'nội dung của bạn';
         }
       } catch {}
 
-      // Give a final delay then show result
-      setTimeout(() => {
+      // Give a final delay then check actual status before showing result
+      setTimeout(async () => {
         loading?.classList.add('hidden');
-        success?.classList.remove('hidden');
+        try {
+          const res = await fetch('/api/payos/check-access?order_id=' + ORDER_ID);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'paid') {
+              success?.classList.remove('hidden');
+              return;
+            }
+          }
+        } catch {}
+        failed?.classList.remove('hidden');
       }, 4000);
     }
 

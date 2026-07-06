@@ -1,0 +1,106 @@
+globalThis.process ??= {};
+globalThis.process.env ??= {};
+import { c as createComponent } from "./astro-component_DBIynOy6.mjs";
+import { r as renderTemplate, m as maybeRenderHead, a as addAttribute, F as Fragment } from "./sequence_CNN-ZGRA.mjs";
+import { r as renderComponent } from "./worker-entry_B1DfdmGZ.mjs";
+import { r as renderScript } from "./global_Ia4nBvKf.mjs";
+import { $ as $$BaseLayout } from "./BaseLayout_saReXTnS.mjs";
+import { env } from "cloudflare:workers";
+import { l as listResources, c as countResources } from "./resource-db_vN7y6pUI.mjs";
+const prerender = false;
+const $$Index = createComponent(async ($$result, $$props, $$slots) => {
+  const Astro2 = $$result.createAstro($$props, $$slots);
+  Astro2.self = $$Index;
+  const db = env.DB;
+  const page2 = Math.max(1, parseInt(Astro2.url.searchParams.get("page") ?? "1", 10));
+  const perPage = 12;
+  const category = Astro2.url.searchParams.get("cat") ?? "";
+  const search = Astro2.url.searchParams.get("q") ?? "";
+  const [resources, total] = await Promise.all([
+    listResources(db, { search: search || void 0, category: category || void 0 }),
+    countResources(db, { search: search || void 0, category: category || void 0 })
+  ]);
+  const paginated = resources.slice(0, perPage);
+  const totalPages = Math.ceil(total / perPage);
+  const categories = [
+    { value: "", label: "Tất cả", count: total },
+    { value: "sops", label: "Quy trình SOPs", count: 0 },
+    { value: "checklists", label: "Checklists", count: 0 },
+    { value: "excel", label: "Bảng tính Excel", count: 0 },
+    { value: "marketing", label: "Marketing", count: 0 }
+  ];
+  const tierLabel = {
+    free: "Miễn phí",
+    premium: "Premium"
+  };
+  const extIcon = {
+    pdf: "picture_as_pdf",
+    xlsx: "table_chart",
+    docx: "article",
+    mp4: "play_circle"
+  };
+  function getIconExt(ext) {
+    return extIcon[ext] ?? "insert_drive_file";
+  }
+  function getFileIcon(icon, ext) {
+    return icon !== "description" ? icon : getIconExt(ext);
+  }
+  function getExtColor(ext) {
+    const map = {
+      pdf: "#ef4444",
+      xlsx: "#22c55e",
+      docx: "#3b82f6",
+      mp4: "#a855f7"
+    };
+    return map[ext] ?? "#94a3b8";
+  }
+  function getTierColor(tier) {
+    return tier === "premium" ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+  }
+  function resourceUrl(fileUrl) {
+    if (!fileUrl) return "#";
+    if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) return fileUrl;
+    return `/media/${fileUrl}`;
+  }
+  return renderTemplate`${renderComponent($$result, "BaseLayout", $$BaseLayout, { "title": "Tài Nguyên | Dental Empire OS", "description": "Kho tài nguyên miễn phí và hữu ích dành cho quản trị phòng khám nha khoa — mẫu form, checklist, biểu mẫu, và nhiều hơn nữa." }, { "default": async ($$result2) => renderTemplate`  ${maybeRenderHead()}<section class="relative py-16 overflow-hidden"> <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest to-surface"></div> <div class="relative z-10 px-6 max-w-[1200px] mx-auto text-center space-y-6"> <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider"> <span class="material-symbols-outlined text-[14px]">folder_open</span>
+Tài Nguyên
+</div> <h1 class="text-headline-large font-bold text-white">
+Kho <span class="text-primary">Tài Nguyên</span><br>
+cho quản trị nha khoa
+</h1> <p class="text-on-surface-variant max-w-xl mx-auto">
+Mẫu form, checklist SOPs, bảng tính Excel và vật liệu marketing giúp vận hành phòng khám hiệu quả hơn.
+</p> <!-- Search --> <form method="get" class="max-w-lg mx-auto"> ${category && renderTemplate`<input type="hidden" name="cat"${addAttribute(category, "value")}>`} <div class="relative"> <input type="text" name="q"${addAttribute(search, "value")} placeholder="Tìm kiếm tài nguyên..." class="w-full pl-12 pr-4 py-3.5 bg-surface-container-high border border-outline-variant rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none text-white placeholder:text-white/30"> <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span> ${search && renderTemplate`<a href="/resources" class="absolute right-12 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"> <span class="material-symbols-outlined text-[20px]">close</span> </a>`} </div> </form> </div> </section>  <section class="px-6 max-w-[1200px] mx-auto py-8"> <div class="flex flex-col lg:flex-row gap-8"> <!-- Left: Resource Grid --> <div class="flex-1 min-w-0"> <!-- Category Filter --> <div class="flex flex-wrap items-center gap-2 mb-6"> ${categories.map((cat) => renderTemplate`<a${addAttribute(cat.value ? `/resources?cat=${cat.value}` : "/resources", "href")}${addAttribute(`px-4 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${category === cat.value ? "bg-primary text-white border-primary" : "bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary"}`, "class")}> ${cat.label} <span class="opacity-60 ml-1">(${cat.count})</span> </a>`)} </div> <!-- Search result label --> ${search && renderTemplate`<p class="text-sm text-on-surface-variant mb-4">
+Kết quả tìm kiếm cho "<strong class="text-white">${search}</strong>" — ${total} tài nguyên
+</p>`} <!-- Resources Grid --> ${paginated.length === 0 ? renderTemplate`<div class="text-center py-20 glass-card rounded-2xl"> <span class="material-symbols-outlined text-6xl text-on-surface-variant/30">folder_off</span> <p class="text-on-surface-variant mt-4">Không có tài nguyên nào</p> <a href="/resources" class="inline-block mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">Xem tất cả</a> </div>` : renderTemplate`${renderComponent($$result2, "Fragment", Fragment, {}, { "default": async ($$result3) => renderTemplate` <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"> ${paginated.map((res) => renderTemplate`<article class="glass-card rounded-2xl overflow-hidden flex flex-col hover:-translate-y-1 transition-all duration-300"> <!-- Header with icon --> <div class="relative p-5 flex items-start gap-4"> <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"${addAttribute(`background: ${getExtColor(res.file_ext)}22; border: 1px solid ${getExtColor(res.file_ext)}33;`, "style")}> <span class="material-symbols-outlined text-2xl"${addAttribute(`color: ${getExtColor(res.file_ext)}`, "style")}> ${getFileIcon(res.icon, res.file_ext)} </span> </div> <div class="flex-1 min-w-0"> <div class="flex items-center gap-2 mb-1 flex-wrap"> <span${addAttribute(`px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`, "class")}> ${tierLabel[res.tier] ?? res.tier} </span> <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
+.${res.file_ext} </span> </div> <h3 class="font-bold text-white text-sm leading-snug line-clamp-2"> ${res.title} </h3> </div> </div> <!-- Description --> <div class="px-5 pb-1 flex-1"> <p class="text-xs text-on-surface-variant line-clamp-3"> ${res.description || "Tài nguyên hữu ích dành cho quản trị phòng khám nha khoa."} </p> </div> <!-- Tags --> ${res.tag && renderTemplate`<div class="px-5 pt-3"> <span class="px-2 py-1 text-[10px] font-semibold rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant"> ${res.tag} </span> </div>`} <!-- Download --> <div class="px-5 pt-4 pb-5 mt-auto"> ${res.file_url ? renderTemplate`<a${addAttribute(resourceUrl(res.file_url), "href")} target="_blank" rel="noopener noreferrer"${addAttribute(`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${res.tier === "premium" ? "bg-amber-500 hover:bg-amber-400 text-black" : "btn-primary-metallic"}`, "class")}> <span class="material-symbols-outlined text-[18px]">download</span>
+Tải về
+</a>` : renderTemplate`<span class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-50"> <span class="material-symbols-outlined text-[18px]">download</span>
+Sắp ra mắt
+</span>`} </div> </article>`)} </div>  ${totalPages > 1 && renderTemplate`<div class="flex items-center justify-center gap-2 mt-10"> ${page2 > 1 && renderTemplate`<a${addAttribute(`/resources?page=${page2 - 1}&cat=${category}&q=${search}`, "href")} class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95"> <span class="material-symbols-outlined text-[20px]">chevron_left</span> </a>`} ${Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+    const p = i + 1;
+    return renderTemplate`<a${addAttribute(`/resources?page=${p}&cat=${category}&q=${search}`, "href")}${addAttribute(`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all active:scale-95 ${p === page2 ? "bg-primary text-white" : "bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary"}`, "class")}> ${p} </a>`;
+  })} ${page2 < totalPages && renderTemplate`<a${addAttribute(`/resources?page=${page2 + 1}&cat=${category}&q=${search}`, "href")} class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95"> <span class="material-symbols-outlined text-[20px]">chevron_right</span> </a>`} </div>`}` })}`} </div> <!-- Right: Sidebar --> <aside class="w-full lg:w-72 shrink-0 space-y-6"> <!-- Categories --> <div class="glass-card rounded-2xl p-5"> <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2"> <span class="material-symbols-outlined text-primary text-[18px]">folder_open</span>
+Danh mục
+</h3> <ul class="space-y-1"> ${categories.map((cat) => renderTemplate`<li> <a${addAttribute(cat.value ? `/resources?cat=${cat.value}` : "/resources", "href")}${addAttribute(`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all ${category === cat.value ? "bg-primary/10 text-primary font-semibold" : "text-on-surface-variant hover:bg-surface-container-high hover:text-white"}`, "class")}> <span>${cat.label}</span> <span class="text-xs opacity-60">(${cat.count})</span> </a> </li>`)} </ul> </div> <!-- Tier Guide --> <div class="glass-card rounded-2xl p-5 border border-primary/20"> <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2"> <span class="material-symbols-outlined text-primary text-[18px]">info</span>
+Giải thích
+</h3> <div class="space-y-3"> <div class="flex items-center gap-3"> <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">Miễn phí</span> <p class="text-xs text-on-surface-variant">Tải về và sử dụng ngay, không cần đăng nhập.</p> </div> <div class="flex items-center gap-3"> <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">Premium</span> <p class="text-xs text-on-surface-variant">Dành cho thành viên Academy — đăng nhập để tải.</p> </div> </div> </div> <!-- Newsletter --> <div class="glass-card rounded-2xl p-5 border border-primary/20"> <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2"> <span class="material-symbols-outlined text-primary text-[18px]">mail</span>
+Đăng ký nhận tin
+</h3> <p class="text-xs text-on-surface-variant mb-4">Nhận tài nguyên mới nhất mỗi tuần qua email.</p> <form id="resources-newsletter" class="space-y-2"> <input type="email" name="email" placeholder="Email của bạn..." required class="w-full px-3 py-2.5 bg-surface-container-high border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-white/20 text-sm text-white"> <button type="submit" class="w-full py-2.5 btn-primary-metallic text-sm font-bold rounded-xl active:scale-95 transition-all">
+Đăng ký ngay
+</button> </form> <p id="newsletter-success" class="hidden text-xs text-green-400 mt-2 text-center">
+Đăng ký thành công!
+</p> </div> </aside> </div> </section> ` })} ${renderScript($$result, "C:/dentalempireos/src/pages/resources/index.astro?astro&type=script&index=0&lang.ts")}`;
+}, "C:/dentalempireos/src/pages/resources/index.astro", void 0);
+const $$file = "C:/dentalempireos/src/pages/resources/index.astro";
+const $$url = "/resources";
+const _page = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: $$Index,
+  file: $$file,
+  prerender,
+  url: $$url
+}, Symbol.toStringTag, { value: "Module" }));
+const page = () => _page;
+export {
+  page
+};

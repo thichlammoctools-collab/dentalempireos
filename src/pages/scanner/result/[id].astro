@@ -217,6 +217,10 @@ try {
         </p>
       </div>
       <div class="flex gap-2 flex-wrap">
+        <button type="button" id="btn-share" class="btn btn-ghost">
+          <span class="material-symbols-outlined text-base">share</span>
+          <span>{lang === 'vi' ? 'Chia sẻ' : 'Share'}</span>
+        </button>
         <a href={`/scanner/${definition.slug}`} class="btn btn-ghost">
           {lang === 'vi' ? 'Làm khảo sát mới' : 'New survey'}
         </a>
@@ -1143,4 +1147,22 @@ try {
       btnUnlock.removeAttribute('disabled');
     }
   });
+
+  // Share button
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) {
+    btnShare.addEventListener('click', async () => {
+      const url = window.location.href;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: document.title, url });
+        } catch {}
+      } else {
+        await navigator.clipboard.writeText(url);
+        const orig = btnShare.innerHTML;
+        btnShare.innerHTML = `<span class="material-symbols-outlined text-base">check</span> <span>${lang === 'vi' ? 'Đã copy!' : 'Copied!'}</span>`;
+        setTimeout(() => { btnShare.innerHTML = orig; }, 2000);
+      }
+    });
+  }
 </script>
