@@ -4,6 +4,7 @@
   "account_id": "6c99b69a2ef00c1754fae70793262cd3",
   "compatibility_date": "2025-06-17",
   "compatibility_flags": ["nodejs_compat"],
+  "main": "./dist/server/entry.mjs",
   "assets": {
     "directory": "./dist/client"
   },
