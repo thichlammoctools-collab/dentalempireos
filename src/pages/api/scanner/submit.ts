@@ -16,8 +16,7 @@ import {
   validateRequiredAnswers,
   parseScores,
 } from '../../../lib/scanner-response-db';
-import { runAiAnalysis, runPlanAnalysis } from '../../../lib/scanner-ai';
-import { isAiEnabled } from '../../../lib/ai-settings-db';
+// AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
 import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory } from '../../../lib/scanner-history-db';
@@ -156,17 +155,6 @@ export const POST: APIRoute = async (ctx) => {
     score_total: totalScore,
     score_label: level.label_vi,
   });
-
-  // Trigger AI analysis + plan generation (run directly, not via waitUntil
-  // which may be undefined in some Astro contexts)
-  if (await isAiEnabled(env.DB)) {
-    runAiAnalysis(env.DB, id).catch((err) => {
-      console.error('[submit] AI analysis failed:', err);
-    });
-    runPlanAnalysis(env.DB, id).catch((err) => {
-      console.error('[submit] AI plan failed:', err);
-    });
-  }
 
   return json(
     {

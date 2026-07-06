@@ -11,9 +11,13 @@ import {
   parseResponses,
   updateAiAnalysis,
   updateAiPlan,
+  updateAiAnalysisStatus,
+  updateAiPlanStatus,
 } from './scanner-response-db';
 import { getSurveyDefinitionFull } from './survey-config-db';
 import { getAiSettings } from './ai-settings-db';
+import { sendScannerNotification } from './notification';
+import { sendScannerAiCompleteEmail } from './resend';
 
 interface AnthropicResponse {
   content: Array<{ type: string; text?: string }>;
@@ -32,14 +36,12 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
     return;
   }
 
-  // Load full definition
   const full = await getSurveyDefinitionFull(db, response.survey_id);
   if (!full) {
     console.error(`[scanner-ai] Definition ${response.survey_id} not found`);
     return;
   }
 
-  // Load AI settings
   const aiSettings = await getAiSettings(db);
   if (!aiSettings?.is_active) {
     console.warn('[scanner-ai] AI settings not active, skipping');
@@ -50,6 +52,8 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
   const scoringRules = parseScoringRules(full.definition.scoring_rules);
 
   try {
+    await updateAiAnalysisStatus(db, responseId, 'running');
+
     const analysis = await analyze(
       aiSettings.api_key,
       response,
@@ -64,7 +68,19 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
     );
 
     await updateAiAnalysis(db, responseId, analysis);
+    await updateAiAnalysisStatus(db, responseId, 'done');
+
+    // Send email + in-app notification
+    await Promise.allSettled([
+      sendScannerAiCompleteEmail(db, responseId, 'analysis').catch((err) => {
+        console.error('[scanner-ai] email failed:', err);
+      }),
+      sendScannerNotification(db, responseId, 'analysis').catch((err) => {
+        console.error('[scanner-ai] notification failed:', err);
+      }),
+    ]);
   } catch (err) {
+    await updateAiAnalysisStatus(db, responseId, 'failed');
     console.error(`[scanner-ai] Failed for response ${responseId}:`, err);
   }
 }
@@ -116,6 +132,8 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
   const maxTokens = aiConfig.max_tokens_override ?? aiSettings.max_tokens ?? 4096;
 
   try {
+    await updateAiPlanStatus(db, responseId, 'running');
+
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
@@ -144,7 +162,19 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
 
     if (!text) throw new Error('Empty response from Anthropic API for plan');
     await updateAiPlan(db, responseId, text);
+    await updateAiPlanStatus(db, responseId, 'done');
+
+    // Send email + in-app notification
+    await Promise.allSettled([
+      sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => {
+        console.error('[scanner-ai] plan email failed:', err);
+      }),
+      sendScannerNotification(db, responseId, 'plan').catch((err) => {
+        console.error('[scanner-ai] plan notification failed:', err);
+      }),
+    ]);
   } catch (err) {
+    await updateAiPlanStatus(db, responseId, 'failed');
     console.error(`[scanner-ai] Plan: Failed for response ${responseId}:`, err);
   }
 }

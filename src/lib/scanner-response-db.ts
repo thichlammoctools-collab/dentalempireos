@@ -30,6 +30,8 @@ export interface ScannerResponseRow {
   ai_analysis: string | null;
   ai_analyzed_at: string | null;
   ai_plan: string | null;
+  ai_analysis_status: string;
+  ai_plan_status: string;
 }
 
 // ── Input Types ─────────────────────────────────────────
@@ -329,6 +331,30 @@ export function buildAiContext(
     scores,
     responses: enrichedResponses,
   };
+}
+
+// ── AI Status helpers ────────────────────────────────
+
+export async function updateAiAnalysisStatus(
+  db: D1Database,
+  id: number,
+  status: 'pending' | 'running' | 'done' | 'failed',
+): Promise<void> {
+  await db
+    .prepare(`UPDATE "scanner_response" SET "ai_analysis_status" = ? WHERE "id" = ?`)
+    .bind(status, id)
+    .run();
+}
+
+export async function updateAiPlanStatus(
+  db: D1Database,
+  id: number,
+  status: 'pending' | 'running' | 'done' | 'failed',
+): Promise<void> {
+  await db
+    .prepare(`UPDATE "scanner_response" SET "ai_plan_status" = ? WHERE "id" = ?`)
+    .bind(status, id)
+    .run();
 }
 
 // ── Re-export commonly used scoring helpers ────────────

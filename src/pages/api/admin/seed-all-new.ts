@@ -3,82 +3,87 @@
 // Safe — idempotent, skips if already seeded.
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { TIEP_DON_CHECK_SEED, QUY_TRINH_CHECK_SEED, TAI_CHINH_CHECK_SEED } from '../../../data/seeds/registry';
-import { upsertSurveyDefinition, addSection, addQuestion, deleteSurveyDefinition } from '../../../lib/survey-config-db';
+import { TIEP_DON_CHECK_SEED } from '../../../data/seeds/tiep-don-check';
+import { QUY_TRINH_CHECK_SEED } from '../../../data/seeds/quy-trinh-check';
+import { TAI_CHINH_CHECK_SEED } from '../../../data/seeds/tai-chinh-check';
+import {
+  upsertSurveyDefinition,
+  addSection,
+  addQuestion,
+  deleteSurveyDefinition,
+} from '../../../lib/survey-config-db';
 import { json } from '../../../lib/api-helpers';
 
 export const prerender = false;
 
-async function seedOne(def: any): Promise<{ id: string; title: string; sections: number; questions: number }> {
+async function seedOne(seed: typeof TIEP_DON_CHECK_SEED) {
+  // Remove existing (cascades to sections + questions)
   try {
-    await deleteSurveyDefinition(env.DB, def.id);
+    await deleteSurveyDefinition(env.DB, seed.id);
   } catch {}
 
+  // Upsert definition
   await upsertSurveyDefinition(env.DB, {
-    id: def.id,
-    slug: def.slug,
-    title_vi: def.title_vi,
-    title_en: def.title_en,
-    description_vi: def.description_vi,
-    description_en: def.description_en,
-    subtitle_vi: def.subtitle_vi ?? null,
-    subtitle_en: def.subtitle_en ?? null,
-    chapter_refs: def.chapter_refs,
-    status: def.status,
-    is_free: def.is_free,
-    survey_type: def.survey_type,
-    lead_fields: def.lead_fields,
-    scoring_rules: def.scoring_rules ?? null,
-    ai_config: def.ai_config ?? null,
-    translations_vi: def.translations_vi,
-    translations_en: def.translations_en,
-    order_index: def.order_index ?? 99,
+    id: seed.id,
+    slug: seed.slug,
+    title_vi: seed.title_vi,
+    title_en: seed.title_en ?? '',
+    description_vi: seed.description_vi ?? null,
+    description_en: seed.description_en ?? null,
+    subtitle_vi: seed.subtitle_vi ?? null,
+    subtitle_en: seed.subtitle_en ?? null,
+    chapter_refs: seed.chapter_refs,
+    status: seed.status ?? 'active',
+    is_free: seed.is_free ?? 0,
+    survey_type: seed.survey_type ?? 'full',
+    lead_fields: seed.lead_fields,
+    scoring_rules: seed.scoring_rules,
+    ai_config: seed.ai_config,
+    translations_vi: seed.translations_vi,
+    translations_en: seed.translations_en,
+    order_index: seed.order_index ?? 0,
   });
 
-  let sections = 0;
-  let questions = 0;
-  for (const sec of def.sections ?? []) {
-    try {
-      await addSection(env.DB, {
-        id: sec.id,
-        survey_id: def.id,
-        title_vi: sec.title_vi,
-        title_en: sec.title_en ?? sec.title_vi,
-        subtitle_vi: sec.subtitle_vi ?? null,
-        subtitle_en: sec.subtitle_en ?? null,
-        ref: sec.ref ?? null,
-        icon: sec.icon ?? null,
-        order_index: sec.order_index ?? 0,
+  let sectionsAdded = 0;
+  let questionsAdded = 0;
+
+  for (const section of seed.sections ?? []) {
+    const added = await addSection(env.DB, {
+      survey_id: seed.id,
+      order_idx: section.order_idx,
+      title_vi: section.title_vi,
+      title_en: section.title_en ?? '',
+      subtitle_vi: section.subtitle_vi ?? null,
+      subtitle_en: section.subtitle_en ?? null,
+      ref: section.ref ?? null,
+      icon: section.icon ?? null,
+    });
+    sectionsAdded++;
+
+    for (const q of section.questions ?? []) {
+      await addQuestion(env.DB, {
+        section_id: added.id,
+        question_id: q.question_id,
+        order_idx: q.order_idx,
+        type: q.type,
+        label_vi: q.label_vi,
+        label_en: q.label_en ?? '',
+        placeholder_vi: q.placeholder_vi ?? null,
+        placeholder_en: q.placeholder_en ?? null,
+        options_vi: q.options_vi ?? null,
+        options_en: q.options_en ?? null,
+        scale_labels_vi: q.scale_labels_vi ?? null,
+        scale_labels_en: q.scale_labels_en ?? null,
+        required: q.required ?? 0,
+        anchor: q.anchor ?? 0,
+        weight: q.weight ?? null,
+        dimension: q.dimension ?? null,
       });
-      sections++;
-    } catch {}
-    for (const q of sec.questions ?? []) {
-      try {
-        await addQuestion(env.DB, {
-          id: q.id,
-          section_id: sec.id,
-          survey_id: def.id,
-          question_id: q.question_id,
-          type: q.type,
-          label_vi: q.label_vi,
-          label_en: q.label_en ?? q.label_vi,
-          placeholder_vi: q.placeholder_vi ?? null,
-          placeholder_en: q.placeholder_en ?? null,
-          options_vi: q.options_vi ?? null,
-          options_en: q.options_en ?? null,
-          scale_labels_vi: q.scale_labels_vi ?? null,
-          scale_labels_en: q.scale_labels_en ?? null,
-          dimension: q.dimension ?? null,
-          anchor: q.anchor ?? false,
-          required: q.required ?? false,
-          order_index: q.order_index ?? 0,
-        });
-        questions++;
-      } catch {}
+      questionsAdded++;
     }
   }
 
-  return { id: def.id, title: def.title_vi, sections, questions };
+  return { id: seed.id, title: seed.title_vi, sections: sectionsAdded, questions: questionsAdded };
 }
 
 export const GET: APIRoute = async () => {
