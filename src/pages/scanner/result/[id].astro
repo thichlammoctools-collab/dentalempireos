@@ -90,6 +90,10 @@ const hasAnalysis = !!analysisHtml;
 const hasPlan = !!response.ai_plan;
 const planHtml = response.ai_plan ? (marked.parse(response.ai_plan) as string) : '';
 
+// AI status (from DB, defaults to 'pending' for old responses)
+const planStatus = (response as any).ai_plan_status ?? 'pending';
+const analysisStatus = (response as any).ai_analysis_status ?? 'pending';
+
 // ── Section 1: Strengths & Needs Work (computed server-side) ──────────────────
 type InsightItem = { question: string; value: number; label: string; score: number };
 const insights: { strengths: InsightItem[]; needsWork: InsightItem[] } = { strengths: [], needsWork: [] };
@@ -197,7 +201,7 @@ try {
   description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-response-id={id} data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free}>
+  <section class="result-wrap" data-response-id={id} data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
     <!-- Header -->
     <div class="result-header">
       <div>
@@ -357,7 +361,7 @@ try {
       </div>
     )}
 
-    <!-- Section 3: 30-day plan — FREE (AI-generated, polled) -->
+    <!-- Section 3: 30-day plan — FREE (click-to-run AI) -->
     <div class="card plan-card" id="plan-section">
       <div class="insight-header">
         <span class="material-symbols-outlined text-amber-400 text-xl">calendar_month</span>
@@ -365,12 +369,29 @@ try {
           {lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}
         </h2>
       </div>
+
+      <!-- Done: show content -->
       {hasPlan ? (
         <article class="prose-content" set:html={planHtml}></article>
       ) : (
-        <div class="text-center py-6 text-on-surface-variant" id="plan-loading">
-          <div class="spinner mb-3"></div>
-          <p class="text-sm">{lang === 'vi' ? 'Đang tạo kế hoạch cá nhân hóa...' : 'Creating your personalized plan...'}</p>
+        <!-- Not done: show button or loading -->
+        <div id="plan-action">
+          <div id="plan-loading" class="text-center py-6 text-on-surface-variant hidden">
+            <div class="spinner mb-3"></div>
+            <p class="text-sm">{lang === 'vi' ? 'Đang tạo kế hoạch cá nhân hóa...' : 'Creating your personalized plan...'}</p>
+          </div>
+          <div id="plan-cta">
+            <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
+              <span class="material-symbols-outlined text-base">auto_awesome</span>
+              {lang === 'vi' ? 'Tạo kế hoạch 30 ngày' : 'Generate 30-Day Plan'}
+            </button>
+          </div>
+          <div id="plan-error" class="text-center py-4 hidden">
+            <p class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
+            <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-plan">
+              {lang === 'vi' ? 'Thử lại' : 'Retry'}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -392,17 +413,46 @@ try {
         {hasAnalysis ? (
           <article class="prose-content" set:html={analysisHtml}></article>
         ) : (
-          <div class="text-center py-8 text-on-surface-variant">
-            <div class="spinner mb-4"></div>
-            <p>{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+          <div id="analysis-action">
+            <div id="analysis-loading" class="text-center py-8 text-on-surface-variant hidden">
+              <div class="spinner mb-4"></div>
+              <p>{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+            </div>
+            <div id="analysis-cta" class="text-center">
+              <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis">
+                <span class="material-symbols-outlined text-base">auto_awesome</span>
+                {lang === 'vi' ? 'Bắt đầu phân tích AI' : 'Start AI Analysis'}
+              </button>
+            </div>
+            <div id="analysis-error" class="text-center py-4 hidden">
+              <p class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
+              <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-analysis">
+                {lang === 'vi' ? 'Thử lại' : 'Retry'}
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       <div id="analysis-locked">
         {definition.is_free === 1 ? (
-          <div class="text-center py-6 text-on-surface-variant">
-            <p>{lang === 'vi' ? 'Bản phân tích đang được tạo...' : 'Analysis is being generated...'}</p>
+          <div id="analysis-free-action" class="text-center">
+            <div id="analysis-free-loading" class="text-center py-6 text-on-surface-variant hidden">
+              <div class="spinner mb-3"></div>
+              <p class="text-sm">{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+            </div>
+            <div id="analysis-free-cta">
+              <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis-free">
+                <span class="material-symbols-outlined text-base">auto_awesome</span>
+                {lang === 'vi' ? 'Bắt đầu phân tích AI' : 'Start AI Analysis'}
+              </button>
+            </div>
+            <div id="analysis-free-error" class="text-center py-4 hidden">
+              <p class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
+              <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-analysis-free">
+                {lang === 'vi' ? 'Thử lại' : 'Retry'}
+              </button>
+            </div>
           </div>
         ) : (
           <div class="paywall-overlay">
@@ -819,6 +869,14 @@ try {
     align-items: center;
     gap: 0.4rem;
   }
+  .btn-amber {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: white;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-amber:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-amber:active { transform: scale(0.98); }
   .btn-primary {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: white;
@@ -845,13 +903,197 @@ try {
 <script>
   const wrap = document.querySelector('.result-wrap') as HTMLElement;
   const responseId = wrap?.dataset.responseId;
-  const surveyId = wrap?.dataset.surveyId;
   const productId = wrap?.dataset.productId;
   const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
   const isFree = wrap?.dataset.isFree === '1';
+  const planStatusInit = wrap?.dataset.planStatus ?? 'pending';
+  const analysisStatusInit = wrap?.dataset.analysisStatus ?? 'pending';
+
+  // ── Polling ───────────────────────────────────────────────────────
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  function pollForResult() {
+    if (pollInterval) return;
+    let attempts = 0;
+    pollInterval = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/scanner/${responseId}?admin=1`);
+        if (!res.ok) return;
+        const data = await res.json() as {
+          ai_analysis?: string | null;
+          ai_plan?: string | null;
+          ai_analysis_status?: string;
+          ai_plan_status?: string;
+        };
+        const planDone = data.ai_plan_status === 'done' || !data.ai_plan;
+        const analysisDone = data.ai_analysis_status === 'done' || !data.ai_analysis;
+        if (planDone && analysisDone) {
+          clearInterval(pollInterval!);
+          pollInterval = null;
+          window.location.reload();
+          return;
+        }
+        // Update UI per section
+        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan);
+        updateAnalysisUI(data.ai_analysis_status ?? 'pending', !!data.ai_analysis);
+        // Stop polling when nothing running
+        const running = (data.ai_plan_status === 'running') || (data.ai_analysis_status === 'running');
+        if (!running) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      } catch { /* ignore */ }
+      if (attempts >= 60) {
+        clearInterval(pollInterval!);
+        pollInterval = null;
+      }
+    }, 4000);
+  }
+
+  function updatePlanUI(status: string, hasContent: boolean) {
+    const cta = document.getElementById('plan-cta');
+    const loading = document.getElementById('plan-loading');
+    const error = document.getElementById('plan-error');
+    if (!cta || !loading || !error) return;
+    cta.classList.add('hidden');
+    loading.classList.add('hidden');
+    error.classList.add('hidden');
+    if (hasContent) {
+      window.location.reload();
+    } else if (status === 'running') {
+      loading.classList.remove('hidden');
+    } else if (status === 'failed') {
+      error.classList.remove('hidden');
+    } else {
+      cta.classList.remove('hidden');
+    }
+  }
+
+  function updateAnalysisUI(status: string, hasContent: boolean) {
+    const sections = [
+      { ctaId: 'analysis-cta', loadingId: 'analysis-loading', errorId: 'analysis-error' },
+      { ctaId: 'analysis-free-cta', loadingId: 'analysis-free-loading', errorId: 'analysis-free-error' },
+    ];
+    for (const s of sections) {
+      const cta = document.getElementById(s.ctaId);
+      const loading = document.getElementById(s.loadingId);
+      const error = document.getElementById(s.errorId);
+      if (!cta || !loading || !error) continue;
+      cta.classList.add('hidden');
+      loading.classList.add('hidden');
+      error.classList.add('hidden');
+      if (hasContent) {
+        window.location.reload();
+      } else if (status === 'running') {
+        loading.classList.remove('hidden');
+      } else if (status === 'failed') {
+        error.classList.remove('hidden');
+      } else {
+        cta.classList.remove('hidden');
+      }
+    }
+  }
+
+  // ── Trigger AI ──────────────────────────────────────────────────
+  async function triggerAi(type: 'analysis' | 'plan') {
+    // Show loading state
+    if (type === 'plan') {
+      document.getElementById('plan-cta')?.classList.add('hidden');
+      document.getElementById('plan-loading')?.classList.remove('hidden');
+      document.getElementById('plan-error')?.classList.add('hidden');
+    }
+    if (type === 'analysis') {
+      ['analysis-cta', 'analysis-free-cta'].forEach((id) => {
+        document.getElementById(id)?.classList.add('hidden');
+      });
+      ['analysis-loading', 'analysis-free-loading'].forEach((id) => {
+        document.getElementById(id)?.classList.remove('hidden');
+      });
+      ['analysis-error', 'analysis-free-error'].forEach((id) => {
+        document.getElementById(id)?.classList.add('hidden');
+      });
+    }
+
+    try {
+      const res = await fetch('/api/scanner/run-ai', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response_id: Number(responseId), type }),
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? 'Failed to trigger AI');
+      }
+      pollForResult();
+    } catch (err) {
+      if (type === 'plan') {
+        document.getElementById('plan-loading')?.classList.add('hidden');
+        document.getElementById('plan-error')?.classList.remove('hidden');
+      }
+      if (type === 'analysis') {
+        ['analysis-loading', 'analysis-free-loading'].forEach((id) => {
+          document.getElementById(id)?.classList.add('hidden');
+        });
+        ['analysis-error', 'analysis-free-error'].forEach((id) => {
+          document.getElementById(id)?.classList.remove('hidden');
+        });
+      }
+      console.error('[scanner] trigger AI error:', err);
+    }
+  }
+
+  // ── Button bindings ─────────────────────────────────────────────
+  document.getElementById('btn-run-plan')?.addEventListener('click', () => triggerAi('plan'));
+  document.getElementById('btn-retry-plan')?.addEventListener('click', () => triggerAi('plan'));
+  document.getElementById('btn-run-analysis')?.addEventListener('click', () => triggerAi('analysis'));
+  document.getElementById('btn-retry-analysis')?.addEventListener('click', () => triggerAi('analysis'));
+  document.getElementById('btn-run-analysis-free')?.addEventListener('click', () => triggerAi('analysis'));
+  document.getElementById('btn-retry-analysis-free')?.addEventListener('click', () => triggerAi('analysis'));
+
+  // ── Initial UI state from server status ─────────────────────────
+  // Plan
+  if (planStatusInit === 'running') {
+    document.getElementById('plan-cta')?.classList.add('hidden');
+    document.getElementById('plan-loading')?.classList.remove('hidden');
+    pollForResult();
+  } else if (planStatusInit === 'failed') {
+    document.getElementById('plan-cta')?.classList.add('hidden');
+    document.getElementById('plan-error')?.classList.remove('hidden');
+  }
+  // Analysis (unlocked section)
+  if (analysisStatusInit === 'running') {
+    document.getElementById('analysis-cta')?.classList.add('hidden');
+    document.getElementById('analysis-loading')?.classList.remove('hidden');
+    pollForResult();
+  } else if (analysisStatusInit === 'failed') {
+    document.getElementById('analysis-cta')?.classList.add('hidden');
+    document.getElementById('analysis-error')?.classList.remove('hidden');
+  }
+  // Analysis (free section)
+  if (analysisStatusInit === 'running') {
+    document.getElementById('analysis-free-cta')?.classList.add('hidden');
+    document.getElementById('analysis-free-loading')?.classList.remove('hidden');
+  } else if (analysisStatusInit === 'failed') {
+    document.getElementById('analysis-free-cta')?.classList.add('hidden');
+    document.getElementById('analysis-free-error')?.classList.remove('hidden');
+  }
+
+  // ── Paywall ─────────────────────────────────────────────────────
   const btnUnlock = document.getElementById('btn-unlock');
   const locked = document.getElementById('analysis-locked');
   const unlocked = document.getElementById('analysis-unlocked');
+
+  function showUnlocked() {
+    if (locked) (locked as HTMLElement).style.display = 'none';
+    unlocked?.classList.remove('hidden');
+  }
+
+  function showLocked() {
+    if (locked) (locked as HTMLElement).style.display = '';
+    unlocked?.classList.add('hidden');
+  }
 
   async function checkAccess() {
     if (!responseId || !productId) return false;
@@ -864,46 +1106,12 @@ try {
     }
   }
 
-  function showUnlocked() {
-    if (locked) locked.style.display = 'none';
-    if (unlocked) unlocked.classList.remove('hidden');
-  }
-
-  function showLocked() {
-    if (locked) locked.style.display = '';
-    if (unlocked) unlocked.classList.add('hidden');
-  }
-
-  function startPolling() {
-    if (!responseId) return;
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      try {
-        const res = await fetch(`/api/scanner/${responseId}`);
-        if (res.ok) {
-          const data = await res.json() as { ai_analysis?: string | null; ai_plan?: string | null };
-          if (data.ai_analysis || data.ai_plan) {
-            clearInterval(interval);
-            window.location.reload();
-          }
-        }
-      } catch {}
-      if (attempts >= 20) clearInterval(interval);
-    }, 4000);
-  }
-
-  // Init: if is_free → no paywall, just check if analysis exists
   if (isFree) {
     showUnlocked();
-    const analysisEl = document.querySelector('.spinner');
-    if (analysisEl) startPolling();
   } else {
     checkAccess().then((hasAccess) => {
       if (hasAccess) {
         showUnlocked();
-        const analysisEl = document.querySelector('.spinner');
-        if (analysisEl) startPolling();
       } else {
         showLocked();
       }
@@ -911,6 +1119,7 @@ try {
   }
 
   btnUnlock?.addEventListener('click', async () => {
+    if (!btnUnlock) return;
     btnUnlock.innerHTML = `<span>${lang === 'vi' ? 'Đang chuyển...' : 'Redirecting...'}</span>`;
     btnUnlock.setAttribute('disabled', 'true');
 
