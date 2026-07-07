@@ -68,5 +68,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
+  // Prevent CDN/browser caching on dynamic scanner pages — list/slug change with DB seed updates
+  if (url.pathname.startsWith('/scanner')) {
+    const response = await next();
+    const newResponse = new Response(response.body, response);
+    newResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    newResponse.headers.set('Pragma', 'no-cache');
+    newResponse.headers.set('Expires', '0');
+    return newResponse;
+  }
+
   return next();
 });
