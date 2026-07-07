@@ -27,8 +27,5 @@
       "bucket_name": "dentalempireos"
     }
   ],
-  "vars": {
-    "GOOGLE_CLIENT_ID": "329430140577-ih3lorqtj3qeifctinrngfvhqqjedmsh.apps.googleusercontent.com",
-    "ADMIN_EMAILS": "admin@example.com"
-  }
+  "vars": {}
 }
