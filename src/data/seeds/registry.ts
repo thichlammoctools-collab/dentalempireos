@@ -28,6 +28,16 @@ import { CHU_THE_HOA_CHECK_SEED } from './chu-the-hoa-check';
 import { CASE_REFLECTION_CHECK_SEED } from './case-reflection-check';
 import { NANG_LUONG_CHECK_SEED } from './nang-luong-check';
 import { SO_HOA_CHECK_SEED } from './so-hoa-check';
+import { MARKETING_CONTENT_CHECK_SEED } from './marketing-content-check';
+import { LOI_NHU_QUAN_CHECK_SEED } from './loi-nhu-quan-check';
+import { HIEU_QUA_CHECK_SEED } from './hieu-qua-check';
+import { CO_SO_VAT_CHAT_CHECK_SEED } from './co-so-vat-chat-check';
+import { PHAN_BIET_THUONG_HIEU_CHECK_SEED } from './phan-biet-thuong-hieu-check';
+import { TU_VAN_BAN_HANG_CHECK_SEED } from './tu-van-ban-hang-check';
+import { MARKETING_ONLINE_CHECK_SEED } from './marketing-online-check';
+import { THU_VI_TRI_CHECK_SEED } from './thu-vi-tri-check';
+import { THICH_UNG_DUNG_CHECK_SEED } from './thich-ung-dung-check';
+import { THUONG_HIEU_CA_NHAN_CHECK_SEED } from './thuong-hieu-ca-nhan-check';
 
 export interface SeedQuestion {
   question_id: string;
@@ -102,4 +112,14 @@ export const SEED_REGISTRY: Record<string, SeedScanner> = {
   [CASE_REFLECTION_CHECK_SEED.id as string]: CASE_REFLECTION_CHECK_SEED as unknown as SeedScanner,
   [NANG_LUONG_CHECK_SEED.id as string]: NANG_LUONG_CHECK_SEED as unknown as SeedScanner,
   [SO_HOA_CHECK_SEED.id as string]: SO_HOA_CHECK_SEED as unknown as SeedScanner,
+  [MARKETING_CONTENT_CHECK_SEED.id as string]: MARKETING_CONTENT_CHECK_SEED as unknown as SeedScanner,
+  [LOI_NHU_QUAN_CHECK_SEED.id as string]: LOI_NHU_QUAN_CHECK_SEED as unknown as SeedScanner,
+  [HIEU_QUA_CHECK_SEED.id as string]: HIEU_QUA_CHECK_SEED as unknown as SeedScanner,
+  [CO_SO_VAT_CHAT_CHECK_SEED.id as string]: CO_SO_VAT_CHAT_CHECK_SEED as unknown as SeedScanner,
+  [PHAN_BIET_THUONG_HIEU_CHECK_SEED.id as string]: PHAN_BIET_THUONG_HIEU_CHECK_SEED as unknown as SeedScanner,
+  [TU_VAN_BAN_HANG_CHECK_SEED.id as string]: TU_VAN_BAN_HANG_CHECK_SEED as unknown as SeedScanner,
+  [MARKETING_ONLINE_CHECK_SEED.id as string]: MARKETING_ONLINE_CHECK_SEED as unknown as SeedScanner,
+  [THU_VI_TRI_CHECK_SEED.id as string]: THU_VI_TRI_CHECK_SEED as unknown as SeedScanner,
+  [THICH_UNG_DUNG_CHECK_SEED.id as string]: THICH_UNG_DUNG_CHECK_SEED as unknown as SeedScanner,
+  [THUONG_HIEU_CA_NHAN_CHECK_SEED.id as string]: THUONG_HIEU_CA_NHAN_CHECK_SEED as unknown as SeedScanner,
 };
