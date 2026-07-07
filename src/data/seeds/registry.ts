@@ -23,6 +23,11 @@ import { CONTENT_FUNNEL_CHECK_SEED } from './content-funnel-check';
 import { REFERRAL_CHECK_SEED } from './referral-check';
 import { DO_LUONG_CHECK_SEED } from './do-luong-check';
 import { KHO_VAT_TU_CHECK_SEED } from './kho-vat-tu-check';
+import { LINH_HON_CHECK_SEED } from './linh-hon-check';
+import { CHU_THE_HOA_CHECK_SEED } from './chu-the-hoa-check';
+import { CASE_REFLECTION_CHECK_SEED } from './case-reflection-check';
+import { NANG_LUONG_CHECK_SEED } from './nang-luong-check';
+import { SO_HOA_CHECK_SEED } from './so-hoa-check';
 
 export interface SeedQuestion {
   question_id: string;
@@ -92,4 +97,9 @@ export const SEED_REGISTRY: Record<string, SeedScanner> = {
   [REFERRAL_CHECK_SEED.id as string]: REFERRAL_CHECK_SEED as unknown as SeedScanner,
   [DO_LUONG_CHECK_SEED.id as string]: DO_LUONG_CHECK_SEED as unknown as SeedScanner,
   [KHO_VAT_TU_CHECK_SEED.id as string]: KHO_VAT_TU_CHECK_SEED as unknown as SeedScanner,
+  [LINH_HON_CHECK_SEED.id as string]: LINH_HON_CHECK_SEED as unknown as SeedScanner,
+  [CHU_THE_HOA_CHECK_SEED.id as string]: CHU_THE_HOA_CHECK_SEED as unknown as SeedScanner,
+  [CASE_REFLECTION_CHECK_SEED.id as string]: CASE_REFLECTION_CHECK_SEED as unknown as SeedScanner,
+  [NANG_LUONG_CHECK_SEED.id as string]: NANG_LUONG_CHECK_SEED as unknown as SeedScanner,
+  [SO_HOA_CHECK_SEED.id as string]: SO_HOA_CHECK_SEED as unknown as SeedScanner,
 };
