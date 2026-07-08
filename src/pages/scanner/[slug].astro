@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
-import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations } from '../../lib/survey-config-db';
+import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { createAuth } from '../../lib/auth';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 
@@ -64,10 +64,10 @@ const surveyData = {
       label_en: q.label_en || q.label_vi,
       placeholder_vi: q.placeholder_vi || '',
       placeholder_en: q.placeholder_en || '',
-      options_vi: q.options_vi != null ? JSON.parse(q.options_vi) : null,
-      options_en: q.options_en != null ? JSON.parse(q.options_en) : null,
-      scale_labels_vi: q.scale_labels_vi != null ? JSON.parse(q.scale_labels_vi) : null,
-      scale_labels_en: q.scale_labels_en != null ? JSON.parse(q.scale_labels_en) : null,
+      options_vi: parseJSON(q.options_vi, null),
+      options_en: parseJSON(q.options_en, null),
+      scale_labels_vi: parseJSON(q.scale_labels_vi, null),
+      scale_labels_en: parseJSON(q.scale_labels_en, null),
       required: q.required || false,
       anchor: q.anchor || false,
     })),

@@ -397,7 +397,7 @@ export async function generateScannerPdf(
       if (val === undefined || val === null || val === '') {
         answerText = '—';
       } else if (q.type === 'select' || q.type === 'yesno') {
-        const labels = q.scale_labels_vi ? JSON.parse(q.scale_labels_vi) : null;
+        const labels = parseJSON<Record<string, string> | null>(q.scale_labels_vi, null);
         const label = labels?.[String(val)] ?? String(val);
         answerText = `${val} — ${label}`;
       } else if (q.type === 'radio') {

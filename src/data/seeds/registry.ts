@@ -38,6 +38,13 @@ import { MARKETING_ONLINE_CHECK_SEED } from './marketing-online-check';
 import { THU_VI_TRI_CHECK_SEED } from './thu-vi-tri-check';
 import { THICH_UNG_DUNG_CHECK_SEED } from './thich-ung-dung-check';
 import { THUONG_HIEU_CA_NHAN_CHECK_SEED } from './thuong-hieu-ca-nhan-check';
+import { KPI_CHECK_SEED } from './kpi-check';
+import { OS_MATURITY_CHECK_SEED } from './os-maturity-check';
+import { DAO_TAO_CHECK_SEED } from './dao-tao-check';
+import { PATIENT_EXPERIENCE_CHECK_SEED } from './patient-experience-check';
+import { CRM_CHECK_SEED } from './crm-check';
+import { ROADMAP_CHECK_SEED } from './roadmap-check';
+import { TOTAL_OS_DIAGNOSTIC_SEED } from './total-os-diagnostic';
 
 export interface SeedQuestion {
   question_id: string;
@@ -122,4 +129,11 @@ export const SEED_REGISTRY: Record<string, SeedScanner> = {
   [THU_VI_TRI_CHECK_SEED.id as string]: THU_VI_TRI_CHECK_SEED as unknown as SeedScanner,
   [THICH_UNG_DUNG_CHECK_SEED.id as string]: THICH_UNG_DUNG_CHECK_SEED as unknown as SeedScanner,
   [THUONG_HIEU_CA_NHAN_CHECK_SEED.id as string]: THUONG_HIEU_CA_NHAN_CHECK_SEED as unknown as SeedScanner,
+  [KPI_CHECK_SEED.id as string]: KPI_CHECK_SEED as unknown as SeedScanner,
+  [OS_MATURITY_CHECK_SEED.id as string]: OS_MATURITY_CHECK_SEED as unknown as SeedScanner,
+  [DAO_TAO_CHECK_SEED.id as string]: DAO_TAO_CHECK_SEED as unknown as SeedScanner,
+  [PATIENT_EXPERIENCE_CHECK_SEED.id as string]: PATIENT_EXPERIENCE_CHECK_SEED as unknown as SeedScanner,
+  [CRM_CHECK_SEED.id as string]: CRM_CHECK_SEED as unknown as SeedScanner,
+  [ROADMAP_CHECK_SEED.id as string]: ROADMAP_CHECK_SEED as unknown as SeedScanner,
+  [TOTAL_OS_DIAGNOSTIC_SEED.id as string]: TOTAL_OS_DIAGNOSTIC_SEED as unknown as SeedScanner,
 };

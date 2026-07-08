@@ -380,9 +380,9 @@ try {
       ) : (
         <!-- Not done: show button or loading -->
         <div id="plan-action">
-          <div id="plan-loading" class="text-center py-6 text-on-surface-variant hidden">
-            <div class="spinner mb-3"></div>
-            <p class="text-sm">{lang === 'vi' ? 'Đang tạo kế hoạch cá nhân hóa...' : 'Creating your personalized plan...'}</p>
+          <div id="plan-loading" class="hidden">
+            <div id="plan-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
+            <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
           </div>
           <div id="plan-cta">
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
@@ -418,9 +418,9 @@ try {
           <article class="prose-content" set:html={analysisHtml}></article>
         ) : (
           <div id="analysis-action">
-            <div id="analysis-loading" class="text-center py-8 text-on-surface-variant hidden">
-              <div class="spinner mb-4"></div>
-              <p>{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+            <div id="analysis-loading" class="hidden">
+              <div id="analysis-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
+              <pre id="analysis-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
             </div>
             <div id="analysis-cta" class="text-center">
               <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis">
@@ -441,9 +441,9 @@ try {
       <div id="analysis-locked">
         {definition.is_free === 1 ? (
           <div id="analysis-free-action" class="text-center">
-            <div id="analysis-free-loading" class="text-center py-6 text-on-surface-variant hidden">
-              <div class="spinner mb-3"></div>
-              <p class="text-sm">{lang === 'vi' ? 'Bản phân tích AI đang được tạo...' : 'AI analysis is being generated...'}</p>
+            <div id="analysis-free-loading" class="hidden">
+              <div id="analysis-free-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
+              <pre id="analysis-free-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
             </div>
             <div id="analysis-free-cta">
               <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis-free">
@@ -902,6 +902,14 @@ try {
     .paywall-overlay { padding: 1.5rem 0.5rem; }
     .paywall-amount { font-size: 1.5rem; }
   }
+  .ai-stream-preview {
+    background: var(--color-surface-container-lowest, #1a1a1a);
+    border: 1px solid var(--color-outline-variant, #333);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    font-family: var(--font-mono, monospace);
+    animation: fadeIn 0.2s ease-in;
+  }
 </style>
 
 <script>
@@ -999,62 +1007,144 @@ try {
     }
   }
 
-  // ── Trigger AI ──────────────────────────────────────────────────
-  async function triggerAi(type: 'analysis' | 'plan') {
-    // Show loading state
+  // ── SSE Streaming ───────────────────────────────────────────────
+  function getStreamContainer(type: 'analysis' | 'plan', isFree = false): HTMLElement | null {
+    if (type === 'plan') return document.getElementById('plan-stream');
+    return document.getElementById(isFree ? 'analysis-free-stream' : 'analysis-stream');
+  }
+
+  function getStatusEl(type: 'analysis' | 'plan', isFree = false): HTMLElement | null {
+    if (type === 'plan') return document.getElementById('plan-status');
+    return document.getElementById(isFree ? 'analysis-free-status' : 'analysis-status');
+  }
+
+  async function triggerAi(type: 'analysis' | 'plan', isFree = false) {
+    // Show streaming state
     if (type === 'plan') {
       document.getElementById('plan-cta')?.classList.add('hidden');
-      document.getElementById('plan-loading')?.classList.remove('hidden');
+      document.getElementById('plan-loading')?.classList.add('hidden');
       document.getElementById('plan-error')?.classList.add('hidden');
     }
     if (type === 'analysis') {
-      ['analysis-cta', 'analysis-free-cta'].forEach((id) => {
-        document.getElementById(id)?.classList.add('hidden');
-      });
-      ['analysis-loading', 'analysis-free-loading'].forEach((id) => {
-        document.getElementById(id)?.classList.remove('hidden');
-      });
-      ['analysis-error', 'analysis-free-error'].forEach((id) => {
-        document.getElementById(id)?.classList.add('hidden');
-      });
+      ['analysis-cta', 'analysis-free-cta'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      ['analysis-loading', 'analysis-free-loading'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      ['analysis-error', 'analysis-free-error'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
     }
 
+    const statusEl = getStatusEl(type);
+    const container = getStreamContainer(type, isFree);
+    if (statusEl) statusEl.textContent = lang === 'vi' ? 'Đang phân tích...' : 'Analyzing...';
+    if (container) container.classList.remove('hidden');
+
     try {
-      const res = await fetch('/api/scanner/run-ai', {
+      const res = await fetch('/api/scanner/run-ai-stream', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response_id: Number(responseId), type }),
       });
-      if (!res.ok) {
-        const err = await res.json() as { error?: string };
-        throw new Error(err.error ?? 'Failed to trigger AI');
+
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
       }
-      pollForResult();
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+
+          let event = '';
+          let dataStr = '';
+
+          for (const segment of trimmed.split('\n')) {
+            const s = segment.trim();
+            if (s.startsWith('event: ')) event = s.slice(7).trim();
+            if (s.startsWith('data: ')) dataStr = s.slice(6).trim();
+          }
+          if (!dataStr) continue;
+
+          let data: Record<string, unknown>;
+          try { data = JSON.parse(dataStr); } catch { continue; }
+
+          const chunkType = String(data.type ?? type) as 'analysis' | 'plan';
+
+          if (event === 'chunk') {
+            const text = String(data.text ?? '');
+            const targetContainer = getStreamContainer(chunkType, isFree);
+            const targetStatus = getStatusEl(chunkType, isFree);
+            if (targetContainer) targetContainer.textContent = (targetContainer.textContent ?? '') + text;
+            if (targetStatus && data.message) targetStatus.textContent = String(data.message);
+          } else if (event === 'status') {
+            const targetStatus = getStatusEl(chunkType, isFree);
+            if (targetStatus) targetStatus.textContent = String(data.message ?? '');
+          } else if (event === 'done') {
+            const targetStatus = getStatusEl(chunkType, isFree);
+            if (targetStatus) targetStatus.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
+            // If this is the last chunk type, reload after a moment
+            const totalExpected = type === 'all' ? 2 : 1;
+            const r2Keys = data.r2_keys as Record<string, string> | undefined;
+            const keyCount = r2Keys ? Object.keys(r2Keys).length : 0;
+            if (keyCount >= totalExpected) {
+              setTimeout(() => window.location.reload(), 800);
+            }
+          } else if (event === 'error') {
+            throw new Error(String(data.message ?? 'Stream error'));
+          }
+        }
+      }
     } catch (err) {
+      console.error('[scanner] SSE error:', err);
+      const targetContainer = getStreamContainer(type, isFree);
+      const targetStatus = getStatusEl(type, isFree);
+      if (targetStatus) targetStatus.textContent = '';
+      if (targetContainer) {
+        targetContainer.textContent = '';
+        targetContainer.classList.add('hidden');
+      }
+
       if (type === 'plan') {
-        document.getElementById('plan-loading')?.classList.add('hidden');
         document.getElementById('plan-error')?.classList.remove('hidden');
+      } else {
+        const errId = isFree ? 'analysis-free-error' : 'analysis-error';
+        document.getElementById(errId)?.classList.remove('hidden');
       }
-      if (type === 'analysis') {
-        ['analysis-loading', 'analysis-free-loading'].forEach((id) => {
-          document.getElementById(id)?.classList.add('hidden');
-        });
-        ['analysis-error', 'analysis-free-error'].forEach((id) => {
-          document.getElementById(id)?.classList.remove('hidden');
-        });
+    }
+  }
+
+      // All done — reload to show rendered content
+      if (statusEl) statusEl.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      console.error('[scanner] SSE error:', err);
+      if (statusEl) statusEl.textContent = '';
+      if (container) container.classList.add('hidden');
+
+      if (type === 'plan') {
+        document.getElementById('plan-error')?.classList.remove('hidden');
+      } else {
+        ['analysis-error', 'analysis-free-error'].forEach((id) => document.getElementById(id)?.classList.remove('hidden'));
       }
-      console.error('[scanner] trigger AI error:', err);
     }
   }
 
   // ── Button bindings ─────────────────────────────────────────────
   document.getElementById('btn-run-plan')?.addEventListener('click', () => triggerAi('plan'));
   document.getElementById('btn-retry-plan')?.addEventListener('click', () => triggerAi('plan'));
-  document.getElementById('btn-run-analysis')?.addEventListener('click', () => triggerAi('analysis'));
-  document.getElementById('btn-retry-analysis')?.addEventListener('click', () => triggerAi('analysis'));
-  document.getElementById('btn-run-analysis-free')?.addEventListener('click', () => triggerAi('analysis'));
-  document.getElementById('btn-retry-analysis-free')?.addEventListener('click', () => triggerAi('analysis'));
+  document.getElementById('btn-run-analysis')?.addEventListener('click', () => triggerAi('analysis', false));
+  document.getElementById('btn-retry-analysis')?.addEventListener('click', () => triggerAi('analysis', false));
+  document.getElementById('btn-run-analysis-free')?.addEventListener('click', () => triggerAi('analysis', true));
+  document.getElementById('btn-retry-analysis-free')?.addEventListener('click', () => triggerAi('analysis', true));
 
   // ── Initial UI state from server status ─────────────────────────
   // Plan
