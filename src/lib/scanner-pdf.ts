@@ -14,6 +14,7 @@ import {
   type SurveyDefinitionFull,
   type ScoringRules,
   parseScoringRules,
+  parseJSON,
 } from './survey-config-db';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
 import { getScoreLevel } from './scoring-engine';

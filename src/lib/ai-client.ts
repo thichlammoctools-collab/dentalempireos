@@ -14,6 +14,17 @@ export interface ModelConfig {
   max_tokens?: number;
 }
 
+export class AiError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public provider: string,
+  ) {
+    super(message);
+    this.name = 'AiError';
+  }
+}
+
 function isOpenAIUrl(url: string): boolean {
   const u = url.toLowerCase();
   return u.includes('openai') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together');
@@ -78,12 +89,12 @@ async function chatOpenAI(
 
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error(`OpenAI API error (${resp.status}): ${err}`);
+    throw new AiError(`OpenAI API error (${resp.status}): ${err}`, resp.status, 'openai');
   }
 
   const data = (await resp.json()) as { choices: Array<{ message: { content: string | null } }> };
   const content = data.choices[0]?.message?.content;
-  if (content === null || content === undefined) throw new Error('Empty response from OpenAI API');
+  if (content === null || content === undefined) throw new AiError('Empty response from OpenAI API', 200, 'openai');
   return content;
 }
 
@@ -120,7 +131,7 @@ async function chatAnthropic(
 
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error(`Anthropic API error (${resp.status}): ${err}`);
+    throw new AiError(`Anthropic API error (${resp.status}): ${err}`, resp.status, 'anthropic');
   }
 
   const data = (await resp.json()) as { content: Array<{ type: string; text?: string }> };
@@ -128,7 +139,7 @@ async function chatAnthropic(
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')
     .join('\n');
-  if (!text) throw new Error('Empty response from Anthropic API');
+  if (!text) throw new AiError('Empty response from Anthropic API', 200, 'anthropic');
   return text;
 }
 
@@ -165,10 +176,10 @@ async function* streamOpenAI(
 
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error(`OpenAI streaming error (${resp.status}): ${err}`);
+    throw new AiError(`OpenAI streaming error (${resp.status}): ${err}`, resp.status, 'openai');
   }
 
-  if (!resp.body) throw new Error('No response body for OpenAI streaming');
+  if (!resp.body) throw new AiError('No response body for OpenAI streaming', 200, 'openai');
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
@@ -237,10 +248,10 @@ async function* streamAnthropic(
 
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error(`Anthropic streaming error (${resp.status}): ${err}`);
+    throw new AiError(`Anthropic streaming error (${resp.status}): ${err}`, resp.status, 'anthropic');
   }
 
-  if (!resp.body) throw new Error('No response body for Anthropic streaming');
+  if (!resp.body) throw new AiError('No response body for Anthropic streaming', 200, 'anthropic');
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();

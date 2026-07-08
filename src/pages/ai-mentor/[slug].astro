@@ -18,80 +18,96 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
 
 <BaseLayout title={`${title} | Dental Empire OS`} description={description}>
   <div class="min-h-screen bg-surface pt-20 pb-8">
-    <div class="max-w-3xl mx-auto px-4">
+    <div class="max-w-4xl mx-auto px-4 flex gap-6">
 
-      <!-- Header -->
-      <div class="flex items-center gap-3 mb-6">
-        <a href="/#ai-tools" class="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary transition-colors">
-          <span class="material-symbols-outlined text-lg">arrow_back</span>
-          <span>Quay lại</span>
-        </a>
-        {chapterId && (
-          <span class="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-            Ch. {chapterId}
-          </span>
-        )}
-      </div>
+      <!-- Session Sidebar -->
+      <aside id="session-sidebar" class="hidden md:flex flex-col w-56 shrink-0">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Hội thoại</h2>
+          <button id="btn-new-chat" class="material-symbols-outlined text-base text-primary hover:text-primary/80 cursor-pointer" title="Hội thoại mới">add</button>
+        </div>
+        <div id="session-list" class="flex flex-col gap-1 overflow-y-auto max-h-[60vh]">
+          <!-- Sessions loaded via JS -->
+        </div>
+      </aside>
 
-      <div class="mb-4">
-        <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary text-3xl">psychology</span>
-          {title}
-        </h1>
-        <p class="text-sm text-on-surface-variant mt-1">Hỏi đáp về nội dung sách Dental Empire OS</p>
-      </div>
+      <!-- Main Chat Area -->
+      <div class="flex-1 min-w-0">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-6">
+          <button id="btn-toggle-sidebar" class="md:hidden material-symbols-outlined text-base text-on-surface-variant">menu</button>
+          <a href="/#ai-tools" class="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary transition-colors">
+            <span class="material-symbols-outlined text-lg">arrow_back</span>
+            <span>Quay lại</span>
+          </a>
+          {chapterId && (
+            <span class="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              Ch. {chapterId}
+            </span>
+          )}
+        </div>
 
-      <!-- Chat Messages -->
-      <div
-        id="chat-messages"
-        class="flex flex-col gap-3 mb-4 min-h-[50vh]"
-      >
-        <!-- Welcome message -->
-        <div class="flex justify-start">
-          <div class="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-surface-container-high text-on-surface">
-            <p class="text-sm leading-relaxed whitespace-pre-wrap">
-              Xin chào! Tôi là AI Mentor của Dental Empire OS. Hãy hỏi tôi bất cứ điều gì về quản trị phòng khám nha khoa — từ chiến lược, quy trình, nhân sự, marketing, tài chính...
-            </p>
+        <div class="mb-4">
+          <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">psychology</span>
+            {title}
+          </h1>
+          <p class="text-sm text-on-surface-variant mt-1">Hỏi đáp về nội dung sách Dental Empire OS</p>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="chat-messages" class="flex flex-col gap-3 mb-4 min-h-[50vh]">
+          <!-- Welcome message -->
+          <div class="flex justify-start">
+            <div class="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-surface-container-high text-on-surface">
+              <p class="text-sm leading-relaxed whitespace-pre-wrap">
+                Xin chào! Tôi là AI Mentor của Dental Empire OS. Hãy hỏi tôi bất cứ điều gì về quản trị phòng khám nha khoa — từ chiến lược, quy trình, nhân sự, marketing, tài chính...
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Input -->
-      <div class="glass-card rounded-2xl p-4 border border-outline-variant/20 sticky bottom-4">
-        <form id="chat-form" class="flex gap-3">
-          <input
-            id="chat-input"
-            type="text"
-            class="flex-1 px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
-            placeholder="Hỏi về nội dung sách, quản trị phòng khám..."
-            required
-          />
-          <button
-            type="submit"
-            id="send-btn"
-            class="btn-primary-metallic px-5 py-3 rounded-xl font-bold flex items-center gap-2"
-          >
-            <span class="material-symbols-outlined text-lg">send</span>
-          </button>
-        </form>
-        <p id="ai-warning" class="hidden text-xs text-center text-amber-400 mt-2">
-          Không có nội dung sách để tham khảo — câu trả lời dựa trên kiến thức chung.
-        </p>
+        <!-- Input -->
+        <div class="glass-card rounded-2xl p-4 border border-outline-variant/20 sticky bottom-4">
+          <form id="chat-form" class="flex gap-3">
+            <input
+              id="chat-input"
+              type="text"
+              class="flex-1 px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+              placeholder="Hỏi về nội dung sách, quản trị phòng khám..."
+              required
+            />
+            <button
+              type="submit"
+              id="send-btn"
+              class="btn-primary-metallic px-5 py-3 rounded-xl font-bold flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-lg">send</span>
+            </button>
+          </form>
+          <p id="ai-warning" class="hidden text-xs text-center text-amber-400 mt-2">
+            Không có nội dung sách để tham khảo — câu trả lời dựa trên kiến thức chung.
+          </p>
+        </div>
       </div>
-
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY = `deos-ai-mentor-${location.pathname}`;
-    let messages: Array<{ role: 'user' | 'assistant'; content: string }> = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') ?? [];
     const chatMsgs = document.getElementById('chat-messages') as HTMLElement;
     const chatForm = document.getElementById('chat-form') as HTMLFormElement;
     const chatInput = document.getElementById('chat-input') as HTMLInputElement;
     const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
     const aiWarning = document.getElementById('ai-warning');
+    const sessionList = document.getElementById('session-list');
+    const btnNewChat = document.getElementById('btn-new-chat');
+
     const slug = location.pathname.split('/').pop() ?? '';
     const chapterId = new URLSearchParams(location.search).get('chapter') ?? '';
+
+    let currentSessionId: string | null = null;
+    let currentMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    let isStreaming = false;
 
     function escapeHtml(text: string): string {
       return text
@@ -102,19 +118,56 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
 
     function renderMessages() {
       if (!chatMsgs) return;
-      chatMsgs.innerHTML = messages.map(m => `
+      chatMsgs.innerHTML = currentMessages.map((m, i) => `
         <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
           <div class="max-w-[80%] rounded-2xl px-4 py-3 ${m.role === 'user'
             ? 'rounded-tr-sm bg-primary text-white'
             : 'rounded-tl-sm bg-surface-container-high text-on-surface'}">
-            <p class="text-sm leading-relaxed whitespace-pre-wrap">${escapeHtml(m.content)}</p>
+            <p class="text-sm leading-relaxed whitespace-pre-wrap" data-msg-idx="${i}">${escapeHtml(m.content)}</p>
           </div>
         </div>
       `).join('');
       chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
 
+    function renderSessions(sessions: Array<{ id: string; title: string | null; message_count: number; updated_at: string }>) {
+      if (!sessionList) return;
+      sessionList.innerHTML = sessions.map(s => `
+        <button class="session-item text-left text-xs px-3 py-2 rounded-lg truncate transition-colors ${s.id === currentSessionId ? 'bg-primary/20 text-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}" data-session-id="${s.id}">
+          ${escapeHtml(s.title ?? 'Hội thoại mới')}
+        </button>
+      `).join('');
+      sessionList.querySelectorAll('.session-item').forEach(btn => {
+        btn.addEventListener('click', () => loadSession((btn as HTMLElement).dataset.sessionId!));
+      });
+    }
+
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/ai-mentor/sessions', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json() as { sessions: Array<{ id: string; title: string | null; message_count: number; updated_at: string }> };
+          renderSessions(data.sessions);
+        }
+      } catch { /* ignore */ }
+    }
+
+    async function loadSession(sessionId: string) {
+      // Simple: reload page with session_id param for server-side load
+      location.href = `/ai-mentor/${slug}?session=${sessionId}&chapter=${chapterId}`;
+    }
+
+    function newChat() {
+      currentSessionId = null;
+      currentMessages = [];
+      renderMessages();
+      chatInput.focus();
+      // Update URL without session param
+      history.pushState({}, '', `/ai-mentor/${slug}${chapterId ? `?chapter=${chapterId}` : ''}`);
+    }
+
     function setLoading(loading: boolean) {
+      isStreaming = loading;
       if (sendBtn) {
         sendBtn.disabled = loading;
         const icon = sendBtn.querySelector('.material-symbols-outlined');
@@ -123,47 +176,93 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
       if (chatInput) chatInput.disabled = loading;
     }
 
-    function saveMessages() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
-    }
+    // Initial load
+    loadSessions();
 
-    // Render existing messages on load
-    renderMessages();
+    btnNewChat?.addEventListener('click', newChat);
 
     chatForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (isStreaming) return;
       const text = chatInput.value.trim();
       if (!text) return;
       chatInput.value = '';
 
-      messages.push({ role: 'user', content: text });
-      messages.push({ role: 'assistant', content: '...' });
+      currentMessages.push({ role: 'user', content: text });
+      currentMessages.push({ role: 'assistant', content: '' });
       renderMessages();
       setLoading(true);
-      saveMessages();
+
+      const lastAssistantEl = chatMsgs.querySelector<HTMLElement>('[data-msg-idx]');
+      const lastIdx = currentMessages.length - 1;
 
       try {
         const res = await fetch('/api/ai-mentor/chat', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: messages.slice(0, -1), app_slug: slug, chapter_id: chapterId }),
+          body: JSON.stringify({
+            session_id: currentSessionId,
+            message: text,
+            app_slug: slug,
+            chapter_id: chapterId,
+          }),
         });
-        const data = await res.json() as { reply?: string; error?: string; chunks_used?: number };
-        if (data.error) {
-          messages[messages.length - 1] = { role: 'assistant', content: `Lỗi: ${data.error}` };
-        } else if (data.reply) {
-          messages[messages.length - 1] = { role: 'assistant', content: data.reply };
-          if (aiWarning && data.chunks_used === 0) {
-            aiWarning.classList.remove('hidden');
+
+        if (!res.ok || !res.body) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let event = '';
+            let dataStr = '';
+            for (const seg of trimmed.split('\n')) {
+              if (seg.startsWith('event: ')) event = seg.slice(7).trim();
+              if (seg.startsWith('data: ')) dataStr = seg.slice(6).trim();
+            }
+            if (!dataStr) continue;
+            let data: Record<string, unknown>;
+            try { data = JSON.parse(dataStr); } catch { continue; }
+
+            if (event === 'chunk') {
+              const text = String(data.text ?? '');
+              currentMessages[lastIdx].content += text;
+              const msgEl = chatMsgs.querySelector<HTMLElement>(`[data-msg-idx="${lastIdx}"]`);
+              if (msgEl) msgEl.textContent = currentMessages[lastIdx].content;
+              chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            } else if (event === 'chunks_used') {
+              if (aiWarning && (data.count as number) === 0) {
+                aiWarning.classList.remove('hidden');
+              }
+            } else if (event === 'done') {
+              currentSessionId = String(data.session_id ?? currentSessionId);
+              loadSessions();
+            } else if (event === 'error') {
+              currentMessages[lastIdx].content = `Lỗi: ${data.message ?? 'Không thể kết nối AI.'}`;
+            }
           }
         }
-      } catch {
-        messages[messages.length - 1] = { role: 'assistant', content: 'Không thể kết nối AI. Vui lòng thử lại.' };
+      } catch (err) {
+        console.error('[ai-mentor] error:', err);
+        currentMessages[lastIdx].content = 'Không thể kết nối AI. Vui lòng thử lại.';
       }
 
       renderMessages();
       setLoading(false);
-      saveMessages();
     });
   </script>
 </BaseLayout>

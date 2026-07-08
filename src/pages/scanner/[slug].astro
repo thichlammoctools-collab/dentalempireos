@@ -2,10 +2,16 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
-import { createAuth } from '../../lib/auth';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 
 export const prerender = false;
+
+// Auth guard — middleware already redirected unauthenticated users to /login
+// but check locals.user as a safety net
+const currentUser = Astro.locals.user;
+if (!currentUser) {
+  return Astro.redirect('/login');
+}
 
 const slugParam = Astro.params.slug;
 const slug = slugParam ?? '';
@@ -30,13 +36,9 @@ const { definition, sections } = full;
 
 let clinicProfile: any = null;
 try {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: Astro.request.headers });
-  if (session?.user) {
-    clinicProfile = await getClinicProfile(env.DB, session.user.id);
-  }
+  clinicProfile = await getClinicProfile(env.DB, currentUser.id);
 } catch (err) {
-  console.error('[scanner/slug] Auth error:', err);
+  console.error('[scanner/slug] clinicProfile error:', err);
 }
 
 const surveyData = {

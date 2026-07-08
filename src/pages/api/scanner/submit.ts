@@ -137,24 +137,25 @@ export const POST: APIRoute = async (ctx) => {
     thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 },
   }, lang);
 
-  // Upsert clinic profile if user wants to save
+  // Upsert clinic profile if user wants to save — non-critical
   const saveProfile = body.save_profile === true;
   if (saveProfile) {
-    await upsertClinicProfile(env.DB, {
+    upsertClinicProfile(env.DB, {
       id: session.user.id,
       name: asString(body.owner_name),
       clinic_name: clinicName,
       clinic_address: asString(body.clinic_address),
-    });
+    }).catch((err) => console.error('[submit] upsertClinicProfile failed:', err));
   }
 
-  await addToHistory(env.DB, {
+  // addToHistory is non-critical — don't fail submit if it errors
+  addToHistory(env.DB, {
     user_id: session.user.id,
     survey_id: surveyId,
     response_id: id,
     score_total: totalScore,
     score_label: level.label_vi,
-  });
+  }).catch((err) => console.error('[submit] addToHistory failed:', err));
 
   return json(
     {

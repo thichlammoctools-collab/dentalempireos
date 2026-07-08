@@ -1,0 +1,200 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../lib/auth';
+
+export const prerender = false;
+
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session?.user) return Astro.redirect('/login?redirect=/admin/ai-usage');
+
+const user = await env.DB
+  .prepare('SELECT role FROM "user" WHERE id = ?')
+  .bind(session.user.id)
+  .first<{ role: string }>();
+if (user?.role !== 'admin') return Astro.redirect('/');
+---
+
+<BaseLayout title="AI Usage | Admin" description="AI request usage and analytics">
+  <div class="min-h-screen bg-surface pt-20 pb-8">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex items-center gap-3 mb-8">
+        <a href="/admin" class="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary">
+          <span class="material-symbols-outlined text-lg">arrow_back</span>
+          <span>Admin</span>
+        </a>
+        <h1 class="text-2xl font-bold text-white">AI Usage Dashboard</h1>
+      </div>
+
+      <!-- Filters -->
+      <div class="glass-card rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-end">
+        <div>
+          <label class="block text-xs text-on-surface-variant mb-1">From</label>
+          <input id="filter-from" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-on-surface-variant mb-1">To</label>
+          <input id="filter-to" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-on-surface-variant mb-1">Group by</label>
+          <select id="filter-group" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm">
+            <option value="day">Day</option>
+            <option value="model">Model</option>
+            <option value="feature">Feature</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+        <button id="btn-apply" class="btn btn-primary px-5 py-2 rounded-lg text-sm">Apply</button>
+        <button id="btn-export" class="btn btn-ghost px-5 py-2 rounded-lg text-sm">Export CSV</button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div id="summary-cards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass-card rounded-2xl p-4 text-center">
+          <div class="text-3xl font-bold text-primary" id="stat-requests">—</div>
+          <div class="text-xs text-on-surface-variant mt-1">Total Requests</div>
+        </div>
+        <div class="glass-card rounded-2xl p-4 text-center">
+          <div class="text-3xl font-bold text-green-400" id="stat-success">—</div>
+          <div class="text-xs text-on-surface-variant mt-1">Success Rate %</div>
+        </div>
+        <div class="glass-card rounded-2xl p-4 text-center">
+          <div class="text-3xl font-bold text-amber-400" id="stat-latency">—</div>
+          <div class="text-xs text-on-surface-variant mt-1">Avg Latency (ms)</div>
+        </div>
+        <div class="glass-card rounded-2xl p-4 text-center">
+          <div class="text-3xl font-bold text-blue-400" id="stat-features">—</div>
+          <div class="text-xs text-on-surface-variant mt-1">Features Used</div>
+        </div>
+      </div>
+
+      <!-- Usage Table -->
+      <div class="glass-card rounded-2xl p-4 overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead>
+            <tr id="table-header" class="text-xs text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+              <!-- Dynamic headers -->
+            </tr>
+          </thead>
+          <tbody id="usage-table" class="divide-y divide-outline-variant/20">
+            <tr><td colspan="10" class="text-center py-8 text-on-surface-variant">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const filterFrom = document.getElementById('filter-from') as HTMLInputElement;
+    const filterTo = document.getElementById('filter-to') as HTMLInputElement;
+    const filterGroup = document.getElementById('filter-group') as HTMLSelectElement;
+    const btnApply = document.getElementById('btn-apply');
+    const btnExport = document.getElementById('btn-export');
+    const tableHeader = document.getElementById('table-header') as HTMLElement;
+    const tableBody = document.getElementById('usage-table') as HTMLElement;
+    const statRequests = document.getElementById('stat-requests');
+    const statSuccess = document.getElementById('stat-success');
+    const statLatency = document.getElementById('stat-latency');
+    const statFeatures = document.getElementById('stat-features');
+
+    let currentData: { usage: Array<Record<string, unknown>>; totals: Record<string, number> } = { usage: [], totals: {} };
+
+    function buildUrl() {
+      const params = new URLSearchParams();
+      if (filterFrom.value) params.set('from', filterFrom.value);
+      if (filterTo.value) params.set('to', filterTo.value);
+      params.set('group_by', filterGroup.value);
+      return `/api/admin/ai-usage?${params.toString()}`;
+    }
+
+    function escapeHtml(text: string): string {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderTable(data: Array<Record<string, unknown>>, groupBy: string) {
+      const colMap: Record<string, string> = {
+        day: 'Date',
+        model: 'Model',
+        feature: 'Feature',
+        user: 'User',
+        provider_id: 'Provider',
+        total_requests: 'Requests',
+        success_rate: 'Success %',
+        avg_latency_ms: 'Latency (ms)',
+      };
+
+      const cols = groupBy === 'day'
+        ? ['period', 'provider_id', 'model_id', 'feature', 'total_requests', 'success_rate', 'avg_latency_ms']
+        : ['period', 'provider_id', 'model_id', 'total_requests', 'success_rate', 'avg_latency_ms'];
+
+      tableHeader.innerHTML = cols.map(c => `<th class="py-3 pr-4 font-medium">${colMap[c] ?? c}</th>`).join('');
+
+      if (!data.length) {
+        tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-on-surface-variant">No data</td></tr>';
+        return;
+      }
+
+      tableBody.innerHTML = data.map(row => `
+        <tr class="hover:bg-surface-container-high/30">
+          ${cols.map(c => `<td class="py-3 pr-4 ${c === 'total_requests' ? 'font-mono font-bold text-primary' : ''}">${escapeHtml(String(row[c] ?? '—'))}</td>`).join('')}
+        </tr>
+      `).join('');
+    }
+
+    function renderSummary(usage: Array<Record<string, unknown>>, totals: Record<string, number>) {
+      if (statRequests) statRequests.textContent = String(totals.requests ?? 0);
+      if (statSuccess) statSuccess.textContent = String(totals.success_rate ?? 0);
+      if (statLatency) statLatency.textContent = String(totals.avg_latency_ms ?? 0);
+      const featureSet = new Set(usage.map(r => r.feature as string));
+      if (statFeatures) statFeatures.textContent = String(featureSet.size);
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(buildUrl(), { credentials: 'include' });
+        if (!res.ok) return;
+        currentData = await res.json() as typeof currentData;
+        renderSummary(currentData.usage, currentData.totals);
+        renderTable(currentData.usage, filterGroup.value);
+      } catch (err) {
+        console.error('[ai-usage] load failed:', err);
+      }
+    }
+
+    btnApply?.addEventListener('click', load);
+
+    btnExport?.addEventListener('click', () => {
+      const rows = currentData.usage;
+      if (!rows.length) return;
+      const cols = Object.keys(rows[0]);
+      const csv = [
+        cols.join(','),
+        ...rows.map(row => cols.map(c => {
+          const v = String(row[c] ?? '');
+          return v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+        }).join(','))
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-usage-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Set default date range: last 30 days
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    if (filterTo) filterTo.value = today.toISOString().slice(0, 10);
+    if (filterFrom) filterFrom.value = thirtyDaysAgo.toISOString().slice(0, 10);
+
+    load();
+  </script>
+</BaseLayout>

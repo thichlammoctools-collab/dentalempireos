@@ -135,29 +135,35 @@ export async function createScannerResponse(
     ? calculateAllScores(input.responses, scoringRules)
     : {};
 
-  const result = await db
-    .prepare(
-      `INSERT INTO "scanner_response"
-        ("survey_id","lang","owner_name","clinic_name","clinic_address","email",
-         "years_in_operation","staff_count","responses_json","scores_json")
-       VALUES (?,?,?,?,?,?,?,?,?,?)
-       RETURNING "id"`,
-    )
-    .bind(
-      input.survey_id,
-      input.lang ?? 'vi',
-      input.owner_name ?? null,
-      input.clinic_name ?? null,
-      input.clinic_address ?? null,
-      input.email ?? null,
-      input.years_in_operation ?? null,
-      input.staff_count ?? null,
-      JSON.stringify(input.responses),
-      JSON.stringify(scores),
-    )
-    .first<{ id: number }>();
+  let result: { id: number } | null = null;
+  try {
+    result = await db
+      .prepare(
+        `INSERT INTO "scanner_response"
+          ("survey_id","lang","owner_name","clinic_name","clinic_address","email",
+           "years_in_operation","staff_count","responses_json","scores_json")
+         VALUES (?,?,?,?,?,?,?,?,?,?)
+         RETURNING "id"`,
+      )
+      .bind(
+        input.survey_id,
+        input.lang ?? 'vi',
+        input.owner_name ?? null,
+        input.clinic_name ?? null,
+        input.clinic_address ?? null,
+        input.email ?? null,
+        input.years_in_operation ?? null,
+        input.staff_count ?? null,
+        JSON.stringify(input.responses),
+        JSON.stringify(scores),
+      )
+      .first<{ id: number }>();
+  } catch (err) {
+    console.error('[scanner-response-db] Insert failed:', err);
+    throw new Error('Không thể lưu kết quả khảo sát. Vui lòng thử lại.');
+  }
 
-  if (!result) throw new Error('Failed to insert scanner response');
+  if (!result) throw new Error('Không thể tạo bản ghi khảo sát.');
 
   return { id: result.id, scores };
 }

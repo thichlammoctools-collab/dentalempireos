@@ -15,7 +15,6 @@ import {
 } from '../../../lib/scanner-response-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
-import { createAuth } from '../../../lib/auth';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 
@@ -33,17 +32,16 @@ if (!response) {
   return new Response('Response not found', { status: 404 });
 }
 
-// Auth check — require login
-const auth = createAuth(env);
-const session = await auth.api.getSession({ headers: Astro.request.headers });
-if (!session?.user) {
+// Auth check — require login (middleware already redirected, but double-check)
+const currentUser = Astro.locals.user;
+if (!currentUser) {
   return Astro.redirect(`/login?redirect=/scanner/result/${id}`);
 }
 
 // Ownership check — must own this response (via scanner_history or email match)
-const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
+const owned = await isResponseOwnedByUser(env.DB, currentUser.id, id);
 const ownsByEmail = response.email
-  ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+  ? (await getUserByEmail(env.DB, response.email))?.id === currentUser.id
   : false;
 
 if (!owned && !ownsByEmail) {
@@ -1118,22 +1116,6 @@ try {
       } else {
         const errId = isFree ? 'analysis-free-error' : 'analysis-error';
         document.getElementById(errId)?.classList.remove('hidden');
-      }
-    }
-  }
-
-      // All done — reload to show rendered content
-      if (statusEl) statusEl.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
-      setTimeout(() => window.location.reload(), 800);
-    } catch (err) {
-      console.error('[scanner] SSE error:', err);
-      if (statusEl) statusEl.textContent = '';
-      if (container) container.classList.add('hidden');
-
-      if (type === 'plan') {
-        document.getElementById('plan-error')?.classList.remove('hidden');
-      } else {
-        ['analysis-error', 'analysis-free-error'].forEach((id) => document.getElementById(id)?.classList.remove('hidden'));
       }
     }
   }

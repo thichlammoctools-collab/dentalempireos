@@ -450,26 +450,32 @@ export async function addSection(
 
   const orderIdx = input.order_idx ?? ((lastIdx?.max_idx ?? -1) + 1);
 
-  const result = await db
-    .prepare(
-      `INSERT INTO "survey_section"
-        ("survey_id","order_idx","title_vi","title_en","subtitle_vi","subtitle_en","ref","icon","created_at")
-       VALUES (?,?,?,?,?,?,?,?,datetime('now'))
-       RETURNING *`,
-    )
-    .bind(
-      input.survey_id,
-      orderIdx,
-      input.title_vi,
-      input.title_en ?? '',
-      input.subtitle_vi ?? null,
-      input.subtitle_en ?? null,
-      input.ref ?? null,
-      input.icon ?? null,
-    )
-    .first<SurveySectionRow>();
+  let result: SurveySectionRow | null = null;
+  try {
+    result = await db
+      .prepare(
+        `INSERT INTO "survey_section"
+          ("survey_id","order_idx","title_vi","title_en","subtitle_vi","subtitle_en","ref","icon","created_at")
+         VALUES (?,?,?,?,?,?,?,?,datetime('now'))
+         RETURNING *`,
+      )
+      .bind(
+        input.survey_id,
+        orderIdx,
+        input.title_vi,
+        input.title_en ?? '',
+        input.subtitle_vi ?? null,
+        input.subtitle_en ?? null,
+        input.ref ?? null,
+        input.icon ?? null,
+      )
+      .first<SurveySectionRow>();
+  } catch (err) {
+    console.error('[survey-config-db] Insert section failed:', err);
+    throw new Error('Không thể tạo phần khảo sát. Vui lòng thử lại.');
+  }
 
-  if (!result) throw new Error('Failed to insert section');
+  if (!result) throw new Error('Không thể tạo phần khảo sát.');
   return result;
 }
 
@@ -593,36 +599,42 @@ export async function addQuestion(
 
   const orderIdx = input.order_idx ?? ((lastIdx?.max_idx ?? -1) + 1);
 
-  const result = await db
-    .prepare(
-      `INSERT INTO "survey_question"
-        ("section_id","question_id","order_idx","type","label_vi","label_en",
-         "placeholder_vi","placeholder_en","options_vi","options_en",
-         "scale_labels_vi","scale_labels_en","required","anchor","weight","dimension","created_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
-       RETURNING *`,
-    )
-    .bind(
-      input.section_id,
-      input.question_id,
-      orderIdx,
-      input.type,
-      input.label_vi,
-      input.label_en ?? '',
-      input.placeholder_vi ?? null,
-      input.placeholder_en ?? null,
-      input.options_vi ? JSON.stringify(input.options_vi) : null,
-      input.options_en ? JSON.stringify(input.options_en) : null,
-      input.scale_labels_vi ? JSON.stringify(input.scale_labels_vi) : null,
-      input.scale_labels_en ? JSON.stringify(input.scale_labels_en) : null,
-      input.required ?? 0,
-      input.anchor ?? 0,
-      input.weight ?? null,
-      input.dimension ?? null,
-    )
-    .first<SurveyQuestionRow>();
+  let result: SurveyQuestionRow | null = null;
+  try {
+    result = await db
+      .prepare(
+        `INSERT INTO "survey_question"
+          ("section_id","question_id","order_idx","type","label_vi","label_en",
+           "placeholder_vi","placeholder_en","options_vi","options_en",
+           "scale_labels_vi","scale_labels_en","required","anchor","weight","dimension","created_at")
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+         RETURNING *`,
+      )
+      .bind(
+        input.section_id,
+        input.question_id,
+        orderIdx,
+        input.type,
+        input.label_vi,
+        input.label_en ?? '',
+        input.placeholder_vi ?? null,
+        input.placeholder_en ?? null,
+        input.options_vi ? JSON.stringify(input.options_vi) : null,
+        input.options_en ? JSON.stringify(input.options_en) : null,
+        input.scale_labels_vi ? JSON.stringify(input.scale_labels_vi) : null,
+        input.scale_labels_en ? JSON.stringify(input.scale_labels_en) : null,
+        input.required ?? 0,
+        input.anchor ?? 0,
+        input.weight ?? null,
+        input.dimension ?? null,
+      )
+      .first<SurveyQuestionRow>();
+  } catch (err) {
+    console.error('[survey-config-db] Insert question failed:', err);
+    throw new Error('Không thể tạo câu hỏi. Vui lòng thử lại.');
+  }
 
-  if (!result) throw new Error('Failed to insert question');
+  if (!result) throw new Error('Không thể tạo câu hỏi.');
   return result;
 }
 

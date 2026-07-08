@@ -68,6 +68,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
+  // Scanner form pages require login (exclude /result/, /pack, /test)
+  if (url.pathname.startsWith('/scanner/') && !locals.user) {
+    const seg = url.pathname.slice('/scanner/'.length);
+    const isResult = seg.startsWith('result/');
+    const isPack = seg === 'pack' || seg.startsWith('pack/');
+    const isTest = seg === 'test';
+    if (!isResult && !isPack && !isTest) {
+      const redirect = encodeURIComponent(url.pathname + url.search);
+      return context.redirect(`/login?redirect=${redirect}`);
+    }
+  }
+
   // Prevent CDN/browser caching on dynamic scanner pages — list/slug change with DB seed updates
   if (url.pathname.startsWith('/scanner')) {
     const response = await next();

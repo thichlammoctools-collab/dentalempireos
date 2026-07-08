@@ -12,10 +12,11 @@ import { env } from 'cloudflare:workers';
 import { sseResponse, sseEnqueue } from '../../../lib/sse';
 import { streamAndSaveToR2, scannerAiR2Key } from '../../../lib/r2-storage';
 import { getScannerResponse, updateAiAnalysis, updateAiPlan, updateAiAnalysisStatus, updateAiPlanStatus } from '../../../lib/scanner-response-db';
-import { getSurveyDefinitionFull, parseAiConfig, parseScoringRules } from '../../../lib/scanner-config-db';
+import { getSurveyDefinitionFull, parseAiConfig, parseScoringRules } from '../../../lib/survey-config-db';
 import { getScannerAiConfig, buildAnalysisStream, buildPlanStream } from '../../../lib/scanner-ai';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
+import { AiError } from '../../../lib/ai-client';
 
 export const prerender = false;
 
@@ -61,7 +62,7 @@ export const POST: APIRoute = async (ctx) => {
 
   const aiConfig = await getScannerAiConfig(env.DB);
   if (!aiConfig) {
-    return new Response(JSON.stringify({ error: 'AI not configured' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
 
   const surveyAiConfig = parseAiConfig(full.definition.ai_config);

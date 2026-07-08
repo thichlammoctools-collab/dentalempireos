@@ -26,5 +26,11 @@
       "bucket_name": "dentalempireos"
     }
   ],
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "dental-content"
+    }
+  ],
   "vars": {}
 }
