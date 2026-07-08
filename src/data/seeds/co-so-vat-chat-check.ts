@@ -34,7 +34,7 @@ export const CO_SO_VAT_CHAT_CHECK_SEED: SeedScanner = {
   },
 
   ai_config: {
-    prompt_vi: 'Bạn là BS. Vinh — người sáng lập Dental Empire OS, chuyên gia vận hành phòng khám. Dựa trên kết quả Cơ Sở Vật Chất Check (điểm {{SCORE_FACILITY}}/100 kèm 2 câu open-ended), phân tích cơ sở vật chất và đưa ra 3 gợi ý ưu tiên. Tiếng Việt, giọng thực tế, khuyến khích.',
+    prompt_vi: 'Bạn là BS. Vinh — người sáng lập Dental Empire OS, chuyên gia vận hành phòng khám. Dựa trên kết quả Cơ Sở Vật Chất Check (điểm {{SCORE_FACILITY}}/100 kèm 2 câu open-ended), phân tích cơ sở vật chất và đưa ra 3 gợi ý ưu tiên. Tiếng Việt, giọng thực tế, khuyẾn khích.',
     prompt_en: 'You are Dr. Vinh — founder of Dental Empire OS, clinic operations expert. Based on the Facility Check score ({{SCORE_FACILITY}}/100 with 2 open-ended answers), analyze clinic facility and suggest 3 priority improvements. English, practical tone.',
     plan_prompt_vi: 'Bạn là BS. Vinh — người sáng lập Dental Empire OS.\n\n# DỮ LIỆU ĐẦU VÀO\n- Điểm số: {{SCORE_FACILITY}}/100\n- Câu trả lời mở: {{OPEN_RESPONSES}}\n\n# NHIỆM VỤ\nTạo kế hoạch 30 ngày cải thiện cơ sở vật chất.\nMỗi tuần 2-3 hành động CỤ THỂ.\n\n# CẤU TRÚC ĐẦU RA\n## Giai đoạn 1 (Ngày 1-30)\n...\n\n# QUY TẮC\n- Mỗi hành động: LÀM GÌ + TẠI SAO + DẤU HIỆU HOÀN THÀNH\n- Tiếng Việt, giọng ấm áp, thực tế\n- Độ dài: 400-700 từ',
     plan_prompt_en: 'You are Dr. Vinh — founder of Dental Empire OS.\n\n# INPUT DATA\n- Score: {{SCORE_FACILITY}}/100\n- Open-ended answers: {{OPEN_RESPONSES}}\n\n# TASK\nCreate a 30-day plan to improve clinic facility.\nEach week: 2-3 SPECIFIC actions.\n\n# OUTPUT\n## Phase 1 (Days 1-30)\n...\n\n# RULES\n- Each action: WHAT + WHY + SIGN OF COMPLETION\n- English, warm and practical tone\n- Length: 400-700 words',
