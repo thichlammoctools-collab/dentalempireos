@@ -8,6 +8,7 @@ import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
 import { sanitizeRichHtml } from '../../lib/sanitize';
+import WebsiteChatWidget from '../../components/chat/WebsiteChatWidget.astro';
 
 export const prerender = false;
 
@@ -533,6 +534,9 @@ const breadcrumbSchema = {
   {tocItems.length > 2 && (
     <BlogSectionNav items={tocItems} postTitle={post.title} />
   )}
+
+  <!-- AI Chat Widget -->
+  <WebsiteChatWidget pageType="blog" pageSlug={post.slug} />
 </BaseLayout>
 
 <script>

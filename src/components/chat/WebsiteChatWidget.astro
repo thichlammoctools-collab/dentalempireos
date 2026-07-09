@@ -709,31 +709,52 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   });
 
   // ── Mobile: shift widget down when mobile bottom nav is present ──
+  function getSafeAreaInset() {
+    const style = getComputedStyle(document.documentElement);
+    const sat = style.getPropertyValue('--sat') || style.getPropertyValue('padding-bottom') || '0';
+    return parseInt(sat) || 0;
+  }
+
+  function isBottomNavVisible() {
+    const nav = document.getElementById('mobile-bottom-nav');
+    if (!nav) return false;
+    const style = getComputedStyle(nav);
+    return style.display !== 'none' && window.innerWidth < 1024;
+  }
+
   function adjustBottomOffset() {
-    const bottomNav = document.getElementById('mobile-bottom-nav');
-    if (bottomNav && window.innerWidth < 1024) {
-      const navHeight = 64; // h-16
-      const inset = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0') || 0;
-      trigger.style.bottom = `${navHeight + inset + 16}px`;
-      panel.style.bottom = `${navHeight + inset + 72}px`;
+    const isMobile = window.innerWidth < 1024;
+    const navVisible = isBottomNavVisible();
+    const fabExists = !!document.getElementById('blog-section-fab');
+    const sat = getSafeAreaInset();
+
+    if (isMobile) {
+      if (navVisible) {
+        // Mobile pages (home, blog listing, resources): above bottom nav
+        const navHeight = 64;
+        trigger.style.bottom = `${navHeight + sat + 16}px`;
+        panel.style.bottom = `${navHeight + sat + 72}px`;
+      } else {
+        // Reader pages (book, standalone pages): at bottom with safe area
+        trigger.style.bottom = `${16 + sat}px`;
+        panel.style.bottom = `${72 + sat}px`;
+      }
+
+      // Avoid blog TOC FAB on blog post pages
+      if (fabExists) {
+        trigger.style.right = '70px';
+      } else {
+        trigger.style.right = '';
+      }
     } else {
+      // Desktop: reset to CSS defaults
       trigger.style.bottom = '';
+      trigger.style.right = '';
       panel.style.bottom = '';
     }
   }
   adjustBottomOffset();
   window.addEventListener('resize', adjustBottomOffset);
-
-  // ── Adjust for blog TOC FAB ─────────────────────────────────────
-  function avoidBlogFab() {
-    const fab = document.getElementById('blog-section-fab');
-    if (fab && window.innerWidth < 1024) {
-      // Move our trigger left to avoid FAB
-      trigger.style.right = '70px';
-    }
-  }
-  avoidBlogFab();
-  window.addEventListener('resize', avoidBlogFab);
 
 })();
 </script>
