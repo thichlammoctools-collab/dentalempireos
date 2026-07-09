@@ -62,21 +62,20 @@ export const POST: APIRoute = async (ctx) => {
 
   // Access check: free scanners are open, paid scanners require active access
   if (!def.is_free) {
-    const appRow = await env.DB
-      .prepare('SELECT "id" FROM "ai_application" WHERE "slug" = ? OR "id" = ?')
-      .bind(def.slug, `survey-${def.id}`)
-      .first<{ id: string }>();
-    if (appRow) {
-      const prodRow = await env.DB
-        .prepare('SELECT "id" FROM "product" WHERE "app_id" = ? AND "is_active" = 1')
-        .bind(appRow.id)
-        .first<{ id: string }>();
-      if (prodRow) {
-        const canAccess = await hasAccess(env.DB, session.user.id, prodRow.id);
-        if (!canAccess) {
-          return json({ requiresAuth: true, message: 'Bạn cần mở khóa scanner này trước.' }, 403);
-        }
-      }
+    const { results: products } = await env.DB
+      .prepare(
+        `SELECT p.id FROM "product" p
+         INNER JOIN "product_scanner" ps ON p.id = ps.product_id
+         WHERE ps.scanner_id = ? AND p.is_active = 1`,
+      )
+      .bind(surveyId)
+      .all<{ id: string }>();
+
+    const hasAccessToAny = await Promise.all(
+      (products ?? []).map((p) => hasAccess(env.DB, session.user.id, p.id)),
+    );
+    if (!hasAccessToAny.some(Boolean)) {
+      return json({ requiresAuth: true, message: 'Bạn cần mở khóa scanner này trước.' }, 403);
     }
   }
 

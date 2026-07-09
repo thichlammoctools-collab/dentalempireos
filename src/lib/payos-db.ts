@@ -261,7 +261,6 @@ export async function hasAccess(
 ): Promise<boolean> {
   const now = new Date().toISOString();
 
-  // Direct access check
   const row = await db
     .prepare(
       `SELECT 1 FROM "access"
@@ -271,30 +270,90 @@ export async function hasAccess(
     )
     .bind(userId, productId, now)
     .first();
-  if (row) return true;
+  return !!row;
+}
 
-  // Scanner Pack check: if product is a survey_unlock type,
-  // and user has Scanner Pack → grant access to any scanner
-  const prodRow = await db
-    .prepare('SELECT "type" FROM "product" WHERE "id" = ?')
+// ── Product ↔ Scanner mapping ────────────────────────────────
+
+/** Get all scanner IDs assigned to a product. */
+export async function getProductScanners(db: D1Database, productId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT "scanner_id" FROM "product_scanner" WHERE "product_id" = ?')
     .bind(productId)
-    .first<{ type: string }>();
+    .all<{ scanner_id: string }>();
+  return results.map((r) => r.scanner_id);
+}
 
-  if (prodRow?.type === 'survey_unlock') {
-    const packRow = await db
+export async function getScannerProduct(
+  db: D1Database,
+  scannerId: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `SELECT p.id FROM "product" p
+       INNER JOIN "product_scanner" ps ON p.id = ps.product_id
+       WHERE ps.scanner_id = ? AND p.is_active = 1
+       LIMIT 1`,
+    )
+    .bind(scannerId)
+    .first<{ id: string }>();
+  return row?.id ?? null;
+}
+
+export async function setProductScanners(
+  db: D1Database,
+  productId: string,
+  scannerIds: string[],
+): Promise<void> {
+  await db.prepare('DELETE FROM "product_scanner" WHERE "product_id" = ?').bind(productId).run();
+  for (const sid of scannerIds) {
+    await db
       .prepare(
-        `SELECT 1 FROM "access"
-         WHERE "user_id" = ? AND "product_id" = 'prod-scanner-pack'
-           AND "is_active" = 1
-           AND ("expires_at" IS NULL OR "expires_at" > ?)
-         LIMIT 1`,
+        `INSERT INTO "product_scanner" ("product_id", "scanner_id", "assigned_at")
+         VALUES (?, ?, datetime('now'))`,
       )
-      .bind(userId, now)
-      .first();
-    if (packRow) return true;
+      .bind(productId, sid)
+      .run();
   }
+}
 
-  return false;
+export async function getAllProductScanners(
+  db: D1Database,
+): Promise<Array<{ product_id: string; scanner_id: string; assigned_at: string }>> {
+  const { results } = await db.prepare('SELECT * FROM "product_scanner"').all();
+  return results as Array<{ product_id: string; scanner_id: string; assigned_at: string }>;
+}
+
+export async function getScannerProductMapping(
+  db: D1Database,
+): Promise<Map<string, string>> {
+  const { results } = await db
+    .prepare(
+      `SELECT ps.scanner_id, p.id as product_id
+       FROM "product_scanner" ps
+       INNER JOIN "product" p ON ps.product_id = p.id
+       WHERE p.is_active = 1`,
+    )
+    .all<{ scanner_id: string; product_id: string }>();
+  const map = new Map<string, string>();
+  for (const r of results) map.set(r.scanner_id, r.product_id);
+  return map;
+}
+
+export async function getScannerPriceMapping(
+  db: D1Database,
+): Promise<Map<string, number>> {
+  const { results } = await db
+    .prepare(
+      `SELECT ps.scanner_id, p.price
+       FROM "product_scanner" ps
+       INNER JOIN "product" p ON ps.product_id = p.id
+       WHERE p.is_active = 1`,
+    )
+    .all<{ scanner_id: string; price: number }>();
+  const map = new Map<string, number>();
+  for (const r of results) map.set(r.scanner_id, r.price);
+  return map;
 }
 
 export async function listUserAccess(db: D1Database, userId: string): Promise<Access[]> {

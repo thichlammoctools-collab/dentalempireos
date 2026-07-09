@@ -35,13 +35,13 @@ export const GET: APIRoute = async ({ params, url }) => {
           `SELECT a.id
            FROM "access" a
            INNER JOIN "product" p ON a.product_id = p.id
-           INNER JOIN "ai_application" app ON p.app_id = app.id
+           INNER JOIN "product_scanner" ps ON p.id = ps.product_id
            WHERE a.user_id = ? AND a.is_active = 1
              AND (a.expires_at IS NULL OR a.expires_at > datetime('now'))
-             AND (app.slug = ? OR app.id = ?)
+             AND ps.scanner_id = ?
            LIMIT 1`,
         )
-        .bind(user.id, definition.slug, `survey-${definition.id}`)
+        .bind(user.id, response.survey_id)
         .first<{ id: string }>();
 
       if (!access) {

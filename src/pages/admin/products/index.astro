@@ -1,21 +1,17 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listProducts } from '../../../lib/payos-db';
-import { listActiveApps } from '../../../lib/app-db';
+import { listProducts, getAllProductScanners, getScannerProductMapping } from '../../../lib/payos-db';
+import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 
 export const prerender = false;
 
 const db = env.DB;
 const products = await listProducts(db);
 
-// Graceful fallback: ai_application table may not exist yet if migration 0019 hasn't been applied
-let activeApps: Awaited<ReturnType<typeof listActiveApps>> = [];
-try {
-  activeApps = await listActiveApps(db);
-} catch {
-  // Table doesn't exist yet — proceed without app linking
-}
+const mappings = await getAllProductScanners(db);
+const scannerProductMap = await getScannerProductMapping(db);
+const scanners = await listSurveyDefinitions(db, { status: 'active' });
 
 const activeCount = products.filter((p) => p.is_active === 1).length;
 const typeLabels: Record<string, string> = {
@@ -26,7 +22,14 @@ const typeLabels: Record<string, string> = {
   survey_unlock: 'Mở khóa khảo sát AI',
 };
 
-const appMap = Object.fromEntries(activeApps.map((a) => [a.id, `${a.name} (${a.type})`]));
+const scannerMap = Object.fromEntries(scanners.map((s) => [s.id, s.title_vi]));
+
+// Build product → scanner_ids map
+const productScannerMap: Record<string, string[]> = {};
+for (const m of mappings) {
+  if (!productScannerMap[m.product_id]) productScannerMap[m.product_id] = [];
+  productScannerMap[m.product_id].push(m.scanner_id);
+}
 
 function nanoid(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -93,17 +96,12 @@ const newId = nanoid();
             />
           </div>
         </div>
-        <div id="app-id-field" class="hidden">
-          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Ứng dụng liên kết</label>
-          <select name="app_id"
-            class="w-full px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-white focus:ring-1 focus:ring-primary focus:outline-none"
-          >
-            <option value="">— Không liên kết —</option>
-            {activeApps.map((app) => (
-              <option value={app.id}>{app.name} ({app.type})</option>
-            ))}
-          </select>
-          <p class="text-xs text-white/40 mt-1">Chỉ áp dụng cho loại "Mở khóa khảo sát AI"</p>
+        <div id="scanner-field" class="hidden">
+          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Scanners</label>
+          <div id="scanner-list" class="flex flex-col gap-2 max-h-48 overflow-y-auto">
+            <!-- populated by JS -->
+          </div>
+          <p class="text-xs text-white/40 mt-1">Mỗi scanner chỉ gắn được với 1 sản phẩm đang bán.</p>
         </div>
         <div>
           <label class="block text-sm font-semibold text-on-surface-variant mb-2">Mô tả</label>
@@ -154,7 +152,7 @@ const newId = nanoid();
           <tr class="border-b border-outline-variant/20 text-on-surface-variant">
             <th class="text-left px-4 py-3 font-semibold">Tên</th>
             <th class="text-left px-4 py-3 font-semibold">Loại</th>
-            <th class="text-left px-4 py-3 font-semibold">App</th>
+            <th class="text-left px-4 py-3 font-semibold">Scanners</th>
             <th class="text-right px-4 py-3 font-semibold">Giá</th>
             <th class="text-center px-4 py-3 font-semibold">Thời hạn</th>
             <th class="text-center px-4 py-3 font-semibold">Trạng thái</th>
@@ -173,7 +171,21 @@ const newId = nanoid();
               <td class="px-4 py-3 text-white font-medium">{p.name}</td>
               <td class="px-4 py-3 text-on-surface-variant">{typeLabels[p.type] ?? p.type}</td>
               <td class="px-4 py-3 text-on-surface-variant text-xs">
-                {p.app_id ? (appMap[p.app_id] ?? p.app_id) : <span class="text-white/30">—</span>}
+                {p.type === 'survey_unlock' ? (
+                  productScannerMap[p.id]?.length ? (
+                    <div class="flex flex-wrap gap-1">
+                      {productScannerMap[p.id].map((sid) => (
+                        <span key={sid} class="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
+                          {scannerMap[sid] ?? sid}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span class="text-amber-400/80 text-xs">Chưa gắn</span>
+                  )
+                ) : (
+                  <span class="text-white/30">—</span>
+                )}
               </td>
               <td class="px-4 py-3 text-right text-white">{p.price.toLocaleString('vi-VN')}₫</td>
               <td class="px-4 py-3 text-center text-on-surface-variant">
@@ -194,7 +206,7 @@ const newId = nanoid();
                   data-description={p.description ?? ''}
                   data-duration_days={p.duration_days ?? ''}
                   data-reference_id={p.reference_id ?? ''}
-                  data-app_id={p.app_id ?? ''}
+                  data-scanners={JSON.stringify(productScannerMap[p.id] ?? [])}
                   data-is_active={p.is_active}
                 >
                   Sửa
@@ -223,21 +235,57 @@ const newId = nanoid();
     const errorEl = document.getElementById('form-error');
     const submitBtn = document.getElementById('form-submit');
     const modalTitle = document.getElementById('modal-title');
-    const appIdField = document.getElementById('app-id-field');
+    const scannerField = document.getElementById('scanner-field');
+    const scannerList = document.getElementById('scanner-list');
     const typeSelect = form?.querySelector('[name="type"]');
-    const appIdSelect = form?.querySelector('[name="app_id"]');
 
     let editingId = null;
+    let allScanners = [];
 
-    function toggleAppIdField() {
-      if (typeSelect && appIdField) {
-        const showFor = ['survey_unlock'];
-        appIdField.classList.toggle('hidden', !showFor.includes(typeSelect.value));
+    async function loadScanners() {
+      const resp = await fetch('/api/admin/products/scanners');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      allScanners = data.scanners || [];
+      renderScannerList(allScanners, []);
+    }
+
+    function renderScannerList(scanners, selectedIds) {
+      if (!scannerList) return;
+      scannerList.innerHTML = '';
+      for (const s of scanners) {
+        const isSelected = selectedIds.includes(s.id);
+        const isTaken = s.assigned_to !== null && !isSelected;
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2';
+        div.innerHTML = `
+          <input type="checkbox" id="scan-${s.id}" name="scanner_ids" value="${s.id}"
+            ${isSelected ? 'checked' : ''} ${isTaken ? 'disabled' : ''}
+            class="w-4 h-4 rounded border-outline-variant bg-surface-container-high text-primary focus:ring-primary" />
+          <label for="scan-${s.id}" class="text-sm ${isTaken ? 'text-white/40' : 'text-white'} ${isTaken ? 'cursor-not-allowed' : 'cursor-pointer'}">
+            ${s.title}${isTaken ? ' (đã gắn sản phẩm khác)' : ''}
+          </label>
+        `;
+        scannerList.appendChild(div);
       }
     }
-    typeSelect?.addEventListener('change', toggleAppIdField);
 
-    function openModal() { modal?.classList.remove('hidden'); toggleAppIdField(); }
+    function toggleScannerField() {
+      if (typeSelect && scannerField) {
+        scannerField.classList.toggle('hidden', typeSelect.value !== 'survey_unlock');
+      }
+    }
+    typeSelect?.addEventListener('change', toggleScannerField);
+
+    function openModal() {
+      modal?.classList.remove('hidden');
+      toggleScannerField();
+      if (typeSelect?.value === 'survey_unlock' && allScanners.length === 0) {
+        loadScanners();
+      } else {
+        renderScannerList(allScanners, []);
+      }
+    }
     function closeModal() {
       modal?.classList.add('hidden');
       form?.reset();
@@ -245,7 +293,7 @@ const newId = nanoid();
       modalTitle.textContent = 'Tạo sản phẩm mới';
       submitBtn.textContent = 'Tạo sản phẩm';
       errorEl?.classList.add('hidden');
-      appIdField?.classList.add('hidden');
+      scannerField?.classList.add('hidden');
     }
 
     newBtn?.addEventListener('click', openModal);
@@ -254,7 +302,7 @@ const newId = nanoid();
 
     // Edit buttons
     document.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const b = btn;
         editingId = b.dataset.id;
         const nameInput = form?.querySelector('[name="name"]');
@@ -272,9 +320,15 @@ const newId = nanoid();
         if (durInput) durInput.value = b.dataset.duration_days || '';
         if (refInput) refInput.value = b.dataset.reference_id || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
-        if (appIdSelect) appIdSelect.value = b.dataset.app_id || '';
 
-        toggleAppIdField();
+        toggleScannerField();
+        if (typeInput?.value === 'survey_unlock') {
+          if (allScanners.length === 0) await loadScanners();
+          let selectedIds = [];
+          try { selectedIds = JSON.parse(b.dataset.scanners || '[]'); } catch {}
+          renderScannerList(allScanners, selectedIds);
+        }
+
         modalTitle.textContent = 'Sửa sản phẩm';
         submitBtn.textContent = 'Cập nhật';
         openModal();
@@ -287,7 +341,6 @@ const newId = nanoid();
         const id = btn.dataset.id;
         const name = btn.dataset.name;
         if (!confirm(`Xác nhận xóa "${name}"?`)) return;
-
         const resp = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
         if (resp.ok) {
           window.location.reload();
@@ -297,7 +350,7 @@ const newId = nanoid();
       });
     });
 
-    // Form submit (create or update)
+    // Form submit (two-step: product save → scanner mapping save)
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorEl?.classList.add('hidden');
@@ -310,7 +363,6 @@ const newId = nanoid();
         description: data.get('description') || null,
         duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
         reference_id: data.get('reference_id') || null,
-        app_id: data.get('app_id') || null,
         is_active: data.get('is_active') === 'on' ? 1 : 0,
       };
 
@@ -333,6 +385,26 @@ const newId = nanoid();
           submitBtn.disabled = false;
           submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo sản phẩm';
           return;
+        }
+
+        // Save scanner mapping if survey_unlock product
+        const productId = editingId || result.id;
+        if (typeSelect?.value === 'survey_unlock') {
+          const checked = Array.from(scannerList?.querySelectorAll('input[name="scanner_ids"]:checked') ?? [])
+            .map((cb) => cb.value);
+          const scanResp = await fetch('/api/admin/products/scanners', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId, scanner_ids: checked }),
+          });
+          if (!scanResp.ok) {
+            const scanErr = await scanResp.json().catch(() => ({}));
+            errorEl.textContent = scanErr.error || 'Lỗi lưu scanner mapping';
+            errorEl?.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo sản phẩm';
+            return;
+          }
         }
 
         window.location.reload();
