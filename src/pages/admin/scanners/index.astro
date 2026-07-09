@@ -3,18 +3,41 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import {
   listSurveyDefinitions,
+  countSurveyDefinitions,
   countResponsesBySurvey,
 } from '../../../lib/survey-config-db';
 import { SEED_REGISTRY } from '../../../data/seeds/registry';
 
 export const prerender = false;
 
+const PAGE_SIZE = 10;
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10));
+const offset = (page - 1) * PAGE_SIZE;
+
 let definitions: Awaited<ReturnType<typeof listSurveyDefinitions>> = [];
+let totalDefs = 0;
+let activeDefs = 0;
+let draftDefs = 0;
+let archivedDefs = 0;
 try {
-  definitions = await listSurveyDefinitions(env.DB);
+  const [defs, total, active, draft, archived] = await Promise.all([
+    listSurveyDefinitions(env.DB, { limit: PAGE_SIZE, offset }),
+    countSurveyDefinitions(env.DB),
+    countSurveyDefinitions(env.DB, { status: 'active' }),
+    countSurveyDefinitions(env.DB, { status: 'draft' }),
+    countSurveyDefinitions(env.DB, { status: 'archived' }),
+  ]);
+  definitions = defs;
+  totalDefs = total;
+  activeDefs = active;
+  draftDefs = draft;
+  archivedDefs = archived;
 } catch {
   definitions = [];
+  totalDefs = 0;
 }
+
+const totalPages = Math.ceil(totalDefs / PAGE_SIZE);
 
 const existingIds = new Set(definitions.map((d) => d.id));
 
@@ -88,11 +111,6 @@ const avatarColors = [
   'from-rose-600 to-red-600',
 ];
 
-// Stats
-const totalDefs = definitions.length;
-const activeDefs = definitions.filter(d => d.status === 'active').length;
-const draftDefs = definitions.filter(d => d.status === 'draft').length;
-const archivedDefs = definitions.filter(d => d.status === 'archived').length;
 ---
 
 <AdminLayout title="Scanners" searchPlaceholder="Tìm scanner...">
@@ -107,6 +125,7 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
           <span>{totalDefs}</span>
           {draftDefs > 0 && <><span class="text-on-surface-variant/40"> · </span><span class="text-gray-400">{draftDefs} nháp</span></>}
           {archivedDefs > 0 && <><span class="text-on-surface-variant/40"> · </span><span class="text-red-400">{archivedDefs} lưu</span></>}
+          {totalPages > 1 && <><span class="text-on-surface-variant/40"> · </span><span class="text-gray-400">Trang {page}/{totalPages}</span></>}
         </span>
       </div>
       <p class="text-xs text-on-surface-variant hidden sm:block">
@@ -137,8 +156,17 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
       <div class="flex items-center gap-1.5">
         <span class="material-symbols-outlined text-primary text-[14px]">inventory_2</span>
         <span class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Seed từ thư viện</span>
+        <span class="text-[11px] text-on-surface-variant">({bundledSeeds.length})</span>
+        <button
+          type="button"
+          id="seed-toggle"
+          class="ml-auto flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span class="material-symbols-outlined text-[14px]" id="seed-chevron">expand_more</span>
+          <span id="seed-label">Thu gọn</span>
+        </button>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
+      <div id="seed-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
         {bundledSeeds.map((seed) => (
           <div class={`rounded-lg p-2 border flex flex-col gap-1 ${seed.inDb ? 'bg-surface-container border-outline-variant/30' : 'bg-surface border-primary/20'}`}>
             <div class="flex items-start justify-between gap-1">
@@ -166,7 +194,7 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
               </a>
               <button
                 type="button"
-                class={`flex-1 px-1.5 py-1 rounded text-[10px] font-semibold transition-colors flex items-center justify-center gap-1 ${
+                class={`btn-seed flex-1 px-1.5 py-1 rounded text-[10px] font-semibold transition-colors flex items-center justify-center gap-1 ${
                   seed.inDb
                     ? 'bg-surface border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
                     : 'bg-primary-container text-white cyan-glow hover:opacity-90 active:scale-95'
@@ -305,6 +333,39 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
           })}
         </tbody>
       </table>
+
+      <!-- Pagination -->
+      {totalPages > 1 && (
+        <div class="flex items-center justify-between px-3 py-2 border-t border-outline-variant/15">
+          <p class="text-[10px] text-on-surface-variant">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalDefs)} / {totalDefs}
+          </p>
+          <div class="flex items-center gap-1">
+            <a
+              href={`?page=${page - 1}`}
+              class={`p-1.5 rounded-lg transition-colors ${page <= 1 ? 'opacity-30 pointer-events-none' : 'hover:bg-surface-container text-on-surface-variant hover:text-on-surface'}`}
+              aria-label="Trang trước"
+            >
+              <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+            </a>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <a
+                href={`?page=${p}`}
+                class={`w-7 h-7 rounded-lg text-[11px] font-bold flex items-center justify-center transition-colors ${p === page ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant hover:text-on-surface'}`}
+              >
+                {p}
+              </a>
+            ))}
+            <a
+              href={`?page=${page + 1}`}
+              class={`p-1.5 rounded-lg transition-colors ${page >= totalPages ? 'opacity-30 pointer-events-none' : 'hover:bg-surface-container text-on-surface-variant hover:text-on-surface'}`}
+              aria-label="Trang sau"
+            >
+              <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   )}
 
@@ -358,6 +419,30 @@ const archivedDefs = definitions.filter(d => d.status === 'archived').length;
 </AdminLayout>
 
 <script>
+  // Seed collapse/expand
+  const seedToggle = document.getElementById('seed-toggle');
+  const seedGrid = document.getElementById('seed-grid');
+  const seedChevron = document.getElementById('seed-chevron');
+  const seedLabel = document.getElementById('seed-label');
+
+  if (seedToggle && seedGrid && seedChevron && seedLabel) {
+    const STORAGE_KEY = 'seedPanelCollapsed';
+    let collapsed = localStorage.getItem(STORAGE_KEY) === 'true';
+
+    function applyState() {
+      seedGrid.classList.toggle('hidden', collapsed);
+      seedChevron.textContent = collapsed ? 'expand_less' : 'expand_more';
+      seedLabel.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
+    }
+
+    applyState();
+    seedToggle.addEventListener('click', () => {
+      collapsed = !collapsed;
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+      applyState();
+    });
+  }
+
   // Modal logic
   const modal = document.getElementById('create-modal');
   const backdrop = document.getElementById('create-modal-backdrop');

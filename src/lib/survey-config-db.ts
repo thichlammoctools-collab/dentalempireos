@@ -236,7 +236,7 @@ export function parseScaleLabels(raw: string | null | undefined): Record<string,
 
 export async function listSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus } = {},
+  opts: { status?: SurveyStatus; limit?: number; offset?: number } = {},
 ): Promise<SurveyDefinitionRow[]> {
   let sql = 'SELECT * FROM "survey_definition"';
   const params: unknown[] = [];
@@ -248,11 +248,39 @@ export async function listSurveyDefinitions(
 
   sql += ' ORDER BY "order_index" ASC, "created_at" DESC';
 
+  if (opts.limit !== undefined) {
+    sql += ' LIMIT ?';
+    params.push(opts.limit);
+    if (opts.offset !== undefined) {
+      sql += ' OFFSET ?';
+      params.push(opts.offset);
+    }
+  }
+
   const stmt = db.prepare(sql);
   const result = params.length > 0
     ? await stmt.bind(...params).all<SurveyDefinitionRow>()
     : await stmt.all<SurveyDefinitionRow>();
   return result.results ?? [];
+}
+
+export async function countSurveyDefinitions(
+  db: D1Database,
+  opts: { status?: SurveyStatus } = {},
+): Promise<number> {
+  let sql = 'SELECT COUNT(*) AS total FROM "survey_definition"';
+  const params: unknown[] = [];
+
+  if (opts.status) {
+    sql += ' WHERE "status" = ?';
+    params.push(opts.status);
+  }
+
+  const stmt = db.prepare(sql);
+  const row = params.length > 0
+    ? await stmt.bind(...params).first<{ total: number }>()
+    : await stmt.first<{ total: number }>();
+  return row?.total ?? 0;
 }
 
 export async function getSurveyDefinitionById(

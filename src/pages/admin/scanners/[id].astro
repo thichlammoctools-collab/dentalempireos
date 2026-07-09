@@ -99,16 +99,21 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
         </div>
       </header>
 
-      <div class="flex gap-2 border-b border-outline-variant/15 -mb-px overflow-x-auto scrollbar-hide">
-        <a href="#info" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap">Thông tin cơ bản</a>
-        <a href="#sections" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Sections & Questions ({sections.length})</a>
-        <a href="#ai" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">AI Config</a>
-        <a href="#scoring" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Scoring Rules</a>
+      <div id="tab-bar" class="sticky top-0 z-10 bg-[#0F0F12] border-b border-outline-variant/15 -mt-px">
+        <div class="flex gap-1 overflow-x-auto scrollbar-hide px-1">
+          <a href="#info" class="tab-link px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Thông tin cơ bản</a>
+          <a href="#sections" class="tab-link px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Sections & Questions ({sections.length})</a>
+          <a href="#ai" class="tab-link px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">AI Config</a>
+          <a href="#scoring" class="tab-link px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Scoring Rules</a>
+        </div>
       </div>
 
       <!-- Basic Info -->
-      <form id="form-info" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
-        <h2 class="text-lg font-bold text-on-surface">Thông tin cơ bản</h2>
+      <section id="info" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]">info</span>
+          <h2 class="text-lg font-bold text-on-surface">Thông tin cơ bản</h2>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-on-surface-variant block mb-1">Tiêu đề (VI) *</label>
@@ -165,7 +170,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
       </form>
 
       <!-- Sections & Questions -->
-      <div id="sections" class="glass-card rounded-2xl p-6 flex flex-col gap-3">
+      <section id="sections" class="glass-card rounded-2xl p-6 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-bold text-on-surface">Sections & Questions</h2>
           <button type="button" id="btn-add-section" class="bg-primary-container text-white px-4 py-2 rounded-xl font-bold text-sm cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center gap-2">
@@ -224,10 +229,10 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
             </div>
           ))
         )}
-      </div>
+      </section>
 
       <!-- AI Config -->
-      <form id="form-ai" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
+      <section id="ai" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
@@ -357,7 +362,8 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
       </form>
 
       <!-- Scoring Rules (Visual UI) -->
-      <form id="form-scoring" class="glass-card rounded-2xl p-6 flex flex-col gap-6">
+      <section id="scoring" class="glass-card rounded-2xl p-6 flex flex-col gap-6">
+      <form id="form-scoring" class="flex flex-col gap-6">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[20px]">speed</span>
@@ -481,6 +487,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
           </button>
         </div>
       </form>
+      </section>
     </>
   )}
 
@@ -671,5 +678,54 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
 </AdminLayout>
 
 <script>
-import '../../../scripts/scanner-edit-client.js';
+import '../scripts/scanner-edit-client.js';
+
+// ── Sticky tab bar + scroll spy ──────────────────────────
+(function () {
+  const tabBar = document.getElementById('tab-bar');
+  const sections = ['info', 'sections', 'ai', 'scoring'];
+
+  // Highlight active tab on scroll
+  function updateTabs() {
+    for (const id of sections) {
+      const tab = document.querySelector('.tab-link[href="#' + id + '"]');
+      const sec = document.getElementById(id);
+      if (!tab || !sec) continue;
+      const rect = sec.getBoundingClientRect();
+      const active = rect.top <= 120 && rect.bottom > 120;
+      tab.classList.toggle('text-primary', active);
+      tab.classList.toggle('border-primary', active);
+      tab.classList.toggle('text-on-surface-variant', !active);
+      tab.classList.toggle('border-transparent', !active);
+    }
+  }
+
+  // Make tab bar sticky below header
+  function stickTabBar() {
+    if (!tabBar) return;
+    const header = tabBar.previousElementSibling;
+    const offset = header ? header.offsetHeight + 16 : 72;
+    tabBar.style.top = offset + 'px';
+  }
+
+  window.addEventListener('scroll', updateTabs, { passive: true });
+  window.addEventListener('resize', () => { stickTabBar(); updateTabs(); });
+  stickTabBar();
+  updateTabs();
+
+  // Click tab → smooth scroll
+  document.querySelectorAll('.tab-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const sec = document.getElementById(id);
+      if (sec) {
+        const header = tabBar.previousElementSibling;
+        const offset = header ? header.offsetHeight + 60 : 72;
+        const top = sec.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    });
+  });
+})();
 </script>

@@ -7,15 +7,24 @@ import { env } from 'cloudflare:workers';
 import { json, badRequest, slugify } from '../../../../lib/api-helpers';
 import {
   listSurveyDefinitions,
+  countSurveyDefinitions,
   upsertSurveyDefinition,
   type SurveyDefinitionInput,
 } from '../../../../lib/survey-config-db';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
-  const defs = await listSurveyDefinitions(env.DB);
-  return json(defs);
+export const GET: APIRoute = async ({ request }) => {
+  const url = new URL(request.url);
+  const limit = parseInt(url.searchParams.get('limit') ?? '50', 10);
+  const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+
+  const [defs, total] = await Promise.all([
+    listSurveyDefinitions(env.DB, { limit, offset }),
+    countSurveyDefinitions(env.DB),
+  ]);
+
+  return json({ data: defs, total, limit, offset });
 };
 
 export const POST: APIRoute = async ({ request }) => {
