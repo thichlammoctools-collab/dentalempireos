@@ -32,5 +32,12 @@
       "index_name": "dental-content"
     }
   ],
-  "vars": {}
+  "vars": {},
+  "routes": [
+    {
+      "pattern": "dentalempireos.com",
+      "zone_name": "dentalempireos.com",
+      "custom_domain": true
+    }
+  ]
 }
