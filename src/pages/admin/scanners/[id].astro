@@ -21,6 +21,10 @@ if (!full) {
   return Astro.redirect('/admin/scanners');
 }
 
+if (loadError) {
+  return Astro.redirect('/admin/scanners');
+}
+
 const def = full.definition;
 const sections = full.sections;
 

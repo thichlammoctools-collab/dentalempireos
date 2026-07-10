@@ -18,7 +18,11 @@ try {
   loadError = err instanceof Error ? err.message : 'Lỗi tải dữ liệu';
 }
 
-if (!full && !loadError) {
+if (!full) {
+  return Astro.redirect('/admin/scanners');
+}
+
+if (loadError) {
   return Astro.redirect('/admin/scanners');
 }
 
