@@ -14,7 +14,8 @@
     "db:seed": "node scripts/generate-mdx-migration.js > migrations/seed-books.sql && wrangler d1 execute DB --file=migrations/seed-books.sql --remote",
     "db:seed:local": "node scripts/generate-mdx-migration.js > migrations/seed-books.sql && wrangler d1 execute DB --file=migrations/seed-books.sql --local",
     "db:seed:blog": "wrangler d1 execute DB --file=migrations/seed-blog.sql --remote",
-    "db:seed:blog:local": "wrangler d1 execute DB --file=migrations/seed-blog.sql --local"
+    "db:seed:blog:local": "wrangler d1 execute DB --file=migrations/seed-blog.sql --local",
+    "deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.7.0",
