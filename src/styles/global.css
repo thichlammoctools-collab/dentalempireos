@@ -432,11 +432,11 @@ body.sepia-mode {
 
 /* TOC active item */
 .toc-item-active {
-  background: rgba(146, 204, 255, 0.1);
-  border-left-color: var(--color-primary) !important;
   color: var(--color-primary) !important;
-  font-weight: 600;
-  box-shadow: inset 0 0 12px rgba(146, 204, 255, 0.06);
+  font-weight: 700;
+}
+.toc-item-active .group-hover\:text-primary {
+  color: var(--color-primary) !important;
 }
 
 /* === Material Symbols === */
@@ -446,9 +446,8 @@ body.sepia-mode {
 
 /* Reader content typography */
 .reader-content {
-  --fs: 1.1rem;
-  font-size: clamp(1rem, var(--fs), 1.9rem);
-  line-height: 1.8;
+  font-size: 1.0625rem;
+  line-height: 1.85;
   word-break: break-word;
   overflow-wrap: break-word;
   touch-action: pan-y;
@@ -456,31 +455,42 @@ body.sepia-mode {
 
 /* Paragraphs */
 .reader-content p {
-  color: var(--reader-text-muted, var(--color-on-surface-variant));
-  font-size: 0.95em;
-  margin-bottom: 0.9em;
+  color: #c8c8c8;
+  margin-bottom: 1em;
 }
 
-/* Section headings (from renderSection) — keep visible with hierarchy
+/* Section headings (from renderSection)
    Uses !important to beat Tailwind Typography prose overrides */
 .section-heading {
   font-weight: 700 !important;
-  margin: 1.8em 0 0.6em !important;
-  letter-spacing: 0.02em;
+  margin: 2em 0 0.5em !important;
+  letter-spacing: 0.01em;
 }
 h2.section-heading {
-  font-size: 1.35em !important;
-  color: var(--color-on-surface) !important;
-  line-height: 1.35 !important;
+  font-size: 1.4em !important;
+  color: #f0f0f0 !important;
+  line-height: 1.3 !important;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 h3.section-heading {
   font-size: 1.15em !important;
-  color: var(--color-on-surface) !important;
+  color: #e8e8e8 !important;
   line-height: 1.4 !important;
 }
 h4.section-heading {
-  font-size: 1.15em !important;
-  color: var(--color-on-surface) !important;
+  font-size: 1.05em !important;
+  color: #e0e0e0 !important;
+}
+
+/* Links inside reader */
+.reader-content a {
+  color: #5b9bd5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reader-content a:hover {
+  color: #7ab8f0;
 }
 
 /* Headings inside block content (from marked.parse) — flatten to body text
@@ -510,9 +520,19 @@ h4.section-heading {
 .reader-content ol {
   padding-left: 1.5em;
   margin-bottom: 1em;
+  color: #c8c8c8;
 }
 .reader-content li {
-  margin-bottom: 0.3em;
+  margin-bottom: 0.35em;
+}
+.reader-content ul li::marker {
+  color: var(--color-primary);
+  opacity: 0.6;
+}
+.reader-content ol li::marker {
+  color: var(--color-primary);
+  font-weight: 600;
+  opacity: 0.7;
 }
 
 /* Images: constrain + hide broken */
@@ -523,31 +543,32 @@ h4.section-heading {
 }
 .reader-content img[src=""] { display: none; }
 
-/* Bold: primary emphasis — prominent accent color */
+/* Bold: primary emphasis */
 .reader-content strong {
-  color: var(--reader-accent, var(--color-primary));
+  color: #e8e8e8;
   font-weight: 700;
 }
 
 /* Italic: secondary emphasis — muted */
 .reader-content em {
-  color: var(--reader-text-muted, var(--color-on-surface-variant));
+  color: #888;
   font-style: italic;
 }
 
 /* Blockquote */
 .reader-content blockquote {
-  color: var(--reader-text-muted, var(--color-on-surface-variant));
-  border-left-color: var(--reader-accent, var(--color-primary));
+  color: #888;
+  border-left: 3px solid rgba(0, 136, 204, 0.5);
+  padding-left: 1.2em;
+  margin: 1.2em 0;
+  font-style: italic;
 }
 
 /* Mobile adjustments */
 @media (max-width: 639px) {
   .reader-content {
+    font-size: 0.9375rem;
     line-height: 1.75;
-  }
-  .reader-content p {
-    margin-bottom: 0.8em;
   }
 }
 
