@@ -676,12 +676,12 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
             if (parsed.event === 'chunks_used') {
               currentSources = parsed.sources || [];
             } else if (parsed.event === 'chunk') {
-              bubbleEl.textContent += parsed.data?.text || '';
+              bubbleEl.textContent += parsed.text || '';
               scrollToBottom();
             } else if (parsed.event === 'done') {
               currentSources = parsed.sources || currentSources;
             } else if (parsed.event === 'error') {
-              throw new Error(parsed.data?.message || 'Stream error');
+              throw new Error(parsed.message || 'Stream error');
             }
           } catch (e) {
             if (e.message !== 'Stream error') console.warn('[chat] SSE parse error:', e);
