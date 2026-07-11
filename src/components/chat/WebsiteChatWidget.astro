@@ -8,55 +8,47 @@ interface Props {
 const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 ---
 <style>
-  /* ── Floating trigger ─────────────────────────────────────────── */
+  /* ── Floating trigger — matches reader FAB style (circle, glass) ── */
   #website-chat-trigger {
     position: fixed;
-    right: 16px;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    z-index: 9999;
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    border: none;
+    z-index: 9997;
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    border: 1px solid var(--reader-border);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    box-shadow: 0 4px 24px rgba(146,204,255,0.25), 0 1px 4px rgba(0,0,0,0.4);
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    background: linear-gradient(135deg, #92ccff 0%, #5ba8e0 100%);
-    color: #0d1117;
+    transition: all 0.2s ease;
+    background: var(--reader-chrome-surface-high);
+    backdrop-filter: blur(12px);
+    color: var(--reader-chrome-text-muted);
   }
   #website-chat-trigger:hover {
-    transform: scale(1.08);
-    box-shadow: 0 6px 32px rgba(146,204,255,0.4), 0 2px 8px rgba(0,0,0,0.4);
+    border-color: var(--reader-border-hover);
+    color: var(--reader-chrome-text);
+    background: var(--reader-chrome-surface-high);
   }
   #website-chat-trigger:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
   }
   #website-chat-trigger .trigger-icon {
-    font-size: 22px;
-    transition: transform 0.3s ease;
+    font-size: 20px;
+    transition: transform 0.25s ease;
   }
   #website-chat-trigger.chat-open .trigger-icon {
     transform: rotate(90deg);
   }
-  #website-chat-trigger .trigger-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    display: none;
-  }
-  @media (min-width: 640px) {
-    #website-chat-trigger { width: auto; padding: 0 16px; border-radius: 52px; }
-    #website-chat-trigger .trigger-label { display: block; }
+  #website-chat-trigger.chat-open {
+    color: var(--color-primary);
+    border-color: rgba(146,204,255,0.4);
   }
 
-  /* Pulse animation on idle */
+  /* Pulse on idle */
   @keyframes chatPulse {
-    0%, 100% { box-shadow: 0 4px 24px rgba(146,204,255,0.25), 0 1px 4px rgba(0,0,0,0.4); }
-    50%       { box-shadow: 0 4px 32px rgba(146,204,255,0.5), 0 1px 4px rgba(0,0,0,0.4); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(146,204,255,0); }
+    50%       { box-shadow: 0 0 0 4px rgba(146,204,255,0.3); }
   }
   #website-chat-trigger:not(.chat-open) {
     animation: chatPulse 3s ease-in-out infinite;
@@ -68,26 +60,42 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   /* ── Chat panel ──────────────────────────────────────────────── */
   #website-chat-panel {
     position: fixed;
-    right: 16px;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     z-index: 9998;
+    right: 16px;
     width: min(400px, calc(100vw - 32px));
-    height: min(600px, calc(100vh - 160px));
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transform: scale(0.8) translateY(20px);
+    transform: scale(0.85) translateY(16px);
     transform-origin: bottom right;
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(146,204,255,0.15);
+    /* Desktop: anchored above trigger button */
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    height: min(580px, calc(100vh - 140px));
   }
   #website-chat-panel.chat-panel-open {
     transform: scale(1) translateY(0);
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* Mobile: reader pages — panel sits between reader toolbar (top) and trigger (bottom) */
+  @media (max-width: 1023px) {
+    #website-chat-panel {
+      bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+      height: calc(100vh - 180px);
+    }
+  }
+  /* Mobile with bottom nav: smaller panel */
+  @media (max-width: 1023px) {
+    #website-chat-panel.has-bottom-nav {
+      bottom: calc(80px + 64px + env(safe-area-inset-bottom, 0px));
+      height: calc(100vh - 220px);
+    }
   }
 
   /* Chat header */
@@ -708,53 +716,97 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     }
   });
 
-  // ── Mobile: shift widget down when mobile bottom nav is present ──
-  function getSafeAreaInset() {
-    const style = getComputedStyle(document.documentElement);
-    const sat = style.getPropertyValue('--sat') || style.getPropertyValue('padding-bottom') || '0';
-    return parseInt(sat) || 0;
+  // ── Smart positioning: avoid overlapping fixed UI elements ──
+  // Detects: right-side FAB stacks (book/blog), bottom nav (other pages), safe area
+  function getSat() {
+    try {
+      return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+    } catch { return 0; }
   }
 
+  // Right-side FAB stacks: .fab-stack on book pages, #blog-section-fab on blog
+  // Each button ~40px + 8px gap
+  function getRightFabCount() {
+    let count = 0;
+    const stack = document.querySelector('#mobile-fab-container');
+    if (stack) count += stack.querySelectorAll('button').length;
+    const blogFab = document.getElementById('blog-section-fab');
+    if (blogFab) count += blogFab.querySelectorAll('button').length;
+    return count;
+  }
+
+  // Bottom nav: #mobile-bottom-nav (64px tall)
   function isBottomNavVisible() {
     const nav = document.getElementById('mobile-bottom-nav');
-    if (!nav) return false;
-    const style = getComputedStyle(nav);
-    return style.display !== 'none' && window.innerWidth < 1024;
+    return !!(nav && getComputedStyle(nav).display !== 'none' && window.innerWidth < 1024);
   }
 
   function adjustBottomOffset() {
+    const sat = getSat();
+    const fabCount = getRightFabCount();
+    const hasBottomNav = isBottomNavVisible();
     const isMobile = window.innerWidth < 1024;
-    const navVisible = isBottomNavVisible();
-    const fabExists = !!document.getElementById('blog-section-fab');
-    const sat = getSafeAreaInset();
 
-    if (isMobile) {
-      if (navVisible) {
-        // Mobile pages (home, blog listing, resources): above bottom nav
-        const navHeight = 64;
-        trigger.style.bottom = `${navHeight + sat + 16}px`;
-        panel.style.bottom = `${navHeight + sat + 72}px`;
-      } else {
-        // Reader pages (book, standalone pages): at bottom with safe area
-        trigger.style.bottom = `${16 + sat}px`;
-        panel.style.bottom = `${72 + sat}px`;
-      }
-
-      // Avoid blog TOC FAB on blog post pages
-      if (fabExists) {
-        trigger.style.right = '70px';
-      } else {
-        trigger.style.right = '';
-      }
-    } else {
-      // Desktop: reset to CSS defaults
+    if (!isMobile) {
+      // Desktop: CSS defaults are fine
       trigger.style.bottom = '';
       trigger.style.right = '';
       panel.style.bottom = '';
+      panel.style.right = '';
+      return;
+    }
+
+    // Mobile: stack below right-side FABs if present, otherwise above bottom nav
+    const gap = 12;
+    const triggerSize = 40;
+
+    if (fabCount > 0) {
+      // Book/blog pages: FABs on right → chat widget below them
+      const fabHeight = fabCount * 48;
+      const chatBottom = 72 + sat + fabHeight + gap;
+      trigger.style.bottom = `${chatBottom}px`;
+      trigger.style.right = '16px';
+      // Panel height: fill space between reader toolbar (~48px top) and trigger
+      panel.style.height = `${chatBottom + triggerSize + gap + 80}px`;
+      panel.style.bottom = '';
+      panel.style.right = '16px';
+      panel.classList.remove('has-bottom-nav');
+    } else if (hasBottomNav) {
+      // Other pages: above bottom nav
+      const navHeight = 64;
+      const chatBottom = navHeight + sat + gap;
+      trigger.style.bottom = `${chatBottom}px`;
+      trigger.style.right = '16px';
+      panel.style.bottom = '';
+      panel.style.right = '16px';
+      panel.style.height = '';
+      panel.classList.add('has-bottom-nav');
+    } else {
+      // No FABs, no bottom nav
+      const chatBottom = 16 + sat;
+      trigger.style.bottom = `${chatBottom}px`;
+      trigger.style.right = '16px';
+      panel.style.bottom = '';
+      panel.style.right = '16px';
+      panel.style.height = '';
+      panel.classList.remove('has-bottom-nav');
     }
   }
-  adjustBottomOffset();
+
+  // Run after DOM + child components mount
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(adjustBottomOffset, 100));
+  } else {
+    setTimeout(adjustBottomOffset, 100);
+  }
   window.addEventListener('resize', adjustBottomOffset);
+
+  // Re-check when chat opens (FABs might appear/hide dynamically)
+  const origOpen = openPanel;
+  openPanel = function () {
+    origOpen();
+    setTimeout(adjustBottomOffset, 50);
+  };
 
 })();
 </script>
