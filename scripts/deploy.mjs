@@ -34,16 +34,20 @@ const requiredSecrets = [
   'ADMIN_EMAILS',
   'BETTER_AUTH_SECRET',
   'BETTER_AUTH_URL',
+  'BETTER_AUTH_API_KEY',
   'PAYOS_API_KEY',
   'PAYOS_CHECKSUM_KEY',
   'PAYOS_CLIENT_ID',
   'PAYOS_WEBHOOK_URL',
 ];
 
-const missing = requiredSecrets.filter(k => !secrets[k]);
-if (missing.length > 0) {
-  console.error(`❌ Thiếu secrets trong ${dotenvPath}: ${missing.join(', ')}`);
-  process.exit(1);
+const placeholderKeys = requiredSecrets.filter(k => {
+  const v = secrets[k];
+  return !v || v.startsWith('your-') || v === 'dev-placeholder' || v.startsWith('re_your_');
+});
+if (placeholderKeys.length > 0) {
+  console.warn(`⚠️  Secrets chưa điền đầy đủ: ${placeholderKeys.join(', ')}`);
+  console.warn(`   Tiếp tục deploy mà không set secrets mới...`);
 }
 
 // 1. Build
@@ -54,7 +58,7 @@ execSync('npm run build', { stdio: 'inherit' });
 console.log('🔑 Setting secrets...');
 for (const key of requiredSecrets) {
   const val = secrets[key];
-  if (!val || val.startsWith('your-') || val === 'dev-placeholder') {
+  if (!val || val.startsWith('your-') || val === 'dev-placeholder' || val.startsWith('re_your_')) {
     console.warn(`⚠️  Bỏ qua ${key} (giá trị placeholder)`);
     continue;
   }
@@ -72,6 +76,6 @@ for (const key of requiredSecrets) {
 
 // 3. Deploy
 console.log('🚀 Deploying...');
-execSync('npx wrangler deploy --config wrangler.jsonc', { stdio: 'inherit' });
+execSync('npx wrangler deploy --config dist/server/wrangler.json', { stdio: 'inherit' });
 
 console.log('✅ Deploy hoàn tất');

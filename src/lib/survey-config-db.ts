@@ -234,6 +234,12 @@ export function parseScaleLabels(raw: string | null | undefined): Record<string,
 
 // ── CRUD: Survey Definition ────────────────────────────
 
+export async function listAllSurveyDefinitionIds(db: D1Database): Promise<Set<string>> {
+  const stmt = db.prepare('SELECT id FROM "survey_definition"');
+  const result = await stmt.all<{ id: string }>();
+  return new Set(result.results?.map((r) => r.id) ?? []);
+}
+
 export async function listSurveyDefinitions(
   db: D1Database,
   opts: { status?: SurveyStatus; limit?: number; offset?: number } = {},

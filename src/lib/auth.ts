@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { dash } from '@better-auth/infra';
 import { D1Dialect } from 'kysely-d1';
 
 export function createAuth(env: Cloudflare.Env) {
@@ -38,6 +39,9 @@ export function createAuth(env: Cloudflare.Env) {
       autoSignIn: true,
     },
     socialProviders,
+    plugins: [
+      dash(),
+    ],
   });
 }
 

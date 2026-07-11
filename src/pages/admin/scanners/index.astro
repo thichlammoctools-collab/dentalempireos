@@ -5,6 +5,7 @@ import {
   listSurveyDefinitions,
   countSurveyDefinitions,
   countResponsesBySurvey,
+  listAllSurveyDefinitionIds,
 } from '../../../lib/survey-config-db';
 import { SEED_REGISTRY } from '../../../data/seeds/registry';
 
@@ -39,7 +40,7 @@ try {
 
 const totalPages = Math.ceil(totalDefs / PAGE_SIZE);
 
-const existingIds = new Set(definitions.map((d) => d.id));
+const existingIds = await listAllSurveyDefinitionIds(env.DB);
 
 // Count responses per survey (best effort)
 const responseCounts = new Map<string, number>();
