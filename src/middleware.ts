@@ -27,8 +27,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
       .bind(result.user.id)
       .first<{ is_active: number }>();
 
-    locals.user = { ...result.user, is_active: dbUser?.is_active ?? 0 };
+    const user = { ...result.user, is_active: dbUser?.is_active ?? 0 };
+    locals.user = user;
     locals.session = result.session;
+
+    // Chặn user bị banned khỏi mọi trang (trừ login)
+    if (user.banned && !url.pathname.startsWith('/login')) {
+      return context.redirect('/login?reason=banned');
+    }
   }
 
   const isAdminPage = url.pathname === '/admin' || url.pathname.startsWith('/admin/');

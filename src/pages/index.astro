@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
 import DonateWidget from '../components/book/DonateWidget.astro';
+import WebsiteChatWidget from '../components/chat/WebsiteChatWidget.astro';
 import { getSupportSettings, getTierStats } from '../lib/book-db';
 
 export const prerender = false;
@@ -256,4 +257,6 @@ const tierStatsMap: Record<number, { chapterCount: number; sectionCount: number 
     </div>
   </section>
 
+  <!-- AI Chat Widget -->
+  <WebsiteChatWidget pageType="home" />
 </BaseLayout>

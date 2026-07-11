@@ -59,19 +59,19 @@ try {
 }
 
 // Fetch linked chapter and scanner
-let linkedChapter: { id: string; title: string; chapter_number: number; slug: string } | null = null;
-let linkedScanner: { id: string; name: string; description: string } | null = null;
+let linkedChapter: { id: string; title: string; chapter_no: number; slug: string } | null = null;
+let linkedScanner: { id: string; title_vi: string; description_vi: string } | null = null;
 
 if (post.chapter_id) {
   try {
-    const ch = await env.DB.prepare('SELECT id, title, chapter_number, slug FROM "chapter" WHERE id = ?').bind(post.chapter_id).first<{ id: string; title: string; chapter_number: number; slug: string }>();
+    const ch = await env.DB.prepare('SELECT id, title, chapter_no, slug FROM "chapter" WHERE id = ?').bind(post.chapter_id).first<{ id: string; title: string; chapter_no: number; slug: string }>();
     if (ch) linkedChapter = ch;
   } catch { /* column may not exist yet */ }
 }
 
 if (post.scanner_id) {
   try {
-    const sc = await env.DB.prepare('SELECT id, name, description FROM "survey_definition" WHERE id = ?').bind(post.scanner_id).first<{ id: string; name: string; description: string }>();
+    const sc = await db.prepare('SELECT id, title_vi, description_vi FROM "survey_definition" WHERE id = ?').bind(post.scanner_id).first<{ id: string; title_vi: string; description_vi: string }>();
     if (sc) linkedScanner = sc;
   } catch { /* table may not exist yet */ }
 }
@@ -445,7 +445,7 @@ const breadcrumbSchema = {
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                       <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 border border-primary/20 text-primary">SÁCH</span>
-                      <span class="text-[10px] text-on-surface-variant">Chương {linkedChapter.chapter_number}</span>
+                      <span class="text-[10px] text-on-surface-variant">Chương {linkedChapter.chapter_no}</span>
                     </div>
                     <h3 class="font-bold text-white group-hover:text-primary transition-colors">{linkedChapter.title}</h3>
                     <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">Tìm hiểu đầy đủ chủ đề này trong chương sách chi tiết của chúng tôi, cùng hàng chục chiến lược vận hành phòng khám được đúc kết từ thực tế.</p>
@@ -467,8 +467,8 @@ const breadcrumbSchema = {
                     <div class="flex items-center gap-2 mb-1">
                       <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary">BÀI TEST</span>
                     </div>
-                    <h3 class="font-bold text-white group-hover:text-tertiary transition-colors">{linkedScanner.name}</h3>
-                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{linkedScanner.description || 'Làm bài test để đánh giá kiến thức và nhận kết quả chi tiết.'}</p>
+                    <h3 class="font-bold text-white group-hover:text-tertiary transition-colors">{linkedScanner.title_vi}</h3>
+                    <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{linkedScanner.description_vi || 'Làm bài test để đánh giá kiến thức và nhận kết quả chi tiết.'}</p>
                     <div class="flex items-center gap-1 mt-2 text-tertiary text-xs font-bold">
                       <span>Làm bài test</span>
                       <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -535,6 +535,8 @@ const breadcrumbSchema = {
     <BlogSectionNav items={tocItems} postTitle={post.title} />
   )}
 
+  <!-- AI Chat Widget -->
+  <WebsiteChatWidget pageType="blog" pageSlug={post.slug} />
 </BaseLayout>
 
 <script>

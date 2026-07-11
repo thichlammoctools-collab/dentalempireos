@@ -12,8 +12,8 @@ const [post, flatCategories, tags, chapters, scanners] = await Promise.all([
   getPostById(env.DB, id),
   listCategories(env.DB),
   listTags(env.DB),
-  env.DB.prepare('SELECT id, title, chapter_number FROM "chapter" ORDER BY "order"').all<{ id: string; title: string; chapter_number: number }>(),
-  env.DB.prepare('SELECT id, name FROM "survey_definition" ORDER BY "created_at" DESC').all<{ id: string; name: string }>(),
+  env.DB.prepare('SELECT id, title, chapter_no FROM "chapter" ORDER BY "order"').all<{ id: string; title: string; chapter_no: number }>(),
+  env.DB.prepare('SELECT id, title_vi FROM "survey_definition" ORDER BY "created_at" DESC').all<{ id: string; title_vi: string }>(),
 ]);
 const categoryTree = buildCategoryTree(flatCategories);
 const categoryOptions = flattenCategoryTree(categoryTree);
@@ -176,7 +176,7 @@ function formatDate(iso: string | null): string {
             <select name="chapter_id" id="chapter-id" class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none">
               <option value="">— Không chọn —</option>
               {chapters.results.map((ch) => (
-                <option value={ch.id} selected={post.chapter_id === ch.id}>Chương {ch.chapter_number}: {ch.title}</option>
+                <option value={ch.id} selected={post.chapter_id === ch.id}>Chương {ch.chapter_no}: {ch.title}</option>
               ))}
             </select>
           </div>
@@ -185,7 +185,7 @@ function formatDate(iso: string | null): string {
             <select name="scanner_id" id="scanner-id" class="w-full px-4 py-2 bg-surface-container border border-outline-variant rounded-xl text-white text-sm focus:ring-2 focus:ring-primary focus:outline-none">
               <option value="">— Không chọn —</option>
               {scanners.results.map((s) => (
-                <option value={s.id} selected={post.scanner_id === s.id}>{s.name}</option>
+                <option value={s.id} selected={post.scanner_id === s.id}>{s.title_vi}</option>
               ))}
             </select>
           </div>

@@ -7,6 +7,7 @@ if (Astro.locals.user) {
 }
 
 const redirectTo = Astro.url.searchParams.get('redirect') || '/';
+const bannedReason = Astro.url.searchParams.get('reason') === 'banned';
 const hasGoogleOAuth = !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 ---
 
@@ -18,6 +19,12 @@ const hasGoogleOAuth = !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
         Chưa có tài khoản?
         <a href={`/register?redirect=${encodeURIComponent(redirectTo)}`} class="text-primary font-semibold hover:underline">Đăng ký</a>
       </p>
+
+      {bannedReason && (
+        <div class="mb-4 p-4 rounded-xl bg-red-500/15 border border-red-500/30 text-sm text-red-400">
+          Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.
+        </div>
+      )}
 
       <form id="login-form" class="flex flex-col gap-4">
         <div>
