@@ -40,7 +40,11 @@ export function createAuth(env: Cloudflare.Env) {
     },
     socialProviders,
     plugins: [
-      dash(),
+      dash({
+        activityTracking: {
+          enabled: true,
+        },
+      }),
     ],
   });
 }

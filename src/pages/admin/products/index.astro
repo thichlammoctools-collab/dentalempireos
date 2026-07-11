@@ -270,22 +270,25 @@ const newId = nanoid();
       }
     }
 
-    function toggleScannerField() {
-      if (typeSelect && scannerField) {
-        scannerField.classList.toggle('hidden', typeSelect.value !== 'survey_unlock');
-      }
-    }
-    typeSelect?.addEventListener('change', toggleScannerField);
-
     function openModal() {
       modal?.classList.remove('hidden');
       toggleScannerField();
-      if (typeSelect?.value === 'survey_unlock' && allScanners.length === 0) {
-        loadScanners();
-      } else {
-        renderScannerList(allScanners, []);
+    }
+
+    async function toggleScannerField(selectedScannerIds = []) {
+      if (typeSelect && scannerField) {
+        const isSurvey = typeSelect.value === 'survey_unlock';
+        scannerField.classList.toggle('hidden', !isSurvey);
+        if (isSurvey) {
+          if (allScanners.length === 0) {
+            await loadScanners();
+          }
+          renderScannerList(allScanners, selectedScannerIds);
+        }
       }
     }
+    typeSelect?.addEventListener('change', () => toggleScannerField());
+
     function closeModal() {
       modal?.classList.add('hidden');
       form?.reset();
@@ -321,17 +324,19 @@ const newId = nanoid();
         if (refInput) refInput.value = b.dataset.reference_id || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
 
-        toggleScannerField();
         if (typeInput?.value === 'survey_unlock') {
           if (allScanners.length === 0) await loadScanners();
           let selectedIds = [];
           try { selectedIds = JSON.parse(b.dataset.scanners || '[]'); } catch {}
           renderScannerList(allScanners, selectedIds);
+          scannerField?.classList.remove('hidden');
+        } else {
+          scannerField?.classList.add('hidden');
         }
 
         modalTitle.textContent = 'Sửa sản phẩm';
         submitBtn.textContent = 'Cập nhật';
-        openModal();
+        modal?.classList.remove('hidden');
       });
     });
 

@@ -11,23 +11,38 @@ function isActive(item: AdminNavItem): boolean {
 }
 ---
 
-<aside class="h-screen w-64 fixed left-0 top-0 bg-surface border-r border-outline-variant/15 flex flex-col p-4 gap-6 z-50">
-  <!-- Brand -->
-  <a href="/admin" class="flex items-center gap-2.5 mb-2 px-1 hover:opacity-80 transition-opacity">
-    <img src="/icons/icon-192.png" alt="Dental Empire" class="w-10 h-10 rounded-lg shrink-0" width="40" height="40" />
-    <div class="flex flex-col gap-0.5 min-w-0">
-      <h1 class="text-lg font-bold text-primary tracking-tight leading-none">Dental Empire</h1>
-      <span class="text-[10px] text-on-surface-variant/70 leading-none">Knowledge Hub Admin</span>
-    </div>
-  </a>
+<aside
+  id="admin-sidebar"
+  class="h-screen fixed left-0 top-0 bg-surface border-r border-outline-variant/15 flex flex-col z-50 transition-all duration-300 ease-in-out"
+  style="width: 16rem;"
+>
+  <!-- Brand + toggle -->
+  <div class="flex items-center gap-2.5 px-4 pt-4 pb-3" id="sidebar-header">
+    <a href="/admin" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity flex-shrink-0">
+      <img src="/icons/icon-192.png" alt="Dental Empire" class="w-10 h-10 rounded-lg shrink-0" width="40" height="40" />
+      <div class="flex flex-col gap-0.5 overflow-hidden">
+        <h1 class="text-lg font-bold text-primary tracking-tight leading-none whitespace-nowrap sidebar-section-label">Dental Empire</h1>
+        <span class="text-[10px] text-on-surface-variant/70 leading-none whitespace-nowrap sidebar-section-label">Knowledge Hub Admin</span>
+      </div>
+    </a>
+    <button
+      id="sidebar-toggle"
+      type="button"
+      title="Thu gọn / Mở rộng sidebar"
+      class="ml-auto p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors flex-shrink-0"
+      aria-label="Thu gọn sidebar"
+    >
+      <span class="material-symbols-outlined text-lg">chevron_left</span>
+    </button>
+  </div>
 
   <!-- Sections nav: scrollable list of grouped items -->
-  <nav class="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-hide" aria-label="Menu quản trị">
+  <nav class="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-hide px-2 sidebar-section" aria-label="Menu quản trị">
     {adminNav.map((section) => (
       <div class="flex flex-col gap-1">
-        <h3 class="px-3 pb-1 text-[11px] font-bold tracking-wider text-on-surface-variant/60 uppercase">
+        <div class="sidebar-section-label px-3 pb-1 text-[11px] font-bold tracking-wider text-on-surface-variant/60 uppercase whitespace-nowrap overflow-hidden">
           {section.label}
-        </h3>
+        </div>
         {section.items.map((item) => {
           const active = isActive(item);
           return (
@@ -47,7 +62,7 @@ function isActive(item: AdminNavItem): boolean {
               >
                 {item.icon}
               </span>
-              <span class="text-sm">{item.label}</span>
+              <span class="text-sm sidebar-section-label whitespace-nowrap overflow-hidden">{item.label}</span>
             </a>
           );
         })}
@@ -56,13 +71,13 @@ function isActive(item: AdminNavItem): boolean {
   </nav>
 
   <!-- Footer area: quick-create CTA + logout -->
-  <div class="mt-auto flex flex-col gap-2 pt-4 border-t border-outline-variant/15">
+  <div class="mt-auto flex flex-col gap-2 pt-4 border-t border-outline-variant/15 sidebar-section px-2">
     <a
       href="/admin/ebooks/new"
       class="bg-primary-container text-white py-3 px-4 rounded-lg font-bold cyan-glow hover:opacity-90 transition-all flex items-center justify-center gap-2 mb-2"
     >
       <span class="material-symbols-outlined text-[20px]">add</span>
-      <span class="text-sm">New Content</span>
+      <span class="text-sm sidebar-section-label">New Content</span>
     </a>
 
     <button
@@ -71,13 +86,38 @@ function isActive(item: AdminNavItem): boolean {
       class="flex items-center gap-3 p-3 rounded-lg font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left"
     >
       <span class="material-symbols-outlined">logout</span>
-      <span class="text-sm">Đăng xuất</span>
+      <span class="text-sm sidebar-section-label">Đăng xuất</span>
     </button>
   </div>
 </aside>
 
 <script>
   import { signOut } from '../../lib/auth-client';
+
+  const sidebar = document.getElementById('admin-sidebar');
+  const toggleBtn = document.getElementById('sidebar-toggle');
+  const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+
+  function applyCollapsed(collapsed: boolean) {
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed', collapsed);
+    document.getElementById('main-content')?.classList.toggle('ml-64', !collapsed);
+    document.getElementById('main-content')?.classList.toggle('ml-16', collapsed);
+    sidebar.style.width = collapsed ? '4rem' : '16rem';
+    toggleBtn?.setAttribute('aria-label', collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar');
+    toggleBtn?.querySelector('span')?.classList.toggle('rotate-180', collapsed);
+    document.querySelectorAll('.sidebar-section-label').forEach((el) => {
+      (el as HTMLElement).style.display = collapsed ? 'none' : '';
+    });
+  }
+
+  applyCollapsed(isCollapsed);
+
+  toggleBtn?.addEventListener('click', () => {
+    const nowCollapsed = sidebar?.classList.contains('collapsed');
+    localStorage.setItem('sidebar-collapsed', String(!nowCollapsed));
+    applyCollapsed(!nowCollapsed);
+  });
 
   document.getElementById('admin-logout')?.addEventListener('click', async () => {
     await signOut();
