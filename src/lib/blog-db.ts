@@ -456,9 +456,6 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       ? ts
       : input.published_at ?? null;
 
-  // NOTE: placeholder count MUST match the number of bind args below.
-  // INSERT VALUES = 19, ON CONFLICT read_time = 1 → 20 total.
-  // published_at on conflict preserves the existing row value, so no bind needed.
   await db
     .prepare(
       `INSERT INTO "blog_post" (
@@ -506,6 +503,7 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       input.scanner_id ?? null,
       ts,
       ts,
+      readTime,
     )
     .run();
 
