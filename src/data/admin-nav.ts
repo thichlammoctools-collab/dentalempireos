@@ -36,11 +36,12 @@ export const adminNav: AdminNavSection[] = [
     ],
   },
   {
-    key: 'community',
-    label: 'CỘNG ĐỒNG',
+    key: 'auth',
+    label: 'XÁC THỰC',
     items: [
-      { href: '/admin/questions', label: 'Hỏi đáp',    icon: 'question_answer', match: '/admin/questions' },
-      { href: '/admin/users',     label: 'Người dùng', icon: 'people',          match: '/admin/users' },
+      { href: '/admin/auth/users',  label: 'Người dùng', icon: 'people',       match: '/admin/auth/users' },
+      { href: '/admin/auth/stats',  label: 'Thống kê',   icon: 'analytics',    match: '/admin/auth/stats' },
+      { href: '/admin/auth/audit', label: 'Nhật ký',    icon: 'history_toggle_off', match: '/admin/auth/audit' },
     ],
   },
   {
@@ -59,6 +60,7 @@ export const adminNav: AdminNavSection[] = [
     items: [
       { href: '/admin/scanners',    label: 'Máy quét',     icon: 'fact_check', match: '/admin/scanners' },
       { href: '/admin/apps',       label: 'Ứng dụng AI',  icon: 'smart_toy', match: '/admin/apps' },
+      { href: '/ai-tools',        label: 'AI Mentor',     icon: 'psychology', match: '/ai-tools' },
       { href: '/admin/ai-settings', label: 'Cài đặt AI',  icon: 'tune',      match: '/admin/ai-settings' },
     ],
   },

@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { admin } from 'better-auth/plugins';
 import { dash } from '@better-auth/infra';
 import { D1Dialect } from 'kysely-d1';
 
@@ -40,6 +41,7 @@ export function createAuth(env: Cloudflare.Env) {
     },
     socialProviders,
     plugins: [
+      admin(),
       dash({
         activityTracking: {
           enabled: true,

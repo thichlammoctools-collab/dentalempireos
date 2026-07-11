@@ -1,0 +1,313 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../../../lib/auth';
+
+export const prerender = false;
+
+const auth = createAuth(env);
+
+const limit = 20;
+const result = await auth.api.listUsers({ limit, sortBy: 'createdAt', sortDirection: 'desc' });
+const users = result.users;
+const total = result.total;
+---
+
+<AdminLayout title="Người dùng | Auth Admin">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-1">Quản lý Người dùng</h2>
+      <p class="text-on-surface-variant">
+        {total} người dùng · {users.filter(u => !u.banned).length} hoạt động · {users.filter(u => u.banned).length} bị cấm
+      </p>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+    <div class="glass-card rounded-xl px-5 py-4">
+      <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Tổng</div>
+      <div class="text-2xl font-bold text-white">{total}</div>
+    </div>
+    <div class="glass-card rounded-xl px-5 py-4">
+      <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Hoạt động</div>
+      <div class="text-2xl font-bold text-green-400">{users.filter(u => !u.banned).length}</div>
+    </div>
+    <div class="glass-card rounded-xl px-5 py-4">
+      <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Bị cấm</div>
+      <div class="text-2xl font-bold text-red-400">{users.filter(u => u.banned).length}</div>
+    </div>
+    <div class="glass-card rounded-xl px-5 py-4">
+      <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Mới tuần này</div>
+      <div class="text-2xl font-bold text-blue-400" id="new-this-week">-</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="glass-card rounded-xl overflow-hidden mt-6">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="border-b border-outline-variant/20 text-on-surface-variant uppercase text-xs tracking-wider">
+            <th class="px-6 py-4 font-bold">Người dùng</th>
+            <th class="px-6 py-4 font-bold">Đăng ký</th>
+            <th class="px-6 py-4 font-bold">Hoạt động cuối</th>
+            <th class="px-6 py-4 font-bold text-center">Trạng thái</th>
+            <th class="px-6 py-4 font-bold text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          {users.length === 0 ? (
+            <tr>
+              <td colspan="5" class="px-6 py-12 text-center text-on-surface-variant/50">Chưa có người dùng nào</td>
+            </tr>
+          ) : users.map(user => (
+            <tr class="border-b border-outline-variant/10 hover:bg-surface-container-high/50 transition-colors" data-user-id={user.id}>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
+                    {user.name?.charAt(0)?.toUpperCase() ?? '?'}
+                  </div>
+                  <div>
+                    <div class="font-medium text-on-surface">{user.name}</div>
+                    <div class="text-xs text-on-surface-variant">{user.email}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 text-on-surface-variant">
+                {new Date(user.createdAt).toLocaleDateString('vi-VN')}
+              </td>
+              <td class="px-6 py-4 text-on-surface-variant">
+                {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString('vi-VN') : 'Chưa có'}
+              </td>
+              <td class="px-6 py-4 text-center">
+                {user.banned ? (
+                  <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30">
+                    <span class="material-symbols-outlined text-[14px]">block</span>Bị cấm
+                  </span>
+                ) : (
+                  <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-green-500/15 text-green-400 border border-green-500/30">
+                    <span class="material-symbols-outlined text-[14px]">check_circle</span>Hoạt động
+                  </span>
+                )}
+              </td>
+              <td class="px-6 py-4 text-center">
+                <div class="flex items-center justify-center gap-2">
+                  <button class="detail-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary hover:text-primary transition-all cursor-pointer"
+                    data-user-id={user.id}>
+                    Chi tiết
+                  </button>
+                  <button class="ban-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                    class:list={[
+                      user.banned
+                        ? 'bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25'
+                        : 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
+                    ]}
+                    data-user-id={user.id} data-banned={String(!!user.banned)}>
+                    {user.banned ? 'Bỏ cấm' : 'Cấm'}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+      <span class="text-xs text-on-surface-variant">Tổng: {total} người dùng</span>
+    </div>
+  </div>
+
+  <!-- User Detail Modal -->
+  <div id="user-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between p-6 border-b border-outline-variant/20">
+        <h3 class="text-xl font-bold text-white">Chi tiết người dùng</h3>
+        <button id="close-modal" class="p-2 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer">
+          <span class="material-symbols-outlined text-on-surface-variant">close</span>
+        </button>
+      </div>
+      <div id="modal-content" class="p-6 space-y-4">
+        <div class="text-center text-on-surface-variant py-8">Đang tải...</div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+declare function showToast(msg: string, type?: string): void;
+
+const tbody = document.getElementById('users-tbody')!;
+const modal = document.getElementById('user-modal')!;
+const modalContent = document.getElementById('modal-content')!;
+
+async function fetchUserDetail(userId: string) {
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  modalContent.innerHTML = '<div class="text-center text-on-surface-variant py-8">Đang tải...</div>';
+
+  try {
+    const res = await fetch(`/api/admin/auth/users/${encodeURIComponent(userId)}`);
+    const data = await res.json();
+
+    const sessions = data.sessions ?? [];
+    const accounts = data.accounts ?? [];
+
+    modalContent.innerHTML = `
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Tên</div>
+          <div class="font-semibold text-on-surface">${data.name ?? '-'}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Email</div>
+          <div class="font-semibold text-on-surface break-all">${data.email ?? '-'}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Trạng thái</div>
+          <div>${data.banned
+            ? '<span class="text-red-400 font-semibold">Bị cấm</span>'
+            : '<span class="text-green-400 font-semibold">Hoạt động</span>'}
+          </div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Xác thực email</div>
+          <div>${data.emailVerified
+            ? '<span class="text-green-400 font-semibold">Đã xác thực</span>'
+            : '<span class="text-yellow-400 font-semibold">Chưa xác thực</span>'}
+          </div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Đăng ký</div>
+          <div class="font-semibold text-on-surface">${new Date(data.createdAt).toLocaleDateString('vi-VN')}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Hoạt động cuối</div>
+          <div class="font-semibold text-on-surface">${data.lastActiveAt ? new Date(data.lastActiveAt).toLocaleDateString('vi-VN') : 'Chưa có'}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Sessions</div>
+          <div class="font-semibold text-on-surface">${sessions.length}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-on-surface-variant uppercase tracking-wider">Tài khoản liên kết</div>
+          <div class="font-semibold text-on-surface">${accounts.length}</div>
+        </div>
+      </div>
+
+      ${accounts.length > 0 ? `
+      <div>
+        <div class="text-sm font-semibold text-on-surface-variant mb-2">Tài khoản liên kết</div>
+        <div class="space-y-2">
+          ${accounts.map((acc: any) => `
+            <div class="flex items-center gap-2 text-sm">
+              <span class="material-symbols-outlined text-primary text-lg">${acc.providerId === 'google' ? 'mail' : 'key'}</span>
+              <span class="font-mono text-on-surface">${acc.providerId}</span>
+              <span class="text-on-surface-variant">${acc.accountId}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/20">
+        <button data-action="revoke-sessions" data-user-id="${userId}" data-modal="true"
+          class="modal-action-btn px-4 py-2 rounded-xl text-sm font-bold bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-all cursor-pointer">
+          Thu hồi sessions
+        </button>
+        <button data-action="${data.banned ? 'unban' : 'ban'}" data-user-id="${userId}" data-modal="true"
+          class="modal-action-btn px-4 py-2 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary transition-all cursor-pointer">
+          ${data.banned ? 'Bỏ cấm' : 'Cấm người dùng'}
+        </button>
+        <button data-action="send-verification" data-user-id="${userId}" data-modal="true"
+          class="modal-action-btn px-4 py-2 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary transition-all cursor-pointer">
+          Gửi email xác thực
+        </button>
+      </div>
+    `;
+  } catch {
+    modalContent.innerHTML = '<div class="text-center text-red-400 py-8">Lỗi khi tải chi tiết</div>';
+  }
+}
+
+// Detail
+tbody.addEventListener('click', async (e) => {
+  const detailBtn = (e.target as HTMLElement).closest('.detail-btn') as HTMLButtonElement | null;
+  if (!detailBtn) return;
+  const userId = detailBtn.dataset.userId!;
+  await fetchUserDetail(userId);
+});
+
+// Ban/Unban
+tbody.addEventListener('click', async (e) => {
+  const banBtn = (e.target as HTMLElement).closest('.ban-btn') as HTMLButtonElement | null;
+  if (!banBtn) return;
+  const userId = banBtn.dataset.userId!;
+  const banned = banBtn.dataset.banned === 'true';
+  const action = banned ? 'unban' : 'ban';
+
+  banBtn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/auth/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, userId }),
+    });
+    if (res.ok) {
+      showToast(banned ? 'Đã bỏ cấm người dùng' : 'Đã cấm người dùng');
+      window.location.reload();
+    } else {
+      const data = await res.json();
+      showToast(data.error || 'Lỗi', 'error');
+    }
+  } catch {
+    showToast('Lỗi kết nối', 'error');
+  } finally {
+    banBtn.disabled = false;
+  }
+});
+
+// Modal actions
+modalContent.addEventListener('click', async (e) => {
+  const btn = (e.target as HTMLElement).closest('.modal-action-btn') as HTMLButtonElement | null;
+  if (!btn) return;
+
+  const action = btn.dataset.action!;
+  const userId = btn.dataset.userId!;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/auth/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, userId }),
+    });
+    if (res.ok) {
+      showToast('Thao tác thành công');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      window.location.reload();
+    } else {
+      const data = await res.json();
+      showToast(data.error || 'Lỗi', 'error');
+    }
+  } catch {
+    showToast('Lỗi kết nối', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Close modal
+document.getElementById('close-modal')!.addEventListener('click', () => {
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+});
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+});
+</script>

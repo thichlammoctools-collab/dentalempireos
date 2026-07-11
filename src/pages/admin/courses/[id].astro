@@ -62,9 +62,37 @@ const newVideoId = nanoid();
           class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant rounded-xl text-white focus:ring-1 focus:ring-primary focus:outline-none resize-none">{course.description ?? ''}</textarea>
       </div>
       <div>
-        <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Ảnh bìa (URL)</label>
-        <input type="url" name="thumbnail_url" value={course.thumbnail_url ?? ''}
-          class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant rounded-xl text-white focus:ring-1 focus:ring-primary focus:outline-none" />
+        <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Ảnh bìa</label>
+        <div id="course-thumb-picker" class="relative flex flex-col gap-2">
+          <input type="hidden" name="thumbnail_url" id="edit-thumb-url" value={course.thumbnail_url ?? ''} />
+          <div id="edit-thumb-drop" class={`relative border-2 border-dashed border-outline-variant rounded-xl p-4 text-center cursor-pointer hover:border-primary/60 hover:bg-surface-container-high/50 transition-all ${course.thumbnail_url ? 'border-primary/40' : ''}`}>
+            <input type="file" id="edit-thumb-input" accept="image/*" class="hidden" />
+            <div id="edit-thumb-placeholder" class={`flex flex-col items-center gap-1 ${course.thumbnail_url ? 'hidden' : ''}`}>
+              <span class="material-symbols-outlined text-3xl text-on-surface-variant/40">add_photo_alternate</span>
+              <p class="text-xs text-on-surface-variant/60">Paste ảnh · Kéo thả · Click để chọn</p>
+            </div>
+            {course.thumbnail_url ? (
+              <img id="edit-thumb-preview" src={course.thumbnail_url} class="max-h-24 mx-auto rounded-lg object-cover" alt="Preview" />
+            ) : (
+              <img id="edit-thumb-preview" class="hidden max-h-24 mx-auto rounded-lg object-cover" alt="Preview" />
+            )}
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 h-px bg-outline-variant/30"></div>
+            <span class="text-[10px] text-on-surface-variant/40 uppercase font-bold tracking-wider">hoặc</span>
+            <div class="flex-1 h-px bg-outline-variant/30"></div>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1 relative">
+              <input type="text" id="edit-thumb-yt" placeholder="Dán YouTube URL để lấy thumbnail..."
+                class="w-full px-3 py-2 bg-surface border border-outline-variant rounded-xl text-white text-sm placeholder:text-white/30 focus:ring-1 focus:ring-primary focus:outline-none" />
+              <img id="edit-thumb-yt-preview" class="hidden absolute bottom-full left-0 mb-2 w-32 rounded-lg object-cover shadow-lg border border-outline-variant" alt="YouTube thumbnail" />
+            </div>
+            <button type="button" id="edit-thumb-clear" class={`${course.thumbnail_url ? '' : 'hidden'} px-3 py-2 border border-outline-variant text-on-surface-variant rounded-xl text-sm hover:bg-surface transition-all`} title="Xóa ảnh bìa">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div>
         <label class="block text-xs font-semibold text-on-surface-variant mb-1.5">Thứ tự hiển thị</label>
@@ -189,6 +217,137 @@ const newVideoId = nanoid();
 
 <script>
   declare function showToast(msg: string, type?: string): void;
+
+  // ─── Thumbnail picker helpers (same as courses/index.astro) ──────────────────
+  function extractYouTubeId(input: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /^[a-zA-Z0-9_-]{11}$/,
+    ];
+    for (const p of patterns) {
+      const m = input.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  function getYtThumb(id: string): string {
+    return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  }
+
+  async function compressImage(file: File, maxW = 1280): Promise<Blob> {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxW / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
+    bmp.close();
+    return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.82 });
+  }
+
+  function setEditThumbUrl(url: string) {
+    const input = document.getElementById('edit-thumb-url') as HTMLInputElement;
+    const preview = document.getElementById('edit-thumb-preview') as HTMLImageElement;
+    const placeholder = document.getElementById('edit-thumb-placeholder') as HTMLDivElement;
+    const clearBtn = document.getElementById('edit-thumb-clear') as HTMLButtonElement;
+    const drop = document.getElementById('edit-thumb-drop') as HTMLDivElement;
+    if (input) input.value = url;
+    if (preview) { preview.src = url; preview.classList.remove('hidden'); }
+    if (placeholder) placeholder.classList.add('hidden');
+    if (clearBtn) clearBtn.classList.remove('hidden');
+    drop.classList.remove('border-outline-variant', 'hover:border-primary/60');
+    drop.classList.add('border-primary/40');
+  }
+
+  function clearEditThumb() {
+    const input = document.getElementById('edit-thumb-url') as HTMLInputElement;
+    const preview = document.getElementById('edit-thumb-preview') as HTMLImageElement;
+    const placeholder = document.getElementById('edit-thumb-placeholder') as HTMLDivElement;
+    const clearBtn = document.getElementById('edit-thumb-clear') as HTMLButtonElement;
+    const fileInput = document.getElementById('edit-thumb-input') as HTMLInputElement;
+    const drop = document.getElementById('edit-thumb-drop') as HTMLDivElement;
+    if (input) input.value = '';
+    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    if (fileInput) fileInput.value = '';
+    if (drop) { drop.classList.add('border-outline-variant', 'hover:border-primary/60'); drop.classList.remove('border-primary/40'); }
+  }
+
+  async function uploadEditThumbFile(file: File) {
+    try {
+      let bodyFile: File;
+      if (file.size > 2 * 1024 * 1024) {
+        bodyFile = new File([await compressImage(file)], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+      } else {
+        bodyFile = file;
+      }
+      const fd = new FormData();
+      fd.append('file', bodyFile);
+      fd.append('purpose', 'course');
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json() as { url?: string };
+      setEditThumbUrl(data.url ?? '');
+    } catch {
+      showToast('Upload ảnh thất bại', 'error');
+    }
+  }
+
+  function initEditThumbPicker() {
+    const drop = document.getElementById('edit-thumb-drop') as HTMLDivElement;
+    const input = document.getElementById('edit-thumb-input') as HTMLInputElement;
+    const ytInput = document.getElementById('edit-thumb-yt') as HTMLInputElement;
+    const ytPreview = document.getElementById('edit-thumb-yt-preview') as HTMLImageElement;
+    const clearBtn = document.getElementById('edit-thumb-clear') as HTMLButtonElement;
+
+    drop?.addEventListener('click', () => input?.click());
+    input?.addEventListener('change', () => {
+      const f = input.files?.[0];
+      if (f) uploadEditThumbFile(f);
+    });
+
+    drop?.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('border-primary', 'bg-surface-container-high/50'); });
+    drop?.addEventListener('dragleave', () => { drop.classList.remove('border-primary', 'bg-surface-container-high/50'); });
+    drop?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('border-primary', 'bg-surface-container-high/50');
+      const f = e.dataTransfer?.files[0];
+      if (f?.type.startsWith('image/')) uploadEditThumbFile(f);
+    });
+
+    drop?.addEventListener('paste', (e) => {
+      const f = e.clipboardData?.files[0];
+      if (f?.type.startsWith('image/')) { e.preventDefault(); uploadEditThumbFile(f); }
+    });
+
+    document.addEventListener('paste', (e) => {
+      const f = e.clipboardData?.files[0];
+      if (f?.type.startsWith('image/') && (e.target as HTMLElement).closest('#course-thumb-picker')) {
+        e.preventDefault();
+        uploadEditThumbFile(f);
+      }
+    });
+
+    let ytTimer: ReturnType<typeof setTimeout>;
+    ytInput?.addEventListener('input', () => {
+      clearTimeout(ytTimer);
+      const id = extractYouTubeId(ytInput.value);
+      if (id) {
+        const thumb = getYtThumb(id);
+        ytPreview.src = thumb;
+        ytPreview.classList.remove('hidden');
+        ytTimer = setTimeout(() => setEditThumbUrl(thumb), 600);
+      } else {
+        ytPreview.classList.add('hidden');
+      }
+    });
+
+    clearBtn?.addEventListener('click', (e) => { e.stopPropagation(); clearEditThumb(); });
+  }
+
+  initEditThumbPicker();
 
   // Course form save
   document.getElementById('course-form')?.addEventListener('submit', async (e) => {

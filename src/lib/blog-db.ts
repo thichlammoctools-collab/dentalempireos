@@ -506,7 +506,6 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       input.scanner_id ?? null,
       ts,
       ts,
-      readTime,
     )
     .run();
 
@@ -541,20 +540,48 @@ async function getPostTags(db: D1Database, postId: string): Promise<BlogTag[]> {
   return results;
 }
 
+// Bulk version: single query for multiple post IDs → avoids N+1 in enrichPosts
+async function getPostTagsBulk(
+  db: D1Database,
+  postIds: string[],
+): Promise<Map<string, BlogTag[]>> {
+  if (!postIds.length) return new Map();
+
+  const placeholders = postIds.map(() => '?').join(',');
+  const { results } = await db
+    .prepare(
+      `SELECT t.*, pt."post_id" FROM "blog_tag" t
+       JOIN "blog_post_tag" pt ON pt."tag_id" = t."id"
+       WHERE pt."post_id" IN (${placeholders})
+       ORDER BY t."name"`,
+    )
+    .bind(...postIds)
+    .all<(BlogTag & { post_id: string })>();
+
+  const tagMap = new Map<string, BlogTag[]>();
+  for (const row of results) {
+    const { post_id, ...tag } = row;
+    const arr = tagMap.get(post_id) ?? [];
+    arr.push(tag);
+    tagMap.set(post_id, arr);
+  }
+  return tagMap;
+}
+
 export async function setPostTags(
   db: D1Database,
   postId: string,
   tagIds: string[],
 ): Promise<void> {
   await db.prepare('DELETE FROM "blog_post_tag" WHERE "post_id" = ?').bind(postId).run();
-  for (const tagId of tagIds) {
-    await db
-      .prepare(
-        'INSERT OR IGNORE INTO "blog_post_tag" ("post_id","tag_id") VALUES (?,?)',
-      )
-      .bind(postId, tagId)
-      .run();
+  if (tagIds.length === 0) {
+    await recalcTagCounts(db);
+    return;
   }
+  const stmts = tagIds.map((tagId) =>
+    db.prepare('INSERT OR IGNORE INTO "blog_post_tag" ("post_id","tag_id") VALUES (?,?)').bind(postId, tagId),
+  );
+  await db.batch(stmts);
   await recalcTagCounts(db);
 }
 
@@ -680,18 +707,7 @@ async function enrichPosts(
 
   const cats = await listCategories(db);
   const catMap = new Map(cats.map((c) => [c.id, c]));
-
-  const allTagRows: Array<{ post_id: string; tag: BlogTag }> = [];
-  for (const p of posts) {
-    const tags = await getPostTags(db, p.id);
-    tags.forEach((t) => allTagRows.push({ post_id: p.id, tag: t }));
-  }
-  const tagMap = new Map<string, BlogTag[]>();
-  for (const { post_id, tag } of allTagRows) {
-    const arr = tagMap.get(post_id) ?? [];
-    arr.push(tag);
-    tagMap.set(post_id, arr);
-  }
+  const tagMap = await getPostTagsBulk(db, posts.map((p) => p.id));
 
   return posts.map((p) => ({
     ...p,

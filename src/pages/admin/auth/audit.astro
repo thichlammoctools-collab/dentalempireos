@@ -1,0 +1,103 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../../lib/auth';
+
+export const prerender = false;
+
+const auth = createAuth(env);
+
+const limit = 50;
+const result = await auth.api.getAllAuditLogs({ limit, offset: 0 });
+const events = result.events ?? [];
+const total = result.total ?? 0;
+---
+
+<AdminLayout title="Nhật ký | Auth Admin">
+  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-1">Nhật ký Audit</h2>
+      <p class="text-on-surface-variant">{total} sự kiện</p>
+    </div>
+    <button id="btn-refresh" type="button" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary hover:text-primary transition-all cursor-pointer">
+      <span class="material-symbols-outlined text-lg">refresh</span>
+      Làm mới
+    </button>
+  </div>
+
+  <!-- Filter -->
+  <div class="flex flex-wrap items-center gap-3 mt-6">
+    <select id="filter-event" class="px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface text-sm focus:outline-none focus:border-primary">
+      <option value="">Tất cả sự kiện</option>
+    </select>
+  </div>
+
+  <!-- Events list -->
+  <div class="glass-card rounded-xl overflow-hidden mt-6">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="border-b border-outline-variant/20 text-on-surface-variant uppercase text-xs tracking-wider">
+            <th class="px-6 py-4 font-bold">Thời gian</th>
+            <th class="px-6 py-4 font-bold">Sự kiện</th>
+            <th class="px-6 py-4 font-bold">Mô tả</th>
+            <th class="px-6 py-4 font-bold">Địa điểm</th>
+          </tr>
+        </thead>
+        <tbody id="events-tbody">
+          {events.length === 0 ? (
+            <tr>
+              <td colspan="4" class="px-6 py-12 text-center text-on-surface-variant/50">Chưa có sự kiện nào</td>
+            </tr>
+          ) : events.map(event => (
+            <tr class="border-b border-outline-variant/10 hover:bg-surface-container-high/50 transition-colors">
+              <td class="px-6 py-4 text-on-surface-variant whitespace-nowrap">
+                {new Date(event.createdAt).toLocaleString('vi-VN')}
+              </td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-surface-container border border-outline-variant/30 text-on-surface">
+                  {event.eventType}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-on-surface-variant">
+                <code class="text-xs bg-surface-container-high px-2 py-1 rounded font-mono text-primary/80">{event.eventKey}</code>
+              </td>
+              <td class="px-6 py-4 text-on-surface-variant text-xs">
+                {event.location?.city && event.location?.country
+                  ? `${event.location.city}, ${event.location.country}`
+                  : event.location?.country ?? '-'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+      <span class="text-xs text-on-surface-variant">Hiển thị {events.length} sự kiện gần nhất</span>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+document.getElementById('btn-refresh')?.addEventListener('click', () => {
+  window.location.reload();
+});
+
+// Collect unique event types for filter
+const eventTypes = new Set<string>();
+document.querySelectorAll('tbody tr').forEach(row => {
+  const cells = row.querySelectorAll('td');
+  if (cells[1]) {
+    const match = cells[1].textContent?.trim();
+    if (match) eventTypes.add(match);
+  }
+});
+
+const filter = document.getElementById('filter-event') as HTMLSelectElement;
+eventTypes.forEach(type => {
+  const opt = document.createElement('option');
+  opt.value = type;
+  opt.textContent = type;
+  filter.appendChild(opt);
+});
+</script>
