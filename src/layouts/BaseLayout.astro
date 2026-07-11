@@ -4,7 +4,6 @@ import Footer from '../components/layout/Footer.astro';
 import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
 import PwaInstallPrompt from '../components/mobile/PwaInstallPrompt.astro';
 import StructuredData from '../components/seo/StructuredData.astro';
-import WebsiteChatWidget from '../components/chat/WebsiteChatWidget.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -190,9 +189,6 @@ const sameAs = [
 
     <!-- PWA Install Prompt -->
     <PwaInstallPrompt />
-
-    <!-- AI Chat Widget -->
-    <WebsiteChatWidget pageType="home" />
 
     <!-- Toast container -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="true"></div>
