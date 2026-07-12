@@ -1,11 +1,10 @@
 /**
- * OpenAI embedding service using text-embedding-3-small (1536 dimensions).
- * Uses the active OpenAI-compatible provider from the database.
+ * Embedding service — supports OpenAI-compatible and Gemini APIs.
+ * Uses the active provider from the database.
  */
 
 import { getActiveModelsWithProvider } from './ai-provider-db';
 import type { AiProviderRow, AiModelRow } from './ai-provider-db';
-import type { ChatMessage } from './ai-client';
 
 interface EmbeddingResponse {
   data: Array<{ embedding: number[] }>;
@@ -15,18 +14,20 @@ interface EmbeddingResponse {
 
 let _cachedProvider: { provider: AiProviderRow; model: AiModelRow } | null = null;
 
-/**
- * Get or cache the active OpenAI provider and embedding model.
- */
-async function getOpenAIProvider(
+function isGeminiUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
+}
+
+async function getEmbeddingProvider(
   db: D1Database,
 ): Promise<{ provider: AiProviderRow; model: AiModelRow }> {
   if (_cachedProvider) return _cachedProvider;
 
   const models = await getActiveModelsWithProvider(db);
   for (const [, { provider, models: providerModels }] of models) {
-    // Look for an OpenAI-compatible provider
     const baseUrl = provider.base_url.toLowerCase();
+
     if (
       baseUrl.includes('openai') ||
       baseUrl.includes('v1/chat') ||
@@ -34,7 +35,6 @@ async function getOpenAIProvider(
       baseUrl.includes('openrouter') ||
       baseUrl.includes('together')
     ) {
-      // Pick the first active model, or look for one with 'embedding' in the name
       const embeddingModel =
         providerModels.find((m) => m.model_id.includes('embedding')) ??
         providerModels[0];
@@ -45,22 +45,46 @@ async function getOpenAIProvider(
     }
   }
 
-  throw new Error('No OpenAI-compatible embedding provider configured');
+  throw new Error('No embedding provider configured');
 }
 
-/**
- * Get a text embedding vector for the given text.
- * Automatically truncates to 8000 chars to stay within token limits.
- */
 export async function getEmbedding(
   db: D1Database,
   text: string,
 ): Promise<number[]> {
-  const { provider, model } = await getOpenAIProvider(db);
-
+  const { provider, model } = await getEmbeddingProvider(db);
   const truncated = text.slice(0, 8000);
-  const url = `${provider.base_url.replace(/\/+$/, '')}/embeddings`;
 
+  if (isGeminiUrl(provider.base_url)) {
+    // Gemini embedding via embedContent API
+    const base = provider.base_url.replace(/\/+$/, '');
+    let url = `${base}/v1beta/models/${model.model_id}:embedContent?key=${provider.api_key}`;
+    if (base.includes('/v1beta')) {
+      url = `${base}/models/${model.model_id}:embedContent?key=${provider.api_key}`;
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: { parts: [{ text: truncated }] },
+        taskType: 'RETRIEVAL_DOCUMENT',
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Gemini embedding error (${resp.status}): ${err}`);
+    }
+
+    const data = (await resp.json()) as { embedding?: { values?: number[] } };
+    const embedding = data.embedding?.values;
+    if (!embedding) throw new Error('Empty Gemini embedding response');
+    return embedding;
+  }
+
+  // OpenAI-compatible embedding
+  const url = `${provider.base_url.replace(/\/+$/, '')}/embeddings`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: {

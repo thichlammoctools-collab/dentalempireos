@@ -1,4 +1,4 @@
-// Unified AI client — supports Anthropic and OpenAI-compatible APIs.
+// Unified AI client — supports Anthropic, OpenAI-compatible, and Gemini APIs.
 // Replaces scanner-ai.ts for all AI calls.
 
 export interface ChatMessage {
@@ -30,6 +30,11 @@ function isOpenAIUrl(url: string): boolean {
   return u.includes('openai') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together');
 }
 
+function isGeminiUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -58,6 +63,8 @@ export async function chatCompletion(
   const cleanBase = baseUrl.replace(/\/v1$/, '');
   if (isOpenAIUrl(cleanBase)) {
     return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+  } else if (isGeminiUrl(cleanBase)) {
+    return chatGemini(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
   } else {
     return chatAnthropic(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
   }
@@ -140,6 +147,71 @@ async function chatAnthropic(
     .map((b) => b.text ?? '')
     .join('\n');
   if (!text) throw new AiError('Empty response from Anthropic API', 200, 'anthropic');
+  return text;
+}
+
+async function chatGemini(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  systemPrompt?: string,
+  maxTokens?: number,
+): Promise<string> {
+  // Gemini uses /v1beta/models/{model}:generateContent
+  // Supports system instruction via contents array structure
+  const contents = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const body: Record<string, unknown> = {
+    contents,
+    generationConfig: {
+      maxOutputTokens: maxTokens || 8192,
+    },
+  };
+  if (systemPrompt) {
+    (body as Record<string, unknown>).systemInstruction = {
+      parts: [{ text: systemPrompt }],
+    };
+  }
+
+  // Build URL: baseUrl may already include /v1beta or /v1
+  let url = `${baseUrl}/v1beta/models/${model}:generateContent`;
+  if (baseUrl.includes('/v1beta')) url = `${baseUrl}/models/${model}:generateContent`;
+  if (baseUrl.includes('/v1/models')) url = `${baseUrl.replace('/v1/models', '')}/v1beta/models/${model}:generateContent`;
+  url += `?key=${apiKey}`;
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new AiError(`Gemini API error (${resp.status}): ${err}`, resp.status, 'gemini');
+  }
+
+  const data = (await resp.json()) as {
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+      finishReason?: string;
+    }>;
+    promptFeedback?: { blockReason?: string };
+  };
+
+  const candidate = data.candidates?.[0];
+  if (!candidate || !candidate.content?.parts?.length) {
+    if (data.promptFeedback?.blockReason) {
+      throw new AiError(`Gemini blocked prompt: ${data.promptFeedback.blockReason}`, 400, 'gemini');
+    }
+    throw new AiError('Empty response from Gemini API', 200, 'gemini');
+  }
+
+  const text = candidate.content.parts.map((p) => p.text ?? '').join('\n');
+  if (!text) throw new AiError('Empty text from Gemini API', 200, 'gemini');
   return text;
 }
 
@@ -289,6 +361,83 @@ async function* streamAnthropic(
   }
 }
 
+/** Gemini streaming via /v1beta/models/{model}:streamGenerateContent. */
+async function* streamGemini(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  systemPrompt?: string,
+  maxTokens?: number,
+): AsyncGenerator<string> {
+  const contents = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const body: Record<string, unknown> = {
+    contents,
+    generationConfig: { maxOutputTokens: maxTokens || 8192 },
+  };
+  if (systemPrompt) {
+    (body as Record<string, unknown>).systemInstruction = {
+      parts: [{ text: systemPrompt }],
+    };
+  }
+
+  let url = `${baseUrl}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`;
+  if (baseUrl.includes('/v1beta')) url = `${baseUrl}/models/${model}:streamGenerateContent?key=${apiKey}`;
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new AiError(`Gemini streaming error (${resp.status}): ${err}`, resp.status, 'gemini');
+  }
+
+  if (!resp.body) throw new AiError('No response body for Gemini streaming', 200, 'gemini');
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('[')) continue;
+        try {
+          // Gemini streaming emits JSON objects, one per line (no SSE wrapper)
+          const parsed = JSON.parse(trimmed) as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          };
+          const parts = parsed.candidates?.[0]?.content?.parts;
+          if (parts) {
+            for (const p of parts) {
+              if (p.text) yield p.text;
+            }
+          }
+        } catch {
+          // Skip malformed lines
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /**
  * Returns a Workers-native ReadableStream that streams chunks to the client.
  * Uses pull() pattern to avoid Cloudflare buffering issues with async start().
@@ -308,6 +457,8 @@ export function chatCompletionStream(
   async function getIterator(): AsyncGenerator<string> {
     if (isOpenAIUrl(baseUrl)) {
       return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+    } else if (isGeminiUrl(baseUrl)) {
+      return streamGemini(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
     } else {
       return streamAnthropic(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
     }
