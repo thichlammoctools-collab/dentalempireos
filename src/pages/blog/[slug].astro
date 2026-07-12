@@ -82,31 +82,69 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Build TOC from h2/h3 headings in content (blocks or markdown)
+// Build TOC from rendered (sanitized) HTML — extracts actual IDs and decodes entities
 const tocItems = (() => {
-  const headingRegex = /^(#{2,3})\s+(.+)$/gm;
   const items: { level: number; text: string; id: string }[] = [];
+
+  // Build source from sanitized rich blocks
   const source = blocks.length > 0
-    ? blocks.map(b => {
-        if (b.type === 'rich') {
-          // Convert HTML headings to Markdown-style so the headingRegex can match them.
-          return b.content
-            .replace(/<h2[^>]*>(.*?)<\/h2>/gi, (_, t) => `## ${t.replace(/<[^>]+>/g, '')}`)
-            .replace(/<h3[^>]*>(.*?)<\/h3>/gi, (_, t) => `### ${t.replace(/<[^>]+>/g, '')}`);
-        }
-        return b.type === 'text' ? b.content : '';
-      }).join('\n')
-    : post.content_md;
+    ? blocks.map(b => b.type === 'rich' ? b.content : '').join('\n')
+    : post.content_md ?? '';
+
+  // Extract from HTML headings: captures existing id="" attribute and text content
+  // Handles: <h2 id="foo">Text</h2> AND <h2>Text</h2> (no id)
+  const htmlHeadingRegex = /<h([23])(?:\s[^>]*)?>(.*?)<\/h[23]>/gi;
   let match;
-  while ((match = headingRegex.exec(source)) !== null) {
-    const text = match[2].replace(/[*_`]/g, '').trim();
-    const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    items.push({ level: match[1].length, text, id });
+  while ((match = htmlHeadingRegex.exec(source)) !== null) {
+    const level = parseInt(match[1]);
+    const tagOuter = match[0]; // full tag e.g. <h2> or <h2 id="foo" class="bar">
+    const inner = match[2].replace(/<[^>]+>/g, '').trim();
+    // Decode common HTML entities
+    const text = inner
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ');
+    // Extract existing id attribute if present
+    const idMatch = /id="([^"]*)"/.exec(tagOuter);
+    const id = idMatch
+      ? idMatch[1]
+      : text.toLowerCase().replace(/[^a-z0-9À-ɏ]+/gu, '-').replace(/^-|-$/g, '');
+    items.push({ level, text, id });
   }
-  return items;
+
+  // Fallback: markdown headings
+  if (items.length === 0 && post.content_md) {
+    const mdHeadingRegex = /^(#{2,3})\s+(.+)$/gm;
+    while ((match = mdHeadingRegex.exec(post.content_md)) !== null) {
+      const text = match[2].replace(/[*_`&amp;]/g, s => s === '&amp;' ? '&' : s).trim();
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      items.push({ level: match[1].length, text, id });
+    }
+  }
+
+  // Deduplicate by id
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
 })();
 
-const ogImage = post.cover_url || '/images/og-image.png';
+// ogImage: ưu tiên cover_url, fallback vào ảnh đầu tiên trong content blocks
+const ogImage = (() => {
+  if (post.cover_url) return post.cover_url;
+  for (const block of blocks) {
+    if (block.type === 'rich') {
+      const imgMatch = /<img[^>]+src=["']([^"']+)["'][^>]*>/i.exec(block.content);
+      if (imgMatch) return imgMatch[1];
+    }
+  }
+  return '/images/og-image.png';
+})();
 
 const articleSchema = {
   '@context': 'https://schema.org',
@@ -273,31 +311,10 @@ const breadcrumbSchema = {
 
   <!-- Article Body -->
   <section class="px-6 pb-20">
-    <div class="mx-auto max-w-[680px]">
+    <div class="mx-auto grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-10 xl:gap-14">
 
-      <!-- TOC Highlights (inline, numbered) -->
-      {tocItems.length > 2 && (
-        <div class="mb-8 p-5 rounded-2xl border border-outline-variant bg-surface-container-low">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-4 flex items-center gap-2">
-            <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-            Những điểm nổi bật
-          </p>
-          <ol class="space-y-2">
-            {tocItems.map((item, i) => (
-              <li>
-                <a
-                  href={`#${item.id}`}
-                  class="flex items-start gap-3 group toc-item"
-                  data-id={item.id}
-                >
-                  <span class="text-[11px] font-mono font-bold text-on-surface-variant/40 mt-0.5 w-5 shrink-0 text-right group-hover:text-primary transition-colors">{i + 1}</span>
-                  <span class="text-sm text-on-surface-variant group-hover:text-white transition-colors leading-snug">{item.text}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+      <!-- Main Content Column -->
+      <div class="min-w-0">
 
       <!-- Featured image -->
       {post.cover_url && (
@@ -515,6 +532,75 @@ const breadcrumbSchema = {
         </div>
       )}
 
+      </div><!-- /main content -->
+
+      <!-- Sidebar -->
+      <aside class="hidden lg:block space-y-6 self-start sticky top-24">
+
+        <!-- Điểm nổi bật -->
+        {tocItems.length > 2 && (
+          <details class="group rounded-2xl border border-outline-variant bg-white dark:bg-surface-container-low [&::-webkit-details-marker]:hidden" open>
+            <summary class="flex items-center gap-2.5 px-4 py-3.5 cursor-pointer select-none list-none">
+              <div class="w-7 h-7 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-bold text-gray-900 dark:text-white leading-none">Điểm nổi bật</p>
+                <p class="text-[11px] text-gray-500 dark:text-on-surface-variant mt-0.5">Nhấn để đến mục tương ứng</p>
+              </div>
+              <span class="material-symbols-outlined text-[18px] text-gray-400 dark:text-on-surface-variant/40 transition-transform group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="border-t border-gray-100 dark:border-outline-variant"></div>
+            <ol class="toc-list ol-reset px-4 py-3 space-y-2" style="counter-reset: toc-counter">
+              {tocItems.map((item) => (
+                <li class={`toc-list-item ${item.level === 3 ? 'toc-list-h3' : ''}`}>
+                  <a
+                    href={`#${item.id}`}
+                    class="flex items-start gap-2.5 group/toc toc-item"
+                    data-id={item.id}
+                    data-level={item.level}
+                  >
+                    <span class="toc-badge w-5 h-5 rounded-full bg-[#B45309] dark:bg-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover/toc:scale-110"></span>
+                    <span class="text-xs text-gray-700 dark:text-on-surface-variant group-hover/toc:text-[#B45309] dark:group-hover/toc:text-primary transition-colors leading-snug">{item.text}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+
+        <!-- Bài viết xem nhiều nhất -->
+        {popular.length > 0 && (
+          <div class="rounded-2xl border border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden">
+            <div class="flex items-center gap-2.5 px-4 py-3.5">
+              <div class="w-7 h-7 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="white"/>
+                </svg>
+              </div>
+              <p class="text-sm font-bold text-gray-900 dark:text-white leading-none">Bài viết xem nhiều nhất</p>
+            </div>
+            <div class="border-t border-gray-100 dark:border-outline-variant"></div>
+            <ol class="divide-y divide-gray-50 dark:divide-outline-variant">
+              {popular.slice(0, 5).map((p, i) => (
+                <li>
+                  <a href={`/blog/${p.slug}`} class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group/pop">
+                    <span class="w-6 h-6 rounded bg-[#B45309]/10 dark:bg-primary/10 text-[#B45309] dark:text-primary text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-gray-800 dark:text-white/90 group-hover/pop:text-[#B45309] dark:group-hover/pop:text-primary transition-colors leading-snug line-clamp-2">{p.title}</p>
+                      <p class="text-[10px] text-gray-400 dark:text-on-surface-variant/60 mt-1">{p.view_count.toLocaleString()} lượt xem</p>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+      </aside>
+
     </div>
   </section>
 
@@ -581,7 +667,7 @@ const breadcrumbSchema = {
     content.querySelectorAll('h2, h3').forEach((heading) => {
       if (!heading.id) {
         const text = heading.textContent ?? '';
-        const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const id = text.toLowerCase().replace(/[^a-z0-9À-ɏ]+/gu, '-').replace(/^-|-$/g, '');
         heading.id = id;
       }
     });

@@ -7,29 +7,12 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { sseResponse } from '../../lib/sse';
-import { chatCompletion } from '../../lib/ai-client';
+import { chatCompletion, chatCompletionStream } from '../../lib/ai-client';
 import type { ModelConfig, ChatMessage } from '../../lib/ai-client';
-import { getActiveModelsWithProvider } from '../../lib/ai-provider-db';
+import { getAiSettings } from '../../lib/ai-settings-db';
 import { searchWebsite, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
 
 export const prerender = false;
-
-async function getAiModel(db: D1Database): Promise<ModelConfig | null> {
-  const all = await getActiveModelsWithProvider(db);
-  for (const [, entry] of all) {
-    const model = entry.models.find((m) => m.is_active);
-    if (model) {
-      return {
-        provider_id: String(entry.provider.id),
-        base_url: entry.provider.base_url,
-        api_key: entry.provider.api_key,
-        model_id: model.model_id,
-        max_tokens: model.max_tokens ?? 4096,
-      };
-    }
-  }
-  return null;
-}
 
 function buildSystemPrompt(ragContext: string): string {
   if (ragContext) {
@@ -66,12 +49,20 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({ error: 'message is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const modelCfg = await getAiModel(env.DB);
-  if (!modelCfg) {
-    return new Response(JSON.stringify({ error: 'Chưa có AI model nào được kích hoạt. Vui lòng liên hệ quản trị viên.' }), {
+  const settings = await getAiSettings(env.DB);
+  if (!settings.is_active || !settings.api_key) {
+    return new Response(JSON.stringify({ error: 'AI chưa được kích hoạt. Vui lòng liên hệ quản trị viên.' }), {
       status: 503, headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const modelCfg = {
+    provider_id: '1',
+    base_url: settings.base_url,
+    api_key: settings.api_key,
+    model_id: settings.model,
+    max_tokens: settings.max_tokens,
+  };
 
   const searchOpts: { contentType?: string } = {};
   if (body.page_type === 'book' && body.page_slug) {

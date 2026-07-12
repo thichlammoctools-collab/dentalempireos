@@ -1,0 +1,635 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trợ lý AI — Dental Empire OS</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+
+<div id="page-root">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header-inner">
+      <a href="/" class="page-back-btn" aria-label="Quay về">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </a>
+      <div class="page-header-info">
+        <div class="page-header-avatar">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M11 2C6.029 2 2 6.029 2 11s4.029 9 9 9 9-4.029 9-9-4.029-9-9-9zm0 15.75c-3.727 0-6.75-3.023-6.75-6.75S7.273 4.25 11 4.25s6.75 3.023 6.75 6.75-3.023 6.75-6.75 6.75z" fill="#f97316"/>
+          <circle cx="11" cy="11" r="2.25" fill="#f97316"/>
+          <path d="M11 7v1.5M11 13.5V15M7 11H5.5M16.5 11H15" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+        <div>
+          <div class="page-header-title">Trợ lý AI</div>
+          <div class="page-header-sub">Dental Empire OS · Claude</div>
+        </div>
+      </div>
+      <a href="/admin/ai-settings" class="page-header-settings" aria-label="Cài đặt AI">
+        <span class="material-symbols-outlined">settings</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Chat area -->
+  <main id="page-chat-area">
+    <!-- Messages rendered here by JS -->
+  </main>
+
+  <!-- Input -->
+  <footer class="page-input-area">
+    <div class="page-input-wrapper">
+      <textarea
+        id="page-chat-input"
+        placeholder="Hỏi về nội dung website..."
+        rows="1"
+        aria-label="Nhập câu hỏi"
+      ></textarea>
+      <button id="page-chat-send" aria-label="Gửi">
+        <span class="material-symbols-outlined">arrow_upward</span>
+      </button>
+    </div>
+  </footer>
+
+</div>
+
+<style is:global>
+  @import '@fontsource/be-vietnam-pro/400.css';
+  @import '@fontsource/be-vietnam-pro/500.css';
+  @import '@fontsource/be-vietnam-pro/600.css';
+  @import '@fontsource/be-vietnam-pro/700.css';
+</style>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background: #fafaf9;
+    color: #1c1917;
+  }
+
+  /* ── Page layout ─────────────────────────────────────────────── */
+  #page-root {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .page-header {
+    flex-shrink: 0;
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 12px 16px;
+  }
+  .page-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .page-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: #78716c;
+    text-decoration: none;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .page-back-btn:hover {
+    background: #f5f5f4;
+    color: #1c1917;
+  }
+  .page-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  .page-header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #fef3c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid #fed7aa;
+  }
+  .page-header-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1c1917;
+  }
+  .page-header-sub {
+    font-size: 12px;
+    color: #78716c;
+  }
+  .page-header-settings {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: #a8a29e;
+    text-decoration: none;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .page-header-settings:hover {
+    background: #f5f5f4;
+    color: #57534e;
+  }
+
+  /* ── Messages area ───────────────────────────────────────────── */
+  #page-chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+    background: #fafaf9;
+  }
+  #page-chat-area::-webkit-scrollbar { width: 4px; }
+  #page-chat-area::-webkit-scrollbar-track { background: transparent; }
+  #page-chat-area::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+
+  /* Welcome */
+  .page-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 16px 8px;
+    gap: 8px;
+  }
+  .page-welcome-icon { margin-bottom: 4px; }
+  .page-welcome h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1c1917;
+    margin-bottom: 2px;
+  }
+  .page-welcome p {
+    font-size: 13px;
+    color: #78716c;
+    line-height: 1.6;
+    max-width: 400px;
+  }
+
+  /* Message rows */
+  .page-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 800px;
+    animation: msgIn 0.2s ease-out;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .page-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .page-msg.assistant { align-self: flex-start; }
+
+  .page-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+  .page-msg.user .page-avatar {
+    background: #f97316;
+    color: #fff;
+  }
+  .page-msg.assistant .page-avatar {
+    background: #fef3c7;
+    color: #f97316;
+    border: 1.5px solid #fed7aa;
+  }
+
+  .page-msg-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 72%;
+  }
+  .page-msg.user .page-msg-body { align-items: flex-end; }
+  .page-msg.assistant .page-msg-body { align-items: flex-start; }
+
+  .page-bubble {
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+  .page-msg.user .page-bubble {
+    background: #f97316;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .page-msg.assistant .page-bubble {
+    background: #fef9f3;
+    color: #1c1917;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #e7e5e4;
+  }
+
+  /* Typing */
+  .page-typing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #fef9f3;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #e7e5e4;
+    font-size: 13px;
+    color: #a8a29e;
+    font-style: italic;
+    width: fit-content;
+  }
+  .page-typing-dots {
+    display: flex;
+    gap: 3px;
+  }
+  .page-typing-dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #d6d3d1;
+    animation: typingBounce 1.2s ease-in-out infinite;
+  }
+  .page-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .page-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30%            { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Source links */
+  .page-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    margin-top: 2px;
+    font-size: 12px;
+  }
+  .page-sources-label {
+    color: #a8a29e;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+  .page-source-link {
+    color: #57534e;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+  }
+  .page-source-link:hover { color: #ea580c; }
+
+  /* ── Input ───────────────────────────────────────────────────── */
+  .page-input-area {
+    flex-shrink: 0;
+    padding: 10px 16px 16px;
+    background: #fff;
+    border-top: 1px solid #e5e5e5;
+  }
+  .page-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: #f5f5f4;
+    border: 1.5px solid #e5e5e5;
+    border-radius: 14px;
+    padding: 8px 8px 8px 14px;
+    transition: border-color 0.2s;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .page-input-wrapper:focus-within {
+    border-color: #f97316;
+    background: #fff;
+  }
+  #page-chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: #1c1917;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: none;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+  #page-chat-input::placeholder { color: #a8a29e; }
+  #page-chat-send {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: #f97316;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  #page-chat-send:hover { transform: scale(1.06); }
+  #page-chat-send:active { transform: scale(0.95); }
+  #page-chat-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── Markdown ───────────────────────────────────────────────── */
+  .page-bubble h1, .page-bubble h2, .page-bubble h3 {
+    color: inherit;
+    margin: 6px 0 3px;
+    font-weight: 600;
+  }
+  .page-bubble h2 { font-size: 14px; }
+  .page-bubble h3 { font-size: 13px; }
+  .page-bubble p { margin: 3px 0; }
+  .page-bubble ul, .page-bubble ol { margin: 3px 0; padding-left: 18px; }
+  .page-bubble li { margin: 2px 0; }
+  .page-bubble strong { font-weight: 700; }
+  .page-bubble em { font-style: italic; }
+  .page-bubble a { color: #ea580c; }
+  .page-bubble code {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ── Mobile ─────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .page-msg-body { max-width: 88%; }
+    #page-chat-area { padding: 12px; gap: 12px; }
+  }
+</style>
+
+<script>
+(async function () {
+  const { marked } = await import('marked');
+  const DOMPurify = (await import('isomorphic-dompurify')).default;
+
+  const messagesArea = document.getElementById('page-chat-area')!;
+  const inputEl = document.getElementById('page-chat-input') as HTMLTextAreaElement;
+  const sendBtn = document.getElementById('page-chat-send') as HTMLButtonElement;
+
+  let isLoading = false;
+  let welcomeShown = true;
+
+  function scrollToBottom() {
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+  }
+
+  function autoResize() {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+  }
+
+  function showWelcome() {
+    if (welcomeShown) return;
+    welcomeShown = true;
+    const el = document.createElement('div');
+    el.className = 'page-welcome';
+    el.innerHTML = `
+      <div class="page-welcome-icon">🤖</div>
+      <h2>Chào bạn!</h2>
+      <p>Tôi là trợ lý AI của Dental Empire OS. Hãy hỏi tôi về nội dung sách, blog, hoặc tài nguyên trên website nhé!</p>`;
+    messagesArea.prepend(el);
+  }
+
+  function hideWelcome() {
+    if (!welcomeShown) return;
+    welcomeShown = false;
+    const w = messagesArea.querySelector('.page-welcome');
+    if (w) w.remove();
+  }
+
+  function addMessage(role: 'user' | 'assistant', content: string, sources?: Array<{url: string; title: string; content_type: string}>) {
+    hideWelcome();
+
+    const msg = document.createElement('div');
+    msg.className = `page-msg ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'page-avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
+    msg.appendChild(avatar);
+
+    const body = document.createElement('div');
+    body.className = 'page-msg-body';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'page-bubble';
+    body.appendChild(bubble);
+
+    if (role === 'assistant' && sources?.length) {
+      const srcEl = document.createElement('div');
+      srcEl.className = 'page-sources';
+      srcEl.innerHTML = `
+        <div class="page-sources-label">📚 Nguồn tham khảo</div>
+        ${sources.map(s => `
+          <a href="${s.url}" class="page-source-link" target="_blank" rel="noopener">
+            <span>${s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄'}</span>
+            <span>${s.title || 'Xem chi tiết'}</span>
+          </a>`).join('')}`;
+      body.appendChild(srcEl);
+    }
+
+    msg.appendChild(body);
+    messagesArea.appendChild(msg);
+
+    Promise.resolve(marked.parse(content)).then(parsed => {
+      bubble.innerHTML = DOMPurify.sanitize(parsed as string);
+      scrollToBottom();
+    });
+
+    scrollToBottom();
+    return { el: msg, bubble };
+  }
+
+  function showTyping() {
+    hideWelcome();
+    const msg = document.createElement('div');
+    msg.className = 'page-msg assistant';
+    msg.id = 'page-typing-indicator';
+    msg.innerHTML = `
+      <div class="page-avatar">🤖</div>
+      <div class="page-msg-body">
+        <div class="page-typing">
+          Đang suy nghĩ<span class="page-typing-dots"><span></span><span></span><span></span></span>
+        </div>
+      </div>`;
+    messagesArea.appendChild(msg);
+    scrollToBottom();
+  }
+
+  function removeTyping() {
+    document.getElementById('page-typing-indicator')?.remove();
+  }
+
+  async function sendMessage() {
+    if (isLoading) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    isLoading = true;
+    sendBtn.disabled = true;
+    inputEl.value = '';
+    autoResize();
+
+    addMessage('user', text);
+    showTyping();
+
+    let currentSources: Array<{url: string; title: string; content_type: string}> = [];
+    let accumulatedText = '';
+    let lastRenderTime = 0;
+
+    try {
+      const res = await fetch('/api/website-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+
+      if (!res.ok || !res.body) {
+        const errData = await res.json().catch(() => ({ error: 'Lỗi kết nối' }));
+        throw new Error(errData.error || 'Lỗi kết nối');
+      }
+
+      removeTyping();
+      const { el: msgEl, bubble: bubbleEl } = addMessage('assistant', '');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6).trim();
+          if (!data) continue;
+
+          try {
+            const parsed = JSON.parse(data);
+
+            if (parsed.event === 'chunks_used') {
+              currentSources = parsed.sources || [];
+            } else if (parsed.event === 'chunk') {
+              accumulatedText += parsed.text || '';
+              const now = Date.now();
+              if (now - lastRenderTime > 80) {
+                bubbleEl.textContent = accumulatedText;
+                scrollToBottom();
+                lastRenderTime = now;
+              }
+            } else if (parsed.event === 'done') {
+              currentSources = parsed.sources || currentSources;
+            } else if (parsed.event === 'error') {
+              throw new Error(parsed.message || 'Lỗi AI');
+            }
+          } catch (e) {
+            if ((e as Error).message !== 'Lỗi AI') {
+              console.warn('[page-chat] SSE parse error:', e);
+            }
+          }
+        }
+      }
+
+      // Final render with markdown
+      const parsed = await Promise.resolve(marked.parse(accumulatedText));
+      bubbleEl.innerHTML = DOMPurify.sanitize(parsed as string);
+
+      // Append sources
+      if (currentSources.length) {
+        const srcEl = document.createElement('div');
+        srcEl.className = 'page-sources';
+        srcEl.innerHTML = `
+          <div class="page-sources-label">📚 Nguồn tham khảo</div>
+          ${currentSources.map((s: {url: string; title: string; content_type: string}) => `
+            <a href="${s.url}" class="page-source-link" target="_blank" rel="noopener">
+              <span>${s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄'}</span>
+              <span>${s.title || 'Xem chi tiết'}</span>
+            </a>`).join('')}`;
+        msgEl.querySelector('.page-msg-body')!.appendChild(srcEl);
+      }
+
+    } catch (e) {
+      removeTyping();
+      const errMsg = (e as Error).message || 'Kết nối thất bại. Vui lòng thử lại.';
+      addMessage('assistant', `❌ **Lỗi:** ${errMsg}`);
+    } finally {
+      isLoading = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  // Show welcome on load
+  showWelcome();
+
+  // Event bindings
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  inputEl.addEventListener('input', autoResize);
+
+})();
+</script>
+
+</body>
+</html>

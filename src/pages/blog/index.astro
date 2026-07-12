@@ -1,6 +1,5 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { getFeaturedPosts, listPosts, listCategories, listTags, getPopularPosts, buildCategoryTree } from '../../lib/blog-db';
 
@@ -35,8 +34,6 @@ function formatDate(iso: string | null): string {
   title="Blog Quản Trị | Dental Empire OS"
   description="Cập nhật tin mới nhất về quản trị nha khoa, mẹo vận hành, và chiến lược phát triển phòng khám."
 >
-  <DevNotice />
-
   <!-- Hero + Search -->
   <section class="relative py-16 overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest to-surface"></div>

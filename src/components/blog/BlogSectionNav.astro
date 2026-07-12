@@ -73,7 +73,7 @@ const h3Count = items.filter((s) => s.level === 3).length;
 
   <!-- Scrollable section list -->
   <nav id="blog-section-nav-panel" class="flex-1 overflow-y-auto px-3 py-3">
-    {items.map((item) => {
+    {items.map((item, i) => {
       const indentPx = (item.level - 2) * 16;
       return (
         <a
@@ -83,10 +83,10 @@ const h3Count = items.filter((s) => s.level === 3).length;
           data-blog-section-link={item.id}
         >
           <span
-            class="shrink-0 text-[11px] font-bold w-5 h-5 rounded flex items-center justify-center text-[10px]"
-            style={`background: var(--color-surface-container-high, #252540); color: var(--color-on-surface-variant, #aaa);`}
+            class={`shrink-0 font-bold w-5 h-5 rounded flex items-center justify-center text-[10px] ${item.level === 3 ? 'bg-[#B45309]/20 text-[#B45309]' : ''}`}
+            style={item.level === 2 ? `background: var(--color-surface-container-high, #252540); color: var(--color-on-surface-variant, #aaa);` : ''}
           >
-            {item.level}
+            {i + 1}
           </span>
           <span class="text-xs font-medium">{item.text}</span>
         </a>
