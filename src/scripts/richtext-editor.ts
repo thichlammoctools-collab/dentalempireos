@@ -20,7 +20,7 @@ import { BubbleMenu } from '@tiptap/extension-bubble-menu';
 import DOMPurify from 'isomorphic-dompurify';
 import { createLowlight, all } from 'lowlight';
 import { RICH_CONFIG } from '../lib/sanitize';
-import { renderBubbleMenu } from './richtext-bubble-menu';
+import { renderBubbleMenu, attachBubbleMenu } from './richtext-bubble-menu';
 import { Callout } from './richtext-callout';
 
 // ── Types ──────────────────────────────────────────────────
@@ -67,10 +67,9 @@ const lowlight = createLowlight(all);
 
 export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let bubbleEl: HTMLElement | null = null;
 
   // Create bubble element BEFORE editor so BubbleMenu can reference it
-  const tmpBubble = document.createElement('div');
+  const bubbleEl = renderBubbleMenu();
 
   const editor = new Editor({
     element: opts.element,
@@ -107,7 +106,7 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
         HTMLAttributes: { class: 'code-block' },
       }),
       BubbleMenu.configure({
-        element: tmpBubble,
+        element: bubbleEl,
         tippyOptions: { duration: 150, placement: 'top' },
       }),
       Callout,
@@ -122,33 +121,15 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
     },
   });
 
-  // Replace BubbleMenu's placeholder div with our styled bubble menu
-  // TipTap renders the bubble element when it becomes visible; we swap in our own DOM
-  bubbleEl = renderBubbleMenu(editor);
-  document.body.appendChild(bubbleEl);
-
-  // Swap TipTap's tmpBubble into our bubbleEl
-  const bmExt = editor.extensionManager.extensions.find((e) => e.name === 'bubbleMenu');
-  if (bmExt) {
-    (bmExt.options as Record<string, unknown>).element = bubbleEl;
-  }
-
-  // Prevent the parent block-wrapper's draggable from hijacking text selection
-  const pmView = editor.view;
-  if (pmView && pmView.dom) {
-    pmView.dom.setAttribute('draggable', 'false');
-    pmView.dom.addEventListener('dragstart', (e: Event) => {
-      e.stopPropagation();
-      (e as DragEvent).stopImmediatePropagation();
-    });
-  }
+  // Attach bubble menu event handlers after editor is created
+  attachBubbleMenu(editor, bubbleEl);
 
   return {
     editor,
     getHTML: () => sanitize(editor.getHTML()),
     destroy: () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (bubbleEl) bubbleEl.remove();
+      bubbleEl.remove();
       editor.destroy();
     },
   };

@@ -3,7 +3,7 @@
 
 import type { Editor } from '@tiptap/core';
 
-export function renderBubbleMenu(editor: Editor): HTMLElement {
+export function renderBubbleMenu(): HTMLElement {
   const container = document.createElement('div');
   container.className = 'bubble-menu';
 
@@ -13,8 +13,8 @@ export function renderBubbleMenu(editor: Editor): HTMLElement {
     { id: 'underline', icon: 'format_underlined',   title: 'Gạch chân (Ctrl+U)' },
     { id: 'strike',    icon: 'format_strikethrough', title: 'Gạch ngang' },
     { id: 'highlight', icon: 'highlight',            title: 'Tô đậm (Ctrl+Shift+H)' },
-    { id: 'link',      icon: 'link',                title: 'Liên kết' },
-    { id: 'code',      icon: 'code',                title: 'Mã inline' },
+    { id: 'link',      icon: 'link',               title: 'Liên kết' },
+    { id: 'code',      icon: 'code',               title: 'Mã inline' },
   ];
 
   for (const btn of buttons) {
@@ -24,11 +24,18 @@ export function renderBubbleMenu(editor: Editor): HTMLElement {
     el.title = btn.title;
     el.dataset.action = btn.id;
     el.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px">${btn.icon}</span>`;
+    container.appendChild(el);
+  }
 
-    el.addEventListener('click', (e) => {
+  return container;
+}
+
+export function attachBubbleMenu(editor: Editor, container: HTMLElement): void {
+  for (const btn of Array.from(container.querySelectorAll<HTMLButtonElement>('[data-action]'))) {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       const chain = editor.chain().focus();
-      switch (btn.id) {
+      switch (btn.dataset.action) {
         case 'bold':      chain.toggleBold().run(); break;
         case 'italic':    chain.toggleItalic().run(); break;
         case 'underline': chain.toggleUnderline().run(); break;
@@ -48,8 +55,6 @@ export function renderBubbleMenu(editor: Editor): HTMLElement {
         }
       }
     });
-
-    container.appendChild(el);
   }
 
   const refresh = () => {
@@ -57,23 +62,18 @@ export function renderBubbleMenu(editor: Editor): HTMLElement {
       try { return editor.isActive(name, attrs); } catch { return false; }
     };
     container.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((el) => {
-      const action = el.dataset.action!;
-      let active = false;
-      switch (action) {
-        case 'bold':      active = isActive('bold'); break;
-        case 'italic':    active = isActive('italic'); break;
-        case 'underline': active = isActive('underline'); break;
-        case 'strike':    active = isActive('strike'); break;
-        case 'highlight': active = isActive('highlight'); break;
-        case 'code':      active = isActive('code'); break;
-        case 'link':      active = isActive('link'); break;
+      switch (el.dataset.action) {
+        case 'bold':      el.classList.toggle('is-active', isActive('bold')); break;
+        case 'italic':    el.classList.toggle('is-active', isActive('italic')); break;
+        case 'underline': el.classList.toggle('is-active', isActive('underline')); break;
+        case 'strike':    el.classList.toggle('is-active', isActive('strike')); break;
+        case 'highlight': el.classList.toggle('is-active', isActive('highlight')); break;
+        case 'code':      el.classList.toggle('is-active', isActive('code')); break;
+        case 'link':      el.classList.toggle('is-active', isActive('link')); break;
       }
-      el.classList.toggle('is-active', active);
     });
   };
 
   editor.on('selectionUpdate', refresh);
   editor.on('transaction', refresh);
-
-  return container;
 }

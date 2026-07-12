@@ -179,7 +179,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     background: #0d1117;
     scroll-behavior: smooth;
   }
@@ -187,10 +187,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   #chat-messages-area::-webkit-scrollbar-track { background: transparent; }
   #chat-messages-area::-webkit-scrollbar-thumb { background: rgba(146,204,255,0.2); border-radius: 4px; }
 
-  /* Message bubbles */
+  /* Message rows: avatar + bubble */
   .chat-msg {
     display: flex;
-    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
     max-width: 85%;
     animation: msgIn 0.25s ease-out;
   }
@@ -198,8 +199,41 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .chat-msg.user { align-self: flex-end; align-items: flex-end; }
-  .chat-msg.assistant { align-self: flex-start; align-items: flex-start; }
+  .chat-msg.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+  .chat-msg.assistant {
+    align-self: flex-start;
+  }
+
+  /* Avatars */
+  .chat-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .chat-msg.user .chat-avatar {
+    background: linear-gradient(135deg, #92ccff 0%, #5ba8e0 100%);
+    color: #0d1117;
+  }
+  .chat-msg.assistant .chat-avatar {
+    background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+    color: #fff;
+  }
+
+  /* Bubble wrapper */
+  .chat-msg-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
 
   .chat-msg-bubble {
     padding: 10px 14px;
@@ -223,26 +257,34 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   /* Typing indicator */
   .chat-typing {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
     padding: 10px 14px;
     background: #1c2333;
     border-radius: 16px;
     border-bottom-left-radius: 4px;
     border: 1px solid rgba(146,204,255,0.1);
     width: fit-content;
+    font-size: 12px;
+    color: rgba(146,204,255,0.7);
+    font-style: italic;
   }
-  .chat-typing span {
-    width: 6px;
-    height: 6px;
+  .chat-typing-dots {
+    display: flex;
+    gap: 3px;
+  }
+  .chat-typing-dots span {
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: rgba(146,204,255,0.5);
     animation: typingBounce 1.2s ease-in-out infinite;
   }
-  .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
-  .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+  .chat-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .chat-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes typingBounce {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-    30%            { transform: translateY(-6px); opacity: 1; }
+    30%            { transform: translateY(-5px); opacity: 1; }
   }
 
   /* Source links */
@@ -470,7 +512,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 </div>
 
 <script define:vars={{ pageType, pageSlug, chapterId }}>
-(function () {
+(async function () {
+  const { marked } = await import('marked');
+  const DOMPurify = (await import('isomorphic-dompurify')).default;
+
   // ── State ───────────────────────────────────────────────────────
   let isOpen = false;
   let isLoading = false;
@@ -569,10 +614,20 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
     const msgEl = document.createElement('div');
     msgEl.className = `chat-msg ${role}`;
+
+    // Avatar
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
+    msgEl.appendChild(avatar);
+
+    // Bubble wrapper
+    const body = document.createElement('div');
+    body.className = 'chat-msg-body';
+
     const bubble = document.createElement('div');
     bubble.className = 'chat-msg-bubble';
-    bubble.innerHTML = content;
-    msgEl.appendChild(bubble);
+    body.appendChild(bubble);
 
     // Source links for assistant messages
     if (role === 'assistant' && srcs && srcs.length > 0) {
@@ -580,20 +635,33 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       if (linksHtml) {
         const linksEl = document.createElement('div');
         linksEl.innerHTML = linksHtml;
-        msgEl.appendChild(linksEl);
+        body.appendChild(linksEl);
       }
     }
 
+    msgEl.appendChild(body);
     messagesArea.appendChild(msgEl);
+
+    // Render markdown content
+    Promise.resolve(marked.parse(content)).then(parsed => {
+      bubble.innerHTML = DOMPurify.sanitize(parsed as string);
+      scrollToBottom();
+    });
+
     scrollToBottom();
-    return msgEl;
+    return { el: msgEl, bubble };
   }
 
   function showTyping() {
     const el = document.createElement('div');
     el.className = 'chat-msg assistant';
     el.id = 'chat-typing-indicator';
-    el.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div>';
+    el.innerHTML = `<div class="chat-avatar">🤖</div>
+      <div class="chat-msg-body">
+        <div class="chat-typing">
+          Đang suy nghĩ<span class="chat-typing-dots"><span></span><span></span><span></span></span>
+        </div>
+      </div>`;
     messagesArea.appendChild(el);
     scrollToBottom();
   }
@@ -656,13 +724,14 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
       // SSE streaming
       removeTyping();
-      const msgEl = addMessage('assistant', '', null);
-      const bubbleEl = msgEl.querySelector('.chat-msg-bubble');
+      const { el: msgEl, bubble: bubbleEl } = addMessage('assistant', '', null);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let currentSources = [];
+      let accumulatedText = '';
+      let lastRenderTime = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -684,8 +753,14 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
             if (parsed.event === 'chunks_used') {
               currentSources = parsed.sources || [];
             } else if (parsed.event === 'chunk') {
-              bubbleEl.textContent += parsed.text || '';
-              scrollToBottom();
+              accumulatedText += parsed.text || '';
+              const now = Date.now();
+              // Update DOM every 100ms to avoid per-word renders — still feels "live"
+              if (now - lastRenderTime > 100) {
+                bubbleEl.textContent = accumulatedText;
+                scrollToBottom();
+                lastRenderTime = now;
+              }
             } else if (parsed.event === 'done') {
               currentSources = parsed.sources || currentSources;
             } else if (parsed.event === 'error') {
@@ -697,13 +772,18 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         }
       }
 
-      // Render source links after stream completes
+      // Final render: parse markdown once, then render
+      const parsed2 = await Promise.resolve(marked.parse(accumulatedText));
+      bubbleEl.innerHTML = DOMPurify.sanitize(parsed2 as string);
+
+      // Render source links
       if (currentSources.length > 0) {
         const linksEl = document.createElement('div');
         linksEl.innerHTML = renderSourceLinks(currentSources);
         msgEl.appendChild(linksEl);
-        scrollToBottom();
       }
+
+      scrollToBottom();
 
     } catch (e) {
       removeTyping();

@@ -102,38 +102,54 @@ export const POST: APIRoute = async (ctx) => {
     console.error('[website-chat] AI error:', err);
   }
 
-  // Build full SSE response as text, then return as a single-chunk stream
+  // Stream response word-by-word as they arrive
   const textEncoder = new TextEncoder();
-  const lines: string[] = [];
-
-  lines.push(`data: ${JSON.stringify({
-    event: 'chunks_used',
-    count: chunks.length,
-    ids: chunks.map(c => c.id),
-    sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-  })}`);
-
-  if (aiError) {
-    lines.push(`data: ${JSON.stringify({ event: 'error', message: aiError })}`);
-  } else {
-    const words = aiResponse.split(/(\s+)/);
-    for (const word of words) {
-      if (word) {
-        lines.push(`data: ${JSON.stringify({ event: 'chunk', text: word })}`);
-      }
-    }
-    lines.push(`data: ${JSON.stringify({
-      event: 'done',
-      chunks_used: chunks.length,
-      sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-    })}`);
-  }
-
-  const sseText = lines.join('\n') + '\n\n';
+  let wordIndex = 0;
+  const words = aiResponse.split(/(\s+)/);
 
   const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(textEncoder.encode(sseText));
+    pull(controller) {
+      if (wordIndex === 0) {
+        // First pull: send sources metadata
+        const sourcesText = textEncoder.encode(
+          `data: ${JSON.stringify({
+            event: 'chunks_used',
+            count: chunks.length,
+            ids: chunks.map(c => c.id),
+            sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
+          })}\n\n`
+        );
+        controller.enqueue(sourcesText);
+      }
+
+      if (aiError) {
+        controller.enqueue(
+          textEncoder.encode(`data: ${JSON.stringify({ event: 'error', message: aiError })}\n\n`)
+        );
+        controller.close();
+        return;
+      }
+
+      if (wordIndex < words.length) {
+        const word = words[wordIndex++];
+        if (word) {
+          controller.enqueue(
+            textEncoder.encode(`data: ${JSON.stringify({ event: 'chunk', text: word })}\n\n`)
+          );
+        }
+        return;
+      }
+
+      // Done
+      controller.enqueue(
+        textEncoder.encode(
+          `data: ${JSON.stringify({
+            event: 'done',
+            chunks_used: chunks.length,
+            sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
+          })}\n\n`
+        )
+      );
       controller.close();
     },
   });
