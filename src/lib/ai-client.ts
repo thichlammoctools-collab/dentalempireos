@@ -291,6 +291,7 @@ async function* streamAnthropic(
 
 /**
  * Returns a Workers-native ReadableStream that streams chunks to the client.
+ * Uses pull() pattern to avoid Cloudflare buffering issues with async start().
  * Chunks are also accumulated and passed to onChunk for secondary use (e.g. R2 save).
  */
 export function chatCompletionStream(
@@ -301,24 +302,30 @@ export function chatCompletionStream(
 ): ReadableStream {
   const baseUrl = config.base_url.replace(/\/+$/, '').replace(/\/v1$/, '');
 
+  let iterator: AsyncGenerator<string> | null = null;
   let cancelled = false;
 
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        let iterator: AsyncGenerator<string>;
-        if (isOpenAIUrl(baseUrl)) {
-          iterator = streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
-        } else {
-          iterator = streamAnthropic(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
-        }
+  async function getIterator(): AsyncGenerator<string> {
+    if (isOpenAIUrl(baseUrl)) {
+      return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+    } else {
+      return streamAnthropic(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+    }
+  }
 
-        for await (const chunk of iterator) {
-          if (cancelled) break;
-          controller.enqueue(chunk);
-          onChunk?.(chunk);
+  return new ReadableStream({
+    async pull(controller) {
+      if (!iterator) {
+        iterator = await getIterator();
+      }
+      try {
+        const { value, done } = await iterator.next();
+        if (done || cancelled) {
+          controller.close();
+          return;
         }
-        controller.close();
+        controller.enqueue(value);
+        onChunk?.(value);
       } catch (err) {
         controller.error(err);
       }

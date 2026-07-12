@@ -166,6 +166,12 @@ select:focus {
   margin-bottom: 0;
 }
 
+.richtext-block-container .ProseMirror h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 1rem 0 0.5rem;
+}
 .richtext-block-container .ProseMirror h2 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -176,6 +182,12 @@ select:focus {
   font-size: 1.05rem;
   font-weight: 700;
   color: #fff;
+  margin: 0.6rem 0 0.3rem;
+}
+.richtext-block-container .ProseMirror h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(227, 226, 231, 0.9);
   margin: 0.6rem 0 0.3rem;
 }
 
@@ -253,3 +265,175 @@ select:focus {
 .reader-content .block-rich pre {
   margin: 1rem 0;
 }
+
+/* ── Bubble Menu ─────────────────────────────────────────── */
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(146, 204, 255, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+.bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: rgba(192, 192, 192, 0.8);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.bubble-btn:hover {
+  color: #fff;
+  background: rgba(146, 204, 255, 0.15);
+  border-color: rgba(146, 204, 255, 0.3);
+}
+.bubble-btn.is-active {
+  color: #92ccff;
+  background: rgba(146, 204, 255, 0.2);
+  border-color: rgba(146, 204, 255, 0.5);
+}
+
+/* ── Toolbar picker (callout type selector) ────────────── */
+.rich-tb-picker {
+  background: rgba(40, 40, 50, 0.8);
+  border: 1px solid rgba(192, 192, 192, 0.2);
+  border-radius: 5px;
+  color: rgba(192, 192, 192, 0.8);
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.rich-tb-picker option {
+  background: #1e1f23;
+  color: #e3e2e7;
+}
+
+/* ── Callout Blocks ──────────────────────────────────────── */
+.richtext-block-container .ProseMirror .callout {
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.6rem 0;
+  border-left: 4px solid;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.richtext-block-container .ProseMirror .callout p { margin: 0; }
+.richtext-block-container .ProseMirror .callout.callout-tip {
+  background: rgba(74, 222, 128, 0.08);
+  border-color: #4ade80;
+  color: #d1fae5;
+}
+.richtext-block-container .ProseMirror .callout.callout-warning {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: #fbbf24;
+  color: #fef3c7;
+}
+.richtext-block-container .ProseMirror .callout.callout-info {
+  background: rgba(96, 165, 250, 0.08);
+  border-color: #60a5fa;
+  color: #dbeafe;
+}
+.richtext-block-container .ProseMirror .callout.callout-note {
+  background: rgba(192, 192, 192, 0.06);
+  border-color: rgba(192, 192, 192, 0.5);
+  color: rgba(227, 226, 231, 0.85);
+}
+
+/* ── Table Styles ────────────────────────────────────────── */
+.richtext-block-container .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8rem 0;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(192, 192, 192, 0.2);
+}
+.richtext-block-container .ProseMirror th {
+  background: rgba(146, 204, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid rgba(192, 192, 192, 0.15);
+}
+.richtext-block-container .ProseMirror td {
+  padding: 8px 12px;
+  border: 1px solid rgba(192, 192, 192, 0.1);
+  vertical-align: top;
+  color: #e3e2e7;
+  position: relative;
+}
+.richtext-block-container .ProseMirror tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.richtext-block-container .ProseMirror .selectedCell:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(146, 204, 255, 0.1);
+  pointer-events: none;
+}
+
+/* ── Code Block (lowlight) ──────────────────────────────── */
+.richtext-block-container .ProseMirror pre.code-block {
+  background: rgba(15, 15, 25, 0.9);
+  border: 1px solid rgba(192, 192, 192, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.8rem 1rem;
+  margin: 0.6rem 0;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+.richtext-block-container .ProseMirror pre.code-block code {
+  background: transparent;
+  padding: 0;
+  color: #e3e2e7;
+}
+
+/* lowlight syntax colors (dark theme) */
+.hljs-keyword, .hljs-selector-tag { color: #c792ea; }
+.hljs-string, .hljs-attr { color: #c3e88d; }
+.hljs-number, .hljs-literal { color: #f78c6c; }
+.hljs-comment { color: #546e7a; font-style: italic; }
+.hljs-function, .hljs-title { color: #82aaff; }
+.hljs-variable, .hljs-name { color: #f07178; }
+.hljs-type, .hljs-class { color: #ffcb6b; }
+.hljs-tag { color: #f07178; }
+.hljs-attribute { color: #ffcb6b; }
+.hljs-built_in { color: #80cbc4; }
+.hljs-meta { color: #89ddff; }
+.hljs-symbol { color: #f78c6c; }
+
+/* ── Highlight mark ─────────────────────────────────────── */
+.richtext-block-container .ProseMirror mark {
+  background: rgba(251, 191, 36, 0.35);
+  border-radius: 2px;
+  padding: 0 2px;
+  color: inherit;
+}
+
+/* ── Subscript / Superscript ─────────────────────────────── */
+.richtext-block-container .ProseMirror sub {
+  vertical-align: baseline;
+  font-size: 0.75em;
+  position: relative;
+  top: 0.3em;
+}
+.richtext-block-container .ProseMirror sup {
+  vertical-align: baseline;
+  font-size: 0.75em;
+  position: relative;
+  top: -0.4em;
+}
+

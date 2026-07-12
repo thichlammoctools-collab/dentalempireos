@@ -12,6 +12,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   #website-chat-trigger {
     position: fixed;
     z-index: 9997;
+    right: 16px;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     width: 40px;
     height: 40px;
     border-radius: 9999px;
@@ -34,7 +36,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     transform: scale(0.92);
   }
   #website-chat-trigger .trigger-icon {
-    font-size: 20px;
+    font-size: 18px;
+    line-height: 1;
     transition: transform 0.25s ease;
   }
   #website-chat-trigger.chat-open .trigger-icon {
@@ -43,6 +46,14 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   #website-chat-trigger.chat-open {
     color: var(--color-primary);
     border-color: rgba(146,204,255,0.4);
+  }
+
+  /* Only show label on wider screens when trigger is wider than icon */
+  @media (min-width: 640px) {
+    #website-chat-trigger {
+      width: 44px;
+      height: 36px;
+    }
   }
 
   /* Pulse on idle */
@@ -73,28 +84,26 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     pointer-events: none;
     transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(146,204,255,0.15);
-    /* Desktop: anchored above trigger button */
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-    height: min(580px, calc(100vh - 140px));
+    /* Default: above trigger (trigger=40px + gap=16px below it) */
+    bottom: 56px;
+    max-height: min(580px, calc(100vh - 120px));
   }
   #website-chat-panel.chat-panel-open {
     transform: scale(1) translateY(0);
     opacity: 1;
     pointer-events: auto;
   }
-
-  /* Mobile: reader pages — panel sits between reader toolbar (top) and trigger (bottom) */
+  /* Mobile reader pages: taller panel */
   @media (max-width: 1023px) {
     #website-chat-panel {
-      bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-      height: calc(100vh - 180px);
+      bottom: 100px;
+      max-height: calc(100vh - 180px);
     }
   }
-  /* Mobile with bottom nav: smaller panel */
+  /* Mobile with bottom nav: shift up */
   @media (max-width: 1023px) {
     #website-chat-panel.has-bottom-nav {
-      bottom: calc(80px + 64px + env(safe-area-inset-bottom, 0px));
-      height: calc(100vh - 220px);
+      bottom: 180px;
     }
   }
 
@@ -405,7 +414,6 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     aria-controls="website-chat-panel"
   >
     <span class="material-symbols-outlined trigger-icon" id="chat-trigger-icon">chat</span>
-    <span class="trigger-label">Hỏi AI</span>
   </button>
 
   <!-- Chat panel -->
@@ -748,47 +756,25 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     const isMobile = window.innerWidth < 1024;
 
     if (!isMobile) {
-      // Desktop: CSS defaults are fine
+      // Desktop: CSS handles positioning
       trigger.style.bottom = '';
-      trigger.style.right = '';
-      panel.style.bottom = '';
-      panel.style.right = '';
+      panel.classList.remove('has-bottom-nav');
       return;
     }
 
-    // Mobile: stack below right-side FABs if present, otherwise above bottom nav
-    const gap = 12;
-    const triggerSize = 40;
-
+    // Mobile: position trigger below right-side FABs if present
     if (fabCount > 0) {
-      // Book/blog pages: FABs on right → chat widget below them
       const fabHeight = fabCount * 48;
-      const chatBottom = 72 + sat + fabHeight + gap;
+      const chatBottom = 72 + sat + fabHeight + 12;
       trigger.style.bottom = `${chatBottom}px`;
-      trigger.style.right = '16px';
-      // Panel height: fill space between reader toolbar (~48px top) and trigger
-      panel.style.height = `${chatBottom + triggerSize + gap + 80}px`;
-      panel.style.bottom = '';
-      panel.style.right = '16px';
       panel.classList.remove('has-bottom-nav');
     } else if (hasBottomNav) {
-      // Other pages: above bottom nav
-      const navHeight = 64;
-      const chatBottom = navHeight + sat + gap;
+      const chatBottom = 64 + sat + 12;
       trigger.style.bottom = `${chatBottom}px`;
-      trigger.style.right = '16px';
-      panel.style.bottom = '';
-      panel.style.right = '16px';
-      panel.style.height = '';
       panel.classList.add('has-bottom-nav');
     } else {
-      // No FABs, no bottom nav
       const chatBottom = 16 + sat;
       trigger.style.bottom = `${chatBottom}px`;
-      trigger.style.right = '16px';
-      panel.style.bottom = '';
-      panel.style.right = '16px';
-      panel.style.height = '';
       panel.classList.remove('has-bottom-nav');
     }
   }

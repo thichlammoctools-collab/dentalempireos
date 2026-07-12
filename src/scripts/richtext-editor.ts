@@ -1,15 +1,27 @@
 // TipTap rich text editor factory — vanilla JS, no React.
 // Loaded via Vite bundling in Astro <script> blocks.
 
-import { Editor } from '@tiptap/core';
+import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Subscript } from '@tiptap/extension-subscript';
+import { Superscript } from '@tiptap/extension-superscript';
+import { BubbleMenu } from '@tiptap/extension-bubble-menu';
 import DOMPurify from 'isomorphic-dompurify';
+import { createLowlight, all } from 'lowlight';
 import { RICH_CONFIG } from '../lib/sanitize';
+import { renderBubbleMenu } from './richtext-bubble-menu';
+import { Callout } from './richtext-callout';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -31,17 +43,41 @@ function sanitize(html: string): string {
   return DOMPurify.sanitize(html, RICH_CONFIG) as string;
 }
 
+// ── Keyboard shortcuts extension ───────────────────────────
+
+const EditorShortcuts = Extension.create({
+  name: 'editorShortcuts',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Shift-h': () => this.editor.chain().focus().toggleHighlight().run(),
+      'Mod-Alt-1': () => this.editor.chain().focus().toggleHeading({ level: 1 }).run(),
+      'Mod-Alt-2': () => this.editor.chain().focus().toggleHeading({ level: 2 }).run(),
+      'Mod-Alt-3': () => this.editor.chain().focus().toggleHeading({ level: 3 }).run(),
+      'Mod-Alt-4': () => this.editor.chain().focus().toggleHeading({ level: 4 }).run(),
+      'Mod-Alt-0': () => this.editor.chain().focus().setParagraph().run(),
+    };
+  },
+});
+
+// ── Lowlight setup ─────────────────────────────────────────
+
+const lowlight = createLowlight(all);
+
 // ── Factory ────────────────────────────────────────────────
 
 export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let bubbleEl: HTMLElement | null = null;
+
+  // Create bubble element BEFORE editor so BubbleMenu can reference it
+  const tmpBubble = document.createElement('div');
 
   const editor = new Editor({
     element: opts.element,
     content: opts.initialContent,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
       }),
       Link.configure({
         openOnClick: false,
@@ -58,6 +94,24 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      Highlight.configure({ multicolor: false }),
+      Subscript,
+      Superscript,
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'plaintext',
+        HTMLAttributes: { class: 'code-block' },
+      }),
+      BubbleMenu.configure({
+        element: tmpBubble,
+        tippyOptions: { duration: 150, placement: 'top' },
+      }),
+      Callout,
+      EditorShortcuts,
     ],
     onUpdate: ({ editor: e }) => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -66,13 +120,20 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
         opts.onChange(sanitize(raw));
       }, 250);
     },
-    onSelectionUpdate: () => {
-      // Toolbar updates are handled by the toolbar's own listener
-    },
   });
 
+  // Replace BubbleMenu's placeholder div with our styled bubble menu
+  // TipTap renders the bubble element when it becomes visible; we swap in our own DOM
+  bubbleEl = renderBubbleMenu(editor);
+  document.body.appendChild(bubbleEl);
+
+  // Swap TipTap's tmpBubble into our bubbleEl
+  const bmExt = editor.extensionManager.extensions.find((e) => e.name === 'bubbleMenu');
+  if (bmExt) {
+    (bmExt.options as Record<string, unknown>).element = bubbleEl;
+  }
+
   // Prevent the parent block-wrapper's draggable from hijacking text selection
-  // inside the editor. Without this, clicking/dragging on text starts a block-drag.
   const pmView = editor.view;
   if (pmView && pmView.dom) {
     pmView.dom.setAttribute('draggable', 'false');
@@ -87,6 +148,7 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
     getHTML: () => sanitize(editor.getHTML()),
     destroy: () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (bubbleEl) bubbleEl.remove();
       editor.destroy();
     },
   };

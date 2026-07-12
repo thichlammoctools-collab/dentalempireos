@@ -307,7 +307,7 @@ const categoryOptions = flattenCategoryTree(categoryTree);
           blocksJsonInput.value = JSON.stringify([block]);
         },
       });
-      const toolbar = renderRichTextToolbar({ editor: richHandle.editor });
+      const toolbar = renderRichTextToolbar({ editor: richHandle.editor, toolbar: richEditorContainer });
       richEditorContainer.insertBefore(toolbar, richEditorContainer.firstChild);
     } catch (err) {
       console.error('Failed to load rich text editor:', err);

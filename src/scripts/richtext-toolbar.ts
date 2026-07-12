@@ -6,6 +6,7 @@ import { pickAndUploadImage } from './richtext-editor';
 
 export interface ToolbarOptions {
   editor: Editor;
+  toolbar?: HTMLElement;
 }
 
 interface ButtonDef {
@@ -17,24 +18,33 @@ interface ButtonDef {
 }
 
 const BUTTONS: (ButtonDef | 'sep')[] = [
-  { id: 'h2', label: 'H2', icon: 'title', title: 'Tiêu đề 2' },
-  { id: 'h3', label: 'H3', icon: 'subtitles', title: 'Tiêu đề 3' },
-  { id: 'paragraph', label: 'P', icon: 'notes', title: 'Đoạn văn' },
+  { id: 'h1', label: 'H1', icon: 'filter_1', title: 'Tiêu đề 1 (Ctrl+Alt+1)' },
+  { id: 'h2', label: 'H2', icon: 'title', title: 'Tiêu đề 2 (Ctrl+Alt+2)' },
+  { id: 'h3', label: 'H3', icon: 'subtitles', title: 'Tiêu đề 3 (Ctrl+Alt+3)' },
+  { id: 'h4', label: 'H4', icon: 'short_text', title: 'Tiêu đề 4 (Ctrl+Alt+4)' },
+  { id: 'paragraph', label: 'P', icon: 'notes', title: 'Đoạn văn (Ctrl+Alt+0)' },
   'sep',
   { id: 'bold', label: 'B', icon: 'format_bold', title: 'In đậm (Ctrl+B)' },
   { id: 'italic', label: 'I', icon: 'format_italic', title: 'In nghiêng (Ctrl+I)' },
   { id: 'underline', label: 'U', icon: 'format_underlined', title: 'Gạch chân (Ctrl+U)' },
   { id: 'strike', label: 'S', icon: 'format_strikethrough', title: 'Gạch ngang' },
+  { id: 'highlight', label: 'Hi', icon: 'highlight', title: 'Tô đậm (Ctrl+Shift+H)' },
+  'sep',
+  { id: 'superscript', label: 'X²', icon: 'superscript', title: 'Superscript' },
+  { id: 'subscript', label: 'X₂', icon: 'subscript', title: 'Subscript' },
   'sep',
   { id: 'bulletList', label: '•', icon: 'format_list_bulleted', title: 'Danh sách' },
   { id: 'orderedList', label: '1.', icon: 'format_list_numbered', title: 'Danh sách số' },
   'sep',
   { id: 'blockquote', label: '"', icon: 'format_quote', title: 'Trích dẫn' },
-  { id: 'code', label: '</>', icon: 'code', title: 'Mã' },
+  { id: 'code', label: '</>', icon: 'code', title: 'Mã inline' },
+  { id: 'codeBlock', label: '{ }', icon: 'data_object', title: 'Code block' },
+  { id: 'callout', label: '!', icon: 'lightbulb', title: 'Chèn ghi chú' },
   'sep',
   { id: 'link', label: '🔗', icon: 'link', title: 'Liên kết' },
   { id: 'unlink', label: '⛓', icon: 'link_off', title: 'Bỏ liên kết' },
   { id: 'image', label: '🖼', icon: 'image', title: 'Chèn ảnh' },
+  { id: 'table', label: '⊞', icon: 'table', title: 'Chèn bảng' },
   'sep',
   { id: 'hr', label: '—', icon: 'horizontal_rule', title: 'Đường kẻ' },
   'sep',
@@ -61,17 +71,33 @@ function handleAction(action: string, opts: ToolbarOptions): void {
   const { editor } = opts;
   const chain = editor.chain().focus();
   switch (action) {
+    case 'h1': chain.toggleHeading({ level: 1 }).run(); break;
     case 'h2': chain.toggleHeading({ level: 2 }).run(); break;
     case 'h3': chain.toggleHeading({ level: 3 }).run(); break;
+    case 'h4': chain.toggleHeading({ level: 4 }).run(); break;
     case 'paragraph': chain.setParagraph().run(); break;
     case 'bold': chain.toggleBold().run(); break;
     case 'italic': chain.toggleItalic().run(); break;
     case 'underline': chain.toggleUnderline().run(); break;
     case 'strike': chain.toggleStrike().run(); break;
+    case 'highlight': chain.toggleHighlight().run(); break;
+    case 'superscript': chain.toggleSuperscript().run(); break;
+    case 'subscript': chain.toggleSubscript().run(); break;
     case 'bulletList': chain.toggleBulletList().run(); break;
     case 'orderedList': chain.toggleOrderedList().run(); break;
     case 'blockquote': chain.toggleBlockquote().run(); break;
     case 'code': chain.toggleCode().run(); break;
+    case 'codeBlock': chain.toggleCodeBlock().run(); break;
+    case 'callout': {
+      const container = (opts as unknown as { toolbar: HTMLElement }).toolbar;
+      const picker = container?.querySelector<HTMLSelectElement>('#callout-type-picker');
+      if (picker) {
+        const type = picker.value;
+        editor.chain().focus().insertCallout(type as 'tip' | 'warning' | 'info' | 'note').run();
+        picker.value = 'tip';
+      }
+      break;
+    }
     case 'hr': chain.setHorizontalRule().run(); break;
     case 'align-left': chain.setTextAlign('left').run(); break;
     case 'align-center': chain.setTextAlign('center').run(); break;
@@ -96,6 +122,10 @@ function handleAction(action: string, opts: ToolbarOptions): void {
       });
       break;
     }
+    case 'table': {
+      chain.focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      break;
+    }
   }
 }
 
@@ -111,17 +141,23 @@ function updateActiveState(toolbar: HTMLElement, editor: Editor): void {
     const action = btn.dataset.action;
     let active = false;
     switch (action) {
+      case 'h1': active = isActive('heading', { level: 1 }); break;
       case 'h2': active = isActive('heading', { level: 2 }); break;
       case 'h3': active = isActive('heading', { level: 3 }); break;
+      case 'h4': active = isActive('heading', { level: 4 }); break;
       case 'paragraph': active = isActive('paragraph'); break;
       case 'bold': active = isActive('bold'); break;
       case 'italic': active = isActive('italic'); break;
       case 'underline': active = isActive('underline'); break;
       case 'strike': active = isActive('strike'); break;
+      case 'highlight': active = isActive('highlight'); break;
+      case 'superscript': active = isActive('superscript'); break;
+      case 'subscript': active = isActive('subscript'); break;
       case 'bulletList': active = isActive('bulletList'); break;
       case 'orderedList': active = isActive('orderedList'); break;
       case 'blockquote': active = isActive('blockquote'); break;
       case 'code': active = isActive('code'); break;
+      case 'codeBlock': active = isActive('codeBlock'); break;
       case 'link': active = isActive('link'); break;
       case 'align-left': active = editor.isActive('paragraph', { textAlign: 'left' }); break;
       case 'align-center': active = editor.isActive('paragraph', { textAlign: 'center' }); break;
@@ -134,6 +170,18 @@ function updateActiveState(toolbar: HTMLElement, editor: Editor): void {
 export function renderRichTextToolbar(opts: ToolbarOptions): HTMLElement {
   const toolbar = document.createElement('div');
   toolbar.className = 'richtext-toolbar';
+
+  // Callout type picker — shown when user clicks callout button
+  const calloutPicker = document.createElement('select');
+  calloutPicker.id = 'callout-type-picker';
+  calloutPicker.className = 'rich-tb-picker';
+  calloutPicker.innerHTML = `
+    <option value="tip">💡 Tip</option>
+    <option value="warning">⚠️ Cảnh báo</option>
+    <option value="info">ℹ️ Thông tin</option>
+    <option value="note">📝 Ghi chú</option>
+  `;
+  toolbar.appendChild(calloutPicker);
 
   for (const item of BUTTONS) {
     if (item === 'sep') {

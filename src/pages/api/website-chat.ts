@@ -6,21 +6,13 @@
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { sseResponse, sseEnqueue } from '../../lib/sse';
-import { chatCompletionStream } from '../../lib/ai-client';
+import { sseResponse } from '../../lib/sse';
+import { chatCompletion } from '../../lib/ai-client';
 import type { ModelConfig, ChatMessage } from '../../lib/ai-client';
 import { getActiveModelsWithProvider } from '../../lib/ai-provider-db';
 import { searchWebsite, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
 
 export const prerender = false;
-
-interface StoredMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
-}
-
-const SESSION_KV_PREFIX = 'wc_sess:';
 
 async function getAiModel(db: D1Database): Promise<ModelConfig | null> {
   const all = await getActiveModelsWithProvider(db);
@@ -62,25 +54,8 @@ Trả lời bằng tiếng Việt, ngắn gọn, có cấu trúc. Dùng **bold**
 Nếu câu hỏi thuộc phạm vi nội dung website (sách, blog, tài nguyên), hãy gợi ý người dùng truy cập các trang liên quan.`;
 }
 
-function contentTypeLabel(type: string): string {
-  return type === 'book' ? 'Sách' : type === 'blog' ? 'Blog' : 'Tài nguyên';
-}
-
-function formatSourceLinks(chunks: WebsiteChunk[]): string {
-  const seen = new Set<string>();
-  const lines: string[] = [];
-  for (const c of chunks) {
-    const key = c.url;
-    if (!seen.has(key)) {
-      seen.add(key);
-      lines.push(`• ${contentTypeLabel(c.content_type)}: ${c.title} → ${c.url}`);
-    }
-  }
-  return lines.join('\n');
-}
-
 export const POST: APIRoute = async (ctx) => {
-  let body: { message: string; page_type?: string; page_slug?: string; session_id?: string };
+  let body: { message: string; page_type?: string; page_slug?: string };
   try {
     body = (await ctx.request.json()) as typeof body;
   } catch {
@@ -98,8 +73,7 @@ export const POST: APIRoute = async (ctx) => {
     });
   }
 
-  // Search relevant content
-  const searchOpts: { contentType?: string; sourceId?: string } = {};
+  const searchOpts: { contentType?: string } = {};
   if (body.page_type === 'book' && body.page_slug) {
     searchOpts.contentType = 'book';
   } else if (body.page_type === 'blog' && body.page_slug) {
@@ -115,62 +89,52 @@ export const POST: APIRoute = async (ctx) => {
 
   const ragContext = buildWebsiteContext(chunks);
   const systemPrompt = buildSystemPrompt(ragContext);
-
-  const sourceLinks = chunks.length > 0 ? formatSourceLinks(chunks) : '';
-
-  const userMsg: ChatMessage = {
-    role: 'user',
-    content: body.message.trim(),
-  };
-
-  const finalUserContent = sourceLinks
-    ? `${body.message.trim()}\n\n---\n**Nguồn tham khảo:**\n${sourceLinks}`
-    : body.message.trim();
-
-  const MAX_LEN = 1200;
-  const chatMessages: ChatMessage[] = [{
-    role: 'user',
-    content: finalUserContent.length > MAX_LEN ? finalUserContent.slice(0, MAX_LEN) + '…' : finalUserContent,
-  }];
-
-  const chunkIds = chunks.map(c => c.id);
   const formattedChunks = chunksToFormatted(chunks);
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        sseEnqueue(controller, 'chunks_used', {
-          count: chunks.length,
-          ids: chunkIds,
-          sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-        });
+  const userMsg: ChatMessage = { role: 'user', content: body.message.trim() };
 
-        const aiStream = chatCompletionStream(modelCfg, chatMessages, systemPrompt);
-        const reader = aiStream.getReader();
-        let fullText = '';
+  let aiResponse = '';
+  let aiError: string | null = null;
+  try {
+    aiResponse = await chatCompletion(modelCfg, [userMsg], systemPrompt);
+  } catch (err) {
+    aiError = String(err);
+    console.error('[website-chat] AI error:', err);
+  }
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const text = new TextDecoder().decode(value, { stream: true });
-            fullText += text;
-            sseEnqueue(controller, 'chunk', { text });
-          }
-        } finally {
-          reader.releaseLock();
-        }
+  // Build full SSE response as text, then return as a single-chunk stream
+  const textEncoder = new TextEncoder();
+  const lines: string[] = [];
 
-        sseEnqueue(controller, 'done', {
-          chunks_used: chunks.length,
-          sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-        });
-        controller.close();
-      } catch (err) {
-        console.error('[website-chat] stream error:', err);
-        sseEnqueue(controller, 'error', { message: String(err) });
-        controller.error(err);
+  lines.push(`data: ${JSON.stringify({
+    event: 'chunks_used',
+    count: chunks.length,
+    ids: chunks.map(c => c.id),
+    sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
+  })}`);
+
+  if (aiError) {
+    lines.push(`data: ${JSON.stringify({ event: 'error', message: aiError })}`);
+  } else {
+    const words = aiResponse.split(/(\s+)/);
+    for (const word of words) {
+      if (word) {
+        lines.push(`data: ${JSON.stringify({ event: 'chunk', text: word })}`);
       }
+    }
+    lines.push(`data: ${JSON.stringify({
+      event: 'done',
+      chunks_used: chunks.length,
+      sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
+    })}`);
+  }
+
+  const sseText = lines.join('\n') + '\n\n';
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(textEncoder.encode(sseText));
+      controller.close();
     },
   });
 

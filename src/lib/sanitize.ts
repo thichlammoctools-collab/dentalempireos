@@ -9,27 +9,30 @@
 export const RICH_CONFIG = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',
-    'h2', 'h3', 'blockquote',
+    'h1', 'h2', 'h3', 'h4', 'blockquote',
     'ul', 'ol', 'li',
     'a', 'img', 'hr',
     'figure', 'figcaption', 'span', 'div',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'mark', 'sup', 'sub',
   ],
   ALLOWED_ATTR: [
     'href', 'target', 'rel',
     'src', 'alt', 'title',
     'class', 'width', 'height',
     'id', 'style',
+    'colspan', 'rowspan',
   ],
 } as const;
 
 const ALLOWED_TAGS = new Set([
   'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',
-  'h2', 'h3', 'blockquote',
+  'h1', 'h2', 'h3', 'h4', 'blockquote',
   'ul', 'ol', 'li',
   'a', 'img', 'hr',
   'figure', 'figcaption', 'span', 'div',
   'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  'mark', 'sup', 'sub',
 ]);
 
 const ALLOWED_ATTR = new Set([
@@ -37,6 +40,7 @@ const ALLOWED_ATTR = new Set([
   'src', 'alt', 'title',
   'class', 'width', 'height',
   'id', 'style',
+  'colspan', 'rowspan',
 ]);
 
 const ATTR_DENY_PREFIXES = ['on', 'javascript:', 'data-'];
