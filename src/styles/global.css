@@ -496,9 +496,15 @@ h4.section-heading {
   color: #7ab8f0;
 }
 
-/* Headings inside block content (from marked.parse) — flatten to body text
-   since section tree already provides real headings. */
-.reader-content :not(.section-heading):is(h1,h2,h3,h4,h5,h6) {
+/* Headings inside book section content (from marked.parse) — flatten to body text
+   since section tree already provides real headings. Blog post headings (block-rich)
+   are excluded and keep their semantic styles. */
+.reader-content :not(.section-heading,.block-rich) h1,
+.reader-content :not(.section-heading,.block-rich) h2,
+.reader-content :not(.section-heading,.block-rich) h3,
+.reader-content :not(.section-heading,.block-rich) h4,
+.reader-content :not(.section-heading,.block-rich) h5,
+.reader-content :not(.section-heading,.block-rich) h6 {
   font-size: 1em !important;
   font-weight: inherit !important;
   color: inherit !important;

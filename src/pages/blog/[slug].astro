@@ -47,6 +47,16 @@ try {
   blocks = [];
 }
 
+// Thêm id vào heading để TOC links hoạt động
+function addHeadingIds(html: string): string {
+  return html.replace(/<h([234])([^>]*)>([\s\S]*?)<\/h[234]>/gi, (_match, level, attrs, inner) => {
+    if (attrs.includes('id=')) return _match;
+    const text = inner.replace(/<[^>]+>/g, '').trim();
+    const id = text.toLowerCase().replace(/[^a-z0-9À-ɏ]+/gu, '-').replace(/^-|-$/g, '');
+    return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
+  });
+}
+
 // Increment view count (fire and forget)
 incrementViewCount(db, post.id).catch(() => {});
 
@@ -365,7 +375,8 @@ const breadcrumbSchema = {
                     </div>
                   );
                 } else if (block.type === 'rich') {
-                  return <div class="block-rich" set:html={sanitizeRichHtml(block.content)}></div>;
+                  const richHtml = addHeadingIds(sanitizeRichHtml(block.content));
+                  return <div class="block-rich" set:html={richHtml}></div>;
                 }
                 return null;
               })}

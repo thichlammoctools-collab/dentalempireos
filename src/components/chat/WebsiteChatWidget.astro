@@ -16,20 +16,15 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     aria-label="Mở trợ lý AI"
     aria-expanded="false"
     aria-controls="website-chat-panel"
-    onclick="var p=document.getElementById('website-chat-panel'),t=document.getElementById('website-chat-trigger');var o=!p.classList.contains('chat-panel-open');p.classList.toggle('chat-panel-open',o);t.classList.toggle('chat-open',o);t.setAttribute('aria-expanded',o);t.classList.toggle('chat-visible',o);if(o){setTimeout(function(){document.getElementById('chat-input')&&document.getElementById('chat-input').focus()},100)}"
+    onclick="var p=document.getElementById('website-chat-panel'),t=document.getElementById('website-chat-trigger');var o=p.classList.contains('chat-panel-open');p.classList.toggle('chat-panel-open',!o);t.classList.toggle('chat-open',!o);document.body.classList.toggle('chat-active',!o);t.setAttribute('aria-expanded',!o);if(!o){setTimeout(function(){var i=document.getElementById('chat-input');if(i)i.focus()},100)}"
   >
     <span class="material-symbols-outlined trigger-icon" id="chat-trigger-icon">chat</span>
   </button>
 
   <!-- Chat panel -->
-  <div
-    id="website-chat-panel"
-    role="dialog"
-    aria-label="Trợ lý AI"
-    aria-modal="true"
-  >
+  <div id="website-chat-panel" role="dialog" aria-label="Trợ lý AI" aria-modal="true" style="background:#fafaf9;box-shadow:-4px 0 40px rgba(0,0,0,0.15)">
     <!-- Header -->
-    <div id="chat-panel-header">
+    <div id="chat-panel-header" style="background:#fff;border-bottom-color:#e5e5e5">
       <div class="chat-avatar-icon">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <rect width="20" height="20" rx="5" fill="#f97316"/>
@@ -52,8 +47,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     </div>
 
     <!-- Messages -->
-    <div id="chat-messages-area">
-      <!-- Welcome -->
+    <div id="chat-messages-area" style="background:#fafaf9">
       <div id="chat-welcome">
         <div class="welcome-icon">
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -67,38 +61,26 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         <div class="welcome-desc">Tôi là trợ lý AI của Dental Empire OS.<br>Hỏi tôi về nội dung sách, blog hoặc tài nguyên nhé!</div>
       </div>
 
-      <!-- Suggestion chips -->
       <div id="chat-suggestions">
         <div class="suggestions-label">💡 Gợi ý:</div>
         <div class="suggestions-chips">
-          <button class="suggestion-chip" data-msg="Sách quản trị phòng khám nha khoa có những nội dung gì?">
-            📖 Sách gồm những phần nào?
-          </button>
-          <button class="suggestion-chip" data-msg="Có khóa học miễn phí nào không?">
-            🎓 Khóa học miễn phí?
-          </button>
-          <button class="suggestion-chip" data-msg="Cách xây dựng KPI cho nhân viên phòng khám nha khoa?">
-            📊 Cách xây dựng KPI?
-          </button>
+          <button class="suggestion-chip" data-msg="Sách quản trị phòng khám nha khoa có những nội dung gì?">📖 Sách gồm những phần nào?</button>
+          <button class="suggestion-chip" data-msg="Có khóa học miễn phí nào không?">🎓 Khóa học miễn phí?</button>
+          <button class="suggestion-chip" data-msg="Cách xây dựng KPI cho nhân viên phòng khám nha khoa?">📊 Cách xây dựng KPI?</button>
         </div>
       </div>
     </div>
 
-    <!-- Rate limit banner -->
+    <!-- Rate limit -->
     <div id="chat-rate-limit-banner" class="chat-rate-limit-banner" style="display:none">
       <span>Còn <strong id="chat-rate-remaining">3</strong> lượt miễn phí ·</span>
       <a href="/login">Đăng nhập</a> để không giới hạn
     </div>
 
     <!-- Input -->
-    <div id="chat-input-area">
-      <div class="chat-input-wrapper">
-        <textarea
-          id="chat-input"
-          placeholder="Nhập câu hỏi..."
-          rows="1"
-          aria-label="Nhập câu hỏi"
-        ></textarea>
+    <div id="chat-input-area" style="background:#fff;border-top-color:#e5e5e5">
+      <div class="chat-input-wrapper" style="background:#f5f5f4;border-color:#e5e5e5">
+        <textarea id="chat-input" placeholder="Nhập câu hỏi..." rows="1" aria-label="Nhập câu hỏi"></textarea>
         <button id="chat-send-btn" aria-label="Gửi">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 1.5L16.5 9L9 16.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -111,24 +93,15 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 </div>
 
 <style>
-  /* ── Root / Trigger ─────────────────────────────────────────── */
-  #website-chat-root {
-    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
-  }
+  #website-chat-root { font-family: 'Be Vietnam Pro', system-ui, sans-serif; }
 
+  /* Trigger */
   #website-chat-trigger {
     position: fixed;
     z-index: 1001;
     right: 16px;
     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     width: 52px;
-  }
-  /* Mobile: keep above bottom nav (64px tall + safe-area) */
-  @media (max-width: 640px) {
-    #website-chat-trigger {
-      bottom: calc(1rem + 64px + env(safe-area-inset-bottom, 0px));
-    }
-  }
     height: 52px;
     border-radius: 14px;
     border: none;
@@ -141,453 +114,121 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     color: #fff;
     box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
   }
-  #website-chat-trigger:hover {
-    transform: scale(1.06);
-    box-shadow: 0 6px 28px rgba(249, 115, 22, 0.5);
+  @media (max-width: 640px) {
+    #website-chat-trigger { bottom: calc(1rem + 64px + env(safe-area-inset-bottom, 0px)); }
   }
+  #website-chat-trigger:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(249, 115, 22, 0.5); }
   #website-chat-trigger:active { transform: scale(0.96); }
-  #website-chat-trigger.chat-open {
-    background: #ea580c;
-    transform: none;
-    box-shadow: 0 2px 12px rgba(249, 115, 22, 0.3);
-  }
+  #website-chat-trigger.chat-open { background: #ea580c; transform: none; box-shadow: 0 2px 12px rgba(249, 115, 22, 0.3); }
 
-  /* ── Chat panel ──────────────────────────────────────────────── */
+  /* Panel */
   #website-chat-panel {
     position: fixed;
     z-index: 1002;
-    right: 0;
-    top: 0;
-    bottom: 0;
+    right: 0; top: 0; bottom: 0;
     width: 400px;
     display: flex;
     flex-direction: column;
     transform: translateX(100%);
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-    background: #fafaf9;
-    box-shadow: -4px 0 40px rgba(0,0,0,0.15);
+    background: var(--chat-bg, #fafaf9);
+    box-shadow: var(--chat-shadow, -4px 0 40px rgba(0,0,0,0.15));
     overflow: hidden;
   }
-  #website-chat-panel.chat-panel-open {
-    transform: translateX(0);
-  }
-  /* Expanded: wider */
-  #website-chat-panel.chat-expanded {
-    width: 520px;
-  }
-  /* Tablet */
-  @media (max-width: 1023px) {
-    #website-chat-panel { width: 380px; }
-  }
-  /* Mobile: full width, stop above bottom nav */
+  #website-chat-panel.chat-panel-open { transform: translateX(0); }
+  #website-chat-panel.chat-expanded { width: 520px; }
+  @media (max-width: 1023px) { #website-chat-panel { width: 380px; } }
   @media (max-width: 640px) {
-    #website-chat-panel {
-      width: 100vw;
-      right: 0;
-      bottom: calc(64px + env(safe-area-inset-bottom));
-    }
+    #website-chat-panel { width: 100vw; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); }
   }
+  /* Hide mobile FABs and chapter nav when chat panel is open */
+  body.chat-active #mobile-fab-container,
+  body.chat-active .chapter-nav-fixed { display: none !important; }
 
-  /* ── Header ─────────────────────────────────────────────────── */
+  /* Header */
   #chat-panel-header {
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-    background: #fff;
-    border-bottom: 1px solid #e5e5e5;
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    background: var(--chat-header-bg, #fff); border-bottom: 1px solid var(--chat-header-border, #e5e5e5);
   }
-  .chat-avatar-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
+  .chat-avatar-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .chat-header-info { flex: 1; min-width: 0; }
-  .chat-header-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1c1917;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .chat-header-sub {
-    font-size: 12px;
-    color: #78716c;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .chat-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-  .chat-action-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: #a8a29e;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    text-decoration: none;
-  }
-  .chat-action-btn:hover {
-    background: #f5f5f4;
-    color: #57534e;
-  }
+  .chat-header-title { font-size: 15px; font-weight: 700; color: var(--chat-header-title, #1c1917); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-header-sub { font-size: 12px; color: var(--chat-header-sub, #78716c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .chat-action-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; color: var(--chat-action-btn, #a8a29e); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; }
+  .chat-action-btn:hover { background: var(--chat-action-hover, #f5f5f4); color: var(--chat-action-hover-color, #57534e); }
 
-  /* ── Messages area ───────────────────────────────────────────── */
-  #chat-messages-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    background: #fafaf9;
-    scroll-behavior: smooth;
-  }
+  /* Messages */
+  #chat-messages-area { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 12px; background: var(--chat-msg-bg, #fafaf9); scroll-behavior: smooth; }
   #chat-messages-area::-webkit-scrollbar { width: 4px; }
-  #chat-messages-area::-webkit-scrollbar-track { background: transparent; }
-  #chat-messages-area::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+  #chat-messages-area::-webkit-scrollbar-thumb { background: var(--chat-scrollbar, #d6d3d1); border-radius: 4px; }
 
   /* Welcome */
-  #chat-welcome {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 20px 12px 8px;
-    gap: 8px;
-  }
+  #chat-welcome { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px 12px 8px; gap: 8px; }
   .welcome-icon { margin-bottom: 4px; }
-  .welcome-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1c1917;
-  }
-  .welcome-desc {
-    font-size: 13px;
-    color: #78716c;
-    line-height: 1.6;
-  }
+  .welcome-title { font-size: 18px; font-weight: 700; color: #1c1917; }
+  .welcome-desc { font-size: 13px; color: #78716c; line-height: 1.6; }
 
   /* Suggestions */
-  #chat-suggestions {
-    padding: 4px 0 8px;
-  }
-  .suggestions-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #a8a29e;
-    margin-bottom: 8px;
-    padding-left: 2px;
-  }
-  .suggestions-chips {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .suggestion-chip {
-    background: #fff;
-    border: 1.5px solid #e5e5e5;
-    border-radius: 10px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-family: inherit;
-    color: #44403c;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.15s;
-    line-height: 1.4;
-  }
-  .suggestion-chip:hover {
-    border-color: #f97316;
-    background: #fff7ed;
-    color: #ea580c;
-  }
+  #chat-suggestions { padding: 4px 0 8px; }
+  .suggestions-label { font-size: 12px; font-weight: 500; color: #a8a29e; margin-bottom: 8px; padding-left: 2px; }
+  .suggestions-chips { display: flex; flex-direction: column; gap: 6px; }
+  .suggestion-chip { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-family: inherit; color: #44403c; cursor: pointer; text-align: left; transition: all 0.15s; line-height: 1.4; }
+  .suggestion-chip:hover { border-color: #f97316; background: #fff7ed; color: #ea580c; }
   .suggestion-chip:active { transform: scale(0.98); }
 
-  /* Message bubbles */
-  .chat-msg {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    animation: msgIn 0.2s ease-out;
-  }
-  @keyframes msgIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  /* Messages */
+  .chat-msg { display: flex; align-items: flex-end; gap: 8px; animation: msgIn 0.2s ease-out; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
   .chat-msg.assistant { align-self: flex-start; }
+  .chat-avatar-small { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; font-weight: 600; }
+  .chat-msg.user .chat-avatar-small { background: #f97316; color: #fff; }
+  .chat-msg.assistant .chat-avatar-small { background: #fef3c7; color: #f97316; border: 1.5px solid #fed7aa; }
+  .chat-msg-body { display: flex; flex-direction: column; gap: 4px; max-width: 80%; }
+  .chat-msg-bubble { padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.6; word-break: break-word; }
+  .chat-msg.user .chat-msg-bubble { background: #f97316; color: #fff; border-bottom-right-radius: 4px; }
+  .chat-msg.assistant .chat-msg-bubble { background: #fef9f3; color: #1c1917; border: 1px solid #e7e5e4; border-bottom-left-radius: 4px; }
 
-  .chat-avatar-small {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    flex-shrink: 0;
-    font-weight: 600;
-  }
-  .chat-msg.user .chat-avatar-small {
-    background: #f97316;
-    color: #fff;
-  }
-  .chat-msg.assistant .chat-avatar-small {
-    background: #fef3c7;
-    color: #f97316;
-    border: 1.5px solid #fed7aa;
-  }
-
-  .chat-msg-body {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-width: 80%;
-  }
-
-  .chat-msg-bubble {
-    padding: 10px 14px;
-    border-radius: 16px;
-    font-size: 13.5px;
-    line-height: 1.6;
-    word-break: break-word;
-  }
-  .chat-msg.user .chat-msg-bubble {
-    background: #f97316;
-    color: #fff;
-    border-bottom-right-radius: 4px;
-  }
-  .chat-msg.assistant .chat-msg-bubble {
-    background: #fef9f3;
-    color: #1c1917;
-    border: 1px solid #e7e5e4;
-    border-bottom-left-radius: 4px;
-  }
-
-  /* Sources card */
-  .chat-sources-card {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 10px;
-    padding: 8px 12px;
-    margin-top: 4px;
-  }
-  .chat-sources-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #a8a29e;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 6px;
-  }
-  .chat-source-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 0;
-    font-size: 12.5px;
-    color: #57534e;
-    text-decoration: none;
-  }
-  .chat-source-item:hover { color: #ea580c; }
-  .chat-source-badge {
-    min-width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    background: #f97316;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    flex-shrink: 0;
-  }
-
-  /* Source links */
-  .chat-source-links {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding-top: 2px;
-  }
-  .chat-source-link {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    color: #78716c;
-    text-decoration: none;
-    padding: 2px 0;
-  }
+  /* Sources */
+  .chat-source-links { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
+  .chat-source-link { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #78716c; text-decoration: none; padding: 2px 0; }
   .chat-source-link:hover { color: #ea580c; }
-  .chat-source-type {
-    font-size: 11px;
-    background: #f5f5f4;
-    padding: 1px 5px;
-    border-radius: 4px;
-    color: #78716c;
-  }
+  .chat-source-type { font-size: 11px; background: #f5f5f4; padding: 1px 5px; border-radius: 4px; color: #78716c; }
 
-  /* Follow-up suggestions after AI */
-  .chat-followup {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    margin-top: 6px;
-  }
-  .chat-followup-label {
-    font-size: 11.5px;
-    color: #a8a29e;
-    font-weight: 500;
-  }
-  .chat-followup-btn {
-    background: #fff;
-    border: 1.5px solid #e5e5e5;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 12.5px;
-    font-family: inherit;
-    color: #57534e;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.15s;
-  }
-  .chat-followup-btn:hover {
-    border-color: #f97316;
-    background: #fff7ed;
-    color: #ea580c;
-  }
+  /* Follow-up */
+  .chat-followup { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+  .chat-followup-label { font-size: 11.5px; color: #a8a29e; font-weight: 500; }
+  .chat-followup-btn { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 8px; padding: 6px 10px; font-size: 12.5px; font-family: inherit; color: #57534e; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .chat-followup-btn:hover { border-color: #f97316; background: #fff7ed; color: #ea580c; }
 
-  /* Typing indicator */
-  .chat-typing {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    background: #fef9f3;
-    border: 1px solid #e7e5e4;
-    border-radius: 16px;
-    border-bottom-left-radius: 4px;
-    font-size: 13px;
-    color: #a8a29e;
-    font-style: italic;
-    width: fit-content;
-  }
-  .chat-typing-dots {
-    display: flex;
-    gap: 3px;
-  }
-  .chat-typing-dots span {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #d6d3d1;
-    animation: typingBounce 1.2s ease-in-out infinite;
-  }
+  /* Typing */
+  .chat-typing { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #fef9f3; border: 1px solid #e7e5e4; border-radius: 16px; border-bottom-left-radius: 4px; font-size: 13px; color: #a8a29e; font-style: italic; width: fit-content; }
+  .chat-typing-dots { display: flex; gap: 3px; }
+  .chat-typing-dots span { width: 5px; height: 5px; border-radius: 50%; background: #d6d3d1; animation: typingBounce 1.2s ease-in-out infinite; }
   .chat-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
   .chat-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes typingBounce {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-    30%            { transform: translateY(-5px); opacity: 1; }
-  }
+  @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-5px); opacity: 1; } }
 
-  /* ── Rate limit banner ─────────────────────────────────────── */
-  .chat-rate-limit-banner {
-    padding: 8px 16px;
-    background: #fff7ed;
-    border-top: 1px solid #fed7aa;
-    font-size: 12px;
-    color: #78716c;
-    text-align: center;
-    flex-shrink: 0;
-  }
+  /* Rate limit */
+  .chat-rate-limit-banner { padding: 8px 16px; background: #fff7ed; border-top: 1px solid #fed7aa; font-size: 12px; color: #78716c; text-align: center; flex-shrink: 0; }
   .chat-rate-limit-banner strong { color: #ea580c; }
-  .chat-rate-limit-banner a {
-    color: #ea580c;
-    font-weight: 600;
-    text-decoration: none;
-    margin-left: 4px;
-  }
+  .chat-rate-limit-banner a { color: #ea580c; font-weight: 600; text-decoration: none; margin-left: 4px; }
   .chat-rate-limit-banner a:hover { text-decoration: underline; }
 
-  /* ── Input area ────────────────────────────────────────────── */
-  #chat-input-area {
-    flex-shrink: 0;
-    padding: 10px 14px 14px;
-    background: #fff;
-    border-top: 1px solid #e5e5e5;
-  }
-  .chat-input-wrapper {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    background: #f5f5f4;
-    border: 1.5px solid #e5e5e5;
-    border-radius: 14px;
-    padding: 8px 8px 8px 14px;
-    transition: border-color 0.2s;
-  }
-  .chat-input-wrapper:focus-within {
-    border-color: #f97316;
-    background: #fff;
-  }
-  #chat-input {
-    flex: 1;
-    background: none;
-    border: none;
-    outline: none;
-    color: #1c1917;
-    font-size: 14px;
-    font-family: inherit;
-    line-height: 1.5;
-    resize: none;
-    max-height: 90px;
-    overflow-y: auto;
-  }
+  /* Input */
+  #chat-input-area { flex-shrink: 0; padding: 10px 14px 14px; background: #fff; border-top: 1px solid #e5e5e5; }
+  .chat-input-wrapper { display: flex; align-items: flex-end; gap: 8px; background: #f5f5f4; border: 1.5px solid #e5e5e5; border-radius: 14px; padding: 8px 8px 8px 14px; transition: border-color 0.2s; }
+  .chat-input-wrapper:focus-within { border-color: #f97316; background: #fff; }
+  #chat-input { flex: 1; background: none; border: none; outline: none; color: #1c1917; font-size: 14px; font-family: inherit; line-height: 1.5; resize: none; max-height: 90px; overflow-y: auto; }
   #chat-input::placeholder { color: #a8a29e; }
-  #chat-send-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: none;
-    background: #f97316;
-    color: #fff;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: transform 0.15s, opacity 0.15s;
-  }
+  #chat-send-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f97316; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s, opacity 0.15s; }
   #chat-send-btn:hover { transform: scale(1.06); }
   #chat-send-btn:active { transform: scale(0.95); }
   #chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  /* ── Markdown in bubbles ───────────────────────────────────── */
-  .chat-msg-bubble h1, .chat-msg-bubble h2, .chat-msg-bubble h3 {
-    color: inherit;
-    margin: 6px 0 3px;
-    font-weight: 600;
-  }
+  /* Markdown */
+  .chat-msg-bubble h1, .chat-msg-bubble h2, .chat-msg-bubble h3 { color: inherit; margin: 6px 0 3px; font-weight: 600; }
   .chat-msg-bubble h2 { font-size: 14px; }
   .chat-msg-bubble h3 { font-size: 13px; }
   .chat-msg-bubble p { margin: 3px 0; }
@@ -596,385 +237,404 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   .chat-msg-bubble strong { font-weight: 700; }
   .chat-msg-bubble em { font-style: italic; }
   .chat-msg-bubble a { color: #ea580c; }
-  .chat-msg-bubble code {
-    background: rgba(0,0,0,0.06);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
+  .chat-msg-bubble code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 </style>
 
 <script define:vars={{ pageType, pageSlug, chapterId }}>
-(async function () {
-  const { marked } = await import('marked');
-  const DOMPurify = (await import('isomorphic-dompurify')).default;
-  console.log('[chat] Script loaded');
-
-  // ── Rate limit: 3 free questions for non-auth users ──────────
-  const FREE_QUESTIONS = 3;
-  const STORAGE_KEY = 'de_chat_free';
-  function getFreeCount() {
-    return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-  }
-  function incFreeCount() {
-    const c = getFreeCount() + 1;
-    localStorage.setItem(STORAGE_KEY, String(c));
-    return c;
-  }
-
-  // ── State ─────────────────────────────────────────────────────
-  let isOpen = false;
-  let isLoading = false;
-  let sources = [];
-  let currentSources = [];
-  let isExpanded = false;
-
-  const trigger      = document.getElementById('website-chat-trigger');
-  const panel       = document.getElementById('website-chat-panel');
-  const closeBtn    = document.getElementById('chat-panel-close');
-  const expandBtn   = document.getElementById('chat-panel-expand-btn');
-  const welcomeEl   = document.getElementById('chat-welcome');
-  const suggestionsEl = document.getElementById('chat-suggestions');
-  const messagesArea = document.getElementById('chat-messages-area');
-  const inputEl     = document.getElementById('chat-input');
-  const sendBtn     = document.getElementById('chat-send-btn');
-  const chips       = document.querySelectorAll('.suggestion-chip');
-  const rateLimitBanner = document.getElementById('chat-rate-limit-banner');
-  const rateRemaining = document.getElementById('chat-rate-remaining');
-
-  if (!trigger || !panel) {
-    console.error('[chat] Missing elements:', { trigger: !!trigger, panel: !!panel });
-    return;
-  }
-  console.log('[chat] Elements found, trigger:', trigger, 'panel:', panel);
-
-  // ── Rate limit init ──────────────────────────────────────────
-  function updateRateLimit() {
-    const count = getFreeCount();
-    const remaining = Math.max(0, FREE_QUESTIONS - count);
-    if (remaining === 0) {
-      rateLimitBanner.style.display = 'block';
-      inputEl.placeholder = 'Đăng nhập để tiếp tục...';
-      inputEl.disabled = true;
-    } else {
-      rateRemaining.textContent = String(remaining);
-    }
-  }
-  updateRateLimit();
-
-  // ── Panel toggle ──────────────────────────────────────────────
-  function openPanel() {
-    isOpen = true;
-    trigger.classList.add('chat-open');
-    panel.classList.add('chat-panel-open');
-    inputEl?.focus();
-  }
-
-  function closePanel() {
-    isOpen = false;
-    trigger.classList.remove('chat-open');
-    panel.classList.remove('chat-panel-open');
-  }
-
-  function togglePanel() {
-    isOpen ? closePanel() : openPanel();
-  }
-
-  // ── Expand ───────────────────────────────────────────────────
-  function toggleExpand() {
-    isExpanded = !isExpanded;
-    panel.classList.toggle('chat-expanded', isExpanded);
-    expandBtn.title = isExpanded ? 'Thu nhỏ' : 'Mở rộng';
-    expandBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">${isExpanded ? 'close_fullscreen' : 'open_in_full'}</span>`;
-  }
-
-  // ── Event bindings ────────────────────────────────────────────
-  // NOTE: trigger click is handled via onclick HTML attribute for maximum reliability.
-  closeBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    panel.classList.remove('chat-panel-open');
-    trigger.classList.remove('chat-open');
-    isOpen = false;
-  });
-  expandBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    toggleExpand();
-  });
-
-  // Close on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen) closePanel();
-  });
-
-  // ── Auto-resize textarea ──────────────────────────────────────
-  function autoResize() {
-    if (!inputEl) return;
-    inputEl.style.height = 'auto';
-    inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px';
-  }
-
-  // ── Scroll to bottom ─────────────────────────────────────────
-  function scrollToBottom() {
-    if (messagesArea) messagesArea.scrollTop = messagesArea.scrollHeight;
-  }
-
-  // ── Hide welcome/suggestions ─────────────────────────────────
-  function hideWelcome() {
-    if (welcomeEl) welcomeEl.style.display = 'none';
-    if (suggestionsEl) suggestionsEl.style.display = 'none';
-  }
-
-  // ── Add message ───────────────────────────────────────────────
-  function addMessage(role, content, srcs) {
-    hideWelcome();
-
-    const msg = document.createElement('div');
-    msg.className = `chat-msg ${role}`;
-
-    const avatar = document.createElement('div');
-    avatar.className = 'chat-avatar-small';
-    avatar.textContent = role === 'user' ? '👤' : '🤖';
-    msg.appendChild(avatar);
-
-    const body = document.createElement('div');
-    body.className = 'chat-msg-body';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'chat-msg-bubble';
-    body.appendChild(bubble);
-
-    // Sources for assistant
-    if (role === 'assistant' && srcs?.length) {
-      const srcEl = document.createElement('div');
-      srcEl.className = 'chat-source-links';
-      srcs.slice(0, 3).forEach((s, i) => {
-        const link = document.createElement('a');
-        link.href = s.url;
-        link.className = 'chat-source-link';
-        link.target = '_blank';
-        link.rel = 'noopener';
-        const icon = s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄';
-        link.innerHTML = `<span class="chat-source-type">${icon}</span> ${s.title || 'Xem chi tiết'}`;
-        srcEl.appendChild(link);
-      });
-      body.appendChild(srcEl);
-    }
-
-    msg.appendChild(body);
-    messagesArea.appendChild(msg);
-
-    Promise.resolve(marked.parse(content)).then(parsed => {
-      bubble.innerHTML = DOMPurify.sanitize(parsed as string);
-      scrollToBottom();
-    });
-
-    scrollToBottom();
-    return { el: msg, bubble };
-  }
-
-  // ── Typing indicator ─────────────────────────────────────────
-  function showTyping() {
-    hideWelcome();
-    const el = document.createElement('div');
-    el.className = 'chat-msg assistant';
-    el.id = 'chat-typing-indicator';
-    el.innerHTML = `
-      <div class="chat-avatar-small">🤖</div>
-      <div class="chat-typing">
-        Đang suy nghĩ<span class="chat-typing-dots"><span></span><span></span><span></span></span>
-      </div>`;
-    messagesArea.appendChild(el);
-    scrollToBottom();
-  }
-
-  function removeTyping() {
-    document.getElementById('chat-typing-indicator')?.remove();
-  }
-
-  // ── Follow-up suggestions ────────────────────────────────────
-  function appendFollowup(suggestions) {
-    if (!suggestions?.length) return;
-    const lastMsg = messagesArea.lastElementChild;
-    if (!lastMsg) return;
-
-    const body = lastMsg.querySelector('.chat-msg-body');
-    if (!body) return;
-
-    const followup = document.createElement('div');
-    followup.className = 'chat-followup';
-    followup.innerHTML = `<div class="chat-followup-label">💡 Hỏi tiếp:</div>`;
-    suggestions.slice(0, 3).forEach(s => {
-      const btn = document.createElement('button');
-      btn.className = 'chat-followup-btn';
-      btn.textContent = s;
-      btn.addEventListener('click', () => {
-        inputEl.value = s;
-        autoResize();
-        sendMessage();
-      });
-      followup.appendChild(btn);
-    });
-    body.appendChild(followup);
-  }
-
-  // ── Suggestion chips ──────────────────────────────────────────
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const msg = chip.getAttribute('data-msg') || chip.textContent?.trim() || '';
-      if (msg) {
-        inputEl.value = msg;
-        autoResize();
-        sendMessage();
+(function () {
+  // Load marked + dompurify as classic scripts to avoid module issues
+  function loadScripts() {
+    return new Promise(function (resolve) {
+      var resolved = false;
+      function check() {
+        if (resolved) return;
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+          resolved = true;
+          resolve();
+        }
       }
+      // marked is already loaded globally
+      if (typeof marked !== 'undefined') check();
+      // Load DOMPurify if not available
+      if (typeof DOMPurify === 'undefined') {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js';
+        s.onload = check;
+        s.onerror = function () { resolved = true; resolve(); };
+        document.head.appendChild(s);
+      } else {
+        check();
+      }
+      // Timeout fallback
+      setTimeout(function () { if (!resolved) { resolved = true; resolve(); } }, 2000);
     });
-  });
+  }
 
-  // ── Send message ──────────────────────────────────────────────
-  async function sendMessage() {
-    if (isLoading) return;
-    const text = inputEl.value.trim();
-    if (!text) return;
+  loadScripts().then(function () {
+    // ── Rate limit ───────────────────────────────────────────────
+    var FREE_QUESTIONS = 3;
+    var STORAGE_KEY = 'de_chat_free';
+    function getFreeCount() { return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10); }
+    function incFreeCount() {
+      var c = getFreeCount() + 1;
+      localStorage.setItem(STORAGE_KEY, String(c));
+      return c;
+    }
 
-    // Rate limit check
-    const count = getFreeCount();
-    if (count >= FREE_QUESTIONS) {
-      inputEl.placeholder = 'Đăng nhập để tiếp tục...';
-      inputEl.disabled = true;
+    // ── DOM refs ─────────────────────────────────────────────────
+    var trigger = document.getElementById('website-chat-trigger');
+    var panel = document.getElementById('website-chat-panel');
+    var closeBtn = document.getElementById('chat-panel-close');
+    var expandBtn = document.getElementById('chat-panel-expand-btn');
+    var welcomeEl = document.getElementById('chat-welcome');
+    var suggestionsEl = document.getElementById('chat-suggestions');
+    var messagesArea = document.getElementById('chat-messages-area');
+    var inputEl = document.getElementById('chat-input');
+    var sendBtn = document.getElementById('chat-send-btn');
+    var rateBanner = document.getElementById('chat-rate-limit-banner');
+    var rateRemaining = document.getElementById('chat-rate-remaining');
+
+    if (!trigger || !panel || !inputEl || !sendBtn || !messagesArea) {
+      console.error('[chat] Missing elements');
       return;
     }
 
-    isLoading = true;
-    sendBtn.disabled = true;
-    inputEl.value = '';
-    autoResize();
+    // ── State ────────────────────────────────────────────────────
+    var isLoading = false;
+    var currentSources = [];
 
-    addMessage('user', text);
-    const newCount = incFreeCount();
+    // ── Rate limit UI ─────────────────────────────────────────────
+    function updateRateLimit() {
+      var count = getFreeCount();
+      var remaining = Math.max(0, FREE_QUESTIONS - count);
+      if (rateRemaining) rateRemaining.textContent = String(remaining);
+      if (remaining === 0) {
+        if (rateBanner) rateBanner.style.display = 'block';
+        inputEl.placeholder = 'Đăng nhập để tiếp tục...';
+        inputEl.disabled = true;
+      }
+    }
     updateRateLimit();
-    showTyping();
-    currentSources = [];
-    sources = [];
 
-    try {
-      const body = {
-        message: text,
-        page_type: pageType !== 'home' ? pageType : undefined,
-        page_slug: pageSlug || undefined,
-      };
+    // ── Helpers ──────────────────────────────────────────────────
+    function autoResize() {
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px';
+    }
 
-      const res = await fetch('/api/website-chat', {
+    function scrollBottom() {
+      messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    function hideWelcome() {
+      if (welcomeEl) welcomeEl.style.display = 'none';
+      if (suggestionsEl) suggestionsEl.style.display = 'none';
+    }
+
+    function parseMarkdown(content) {
+      try {
+        var html = marked.parse(content);
+        if (typeof DOMPurify !== 'undefined') {
+          return DOMPurify.sanitize(html);
+        }
+        return html;
+      } catch (e) {
+        return content;
+      }
+    }
+
+    function addMessage(role, content, sources) {
+      hideWelcome();
+
+      var msg = document.createElement('div');
+      msg.className = 'chat-msg ' + role;
+
+      var avatar = document.createElement('div');
+      avatar.className = 'chat-avatar-small';
+      avatar.textContent = role === 'user' ? '👤' : '🤖';
+      msg.appendChild(avatar);
+
+      var body = document.createElement('div');
+      body.className = 'chat-msg-body';
+
+      var bubble = document.createElement('div');
+      bubble.className = 'chat-msg-bubble';
+      bubble.innerHTML = parseMarkdown(content) || content;
+      body.appendChild(bubble);
+
+      if (sources && sources.length) {
+        var srcEl = document.createElement('div');
+        srcEl.className = 'chat-source-links';
+        for (var i = 0; i < Math.min(sources.length, 3); i++) {
+          var s = sources[i];
+          var a = document.createElement('a');
+          a.href = s.url;
+          a.className = 'chat-source-link';
+          a.target = '_blank';
+          a.rel = 'noopener';
+          var icon = s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄';
+          a.innerHTML = '<span class="chat-source-type">' + icon + '</span> ' + (s.title || 'Xem chi tiết');
+          srcEl.appendChild(a);
+        }
+        body.appendChild(srcEl);
+      }
+
+      msg.appendChild(body);
+      messagesArea.appendChild(msg);
+      scrollBottom();
+      return { el: msg, bubble: bubble };
+    }
+
+    function showTyping() {
+      hideWelcome();
+      var el = document.createElement('div');
+      el.className = 'chat-msg assistant';
+      el.id = 'chat-typing-indicator';
+      el.innerHTML = '<div class="chat-avatar-small">🤖</div><div class="chat-typing">Đang suy nghĩ<span class="chat-typing-dots"><span></span><span></span><span></span></span></div>';
+      messagesArea.appendChild(el);
+      scrollBottom();
+    }
+
+    function removeTyping() {
+      var el = document.getElementById('chat-typing-indicator');
+      if (el) el.remove();
+    }
+
+    function appendFollowup(suggestions) {
+      if (!suggestions || !suggestions.length) return;
+      var lastMsg = messagesArea.lastElementChild;
+      if (!lastMsg) return;
+      var body = lastMsg.querySelector('.chat-msg-body');
+      if (!body) return;
+
+      var fu = document.createElement('div');
+      fu.className = 'chat-followup';
+      fu.innerHTML = '<div class="chat-followup-label">💡 Hỏi tiếp:</div>';
+      for (var fi = 0; fi < Math.min(suggestions.length, 3); fi++) {
+        var s = suggestions[fi];
+        var btn = document.createElement('button');
+        btn.className = 'chat-followup-btn';
+        btn.textContent = s;
+        btn.addEventListener('click', (function (ss) {
+          return function () { inputEl.value = ss; autoResize(); sendMessage(); };
+        })(s));
+        fu.appendChild(btn);
+      }
+      body.appendChild(fu);
+    }
+
+    // ── Send message ─────────────────────────────────────────────
+    function sendMessage() {
+      if (isLoading) return;
+      var text = inputEl.value.trim();
+      if (!text) return;
+
+      var count = getFreeCount();
+      if (count >= FREE_QUESTIONS) {
+        inputEl.placeholder = 'Đăng nhập để tiếp tục...';
+        inputEl.disabled = true;
+        return;
+      }
+
+      isLoading = true;
+      sendBtn.disabled = true;
+
+      var userText = text;
+      inputEl.value = '';
+      autoResize();
+
+      addMessage('user', userText);
+      incFreeCount();
+      updateRateLimit();
+      showTyping();
+      currentSources = [];
+
+      var accumulatedText = '';
+      var lastRender = 0;
+      var lastMsgBubble = null;
+
+      fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+        body: JSON.stringify({
+          message: userText,
+          page_type: pageType !== 'home' ? pageType : undefined,
+          page_slug: pageSlug || undefined,
+        }),
+      }).then(function (res) {
+        if (!res.ok || !res.body) {
+          return res.json().catch(function () { return { error: 'Lỗi kết nối' }; }).then(function (d) { throw new Error(d.error || 'Lỗi kết nối'); });        }
 
-      if (!res.ok || !res.body) {
-        const errData = await res.json().catch(() => ({ error: 'Lỗi kết nối' }));
-        throw new Error(errData.error || 'Lỗi kết nối');
-      }
+        removeTyping();
+        var result = addMessage('assistant', '');
+        lastMsgBubble = result.bubble;
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
 
-      removeTyping();
-      const { el: msgEl, bubble: bubbleEl } = addMessage('assistant', '');
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let accumulatedText = '';
-      let lastRenderTime = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data: ')) continue;
-          const data = trimmed.slice(6).trim();
-          if (!data) continue;
-
-          try {
-            const parsed = JSON.parse(data);
-
-            if (parsed.event === 'chunks_used') {
-              currentSources = parsed.sources || [];
-            } else if (parsed.event === 'chunk') {
-              accumulatedText += parsed.text || '';
-              const now = Date.now();
-              if (now - lastRenderTime > 60) {
-                bubbleEl.textContent = accumulatedText;
-                scrollToBottom();
-                lastRenderTime = now;
+        function pump() {
+          reader.read().then(function (result2) {
+            if (result2.done) {
+              // Final render
+              if (lastMsgBubble) {
+                lastMsgBubble.innerHTML = parseMarkdown(accumulatedText);
               }
-            } else if (parsed.event === 'done') {
-              currentSources = parsed.sources || currentSources;
-            } else if (parsed.event === 'error') {
-              throw new Error(parsed.message || 'Lỗi AI');
+              if (currentSources.length) {
+                var body2 = messagesArea.lastElementChild.querySelector('.chat-msg-body');
+                if (body2) {
+                  var srcEl = document.createElement('div');
+                  srcEl.className = 'chat-source-links';
+                  for (var si = 0; si < Math.min(currentSources.length, 3); si++) {
+                    var s2 = currentSources[si];
+                    var a2 = document.createElement('a');
+                    a2.href = s2.url;
+                    a2.className = 'chat-source-link';
+                    a2.target = '_blank';
+                    a2.rel = 'noopener';
+                    var icon2 = s2.content_type === 'book' ? '📖' : s2.content_type === 'blog' ? '📝' : '📄';
+                    a2.innerHTML = '<span class="chat-source-type">' + icon2 + '</span> ' + (s2.title || 'Xem chi tiết');
+                    srcEl.appendChild(a2);
+                  }
+                  body2.appendChild(srcEl);
+                }
+              }
+              appendFollowup(['Tôi muốn biết thêm chi tiết...', 'Có ví dụ cụ thể không?', 'Cảm ơn bạn!']);
+              scrollBottom();
+              return;
             }
-          } catch (e) {
-            if ((e as Error).message !== 'Lỗi AI') {
-              console.warn('[chat] SSE parse error:', e);
+
+            buffer += decoder.decode(result2.value, { stream: true });
+            var lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (var li = 0; li < lines.length; li++) {
+              var trimmed = lines[li].trim();
+              if (!trimmed.startsWith('data: ')) continue;
+              var dataStr = trimmed.slice(6).trim();
+              if (!dataStr) continue;
+              try {
+                var parsed = JSON.parse(dataStr);
+                if (parsed.event === 'chunks_used') {
+                  currentSources = parsed.sources || [];
+                } else if (parsed.event === 'chunk') {
+                  accumulatedText += parsed.text || '';
+                  var now = Date.now();
+                  if (now - lastRender > 60 && lastMsgBubble) {
+                    lastMsgBubble.textContent = accumulatedText;
+                    scrollBottom();
+                    lastRender = now;
+                  }
+                } else if (parsed.event === 'done') {
+                  currentSources = parsed.sources || currentSources;
+                } else if (parsed.event === 'error') {
+                  throw new Error(parsed.message || 'Lỗi AI');
+                }
+              } catch (e) {
+                if (e.message !== 'Lỗi AI') console.warn('[chat] SSE:', e);
+              }
             }
-          }
-        }
-      }
-
-      // Final render with markdown
-      const parsed2 = await Promise.resolve(marked.parse(accumulatedText));
-      bubbleEl.innerHTML = DOMPurify.sanitize(parsed2 as string);
-
-      // Append sources
-      if (currentSources.length) {
-        const body2 = msgEl.querySelector('.chat-msg-body');
-        if (body2) {
-          const srcEl = document.createElement('div');
-          srcEl.className = 'chat-source-links';
-          currentSources.slice(0, 3).forEach((s: {url: string; title: string; content_type: string}, i: number) => {
-            const link = document.createElement('a');
-            link.href = s.url;
-            link.className = 'chat-source-link';
-            link.target = '_blank';
-            link.rel = 'noopener';
-            const icon = s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄';
-            link.innerHTML = `<span class="chat-source-type">${icon}</span> ${s.title || 'Xem chi tiết'}`;
-            srcEl.appendChild(link);
+            pump();
+          }).catch(function (err) {
+            removeTyping();
+            addMessage('assistant', '❌ **Lỗi:** ' + (err.message || 'Kết nối thất bại. Vui lòng thử lại.'));
+            isLoading = false;
+            sendBtn.disabled = false;
           });
-          body2.appendChild(srcEl);
         }
+        pump();
+      }).catch(function (err) {
+        removeTyping();
+        addMessage('assistant', '❌ **Lỗi:** ' + (err.message || 'Kết nối thất bại. Vui lòng thử lại.'));
+        isLoading = false;
+        sendBtn.disabled = false;
+      }).finally(function () {
+        isLoading = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+      });
+    }
+
+    // ── Event bindings ──────────────────────────────────────────
+    // Suggestion chips
+    var chips = document.querySelectorAll('.suggestion-chip');
+    for (var ci = 0; ci < chips.length; ci++) {
+      chips[ci].addEventListener('click', function () {
+        var msg2 = this.getAttribute('data-msg') || this.textContent.trim() || '';
+        if (!msg2) return;
+        inputEl.value = msg2;
+        autoResize();
+        sendMessage();
+      });
+    }
+
+    // Send button
+    sendBtn.addEventListener('click', sendMessage);
+
+    // Enter key
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
+    });
 
-      // Append follow-up suggestions
-      appendFollowup([
-        'Tôi muốn biết thêm chi tiết...',
-        'Có ví dụ cụ thể không?',
-        'Cảm ơn bạn!',
-      ]);
+    // Auto-resize
+    inputEl.addEventListener('input', autoResize);
 
-    } catch (e) {
-      removeTyping();
-      const errMsg = (e as Error).message || 'Kết nối thất bại. Vui lòng thử lại.';
-      addMessage('assistant', `❌ **Lỗi:** ${errMsg}`);
-    } finally {
-      isLoading = false;
-      sendBtn.disabled = false;
-      inputEl.focus();
-    }
-  }
+    // Close button
+    closeBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.remove('chat-panel-open');
+      panel.style.pointerEvents = 'none';
+      trigger.classList.remove('chat-open');
+      document.body.classList.remove('chat-active');
+      trigger.setAttribute('aria-expanded', 'false');
+    });
 
-  // ── Event bindings ─────────────────────────────────────────────
-  console.log('[chat] Binding events, sendBtn:', sendBtn, 'inputEl:', inputEl);
-  sendBtn.addEventListener('click', () => { console.log('[chat] Send button clicked'); sendMessage(); });
-  inputEl.addEventListener('keydown', (e) => {
-    console.log('[chat] Keydown:', e.key);
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Click outside panel to close
+    document.addEventListener('click', function (e) {
+      if (!panel.classList.contains('chat-panel-open')) return;
+      if (panel.contains(e.target) || trigger.contains(e.target)) return;
+      panel.classList.remove('chat-panel-open');
+      panel.style.pointerEvents = 'none';
+      trigger.classList.remove('chat-open');
+      document.body.classList.remove('chat-active');
+      trigger.setAttribute('aria-expanded', 'false');
+    });
+
+    // Re-enable pointer-events when panel opens
+    var observer = new MutationObserver(function () {
+      if (panel.classList.contains('chat-panel-open')) {
+        panel.style.pointerEvents = '';
+      } else {
+        panel.style.pointerEvents = 'none';
+      }
+    });
+    observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+
+    // Expand button
+    var isExpanded = false;
+    expandBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      console.log('[chat] Enter pressed, calling sendMessage');
-      sendMessage();
-    }
-  });
-  inputEl.addEventListener('input', autoResize);
+      isExpanded = !isExpanded;
+      panel.classList.toggle('chat-expanded', isExpanded);
+      expandBtn.title = isExpanded ? 'Thu nhỏ' : 'Mở rộng';
+      expandBtn.querySelector('span').textContent = isExpanded ? 'close_fullscreen' : 'open_in_full';
+    });
 
+    // Escape key
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('chat-panel-open')) {
+        panel.classList.remove('chat-panel-open');
+        panel.style.pointerEvents = 'none';
+        trigger.classList.remove('chat-open');
+        document.body.classList.remove('chat-active');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+  }).catch(function (err) {
+    console.error('[chat] Init error:', err);
+  });
 })();
 </script>
