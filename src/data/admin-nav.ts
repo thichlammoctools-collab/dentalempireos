@@ -32,6 +32,7 @@ export const adminNav: AdminNavSection[] = [
       { href: '/admin/blog',      label: 'Bài viết',     icon: 'newsmode',      match: '/admin/blog' },
       { href: '/admin/resources', label: 'Tài liệu',     icon: 'folder_shared', match: '/admin/resources' },
       { href: '/admin/courses',   label: 'Khóa học',     icon: 'school',        match: '/admin/courses' },
+      { href: '/admin/questions', label: 'Câu hỏi',      icon: 'forum',         match: '/admin/questions' },
       { href: '/admin/homepage',  label: 'Trang chủ',    icon: 'home',          match: '/admin/homepage' },
     ],
   },
@@ -60,6 +61,7 @@ export const adminNav: AdminNavSection[] = [
     items: [
       { href: '/admin/scanners',    label: 'Máy quét',     icon: 'fact_check', match: '/admin/scanners' },
       { href: '/admin/apps',       label: 'Ứng dụng AI',  icon: 'smart_toy', match: '/admin/apps' },
+      { href: '/admin/ai-usage',   label: 'Sử dụng AI',   icon: 'monitoring', match: '/admin/ai-usage' },
       { href: '/admin/ai-settings', label: 'Cài đặt AI',  icon: 'tune',      match: '/admin/ai-settings' },
     ],
   },

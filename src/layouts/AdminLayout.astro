@@ -53,10 +53,11 @@ const {
   <body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
     <Sidebar />
 
-    <main id="main-content" class="flex-1 ml-64 h-screen min-h-0 overflow-y-auto scrollbar-hide flex flex-col transition-[margin] duration-300">
+    <main id="main-content" class="admin-main-shell flex-1 h-screen min-h-0 overflow-y-auto scrollbar-hide flex flex-col">
       <Topbar searchPlaceholder={searchPlaceholder} />
 
-      <div class="mt-16 p-4 sm:p-6 lg:p-8 flex-1 flex flex-col gap-6 lg:gap-8">
+      <a href="#admin-page-content" class="admin-skip-link">Đi tới nội dung chính</a>
+      <div id="admin-page-content" tabindex="-1" class="mt-16 p-4 sm:p-6 lg:p-8 flex-1 flex flex-col gap-6 lg:gap-8">
         <slot />
       </div>
 
