@@ -3,7 +3,6 @@
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { createAuth } from '../../../lib/auth';
 import { getEmbedding } from '../../../lib/embedding';
 
 export const prerender = false;
@@ -11,14 +10,9 @@ const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 50;
 
 export const POST: APIRoute = async (ctx) => {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: ctx.request.headers });
-  if (!session?.user) {
+  const user = ctx.locals.user;
+  if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-  }
-  const user = await env.DB.prepare('SELECT "role" FROM "user" WHERE "id" = ?').bind(session.user.id).first<{ role: string }>();
-  if (user?.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Admin only' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
   if (!env.VECTORIZE) {
     return new Response(JSON.stringify({ error: 'Vectorize not configured' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
