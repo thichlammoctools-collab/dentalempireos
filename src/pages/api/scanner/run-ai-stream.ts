@@ -15,6 +15,7 @@ import { getScannerResponse, updateAiAnalysis, updateAiPlan, updateAiAnalysisSta
 import { getSurveyDefinitionFull, parseAiConfig, parseScoringRules } from '../../../lib/survey-config-db';
 import { getScannerAiConfig, buildAnalysisStream, buildPlanStream } from '../../../lib/scanner-ai';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
+import { getUserByEmail } from '../../../lib/user-db';
 import { createAuth } from '../../../lib/auth';
 
 export const prerender = false;
@@ -42,16 +43,20 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({ error: 'Vui lòng đăng nhập' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Ownership check
-  const owned = await isResponseOwnedByUser(env.DB, session.user.id, responseId);
-  if (!owned) {
-    return new Response(JSON.stringify({ error: 'Không có quyền với kết quả này' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  // Load response + definition
+  // Load response first to check email ownership
   const response = await getScannerResponse(env.DB, responseId);
   if (!response) {
     return new Response(JSON.stringify({ error: 'Response not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Ownership check — match [id].astro logic: allow both scanner_history and email match
+  const owned = await isResponseOwnedByUser(env.DB, session.user.id, responseId);
+  const ownsByEmail = response.email
+    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+    : false;
+
+  if (!owned && !ownsByEmail) {
+    return new Response(JSON.stringify({ error: 'Không có quyền với kết quả này' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   const full = await getSurveyDefinitionFull(env.DB, response.survey_id);

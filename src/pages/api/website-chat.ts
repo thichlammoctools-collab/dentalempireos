@@ -1,7 +1,7 @@
 // API: Website-wide AI chat (RAG on book + blog + resource).
 // POST /api/website-chat
-// Body: { message: string, page_type?: string, page_slug?: string }
-// Auth: None (public)
+// Body: { message: string, session_id?: string, page_type?: string, page_slug?: string }
+// Auth: None (public, but session ownership checked if user authenticated)
 // Response: text/event-stream
 
 import type { APIRoute } from 'astro';
@@ -11,7 +11,10 @@ import { chatCompletion } from '../../lib/ai-client';
 import type { ChatMessage } from '../../lib/ai-client';
 import { getAiSettings } from '../../lib/ai-settings-db';
 import { getProviderById, listModels } from '../../lib/ai-provider-db';
-import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
+import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, buildSearchQueryWithHistory, summarizeHistory, type WebsiteChunk } from '../../lib/rag-website-search';
+import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
+import { generateFollowupSuggestions } from '../../lib/ai-followup';
+import { createAuth } from '../../lib/auth';
 
 export const prerender = false;
 
@@ -41,7 +44,7 @@ ${ragContext}
 }
 
 export const POST: APIRoute = async (ctx) => {
-  let body: { message: string; page_type?: string; page_slug?: string; history?: ChatMessage[] };
+  let body: { message: string; session_id?: string; page_type?: string; page_slug?: string };
   try {
     body = (await ctx.request.json()) as typeof body;
   } catch {
@@ -51,6 +54,28 @@ export const POST: APIRoute = async (ctx) => {
   if (!body.message?.trim()) {
     return new Response(JSON.stringify({ error: 'message is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+
+  // Check if user is authenticated
+  const auth = createAuth(env);
+  const authSession = await auth.api.getSession({ headers: ctx.request.headers });
+  const userId = authSession?.user?.id ?? null;
+
+  // Get or create session
+  let sessionId = body.session_id;
+  if (!sessionId) {
+    sessionId = await createSession(env.DB, userId, body.page_type, body.page_slug);
+  }
+
+  // Load session (verify ownership if authenticated)
+  const sessionData = await loadSession(env.DB, sessionId, userId);
+  if (!sessionData) {
+    return new Response(JSON.stringify({ error: 'Session not found or access denied' }), {
+      status: 404, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Get conversation history from DB
+  const history = sessionData.messages.slice(-8); // Last 8 messages for context
 
   const settings = await getAiSettings(env.DB);
   const hasChatModel = Boolean(settings.chat_provider_id && settings.chat_model_id);
@@ -97,17 +122,8 @@ export const POST: APIRoute = async (ctx) => {
     searchOpts.contentType = 'blog';
   }
 
-  const history = (body.history ?? [])
-    .filter((message): message is ChatMessage =>
-      (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string' && Boolean(message.content.trim()),
-    )
-    .slice(-8)
-    .map((message) => ({ role: message.role, content: message.content.trim().slice(0, 1200) }));
-  const priorUserQuestion = [...history].reverse().find((message) => message.role === 'user')?.content ?? '';
-  const isFollowUp = body.message.trim().split(/\s+/).length <= 8;
-  const searchQuery = isFollowUp && priorUserQuestion
-    ? `${priorUserQuestion}\nCâu hỏi tiếp theo: ${body.message.trim()}`
-    : body.message.trim();
+  // Build search query với conversation context (multi-turn understanding)
+  const searchQuery = buildSearchQueryWithHistory(body.message.trim(), history);
 
   let chunks: WebsiteChunk[] = [];
   try {
@@ -121,7 +137,9 @@ export const POST: APIRoute = async (ctx) => {
   const systemPrompt = buildSystemPrompt(ragContext);
   const formattedChunks = chunksToFormatted(chunks);
 
-  const chatMessages: ChatMessage[] = [...history, { role: 'user', content: body.message.trim() }].slice(-9);
+  // Summarize history nếu quá dài, rồi thêm user message mới
+  const summarizedHistory = summarizeHistory(history);
+  const chatMessages: ChatMessage[] = [...summarizedHistory, { role: 'user', content: body.message.trim() }].slice(-9);
 
   let aiResponse = '';
   let aiError: string | null = null;
@@ -132,6 +150,35 @@ export const POST: APIRoute = async (ctx) => {
     console.error('[website-chat] AI error:', err);
   }
 
+  // Generate follow-up suggestions (chạy song song với streaming)
+  let followupSuggestions: string[] = [];
+  if (aiResponse && !aiError) {
+    try {
+      followupSuggestions = await generateFollowupSuggestions(
+        modelCfg,
+        body.message.trim(),
+        aiResponse,
+        ragContext,
+      );
+    } catch (err) {
+      console.warn('[website-chat] Followup generation failed:', err);
+    }
+  }
+
+  // Save conversation to DB
+  if (!aiError) {
+    try {
+      const newMessages = [
+        ...sessionData.messages,
+        { role: 'user' as const, content: body.message.trim(), created_at: new Date().toISOString() },
+        { role: 'assistant' as const, content: aiResponse, created_at: new Date().toISOString() },
+      ];
+      await saveSession(env.DB, sessionId, newMessages, chunks.map(c => c.id));
+    } catch (err) {
+      console.error('[website-chat] Save session failed:', err);
+    }
+  }
+
   // Stream response word-by-word as they arrive
   const textEncoder = new TextEncoder();
   let wordIndex = 0;
@@ -140,16 +187,17 @@ export const POST: APIRoute = async (ctx) => {
   const stream = new ReadableStream({
     pull(controller) {
       if (wordIndex === 0) {
-        // First pull: send sources metadata
-        const sourcesText = textEncoder.encode(
+        // First pull: send session_id + sources metadata
+        const metadataText = textEncoder.encode(
           `data: ${JSON.stringify({
-            event: 'chunks_used',
-            count: chunks.length,
-            ids: chunks.map(c => c.id),
+            event: 'metadata',
+            session_id: sessionId,
+            chunks_count: chunks.length,
+            chunks_ids: chunks.map(c => c.id),
             sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
           })}\n\n`
         );
-        controller.enqueue(sourcesText);
+        controller.enqueue(metadataText);
       }
 
       if (aiError) {
@@ -170,11 +218,22 @@ export const POST: APIRoute = async (ctx) => {
         return;
       }
 
+      // Before done: send followup suggestions if available
+      if (followupSuggestions.length > 0 && wordIndex === words.length) {
+        controller.enqueue(
+          textEncoder.encode(
+            `data: ${JSON.stringify({ event: 'followup_suggestions', suggestions: followupSuggestions })}\n\n`
+          )
+        );
+        wordIndex++; // Prevent re-sending
+      }
+
       // Done
       controller.enqueue(
         textEncoder.encode(
           `data: ${JSON.stringify({
             event: 'done',
+            session_id: sessionId,
             chunks_used: chunks.length,
             sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
           })}\n\n`

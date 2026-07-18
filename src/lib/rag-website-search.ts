@@ -265,3 +265,44 @@ export function chunksToFormatted(chunks: WebsiteChunk[]): FormattedChunk[] {
     url: c.url,
   }));
 }
+
+/**
+ * Build search query với conversation context.
+ * Nếu câu hỏi hiện tại ngắn (<8 từ), kết hợp với câu hỏi trước để hiểu intent.
+ */
+export function buildSearchQueryWithHistory(
+  currentMessage: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): string {
+  const words = currentMessage.trim().split(/\s+/);
+  if (words.length >= 8) return currentMessage;
+
+  // Tìm câu hỏi user gần nhất trước đó
+  const priorUserMsg = [...history].reverse().find(m => m.role === 'user')?.content ?? '';
+  if (!priorUserMsg) return currentMessage;
+
+  return `${priorUserMsg}\nCâu hỏi tiếp theo: ${currentMessage}`;
+}
+
+/**
+ * Summarize conversation history nếu quá dài (>6 messages).
+ * Tóm tắt các cặp Q&A cũ, giữ nguyên 4 messages gần nhất (2 cặp Q&A).
+ */
+export function summarizeHistory(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+  if (messages.length <= 6) return messages;
+
+  const recent = messages.slice(-4); // Giữ 2 cặp Q&A gần nhất
+  const older = messages.slice(0, -4);
+
+  // Tóm tắt older messages thành 1 system context
+  const summary = older
+    .map(m => `${m.role === 'user' ? 'Người dùng' : 'AI'}: ${m.content.slice(0, 100)}`)
+    .join('\n');
+
+  return [
+    { role: 'user', content: `[Lịch sử trước đó]\n${summary}` },
+    ...recent,
+  ];
+}

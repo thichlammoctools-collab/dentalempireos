@@ -1043,7 +1043,12 @@ try {
       });
 
       if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
+        let errMsg = `HTTP ${res.status}`;
+        try {
+          const errData = await res.json() as { error?: string };
+          if (errData.error) errMsg = errData.error;
+        } catch { /* ignore */ }
+        throw new Error(errMsg);
       }
 
       const reader = res.body.getReader();
@@ -1104,10 +1109,18 @@ try {
       console.error('[scanner] SSE error:', err);
       const targetContainer = getStreamContainer(type, isFree);
       const targetStatus = getStatusEl(type, isFree);
-      if (targetStatus) targetStatus.textContent = '';
       if (targetContainer) {
         targetContainer.textContent = '';
         targetContainer.classList.add('hidden');
+      }
+
+      // Show error message with details
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (targetStatus) {
+        targetStatus.textContent = lang === 'vi'
+          ? `Lỗi: ${errMsg}`
+          : `Error: ${errMsg}`;
+        targetStatus.style.color = 'var(--error, #ef4444)';
       }
 
       if (type === 'plan') {
