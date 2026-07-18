@@ -26,26 +26,16 @@ async function getEmbeddingProvider(
 
   const models = await getActiveModelsWithProvider(db);
   for (const [, { provider, models: providerModels }] of models) {
-    const baseUrl = provider.base_url.toLowerCase();
-
-    if (
-      baseUrl.includes('openai') ||
-      baseUrl.includes('v1/chat') ||
-      baseUrl.includes('zplay') ||
-      baseUrl.includes('openrouter') ||
-      baseUrl.includes('together')
-    ) {
-      const embeddingModel =
-        providerModels.find((m) => m.model_id.includes('embedding')) ??
-        providerModels[0];
-      if (embeddingModel) {
-        _cachedProvider = { provider, model: embeddingModel };
-        return _cachedProvider;
-      }
+    const embeddingModel = providerModels.find((m) =>
+      `${m.name} ${m.model_id}`.toLowerCase().includes('embedding'),
+    );
+    if (embeddingModel) {
+      _cachedProvider = { provider, model: embeddingModel };
+      return _cachedProvider;
     }
   }
 
-  throw new Error('No embedding provider configured');
+  throw new Error('No embedding model configured. Add and activate an embedding model (for example, text-embedding-3-small) in AI Providers.');
 }
 
 export async function getEmbedding(

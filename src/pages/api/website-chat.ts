@@ -98,7 +98,7 @@ export const POST: APIRoute = async (ctx) => {
 
   let chunks: WebsiteChunk[] = [];
   try {
-    chunks = await searchWebsite(env.DB, body.message, 5, searchOpts, env);
+    chunks = await searchWebsite(env.DB, body.message, 8, searchOpts, env);
   } catch (err) {
     console.warn('[website-chat] search failed:', err);
   }

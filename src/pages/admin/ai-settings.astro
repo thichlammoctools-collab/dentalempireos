@@ -109,7 +109,28 @@ const activeChatModel = models.find((model) => model.id === settings.chat_model_
   </div>
 
   <!-- ============================================================
-       SECTION 3: AI Providers
+       SECTION 3: Website Knowledge Base
+  ============================================================ -->
+  <div class="glass-card rounded-xl p-6 mb-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary text-2xl">psychology</span>
+        <div>
+          <h3 class="text-lg font-bold text-white">Kho tri thức AI</h3>
+          <p class="text-xs text-on-surface-variant/60 max-w-2xl">Đọc toàn bộ chương sách, bài viết và tài nguyên, sau đó tạo embedding để Chat Assistant tìm đúng nội dung khi trả lời.</p>
+          <p class="text-xs text-amber-300/80 mt-1.5">Cần có một model embedding đang bật, ví dụ <code class="font-mono">text-embedding-3-small</code>. GPT chat không thể thay thế model embedding.</p>
+        </div>
+      </div>
+      <button id="rebuild-knowledge-btn" type="button" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0">
+        <span class="material-symbols-outlined text-[18px]">database_upload</span>
+        Xây dựng lại kho tri thức
+      </button>
+    </div>
+    <p id="knowledge-sync-status" class="hidden mt-4 text-sm"></p>
+  </div>
+
+  <!-- ============================================================
+       SECTION 4: AI Providers
   ============================================================ -->
   <div class="glass-card rounded-xl p-6">
     <div class="flex items-center justify-between mb-5">
@@ -394,6 +415,60 @@ const activeChatModel = models.find((model) => model.id === settings.chat_model_
       showToast('Không thể kết nối để lưu cấu hình chat.', 'error');
     } finally {
       if (chatSaveBtn) chatSaveBtn.disabled = false;
+    }
+  });
+
+  // ===================== Website knowledge base =====================
+  const rebuildKnowledgeBtn = document.getElementById('rebuild-knowledge-btn') as HTMLButtonElement | null;
+  const knowledgeSyncStatus = document.getElementById('knowledge-sync-status') as HTMLElement | null;
+
+  function setKnowledgeSyncStatus(message: string, type: 'success' | 'error' | 'muted') {
+    if (!knowledgeSyncStatus) return;
+    const color = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-on-surface-variant';
+    knowledgeSyncStatus.textContent = message;
+    knowledgeSyncStatus.className = `mt-4 text-sm ${color}`;
+  }
+
+  rebuildKnowledgeBtn?.addEventListener('click', async () => {
+    rebuildKnowledgeBtn.disabled = true;
+    const originalContent = rebuildKnowledgeBtn.innerHTML;
+    rebuildKnowledgeBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang chuẩn bị...';
+
+    try {
+      setKnowledgeSyncStatus('Đang đọc và chia nhỏ nội dung sách, blog và tài nguyên...', 'muted');
+      const rebuildResponse = await fetch('/api/admin/sync-website-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      });
+      const rebuildData = await rebuildResponse.json() as { chunks?: number; counts?: Record<string, number>; error?: string };
+      if (!rebuildResponse.ok) throw new Error(rebuildData.error || 'Không thể xây dựng kho tri thức.');
+
+      const totalChunks = rebuildData.chunks || 0;
+      let embedded = 0;
+      let remaining = totalChunks;
+      do {
+        setKnowledgeSyncStatus(`Đang tạo embedding: ${embedded}/${totalChunks} đoạn...`, 'muted');
+        const vectorResponse = await fetch('/api/admin/sync-website-content-vectors', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 25 }),
+        });
+        const vectorData = await vectorResponse.json() as { embedded?: number; remaining?: number; error?: string; errors?: string[] };
+        if (!vectorResponse.ok) throw new Error(vectorData.error || vectorData.errors?.[0] || 'Không thể tạo embedding.');
+        embedded += vectorData.embedded || 0;
+        remaining = vectorData.remaining || 0;
+        if ((vectorData.embedded || 0) === 0 && remaining > 0) {
+          throw new Error(vectorData.errors?.[0] || 'Không thể hoàn tất embedding.');
+        }
+      } while (remaining > 0);
+
+      const bookCount = rebuildData.counts?.book || 0;
+      setKnowledgeSyncStatus(`Hoàn tất: ${totalChunks} đoạn đã được index, gồm ${bookCount} đoạn từ sách. Chat Assistant có thể tra cứu kho tri thức mới.`, 'success');
+      showToast('Đã xây dựng lại kho tri thức AI.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể xây dựng kho tri thức.';
+      setKnowledgeSyncStatus(message, 'error');
+      showToast(message, 'error');
+    } finally {
+      rebuildKnowledgeBtn.disabled = false;
+      rebuildKnowledgeBtn.innerHTML = originalContent;
     }
   });
 

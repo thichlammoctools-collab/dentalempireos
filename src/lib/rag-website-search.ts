@@ -113,7 +113,7 @@ async function vectorSearch(
     const { getEmbedding } = await import('./embedding');
     const embedding = await getEmbedding(db, query);
 
-    const vecResults = await env.VECTORIZE.query(embedding, { topK: limit * 2 });
+    const vecResults = await env.VECTORIZE.query(embedding, { topK: limit * 4 });
     if (!vecResults.matches?.length) return [];
 
     const ids = vecResults.matches.map(m => {
@@ -148,7 +148,10 @@ async function vectorSearch(
         heading_path: string | null; content: string; url: string;
       }>();
 
-    return (results ?? []).map(row => ({ ...row, text: row.content, score: 0 }));
+    const matchesById = new Map(ids.map((id, index) => [id, index]));
+    return (results ?? [])
+      .map(row => ({ ...row, text: row.content, score: -(matchesById.get(row.id) ?? ids.length) }))
+      .sort((a, b) => b.score - a.score);
   } catch (err) {
     console.warn('[rag-website] Vector search failed, falling back to keyword:', err);
     return [];

@@ -8,7 +8,7 @@ interface Props {
 const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 ---
 
-<div id="website-chat-root">
+<div id="website-chat-root" class={pageType === 'book' ? 'website-chat-root--book' : undefined}>
   <!-- Trigger button -->
   <button
     id="website-chat-trigger"
@@ -16,7 +16,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     aria-label="Mở trợ lý AI"
     aria-expanded="false"
     aria-controls="website-chat-panel"
-    onclick="var p=document.getElementById('website-chat-panel'),t=document.getElementById('website-chat-trigger');var o=p.classList.contains('chat-panel-open');p.classList.toggle('chat-panel-open',!o);t.classList.toggle('chat-open',!o);document.body.classList.toggle('chat-active',!o);t.setAttribute('aria-expanded',!o);if(!o){setTimeout(function(){var i=document.getElementById('chat-input');if(i)i.focus()},100)}"
+    onclick="var p=document.getElementById('website-chat-panel'),t=document.getElementById('website-chat-trigger');var o=p.classList.contains('chat-panel-open');p.classList.toggle('chat-panel-open',!o);p.style.pointerEvents=!o?'':'none';t.classList.toggle('chat-open',!o);document.body.classList.toggle('chat-active',!o);t.setAttribute('aria-expanded',!o);if(!o){setTimeout(function(){var i=document.getElementById('chat-input');if(i)i.focus()},100)}"
   >
     <span class="material-symbols-outlined trigger-icon" id="chat-trigger-icon">chat</span>
   </button>
@@ -97,9 +97,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
   /* Trigger */
   #website-chat-trigger {
-    position: fixed;
+    position: fixed !important;
     z-index: 1001;
-    right: 16px;
+    top: auto !important;
+    right: 16px !important;
+    left: auto !important;
     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     width: 52px;
     height: 52px;
@@ -116,6 +118,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   }
   @media (max-width: 640px) {
     #website-chat-trigger { bottom: calc(1rem + 64px + env(safe-area-inset-bottom, 0px)); }
+    /* Book reader has a three-button section navigation stack above its bottom bar. */
+    .website-chat-root--book #website-chat-trigger {
+      bottom: calc(4.5rem + 8.5rem + 0.75rem + env(safe-area-inset-bottom, 0px));
+    }
   }
   #website-chat-trigger:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(249, 115, 22, 0.5); }
   #website-chat-trigger:active { transform: scale(0.96); }
@@ -160,7 +166,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    .chat-action-btn:hover { background: #273449; color: #fff; }
 
   /* Messages */
-   #chat-messages-area { flex: 1; overflow-y: auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 12px; background: #111827; scroll-behavior: smooth; }
+   #chat-messages-area { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 12px; background: #111827; scroll-behavior: smooth; }
   #chat-messages-area::-webkit-scrollbar { width: 4px; }
   #chat-messages-area::-webkit-scrollbar-thumb { background: var(--chat-scrollbar, #d6d3d1); border-radius: 4px; }
 
@@ -224,9 +230,9 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
   /* Input */
    #chat-input-area { flex-shrink: 0; padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px)); background: #172033; border-top: 1px solid #273449; }
-   .chat-input-wrapper { display: flex; align-items: flex-end; gap: 8px; background: #0f1726; border: 1.5px solid #33445f; border-radius: 14px; padding: 8px 8px 8px 14px; transition: border-color 0.2s; }
+   .chat-input-wrapper { display: flex; align-items: center; gap: 8px; background: #0f1726; border: 1.5px solid #33445f; border-radius: 14px; padding: 8px 8px 8px 14px; transition: border-color 0.2s; }
    .chat-input-wrapper:focus-within { border-color: #fb923c; background: #111c2e; }
-   #chat-input { flex: 1; background: none; border: none; outline: none; color: #f8fafc; font-size: 14px; font-family: inherit; line-height: 1.5; resize: none; max-height: 90px; overflow-y: auto; }
+   #chat-input { flex: 1; min-height: 21px; margin: 0; background: none; border: none; outline: none; color: #f8fafc; font-size: 14px; font-family: inherit; line-height: 1.5; resize: none; max-height: 90px; overflow-y: auto; }
    #chat-input::placeholder { color: #8494ad; }
   #chat-send-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f97316; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s, opacity 0.15s; }
   #chat-send-btn:hover { transform: scale(1.06); }
@@ -614,25 +620,25 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     // Auto-resize
     inputEl.addEventListener('input', autoResize);
 
+    function setChatOpen(open) {
+      panel.classList.toggle('chat-panel-open', open);
+      panel.style.pointerEvents = open ? '' : 'none';
+      trigger.classList.toggle('chat-open', open);
+      document.body.classList.toggle('chat-active', open);
+      trigger.setAttribute('aria-expanded', String(open));
+    }
+
     // Close button
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      panel.classList.remove('chat-panel-open');
-      panel.style.pointerEvents = 'none';
-      trigger.classList.remove('chat-open');
-      document.body.classList.remove('chat-active');
-      trigger.setAttribute('aria-expanded', 'false');
+      setChatOpen(false);
     });
 
     // Click outside panel to close
     document.addEventListener('click', function (e) {
       if (!panel.classList.contains('chat-panel-open')) return;
       if (panel.contains(e.target) || trigger.contains(e.target)) return;
-      panel.classList.remove('chat-panel-open');
-      panel.style.pointerEvents = 'none';
-      trigger.classList.remove('chat-open');
-      document.body.classList.remove('chat-active');
-      trigger.setAttribute('aria-expanded', 'false');
+      setChatOpen(false);
     });
 
     // Re-enable pointer-events when panel opens
@@ -658,11 +664,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     // Escape key
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && panel.classList.contains('chat-panel-open')) {
-        panel.classList.remove('chat-panel-open');
-        panel.style.pointerEvents = 'none';
-        trigger.classList.remove('chat-open');
-        document.body.classList.remove('chat-active');
-        trigger.setAttribute('aria-expanded', 'false');
+        setChatOpen(false);
       }
     });
 
