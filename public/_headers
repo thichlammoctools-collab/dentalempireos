@@ -27,5 +27,9 @@
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 
+# ── Client Scripts (no immutable cache — must revalidate) ──
+/scripts/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
 # ── Fonts (Google CDN fallback) ──
 # fonts.googleapis.com and fonts.gstatic.com are external — no action needed

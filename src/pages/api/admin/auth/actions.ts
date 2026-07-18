@@ -31,7 +31,9 @@ export const POST: APIRoute = async ({ request }) => {
         return json({ success: true });
 
       case 'send-verification':
-        await auth.api.sendVerificationEmail({ email: body.email });
+        // Resolve the recipient server-side so the action only targets the selected user.
+        const user = await auth.api.getUser({ id: userId });
+        await auth.api.sendVerificationEmail({ email: user.email });
         return json({ success: true });
 
       case 'delete':
