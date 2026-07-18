@@ -14,6 +14,8 @@ const totalChapters = chapters.length;
 const publishedChapters = chapters.filter((c) => c.status === 'published').length;
 const draftChapters = totalChapters - publishedChapters;
 const totalResources = resources.length;
+const publishedPercentage = totalChapters > 0 ? Math.round((publishedChapters / totalChapters) * 100) : 0;
+const draftPercentage = totalChapters > 0 ? Math.round((draftChapters / totalChapters) * 100) : 0;
 
 // Pipeline preview (latest signals from real data)
 const recentPublished = chapters.find((c) => c.status === 'published');
@@ -22,23 +24,25 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
 
 <AdminLayout title="Dashboard | Dental Empire Admin">
   <!-- Welcome Header -->
-  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
-    <div>
-      <h2 class="text-3xl md:text-[32px] leading-tight font-bold text-white mb-1">Knowledge Hub Dashboard</h2>
-      <p class="text-base text-on-surface-variant">
-        Welcome back, Admin. Hệ thống nội dung đang vận hành ổn định.
-      </p>
+  <section class="relative overflow-hidden rounded-2xl border border-outline-variant/15 bg-surface-container-low px-5 py-6 sm:px-7 sm:py-8">
+    <div class="absolute -right-16 -top-24 h-56 w-56 rounded-full bg-primary/10 blur-3xl pointer-events-none"></div>
+    <div class="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <div class="max-w-2xl">
+        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Admin control center</p>
+        <h2 class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">Knowledge Hub Dashboard</h2>
+        <p class="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base">
+          Theo dõi nội dung, tài nguyên và các tín hiệu vận hành trong một không gian tập trung.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 self-start rounded-full border border-primary/20 bg-primary/10 px-3.5 py-2 md:self-auto">
+        <div class="status-dot text-primary bg-primary"></div>
+        <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-primary">Hệ thống đang hoạt động</span>
+      </div>
     </div>
-    <div class="flex items-center gap-3 bg-surface-container-high px-6 py-3 rounded-xl border border-outline-variant/15 self-start md:self-auto">
-      <div class="status-dot text-primary bg-primary"></div>
-      <span class="text-[12px] font-bold tracking-[0.1em] uppercase text-primary">
-        System Online · Live Data
-      </span>
-    </div>
-  </div>
+  </section>
 
   <!-- Stat cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard
       icon="menu_book"
       label="Tổng số chương"
@@ -52,19 +56,19 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       icon="task_alt"
       label="Đã xuất bản"
       value={String(publishedChapters)}
-      trend={`${Math.round((publishedChapters / totalChapters) * 100)}%`}
+      trend={`${publishedPercentage}%`}
       trendDir="up"
       accent="primary"
-      progress={(publishedChapters / totalChapters) * 100}
+      progress={publishedPercentage}
     />
     <StatCard
       icon="edit_note"
       label="Bản nháp"
       value={String(draftChapters)}
-      trend={`${Math.round((draftChapters / totalChapters) * 100)}%`}
+      trend={`${draftPercentage}%`}
       trendDir="flat"
       accent="tertiary"
-      progress={(draftChapters / totalChapters) * 100}
+      progress={draftPercentage}
     />
     <StatCard
       icon="folder_shared"
@@ -78,11 +82,14 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
   </div>
 
   <!-- Pipeline + Quick Actions -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
     <!-- Content Pipeline -->
-    <div class="lg:col-span-2 glass-card rounded-xl p-6 flex flex-col gap-6">
+    <section class="xl:col-span-2 glass-card rounded-2xl p-5 sm:p-6 flex flex-col gap-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h3 class="text-xl font-bold text-white">Content Pipeline</h3>
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Nội dung</p>
+          <h3 class="mt-1 text-xl font-bold text-white">Content Pipeline</h3>
+        </div>
         <div class="flex flex-wrap gap-2">
           <span class="px-3 py-1 bg-surface-container-high rounded-full text-[10px] font-bold tracking-[0.1em] uppercase text-on-surface-variant border border-outline-variant/15">
             All ({totalChapters})
@@ -96,7 +103,7 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
         </div>
       </div>
 
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2.5">
         {recentPublished && (
           <PipelineItem
             title={`Chapter ${recentPublished.chapter_no}: ${recentPublished.title}`}
@@ -131,41 +138,45 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
 
       <a
         href="/admin/ebooks"
-        class="w-full py-3 border border-dashed border-outline-variant/30 rounded-lg text-on-surface-variant text-sm hover:border-primary/50 hover:text-primary transition-all text-center"
+        class="w-full py-3 border border-dashed border-outline-variant/30 rounded-xl text-on-surface-variant text-sm hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all text-center"
       >
-        + Xem toàn bộ pipeline
+        Xem toàn bộ pipeline
+        <span class="material-symbols-outlined align-middle ml-1 text-base">arrow_forward</span>
       </a>
-    </div>
+    </section>
 
     <!-- Right rail: Quick Actions + Activity -->
-    <div class="flex flex-col gap-6">
-      <h3 class="text-xl font-bold text-white px-2">Quick Actions</h3>
+    <aside class="flex flex-col gap-5">
+      <div class="px-1">
+        <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Lối tắt</p>
+        <h3 class="mt-1 text-xl font-bold text-white">Thao tác nhanh</h3>
+      </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 gap-3">
         <a
           href="/admin/ebooks/new"
-          class="glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/50 transition-all active:scale-95"
+          class="glass-card min-h-32 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 group hover:border-primary/50 hover:-translate-y-0.5 transition-all active:scale-95"
         >
           <span class="material-symbols-outlined text-primary text-[32px] group-hover:scale-110 transition-transform">menu_book</span>
           <span class="text-[10px] text-center text-on-surface-variant uppercase tracking-[0.1em] font-bold px-2">Thêm chương mới</span>
         </a>
         <a
           href="/admin/ebooks"
-          class="glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-tertiary/50 transition-all active:scale-95"
+          class="glass-card min-h-32 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 group hover:border-tertiary/50 hover:-translate-y-0.5 transition-all active:scale-95"
         >
           <span class="material-symbols-outlined text-tertiary text-[32px] group-hover:scale-110 transition-transform">edit_note</span>
           <span class="text-[10px] text-center text-on-surface-variant uppercase tracking-[0.1em] font-bold px-2">Xem bản nháp</span>
         </a>
         <a
           href="/admin/resources"
-          class="glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/50 transition-all active:scale-95"
+          class="glass-card min-h-32 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 group hover:border-primary/50 hover:-translate-y-0.5 transition-all active:scale-95"
         >
           <span class="material-symbols-outlined text-primary text-[32px] group-hover:scale-110 transition-transform">folder_shared</span>
           <span class="text-[10px] text-center text-on-surface-variant uppercase tracking-[0.1em] font-bold px-2">Quản lý Resources</span>
         </a>
         <a
           href="/"
-          class="glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-error/50 transition-all active:scale-95"
+          class="glass-card min-h-32 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 group hover:border-error/50 hover:-translate-y-0.5 transition-all active:scale-95"
         >
           <span class="material-symbols-outlined text-error text-[32px] group-hover:scale-110 transition-transform">visibility</span>
           <span class="text-[10px] text-center text-on-surface-variant uppercase tracking-[0.1em] font-bold px-2">Preview Site</span>
@@ -173,50 +184,51 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       </div>
 
       <!-- Activity Feed -->
-      <div class="glass-card rounded-xl p-6 flex flex-col gap-4 flex-1">
+      <section class="glass-card rounded-2xl p-5 flex flex-col gap-5 flex-1">
         <div class="flex items-center justify-between">
           <h4 class="text-base font-bold text-white">Hoạt động gần đây</h4>
           <span class="material-symbols-outlined text-on-surface-variant text-sm">history</span>
         </div>
         <div class="flex flex-col gap-4">
           <div class="flex gap-3">
-            <div class="w-1 h-8 bg-primary rounded-full shrink-0"></div>
+            <div class="w-1 h-9 bg-primary rounded-full shrink-0"></div>
             <div class="flex flex-col">
               <p class="text-[13px] text-white leading-snug">
                 Đã xuất bản <span class="text-primary underline">Chapter {(recentPublished as { chapter?: number } | null)?.chapter ?? 1}</span>
               </p>
-              <span class="text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">2 phút trước</span>
+              <span class="mt-0.5 text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">Tín hiệu hiện tại</span>
             </div>
           </div>
           <div class="flex gap-3">
-            <div class="w-1 h-8 bg-tertiary rounded-full shrink-0"></div>
+            <div class="w-1 h-9 bg-tertiary rounded-full shrink-0"></div>
             <div class="flex flex-col">
               <p class="text-[13px] text-white leading-snug">
                 Bản nháp mới: <span class="text-tertiary underline">{firstDraft?.title ?? 'New chapter'}</span>
               </p>
-              <span class="text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">14 phút trước</span>
+              <span class="mt-0.5 text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">Cần hoàn thiện</span>
             </div>
           </div>
           <div class="flex gap-3">
-            <div class="w-1 h-8 bg-on-surface-variant rounded-full shrink-0"></div>
+            <div class="w-1 h-9 bg-on-surface-variant rounded-full shrink-0"></div>
             <div class="flex flex-col">
               <p class="text-[13px] text-white leading-snug">
                 Tài nguyên <span class="underline">{resources[0]?.title}</span> được cập nhật
               </p>
-              <span class="text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">1 giờ trước</span>
+              <span class="mt-0.5 text-[10px] tracking-[0.1em] uppercase font-bold text-on-surface-variant">Thư viện tài nguyên</span>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </aside>
   </div>
 
   <!-- Traffic Analytics (placeholder static chart) -->
-  <div class="glass-card rounded-xl p-6 flex flex-col gap-6 h-80 relative overflow-hidden">
+  <section class="glass-card rounded-2xl p-5 sm:p-6 flex flex-col gap-6 min-h-80 relative overflow-hidden">
     <div class="flex justify-between items-center relative z-10">
       <div>
-        <h3 class="text-xl font-bold text-white">Traffic Analytics</h3>
-        <p class="text-sm text-on-surface-variant">Lượt truy cập trong 7 ngày qua (mẫu)</p>
+        <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Hiệu suất</p>
+        <h3 class="mt-1 text-xl font-bold text-white">Traffic Analytics</h3>
+        <p class="mt-1 text-sm text-on-surface-variant">Lượt truy cập trong 7 ngày qua (dữ liệu mẫu)</p>
       </div>
       <select
         class="bg-surface-container border border-outline-variant/30 text-on-surface-variant text-sm rounded-lg px-3 py-1 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
@@ -227,7 +239,7 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       </select>
     </div>
 
-    <div class="flex-1 w-full relative flex items-end gap-2 px-2 pb-4">
+    <div class="flex-1 w-full relative flex items-end gap-2 sm:gap-3 px-1 pb-1 pt-7 border-b border-outline-variant/15">
       {[
         { label: 'T2', val: 1240, h: 60 },
         { label: 'T3', val: 890,  h: 45 },
@@ -238,7 +250,7 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
         { label: 'CN', val: 720,  h: 40 },
       ].map((d) => (
         <div
-          class="flex-1 bg-primary/20 hover:bg-primary/40 transition-colors rounded-t-lg relative group"
+          class="flex-1 min-w-0 bg-primary/20 hover:bg-primary/45 transition-colors rounded-t-lg relative group"
           style={`height: ${d.h}%`}
         >
           {d.peak && (
@@ -247,8 +259,9 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
           <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
             {d.label}: {d.val.toLocaleString('vi-VN')}
           </div>
+          <span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-on-surface-variant">{d.label}</span>
         </div>
       ))}
     </div>
-  </div>
+  </section>
 </AdminLayout>
