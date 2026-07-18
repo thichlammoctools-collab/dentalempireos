@@ -16,7 +16,6 @@ import { getSurveyDefinitionFull, parseAiConfig, parseScoringRules } from '../..
 import { getScannerAiConfig, buildAnalysisStream, buildPlanStream } from '../../../lib/scanner-ai';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
-import { AiError } from '../../../lib/ai-client';
 
 export const prerender = false;
 
@@ -75,6 +74,12 @@ export const POST: APIRoute = async (ctx) => {
   const types: Array<'analysis' | 'plan'> = type === 'all' ? ['analysis', 'plan'] : [type as 'analysis' | 'plan'];
   const r2Keys: Record<string, string> = {};
 
+  const setStatus = (resultType: 'analysis' | 'plan', status: 'pending' | 'running' | 'done' | 'failed') => (
+    resultType === 'analysis'
+      ? updateAiAnalysisStatus(env.DB, responseId, status)
+      : updateAiPlanStatus(env.DB, responseId, status)
+  );
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -92,11 +97,7 @@ export const POST: APIRoute = async (ctx) => {
           }
 
           // Set status to running
-          if (t === 'analysis') {
-            await updateAiAnalysisStatus(env.DB, responseId, 'running');
-          } else {
-            await updateAiPlanStatus(env.DB, responseId, 'running');
-          }
+          await setStatus(t, 'running');
 
           // Stream chunks to client, accumulate for R2
           const reader = aiStream.getReader();
@@ -113,7 +114,6 @@ export const POST: APIRoute = async (ctx) => {
               buffer = lines.pop() ?? '';
 
               for (const line of lines) {
-                if (!line.trim()) continue;
                 // ai-client.ts streams raw text chunks (not SSE-encoded)
                 fullText += line;
                 sseEnqueue(controller, 'chunk', { text: line, type: t });
@@ -122,8 +122,14 @@ export const POST: APIRoute = async (ctx) => {
           } finally {
             reader.releaseLock();
             // Flush any remaining buffer
-            if (buffer) fullText += buffer;
+            const finalText = buffer + decoder.decode();
+            if (finalText) {
+              fullText += finalText;
+              sseEnqueue(controller, 'chunk', { text: finalText, type: t });
+            }
           }
+
+          if (!fullText.trim()) throw new Error('AI returned an empty result');
 
           // Save to R2 and update DB
           sseEnqueue(controller, 'status', { status: 'saving', message: 'Đang lưu kết quả...' });
@@ -163,8 +169,9 @@ export const POST: APIRoute = async (ctx) => {
         controller.close();
       } catch (err) {
         console.error('[run-ai-stream] Stream error:', err);
+        await Promise.allSettled(types.map((t) => setStatus(t, 'failed')));
         sseEnqueue(controller, 'error', { message: String(err) });
-        controller.error(err);
+        controller.close();
       }
     },
   });

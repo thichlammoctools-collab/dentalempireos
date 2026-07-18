@@ -928,7 +928,7 @@ try {
     pollInterval = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/scanner/${responseId}?admin=1`);
+        const res = await fetch(`/api/scanner/${responseId}`, { credentials: 'include' });
         if (!res.ok) return;
         const data = await res.json() as {
           ai_analysis?: string | null;
@@ -936,8 +936,8 @@ try {
           ai_analysis_status?: string;
           ai_plan_status?: string;
         };
-        const planDone = data.ai_plan_status === 'done' || !data.ai_plan;
-        const analysisDone = data.ai_analysis_status === 'done' || !data.ai_analysis;
+        const planDone = data.ai_plan_status !== 'running';
+        const analysisDone = data.ai_analysis_status !== 'running';
         if (planDone && analysisDone) {
           clearInterval(pollInterval!);
           pollInterval = null;
