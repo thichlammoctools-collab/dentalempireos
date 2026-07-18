@@ -10,6 +10,8 @@ export interface AiSettingsRow {
   is_active: number; // 0 = off, 1 = on
   chat_provider_id: number | null;
   chat_model_id: number | null;
+  embedding_provider_id: number | null;
+  embedding_model_id: number | null;
   updated_at: string;
 }
 
@@ -22,6 +24,8 @@ const AI_SETTINGS_DEFAULTS: AiSettingsRow = {
   is_active: 0,
   chat_provider_id: null,
   chat_model_id: null,
+  embedding_provider_id: null,
+  embedding_model_id: null,
   updated_at: '',
 };
 
@@ -47,6 +51,8 @@ export async function updateAiSettings(
     is_active?: number;
     chat_provider_id?: number | null;
     chat_model_id?: number | null;
+    embedding_provider_id?: number | null;
+    embedding_model_id?: number | null;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -56,7 +62,7 @@ export async function updateAiSettings(
       .prepare(
         `UPDATE "ai_settings"
          SET "base_url" = ?, "api_key" = ?, "model" = ?, "max_tokens" = ?, "is_active" = ?,
-             "chat_provider_id" = ?, "chat_model_id" = ?, "updated_at" = ?
+              "chat_provider_id" = ?, "chat_model_id" = ?, "embedding_provider_id" = ?, "embedding_model_id" = ?, "updated_at" = ?
          WHERE "id" = 1`,
       )
       .bind(
@@ -67,6 +73,8 @@ export async function updateAiSettings(
         data.is_active ?? current.is_active,
         data.chat_provider_id ?? current.chat_provider_id,
         data.chat_model_id ?? current.chat_model_id,
+        data.embedding_provider_id ?? current.embedding_provider_id,
+        data.embedding_model_id ?? current.embedding_model_id,
         now,
       )
       .run();

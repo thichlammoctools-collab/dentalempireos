@@ -3,8 +3,9 @@
  * Uses the active provider from the database.
  */
 
-import { getActiveModelsWithProvider } from './ai-provider-db';
+import { getActiveModelsWithProvider, getProviderById, listModels } from './ai-provider-db';
 import type { AiProviderRow, AiModelRow } from './ai-provider-db';
+import { getAiSettings } from './ai-settings-db';
 
 interface EmbeddingResponse {
   data: Array<{ embedding: number[] }>;
@@ -23,6 +24,19 @@ async function getEmbeddingProvider(
   db: D1Database,
 ): Promise<{ provider: AiProviderRow; model: AiModelRow }> {
   if (_cachedProvider) return _cachedProvider;
+
+  const settings = await getAiSettings(db);
+  if (settings.embedding_provider_id && settings.embedding_model_id) {
+    const [provider, models] = await Promise.all([
+      getProviderById(db, settings.embedding_provider_id),
+      listModels(db, settings.embedding_provider_id),
+    ]);
+    const model = models.find((item) => item.id === settings.embedding_model_id);
+    if (provider?.is_active && provider.api_key && model?.is_active && `${model.name} ${model.model_id}`.toLowerCase().includes('embedding')) {
+      _cachedProvider = { provider, model };
+      return _cachedProvider;
+    }
+  }
 
   const models = await getActiveModelsWithProvider(db);
   for (const [, { provider, models: providerModels }] of models) {

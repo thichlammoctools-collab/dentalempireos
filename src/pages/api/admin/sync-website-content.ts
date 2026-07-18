@@ -222,9 +222,9 @@ export const POST: APIRoute = async (ctx) => {
   if (!session?.user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-  const adminEmail = (ctx.locals as any)?.user?.email ?? '';
-  if (!adminEmail.includes('dentalempire')) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  const user = await env.DB.prepare('SELECT "role" FROM "user" WHERE "id" = ?').bind(session.user.id).first<{ role: string }>();
+  if (user?.role !== 'admin') {
+    return new Response(JSON.stringify({ error: 'Admin only' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   let body: { content_types?: unknown } = {};

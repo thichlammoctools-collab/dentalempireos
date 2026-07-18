@@ -22,6 +22,8 @@ export const GET: APIRoute = async ({ locals }) => {
     is_active: settings.is_active === 1,
     chat_provider_id: settings.chat_provider_id,
     chat_model_id: settings.chat_model_id,
+    embedding_provider_id: settings.embedding_provider_id,
+    embedding_model_id: settings.embedding_model_id,
     updated_at: settings.updated_at,
   });
 };
@@ -60,6 +62,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     updates.chat_provider_id = provider.id;
     updates.chat_model_id = model.id;
   }
+  if (typeof body.embedding_provider_id === 'number' && typeof body.embedding_model_id === 'number') {
+    const [provider, models] = await Promise.all([
+      getProviderById(env.DB, body.embedding_provider_id),
+      listModels(env.DB, body.embedding_provider_id),
+    ]);
+    const model = models.find((item) => item.id === body.embedding_model_id);
+    const isEmbeddingModel = Boolean(model && `${model.name} ${model.model_id}`.toLowerCase().includes('embedding'));
+    if (!provider || !provider.is_active || !provider.api_key || !model || !model.is_active || !isEmbeddingModel) {
+      return badRequest('Provider hoặc model embedding không hợp lệ. Model phải có chữ "embedding" trong tên hoặc Model ID.');
+    }
+    updates.embedding_provider_id = provider.id;
+    updates.embedding_model_id = model.id;
+  }
   // api_key — if '•••' sent (placeholder meaning "keep current"), don't update
   // if empty string sent, clear it
   // otherwise, set it
@@ -85,6 +100,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       is_active: updated.is_active === 1,
       chat_provider_id: updated.chat_provider_id,
       chat_model_id: updated.chat_model_id,
+      embedding_provider_id: updated.embedding_provider_id,
+      embedding_model_id: updated.embedding_model_id,
       updated_at: updated.updated_at,
     },
   });

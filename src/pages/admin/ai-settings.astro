@@ -16,6 +16,9 @@ for (const m of models) {
 }
 const activeChatProvider = providers.find((provider) => provider.id === settings.chat_provider_id);
 const activeChatModel = models.find((model) => model.id === settings.chat_model_id);
+const embeddingModels = models.filter((model) => `${model.name} ${model.model_id}`.toLowerCase().includes('embedding'));
+const activeEmbeddingProvider = providers.find((provider) => provider.id === settings.embedding_provider_id);
+const activeEmbeddingModel = embeddingModels.find((model) => model.id === settings.embedding_model_id);
 ---
 
 <AdminLayout title="Cài đặt AI | Admin">
@@ -121,6 +124,37 @@ const activeChatModel = models.find((model) => model.id === settings.chat_model_
           <p class="text-xs text-amber-300/80 mt-1.5">Cần có một model embedding đang bật, ví dụ <code class="font-mono">text-embedding-3-small</code>. GPT chat không thể thay thế model embedding.</p>
         </div>
       </div>
+    </div>
+    {embeddingModels.length > 0 ? (
+      <form id="embedding-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end mt-5">
+        <div>
+          <label for="embedding-provider" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Provider embedding</label>
+          <select id="embedding-provider" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">Chọn provider</option>
+            {providers.filter((provider) => provider.is_active && provider.api_key).map((provider) => (
+              <option value={provider.id} selected={settings.embedding_provider_id === provider.id}>{provider.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label for="embedding-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model embedding</label>
+          <select id="embedding-model" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">Chọn model embedding</option>
+            {embeddingModels.filter((model) => model.is_active).map((model) => (
+              <option value={model.id} data-provider-id={model.provider_id} selected={settings.embedding_model_id === model.id}>{model.name} ({model.model_id})</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" id="embedding-save" class="px-5 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm font-semibold rounded-xl hover:border-primary/60 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu embedding</button>
+        <p id="embedding-save-msg" class="hidden md:col-span-3 text-sm"></p>
+      </form>
+    ) : (
+      <p class="mt-5 text-sm text-amber-300/80">Chưa có model embedding. Thêm model ở phần AI Providers với tên hoặc Model ID chứa <code class="font-mono">embedding</code>, sau đó tải lại trang để chọn tại đây.</p>
+    )}
+    <div class="mt-5 pt-5 border-t border-outline-variant/15 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <p id="embedding-active-label" class={`text-xs ${activeEmbeddingProvider && activeEmbeddingModel ? 'text-emerald-300' : 'text-amber-300/80'}`}>
+        {activeEmbeddingProvider && activeEmbeddingModel ? `Đang dùng: ${activeEmbeddingProvider.name} / ${activeEmbeddingModel.name} (${activeEmbeddingModel.model_id})` : 'Chưa chọn model embedding.'}
+      </p>
       <button id="rebuild-knowledge-btn" type="button" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0">
         <span class="material-symbols-outlined text-[18px]">database_upload</span>
         Xây dựng lại kho tri thức
@@ -419,8 +453,63 @@ const activeChatModel = models.find((model) => model.id === settings.chat_model_
   });
 
   // ===================== Website knowledge base =====================
+  const embeddingProvider = document.getElementById('embedding-provider') as HTMLSelectElement | null;
+  const embeddingModel = document.getElementById('embedding-model') as HTMLSelectElement | null;
+  const embeddingSaveBtn = document.getElementById('embedding-save') as HTMLButtonElement | null;
+  const embeddingSaveMsg = document.getElementById('embedding-save-msg') as HTMLElement | null;
+  const embeddingActiveLabel = document.getElementById('embedding-active-label') as HTMLElement | null;
   const rebuildKnowledgeBtn = document.getElementById('rebuild-knowledge-btn') as HTMLButtonElement | null;
   const knowledgeSyncStatus = document.getElementById('knowledge-sync-status') as HTMLElement | null;
+
+  function setEmbeddingSaveMessage(message: string, type: 'success' | 'error' | 'muted') {
+    if (!embeddingSaveMsg) return;
+    const color = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-on-surface-variant';
+    embeddingSaveMsg.textContent = message;
+    embeddingSaveMsg.className = `${color} md:col-span-3 text-sm`;
+  }
+
+  function filterEmbeddingModels(showPendingMessage = false) {
+    if (!embeddingProvider || !embeddingModel) return;
+    const selectedProvider = embeddingProvider.value;
+    for (const option of Array.from(embeddingModel.options)) {
+      if (!option.value) continue;
+      option.hidden = option.dataset.providerId !== selectedProvider;
+    }
+    const current = embeddingModel.selectedOptions[0];
+    if (current?.dataset.providerId !== selectedProvider) embeddingModel.value = '';
+    if (showPendingMessage) setEmbeddingSaveMessage('Có thay đổi chưa lưu.', 'muted');
+  }
+  embeddingProvider?.addEventListener('change', () => filterEmbeddingModels(true));
+  embeddingModel?.addEventListener('change', () => setEmbeddingSaveMessage('Có thay đổi chưa lưu.', 'muted'));
+  filterEmbeddingModels();
+  document.getElementById('embedding-model-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!embeddingProvider?.value || !embeddingModel?.value) { showToast('Chọn provider và model embedding.', 'error'); return; }
+    if (embeddingSaveBtn) embeddingSaveBtn.disabled = true;
+    setEmbeddingSaveMessage('Đang lưu model embedding...', 'muted');
+    try {
+      const response = await fetch('/api/admin/ai-settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embedding_provider_id: Number(embeddingProvider.value), embedding_model_id: Number(embeddingModel.value) }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || 'Không thể lưu model embedding.');
+      const providerName = embeddingProvider.selectedOptions[0]?.textContent?.trim() || 'Provider';
+      const modelName = embeddingModel.selectedOptions[0]?.textContent?.trim() || 'Model embedding';
+      if (embeddingActiveLabel) {
+        embeddingActiveLabel.textContent = `Đang dùng: ${providerName} / ${modelName}`;
+        embeddingActiveLabel.className = 'text-xs text-emerald-300';
+      }
+      setEmbeddingSaveMessage('Đã lưu model embedding.', 'success');
+      showToast('Đã lưu model embedding.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể lưu model embedding.';
+      setEmbeddingSaveMessage(message, 'error');
+      showToast(message, 'error');
+    } finally {
+      if (embeddingSaveBtn) embeddingSaveBtn.disabled = false;
+    }
+  });
 
   function setKnowledgeSyncStatus(message: string, type: 'success' | 'error' | 'muted') {
     if (!knowledgeSyncStatus) return;
