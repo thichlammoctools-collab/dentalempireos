@@ -82,8 +82,10 @@ export const POST: APIRoute = async (ctx) => {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let activeType: 'analysis' | 'plan' | null = null;
       try {
         for (const t of types) {
+          activeType = t;
           sseEnqueue(controller, 'status', { status: 'streaming', message: `Đang phân tích ${t === 'analysis' ? 'phân tích' : 'kế hoạch'}...` });
 
           let fullText = '';
@@ -102,27 +104,22 @@ export const POST: APIRoute = async (ctx) => {
           // Stream chunks to client, accumulate for R2
           const reader = aiStream.getReader();
           const decoder = new TextDecoder();
-          let buffer = '';
 
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() ?? '';
-
-              for (const line of lines) {
-                // ai-client.ts streams raw text chunks (not SSE-encoded)
-                fullText += line;
-                sseEnqueue(controller, 'chunk', { text: line, type: t });
+              const text = decoder.decode(value, { stream: true });
+              if (text) {
+                // ai-client.ts streams raw text chunks (not SSE-encoded).
+                fullText += text;
+                sseEnqueue(controller, 'chunk', { text, type: t });
               }
             }
           } finally {
             reader.releaseLock();
-            // Flush any remaining buffer
-            const finalText = buffer + decoder.decode();
+            const finalText = decoder.decode();
             if (finalText) {
               fullText += finalText;
               sseEnqueue(controller, 'chunk', { text: finalText, type: t });
@@ -169,7 +166,7 @@ export const POST: APIRoute = async (ctx) => {
         controller.close();
       } catch (err) {
         console.error('[run-ai-stream] Stream error:', err);
-        await Promise.allSettled(types.map((t) => setStatus(t, 'failed')));
+        if (activeType) await setStatus(activeType, 'failed');
         sseEnqueue(controller, 'error', { message: String(err) });
         controller.close();
       }

@@ -14,6 +14,8 @@ for (const m of models) {
   if (!modelsByProvider.has(m.provider_id)) modelsByProvider.set(m.provider_id, []);
   modelsByProvider.get(m.provider_id)!.push(m);
 }
+const activeChatProvider = providers.find((provider) => provider.id === settings.chat_provider_id);
+const activeChatModel = models.find((model) => model.id === settings.chat_model_id);
 ---
 
 <AdminLayout title="Cài đặt AI | Admin">
@@ -60,11 +62,22 @@ for (const m of models) {
        SECTION 2: Public Chat Assistant Model
   ============================================================ -->
   <div class="glass-card rounded-xl p-6 mb-6">
-    <div class="flex items-center gap-3 mb-2">
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-2">
+      <div class="flex items-center gap-3">
       <span class="material-symbols-outlined text-primary text-2xl">forum</span>
       <div>
         <h3 class="text-lg font-bold text-white">Chat Assistant</h3>
         <p class="text-xs text-on-surface-variant/50">Mô hình phục vụ trợ lý AI hiển thị trên toàn website.</p>
+      </div>
+      </div>
+      <div id="active-chat-status" class={`rounded-xl border px-4 py-3 text-sm ${activeChatProvider && activeChatModel ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/25 bg-amber-500/10 text-amber-200'}`}>
+        <div class="flex items-center gap-2 font-semibold">
+          <span class="material-symbols-outlined text-[18px]">{activeChatProvider && activeChatModel ? 'check_circle' : 'info'}</span>
+          <span>{activeChatProvider && activeChatModel ? 'AI đang hoạt động' : 'Chưa cấu hình AI chat'}</span>
+        </div>
+        <p id="active-chat-label" class="mt-1 text-xs opacity-80">
+          {activeChatProvider && activeChatModel ? `${activeChatProvider.name} / ${activeChatModel.name} (${activeChatModel.model_id})` : 'Chọn provider và model rồi bấm Lưu Chat.'}
+        </p>
       </div>
     </div>
     {providers.length > 0 ? (
@@ -87,7 +100,8 @@ for (const m of models) {
             ))}
           </select>
         </div>
-        <button type="submit" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">Lưu Chat</button>
+        <button type="submit" id="chat-save" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu Chat</button>
+        <p id="chat-save-msg" class="hidden md:col-span-3 text-sm"></p>
       </form>
     ) : (
       <p class="mt-4 text-sm text-on-surface-variant">Thêm provider và model bên dưới trước khi cấu hình Chat Assistant.</p>
@@ -312,7 +326,37 @@ for (const m of models) {
   // ===================== Public Chat model =====================
   const chatProvider = document.getElementById('chat-provider') as HTMLSelectElement | null;
   const chatModel = document.getElementById('chat-model') as HTMLSelectElement | null;
-  function filterChatModels() {
+  const chatSaveBtn = document.getElementById('chat-save') as HTMLButtonElement | null;
+  const chatSaveMsg = document.getElementById('chat-save-msg') as HTMLElement | null;
+  const activeChatStatus = document.getElementById('active-chat-status') as HTMLElement | null;
+  const activeChatLabel = document.getElementById('active-chat-label') as HTMLElement | null;
+
+  function setChatSaveMessage(message: string, type: 'success' | 'error' | 'muted') {
+    if (!chatSaveMsg) return;
+    const color = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-on-surface-variant';
+    chatSaveMsg.textContent = message;
+    chatSaveMsg.className = `${color} md:col-span-3 text-sm`;
+  }
+
+  function updateActiveChatStatus() {
+    if (!chatProvider || !chatModel || !activeChatStatus || !activeChatLabel) return;
+    const providerOption = chatProvider.selectedOptions[0];
+    const modelOption = chatModel.selectedOptions[0];
+    const hasSelection = Boolean(chatProvider.value && chatModel.value && providerOption && modelOption);
+
+    activeChatStatus.className = hasSelection
+      ? 'rounded-xl border px-4 py-3 text-sm border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+      : 'rounded-xl border px-4 py-3 text-sm border-amber-500/25 bg-amber-500/10 text-amber-200';
+    const title = activeChatStatus.querySelector('span:last-child');
+    const icon = activeChatStatus.querySelector('.material-symbols-outlined');
+    if (title) title.textContent = hasSelection ? 'AI đang hoạt động' : 'Chưa cấu hình AI chat';
+    if (icon) icon.textContent = hasSelection ? 'check_circle' : 'info';
+    activeChatLabel.textContent = hasSelection
+      ? `${providerOption.textContent?.trim()} / ${modelOption.textContent?.trim()}`
+      : 'Chọn provider và model rồi bấm Lưu Chat.';
+  }
+
+  function filterChatModels(showPendingMessage = false) {
     if (!chatProvider || !chatModel) return;
     const selectedProvider = chatProvider.value;
     for (const option of Array.from(chatModel.options)) {
@@ -321,18 +365,36 @@ for (const m of models) {
     }
     const current = chatModel.selectedOptions[0];
     if (current?.dataset.providerId !== selectedProvider) chatModel.value = '';
+    if (showPendingMessage) setChatSaveMessage('Có thay đổi chưa lưu.', 'muted');
   }
-  chatProvider?.addEventListener('change', filterChatModels);
+  chatProvider?.addEventListener('change', () => filterChatModels(true));
+  chatModel?.addEventListener('change', () => setChatSaveMessage('Có thay đổi chưa lưu.', 'muted'));
   filterChatModels();
   document.getElementById('chat-model-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!chatProvider?.value || !chatModel?.value) { showToast('Chọn provider và model cho Chat Assistant.', 'error'); return; }
-    const res = await fetch('/api/admin/ai-settings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_provider_id: Number(chatProvider.value), chat_model_id: Number(chatModel.value) }),
-    });
-    if (res.ok) showToast('Đã lưu mô hình Chat Assistant.', 'success');
-    else { const data = await res.json() as { error?: string }; showToast(data.error || 'Không thể lưu cấu hình chat.', 'error'); }
+    if (chatSaveBtn) chatSaveBtn.disabled = true;
+    setChatSaveMessage('Đang lưu cấu hình Chat Assistant...', 'muted');
+    try {
+      const res = await fetch('/api/admin/ai-settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_provider_id: Number(chatProvider.value), chat_model_id: Number(chatModel.value) }),
+      });
+      if (res.ok) {
+        updateActiveChatStatus();
+        setChatSaveMessage('Đã lưu thành công. AI chat đang dùng cấu hình này.', 'success');
+        showToast('Đã lưu mô hình Chat Assistant.', 'success');
+      } else {
+        const data = await res.json() as { error?: string };
+        setChatSaveMessage(data.error || 'Không thể lưu cấu hình chat.', 'error');
+        showToast(data.error || 'Không thể lưu cấu hình chat.', 'error');
+      }
+    } catch {
+      setChatSaveMessage('Không thể kết nối để lưu cấu hình chat.', 'error');
+      showToast('Không thể kết nối để lưu cấu hình chat.', 'error');
+    } finally {
+      if (chatSaveBtn) chatSaveBtn.disabled = false;
+    }
   });
 
   // ===================== Provider CRUD =====================
