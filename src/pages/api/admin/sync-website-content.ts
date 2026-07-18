@@ -8,6 +8,7 @@ export const prerender = false;
 
 const MAX_CHUNK_CHARS = 1800;
 const CHUNK_OVERLAP_CHARS = 220;
+const MAX_VECTOR_ID_BYTES = 64;
 const CONTENT_TYPES = ['book', 'blog', 'resource'] as const;
 type ContentType = typeof CONTENT_TYPES[number];
 
@@ -54,8 +55,11 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
-function makeChunkId(type: ContentType, sourceId: string, part: string, order: number): string {
-  return `website:${type}:${sourceId}:${part}:${order}`;
+async function makeChunkId(type: ContentType, sourceId: string, part: string, order: number): Promise<string> {
+  const input = new TextEncoder().encode(`${type}:${sourceId}:${part}`);
+  const digest = await crypto.subtle.digest('SHA-256', input);
+  const hash = Array.from(new Uint8Array(digest).slice(0, 12), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `wc:${type[0]}:${hash}:${order}`;
 }
 
 function toContentTypes(value: unknown): ContentType[] {
@@ -71,7 +75,11 @@ async function clearExistingChunks(db: D1Database, types: ContentType[]): Promis
     .bind(...types)
     .all<{ vector_id: string }>();
 
-  const vectorIds = (results ?? []).map((row) => row.vector_id).filter(Boolean);
+  // IDs from the failed initial rollout can exceed Vectorize's 64-byte limit.
+  // They were never inserted into Vectorize, but their D1 records still need deleting.
+  const vectorIds = (results ?? [])
+    .map((row) => row.vector_id)
+    .filter((id): id is string => Boolean(id) && new TextEncoder().encode(id).byteLength <= MAX_VECTOR_ID_BYTES);
   if (env.VECTORIZE && vectorIds.length) {
     for (let start = 0; start < vectorIds.length; start += 100) {
       await env.VECTORIZE.deleteByIds(vectorIds.slice(start, start + 100));
@@ -114,7 +122,7 @@ async function buildBookChunks(db: D1Database): Promise<SourceChunk[]> {
   for (const chapter of chapters ?? []) {
     if (chapter.description?.trim()) {
       chunks.push({
-        id: makeChunkId('book', chapter.id, 'overview', 0),
+        id: await makeChunkId('book', chapter.id, 'overview', 0),
         contentType: 'book',
         sourceId: chapter.id,
         sourceSlug: chapter.slug,
@@ -162,7 +170,7 @@ async function buildBookChunks(db: D1Database): Promise<SourceChunk[]> {
       const sectionChunks = chunkText(section.parts.join('\n\n'));
       for (let index = 0; index < sectionChunks.length; index++) {
         chunks.push({
-          id: makeChunkId('book', chapter.id, sectionId, index),
+          id: await makeChunkId('book', chapter.id, sectionId, index),
           contentType: 'book',
           sourceId: chapter.id,
           sourceSlug: chapter.slug,
@@ -184,17 +192,23 @@ async function buildBlogChunks(db: D1Database): Promise<SourceChunk[]> {
     .bind('published')
     .all<{ id: string; slug: string; title: string; content_md: string }>();
 
-  return (results ?? []).flatMap((post) => chunkText(post.content_md ?? '').map((content, order) => ({
-    id: makeChunkId('blog', post.id, 'article', order),
-    contentType: 'blog' as const,
-    sourceId: post.id,
-    sourceSlug: post.slug,
-    title: post.title,
-    headingPath: null,
-    content,
-    url: `/blog/${post.slug}`,
-    order,
-  })));
+  const chunks: SourceChunk[] = [];
+  for (const post of results ?? []) {
+    for (const [order, content] of chunkText(post.content_md ?? '').entries()) {
+      chunks.push({
+        id: await makeChunkId('blog', post.id, 'article', order),
+        contentType: 'blog',
+        sourceId: post.id,
+        sourceSlug: post.slug,
+        title: post.title,
+        headingPath: null,
+        content,
+        url: `/blog/${post.slug}`,
+        order,
+      });
+    }
+  }
+  return chunks;
 }
 
 async function buildResourceChunks(db: D1Database): Promise<SourceChunk[]> {
@@ -202,17 +216,22 @@ async function buildResourceChunks(db: D1Database): Promise<SourceChunk[]> {
     .prepare('SELECT "id", "title", "description" FROM "resource"')
     .all<{ id: string; title: string; description: string | null }>();
 
-  return (results ?? []).flatMap((resource) => resource.description?.trim() ? [{
-    id: makeChunkId('resource', resource.id, 'overview', 0),
-    contentType: 'resource' as const,
-    sourceId: resource.id,
-    sourceSlug: resource.id,
-    title: resource.title,
-    headingPath: null,
-    content: resource.description.trim(),
-    url: `/resources#${resource.id}`,
-    order: 0,
-  }] : []);
+  const chunks: SourceChunk[] = [];
+  for (const resource of results ?? []) {
+    if (!resource.description?.trim()) continue;
+    chunks.push({
+      id: await makeChunkId('resource', resource.id, 'overview', 0),
+      contentType: 'resource',
+      sourceId: resource.id,
+      sourceSlug: resource.id,
+      title: resource.title,
+      headingPath: null,
+      content: resource.description.trim(),
+      url: `/resources#${resource.id}`,
+      order: 0,
+    });
+  }
+  return chunks;
 }
 
 export const POST: APIRoute = async (ctx) => {

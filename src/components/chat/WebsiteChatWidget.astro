@@ -113,7 +113,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     justify-content: center;
     transition: all 0.2s ease;
     background: var(--reader-chrome-surface-high, #1e293b);
-    color: var(--color-primary, #92ccff);
+    color: #fbbf24;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24);
     backdrop-filter: blur(12px);
   }
@@ -129,9 +129,9 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       box-shadow: 0 5px 18px rgba(14, 165, 233, 0.4);
     }
   }
-  #website-chat-trigger:hover { transform: scale(1.06); border-color: var(--color-primary, #92ccff); background: color-mix(in srgb, var(--color-primary, #92ccff) 10%, var(--reader-chrome-surface-high, #1e293b)); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32); }
+  #website-chat-trigger:hover { transform: scale(1.06); border-color: #fbbf24; background: color-mix(in srgb, #fbbf24 10%, var(--reader-chrome-surface-high, #1e293b)); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32); }
   #website-chat-trigger:active { transform: scale(0.96); }
-  #website-chat-trigger.chat-open { background: color-mix(in srgb, var(--color-primary, #92ccff) 16%, var(--reader-chrome-surface-high, #1e293b)); border-color: var(--color-primary, #92ccff); transform: none; box-shadow: 0 2px 12px rgba(15, 23, 42, 0.24); }
+  #website-chat-trigger.chat-open { background: color-mix(in srgb, #fbbf24 16%, var(--reader-chrome-surface-high, #1e293b)); border-color: #fbbf24; transform: none; box-shadow: 0 2px 12px rgba(15, 23, 42, 0.24); }
 
   /* Panel */
   #website-chat-panel {
