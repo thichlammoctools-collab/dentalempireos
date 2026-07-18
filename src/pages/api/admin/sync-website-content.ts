@@ -3,7 +3,6 @@
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { createAuth } from '../../../lib/auth';
 
 export const prerender = false;
 
@@ -217,14 +216,8 @@ async function buildResourceChunks(db: D1Database): Promise<SourceChunk[]> {
 }
 
 export const POST: APIRoute = async (ctx) => {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: ctx.request.headers });
-  if (!session?.user) {
+  if (!ctx.locals.user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-  }
-  const user = await env.DB.prepare('SELECT "role" FROM "user" WHERE "id" = ?').bind(session.user.id).first<{ role: string }>();
-  if (user?.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Admin only' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   let body: { content_types?: unknown } = {};
