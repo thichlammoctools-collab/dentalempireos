@@ -461,6 +461,19 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
   const rebuildKnowledgeBtn = document.getElementById('rebuild-knowledge-btn') as HTMLButtonElement | null;
   const knowledgeSyncStatus = document.getElementById('knowledge-sync-status') as HTMLElement | null;
 
+  async function readJsonResponse<T>(response: Response): Promise<T & { error?: string }> {
+    const text = await response.text();
+    if (!text.trim()) {
+      throw new Error(`Máy chủ trả về phản hồi rỗng (HTTP ${response.status}). Hãy kiểm tra bản deploy mới nhất.`);
+    }
+    try {
+      return JSON.parse(text) as T & { error?: string };
+    } catch {
+      const summary = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
+      throw new Error(`Máy chủ trả về phản hồi không hợp lệ (HTTP ${response.status})${summary ? `: ${summary}` : ''}`);
+    }
+  }
+
   function setEmbeddingSaveMessage(message: string, type: 'success' | 'error' | 'muted') {
     if (!embeddingSaveMsg) return;
     const color = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-on-surface-variant';
@@ -492,7 +505,7 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ embedding_provider_id: Number(embeddingProvider.value), embedding_model_id: Number(embeddingModel.value) }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await readJsonResponse<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error || 'Không thể lưu model embedding.');
       const providerName = embeddingProvider.selectedOptions[0]?.textContent?.trim() || 'Provider';
       const modelName = embeddingModel.selectedOptions[0]?.textContent?.trim() || 'Model embedding';
@@ -528,7 +541,7 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
       const rebuildResponse = await fetch('/api/admin/sync-website-content', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       });
-      const rebuildData = await rebuildResponse.json() as { chunks?: number; counts?: Record<string, number>; error?: string };
+      const rebuildData = await readJsonResponse<{ chunks?: number; counts?: Record<string, number>; error?: string }>(rebuildResponse);
       if (!rebuildResponse.ok) throw new Error(rebuildData.error || 'Không thể xây dựng kho tri thức.');
 
       const totalChunks = rebuildData.chunks || 0;
@@ -539,7 +552,7 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
         const vectorResponse = await fetch('/api/admin/sync-website-content-vectors', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 25 }),
         });
-        const vectorData = await vectorResponse.json() as { embedded?: number; remaining?: number; error?: string; errors?: string[] };
+        const vectorData = await readJsonResponse<{ embedded?: number; remaining?: number; error?: string; errors?: string[] }>(vectorResponse);
         if (!vectorResponse.ok) throw new Error(vectorData.error || vectorData.errors?.[0] || 'Không thể tạo embedding.');
         embedded += vectorData.embedded || 0;
         remaining = vectorData.remaining || 0;
