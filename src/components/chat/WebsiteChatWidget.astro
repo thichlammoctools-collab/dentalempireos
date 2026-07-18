@@ -202,8 +202,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
   /* Follow-up */
    :global(#website-chat-root .chat-followup) { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
-   #website-chat-root .chat-followup-label { font-size: 10px; color: #8494ad; font-weight: 500; }
-   #website-chat-root .chat-followup-btn { background: #172033; border: 1px solid #2a3950; border-radius: 8px; padding: 5px 8px; font-size: 10.75px; line-height: 1.35; font-family: inherit; color: #d9e3f0; cursor: pointer; text-align: left; transition: all 0.15s; }
+   :global(#website-chat-root .chat-followup-label) { font-size: 10px; color: #8494ad; font-weight: 500; }
+   :global(#website-chat-root .chat-followup-btn) { width: 100%; background: #172033; border: 1px solid #2a3950; border-radius: 8px; padding: 5px 8px; font-size: 10.75px; line-height: 1.35; font-family: inherit; color: #d9e3f0; cursor: pointer; text-align: left; transition: all 0.15s; }
    :global(#website-chat-root .chat-followup-btn:hover) { border-color: #fb923c; background: #292337; color: #fff; }
 
   /* Typing */
