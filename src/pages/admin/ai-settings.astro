@@ -57,7 +57,45 @@ for (const m of models) {
   </div>
 
   <!-- ============================================================
-       SECTION 2: AI Providers
+       SECTION 2: Public Chat Assistant Model
+  ============================================================ -->
+  <div class="glass-card rounded-xl p-6 mb-6">
+    <div class="flex items-center gap-3 mb-2">
+      <span class="material-symbols-outlined text-primary text-2xl">forum</span>
+      <div>
+        <h3 class="text-lg font-bold text-white">Chat Assistant</h3>
+        <p class="text-xs text-on-surface-variant/50">Mô hình phục vụ trợ lý AI hiển thị trên toàn website.</p>
+      </div>
+    </div>
+    {providers.length > 0 ? (
+      <form id="chat-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end mt-5">
+        <div>
+          <label for="chat-provider" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Provider</label>
+          <select id="chat-provider" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">Chọn provider</option>
+            {providers.filter((provider) => provider.is_active && provider.api_key).map((provider) => (
+              <option value={provider.id} selected={settings.chat_provider_id === provider.id}>{provider.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label for="chat-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model</label>
+          <select id="chat-model" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">Chọn model</option>
+            {models.filter((model) => model.is_active).map((model) => (
+              <option value={model.id} data-provider-id={model.provider_id} selected={settings.chat_model_id === model.id}>{model.name} ({model.model_id})</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">Lưu Chat</button>
+      </form>
+    ) : (
+      <p class="mt-4 text-sm text-on-surface-variant">Thêm provider và model bên dưới trước khi cấu hình Chat Assistant.</p>
+    )}
+  </div>
+
+  <!-- ============================================================
+       SECTION 3: AI Providers
   ============================================================ -->
   <div class="glass-card rounded-xl p-6">
     <div class="flex items-center justify-between mb-5">
@@ -271,6 +309,32 @@ for (const m of models) {
     wizTestBtn.disabled = false; wizTestBtn.textContent = '▶ Test';
   });
 
+  // ===================== Public Chat model =====================
+  const chatProvider = document.getElementById('chat-provider') as HTMLSelectElement | null;
+  const chatModel = document.getElementById('chat-model') as HTMLSelectElement | null;
+  function filterChatModels() {
+    if (!chatProvider || !chatModel) return;
+    const selectedProvider = chatProvider.value;
+    for (const option of Array.from(chatModel.options)) {
+      if (!option.value) continue;
+      option.hidden = option.dataset.providerId !== selectedProvider;
+    }
+    const current = chatModel.selectedOptions[0];
+    if (current?.dataset.providerId !== selectedProvider) chatModel.value = '';
+  }
+  chatProvider?.addEventListener('change', filterChatModels);
+  filterChatModels();
+  document.getElementById('chat-model-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!chatProvider?.value || !chatModel?.value) { showToast('Chọn provider và model cho Chat Assistant.', 'error'); return; }
+    const res = await fetch('/api/admin/ai-settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_provider_id: Number(chatProvider.value), chat_model_id: Number(chatModel.value) }),
+    });
+    if (res.ok) showToast('Đã lưu mô hình Chat Assistant.', 'success');
+    else { const data = await res.json() as { error?: string }; showToast(data.error || 'Không thể lưu cấu hình chat.', 'error'); }
+  });
+
   // ===================== Provider CRUD =====================
   document.getElementById('add-provider-btn')?.addEventListener('click', () => {
     (document.getElementById('pm-id') as HTMLInputElement).value = '';
@@ -329,7 +393,17 @@ for (const m of models) {
   document.getElementById('pm-save')?.addEventListener('click', async () => {
     const id = (document.getElementById('pm-id') as HTMLInputElement).value;
     const keyVal = (document.getElementById('pm-key') as HTMLInputElement).value.trim();
-    const body: any = {
+    const body: {
+      action: string;
+      provider_id?: number;
+      provider: {
+        name: string;
+        slug: string;
+        base_url: string;
+        api_key?: string;
+        is_active: boolean;
+      };
+    } = {
       action: 'upsert_provider',
       provider: {
         name: (document.getElementById('pm-name') as HTMLInputElement).value.trim(),

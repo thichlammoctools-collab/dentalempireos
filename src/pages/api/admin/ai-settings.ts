@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import { getAiSettings, updateAiSettings } from '../../../lib/ai-settings-db';
+import { getProviderById, listModels } from '../../../lib/ai-provider-db';
 
 export const prerender = false;
 
@@ -19,6 +20,8 @@ export const GET: APIRoute = async ({ locals }) => {
     model: settings.model,
     max_tokens: settings.max_tokens,
     is_active: settings.is_active === 1,
+    chat_provider_id: settings.chat_provider_id,
+    chat_model_id: settings.chat_model_id,
     updated_at: settings.updated_at,
   });
 };
@@ -45,6 +48,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (typeof body.is_active === 'boolean') {
     updates.is_active = body.is_active ? 1 : 0;
   }
+  if (typeof body.chat_provider_id === 'number' && typeof body.chat_model_id === 'number') {
+    const [provider, models] = await Promise.all([
+      getProviderById(env.DB, body.chat_provider_id),
+      listModels(env.DB, body.chat_provider_id),
+    ]);
+    const model = models.find((item) => item.id === body.chat_model_id);
+    if (!provider || !provider.is_active || !provider.api_key || !model || !model.is_active) {
+      return badRequest('Provider hoặc model Chat Assistant không hợp lệ.');
+    }
+    updates.chat_provider_id = provider.id;
+    updates.chat_model_id = model.id;
+  }
   // api_key — if '•••' sent (placeholder meaning "keep current"), don't update
   // if empty string sent, clear it
   // otherwise, set it
@@ -68,6 +83,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       model: updated.model,
       max_tokens: updated.max_tokens,
       is_active: updated.is_active === 1,
+      chat_provider_id: updated.chat_provider_id,
+      chat_model_id: updated.chat_model_id,
       updated_at: updated.updated_at,
     },
   });

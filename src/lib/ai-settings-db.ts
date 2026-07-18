@@ -8,6 +8,8 @@ export interface AiSettingsRow {
   model: string;
   max_tokens: number;
   is_active: number; // 0 = off, 1 = on
+  chat_provider_id: number | null;
+  chat_model_id: number | null;
   updated_at: string;
 }
 
@@ -18,6 +20,8 @@ const AI_SETTINGS_DEFAULTS: AiSettingsRow = {
   model: 'claude-sonnet-4-6',
   max_tokens: 4096,
   is_active: 0,
+  chat_provider_id: null,
+  chat_model_id: null,
   updated_at: '',
 };
 
@@ -35,7 +39,15 @@ export async function getAiSettings(db: D1Database): Promise<AiSettingsRow> {
 
 export async function updateAiSettings(
   db: D1Database,
-  data: { base_url?: string; api_key?: string; model?: string; max_tokens?: number; is_active?: number },
+  data: {
+    base_url?: string;
+    api_key?: string;
+    model?: string;
+    max_tokens?: number;
+    is_active?: number;
+    chat_provider_id?: number | null;
+    chat_model_id?: number | null;
+  },
 ): Promise<void> {
   const now = new Date().toISOString();
   const current = await getAiSettings(db);
@@ -43,7 +55,8 @@ export async function updateAiSettings(
     await db
       .prepare(
         `UPDATE "ai_settings"
-         SET "base_url" = ?, "api_key" = ?, "model" = ?, "max_tokens" = ?, "is_active" = ?, "updated_at" = ?
+         SET "base_url" = ?, "api_key" = ?, "model" = ?, "max_tokens" = ?, "is_active" = ?,
+             "chat_provider_id" = ?, "chat_model_id" = ?, "updated_at" = ?
          WHERE "id" = 1`,
       )
       .bind(
@@ -52,6 +65,8 @@ export async function updateAiSettings(
         data.model ?? current.model,
         data.max_tokens ?? current.max_tokens,
         data.is_active ?? current.is_active,
+        data.chat_provider_id ?? current.chat_provider_id,
+        data.chat_model_id ?? current.chat_model_id,
         now,
       )
       .run();

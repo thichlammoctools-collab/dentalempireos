@@ -7,9 +7,10 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { sseResponse } from '../../lib/sse';
-import { chatCompletion, chatCompletionStream } from '../../lib/ai-client';
-import type { ModelConfig, ChatMessage } from '../../lib/ai-client';
+import { chatCompletion } from '../../lib/ai-client';
+import type { ChatMessage } from '../../lib/ai-client';
 import { getAiSettings } from '../../lib/ai-settings-db';
+import { getProviderById, listModels } from '../../lib/ai-provider-db';
 import { searchWebsite, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
 
 export const prerender = false;
@@ -50,19 +51,42 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   const settings = await getAiSettings(env.DB);
-  if (!settings.is_active || !settings.api_key) {
+  const hasChatModel = Boolean(settings.chat_provider_id && settings.chat_model_id);
+  if ((!hasChatModel && (!settings.is_active || !settings.api_key))) {
     return new Response(JSON.stringify({ error: 'AI chưa được kích hoạt. Vui lòng liên hệ quản trị viên.' }), {
       status: 503, headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  const modelCfg = {
+  let modelCfg = {
     provider_id: '1',
     base_url: settings.base_url,
     api_key: settings.api_key,
     model_id: settings.model,
     max_tokens: settings.max_tokens,
   };
+
+  // A configured Chat Assistant model takes priority; legacy Wizard settings remain
+  // available as a fallback until the admin selects a public-chat model.
+  if (hasChatModel && settings.chat_provider_id && settings.chat_model_id) {
+    const [provider, models] = await Promise.all([
+      getProviderById(env.DB, settings.chat_provider_id),
+      listModels(env.DB, settings.chat_provider_id),
+    ]);
+    const model = models.find((item) => item.id === settings.chat_model_id);
+    if (!provider?.is_active || !provider.api_key || !model?.is_active) {
+      return new Response(JSON.stringify({ error: 'Mô hình Chat Assistant chưa sẵn sàng. Vui lòng kiểm tra provider và model trong trang quản trị.' }), {
+        status: 503, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    modelCfg = {
+      provider_id: String(provider.id),
+      base_url: provider.base_url,
+      api_key: provider.api_key,
+      model_id: model.model_id,
+      max_tokens: model.max_tokens ?? settings.max_tokens,
+    };
+  }
 
   const searchOpts: { contentType?: string } = {};
   if (body.page_type === 'book' && body.page_slug) {
