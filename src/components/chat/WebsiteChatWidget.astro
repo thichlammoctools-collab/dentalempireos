@@ -292,11 +292,27 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     // ── Rate limit ───────────────────────────────────────────────
     var FREE_QUESTIONS = 3;
     var STORAGE_KEY = 'de_chat_free';
+    var HISTORY_KEY = 'de_chat_history_v1';
+    var HISTORY_LIMIT = 8;
     function getFreeCount() { return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10); }
     function incFreeCount() {
       var c = getFreeCount() + 1;
       localStorage.setItem(STORAGE_KEY, String(c));
       return c;
+    }
+    function getHistory() {
+      try {
+        var saved = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '[]');
+        return Array.isArray(saved) ? saved.slice(-HISTORY_LIMIT) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function addHistory(role, content) {
+      if (!content) return;
+      var history = getHistory();
+      history.push({ role: role, content: String(content).slice(0, 1200) });
+      try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-HISTORY_LIMIT))); } catch (e) { /* Storage can be unavailable in private browsing. */ }
     }
 
     // ── DOM refs ─────────────────────────────────────────────────
@@ -489,6 +505,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       autoResize();
 
       addMessage('user', userText);
+      var conversationHistory = getHistory();
+      addHistory('user', userText);
       if (!isSignedIn) incFreeCount();
       updateRateLimit();
       showTyping();
@@ -503,6 +521,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
+          history: conversationHistory,
           page_type: pageType !== 'home' ? pageType : undefined,
           page_slug: pageSlug || undefined,
         }),
@@ -521,9 +540,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
           reader.read().then(function (result2) {
             if (result2.done) {
               // Final render
-              if (lastMsgBubble) {
-                lastMsgBubble.innerHTML = parseMarkdown(accumulatedText);
-              }
+                if (lastMsgBubble) {
+                  lastMsgBubble.innerHTML = parseMarkdown(accumulatedText);
+                }
+                addHistory('assistant', accumulatedText);
               if (currentSources.length) {
                 var body2 = messagesArea.lastElementChild.querySelector('.chat-msg-body');
                 if (body2) {

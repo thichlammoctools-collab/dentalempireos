@@ -1,24 +1,11 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { env } from 'cloudflare:workers';
-import { createAuth } from '../../lib/auth';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 
 export const prerender = false;
-
-const auth = createAuth(env);
-const session = await auth.api.getSession({ headers: Astro.request.headers });
-if (!session?.user) return Astro.redirect('/login?redirect=/admin/ai-usage');
-
-const user = await env.DB
-  .prepare('SELECT role FROM "user" WHERE id = ?')
-  .bind(session.user.id)
-  .first<{ role: string }>();
-if (user?.role !== 'admin') return Astro.redirect('/');
 ---
 
-<BaseLayout title="AI Usage | Admin" description="AI request usage and analytics">
-  <div class="min-h-screen bg-surface pt-20 pb-8">
-    <div class="max-w-7xl mx-auto px-4">
+<AdminLayout title="Sử dụng AI | Admin" description="Theo dõi yêu cầu và phân tích sử dụng AI.">
+    <div class="max-w-7xl mx-auto w-full">
       <div class="flex items-center gap-3 mb-8">
         <a href="/admin" class="flex items-center gap-1 text-sm text-on-surface-variant hover:text-primary">
           <span class="material-symbols-outlined text-lg">arrow_back</span>
@@ -84,7 +71,6 @@ if (user?.role !== 'admin') return Astro.redirect('/');
         </table>
       </div>
     </div>
-  </div>
 
   <script>
     const filterFrom = document.getElementById('filter-from') as HTMLInputElement;
@@ -197,4 +183,4 @@ if (user?.role !== 'admin') return Astro.redirect('/');
 
     load();
   </script>
-</BaseLayout>
+</AdminLayout>

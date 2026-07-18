@@ -11,7 +11,7 @@ import { chatCompletion } from '../../lib/ai-client';
 import type { ChatMessage } from '../../lib/ai-client';
 import { getAiSettings } from '../../lib/ai-settings-db';
 import { getProviderById, listModels } from '../../lib/ai-provider-db';
-import { searchWebsite, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
+import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, type WebsiteChunk } from '../../lib/rag-website-search';
 
 export const prerender = false;
 
@@ -26,11 +26,12 @@ ${ragContext}
 
 ` : ''}Quy tắc bắt buộc:
 1. Trả lời hoàn toàn bằng tiếng Việt. Trả lời trực tiếp vào câu hỏi, không lặp lại câu hỏi và không mở đầu chung chung.
-2. Ưu tiên thông tin trong ngữ cảnh. Chỉ khẳng định các chi tiết về sách, blog, tài nguyên, khóa học, giá, ưu đãi hoặc đường dẫn khi chúng có trong ngữ cảnh.
-3. Nếu ngữ cảnh không có câu trả lời, nói rõ: "Mình chưa tìm thấy thông tin này trên Dental Empire OS." Sau đó chỉ đưa ra hướng dẫn chung có điều kiện, không suy đoán hoặc bịa đặt.
-4. Với câu hỏi ngoài nội dung website, có thể trả lời bằng kiến thức tổng quát về quản trị phòng khám, nhưng phải nói rõ đó là gợi ý chung, không phải nội dung đã xác minh từ website.
-5. Không tự tạo URL, tên sản phẩm, chương sách, chương trình miễn phí, ưu đãi, số liệu hoặc chính sách. Không yêu cầu người dùng truy cập URL trong phần trả lời vì giao diện tự hiển thị nguồn khi có.
-6. Không chẩn đoán, tư vấn điều trị, kê đơn hoặc đưa khuyến nghị y khoa cá nhân.
+2. Lịch sử hội thoại chỉ giúp xác định câu hỏi tiếp nối đang nói về điều gì. Ưu tiên thông tin trong ngữ cảnh đã kiểm chứng khi trả lời.
+3. Chỉ khẳng định các chi tiết về sách, blog, tài nguyên, khóa học, giá, ưu đãi hoặc đường dẫn khi chúng có trong ngữ cảnh.
+4. Nếu ngữ cảnh không có câu trả lời, nói rõ: "Mình chưa tìm thấy thông tin này trên Dental Empire OS." Sau đó chỉ đưa ra hướng dẫn chung có điều kiện, không suy đoán hoặc bịa đặt.
+5. Với câu hỏi ngoài nội dung website, có thể trả lời bằng kiến thức tổng quát về quản trị phòng khám, nhưng phải nói rõ đó là gợi ý chung, không phải nội dung đã xác minh từ website.
+6. Không tự tạo URL, tên sản phẩm, chương sách, chương trình miễn phí, ưu đãi, số liệu hoặc chính sách. Không yêu cầu người dùng truy cập URL trong phần trả lời vì giao diện tự hiển thị nguồn khi có.
+7. Không chẩn đoán, tư vấn điều trị, kê đơn hoặc đưa khuyến nghị y khoa cá nhân.
 
 Định dạng cho khung chat:
 - Mặc định dài 2-5 câu, tối đa 120 từ.
@@ -40,7 +41,7 @@ ${ragContext}
 }
 
 export const POST: APIRoute = async (ctx) => {
-  let body: { message: string; page_type?: string; page_slug?: string };
+  let body: { message: string; page_type?: string; page_slug?: string; history?: ChatMessage[] };
   try {
     body = (await ctx.request.json()) as typeof body;
   } catch {
@@ -96,9 +97,22 @@ export const POST: APIRoute = async (ctx) => {
     searchOpts.contentType = 'blog';
   }
 
+  const history = (body.history ?? [])
+    .filter((message): message is ChatMessage =>
+      (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string' && Boolean(message.content.trim()),
+    )
+    .slice(-8)
+    .map((message) => ({ role: message.role, content: message.content.trim().slice(0, 1200) }));
+  const priorUserQuestion = [...history].reverse().find((message) => message.role === 'user')?.content ?? '';
+  const isFollowUp = body.message.trim().split(/\s+/).length <= 8;
+  const searchQuery = isFollowUp && priorUserQuestion
+    ? `${priorUserQuestion}\nCâu hỏi tiếp theo: ${body.message.trim()}`
+    : body.message.trim();
+
   let chunks: WebsiteChunk[] = [];
   try {
-    chunks = await searchWebsite(env.DB, body.message, 8, searchOpts, env);
+    const matches = await searchWebsite(env.DB, searchQuery, 8, searchOpts, env);
+    chunks = await expandWebsiteContext(env.DB, matches, 10);
   } catch (err) {
     console.warn('[website-chat] search failed:', err);
   }
@@ -107,12 +121,12 @@ export const POST: APIRoute = async (ctx) => {
   const systemPrompt = buildSystemPrompt(ragContext);
   const formattedChunks = chunksToFormatted(chunks);
 
-  const userMsg: ChatMessage = { role: 'user', content: body.message.trim() };
+  const chatMessages: ChatMessage[] = [...history, { role: 'user', content: body.message.trim() }].slice(-9);
 
   let aiResponse = '';
   let aiError: string | null = null;
   try {
-    aiResponse = await chatCompletion(modelCfg, [userMsg], systemPrompt);
+    aiResponse = await chatCompletion(modelCfg, chatMessages, systemPrompt);
   } catch (err) {
     aiError = String(err);
     console.error('[website-chat] AI error:', err);

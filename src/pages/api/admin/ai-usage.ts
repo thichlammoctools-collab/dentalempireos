@@ -4,22 +4,11 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json } from '../../../lib/api-helpers';
-import { createAuth } from '../../../lib/auth';
 import { queryUsageStats, getUsageTotals } from '../../../lib/ai-usage-log';
 
 export const prerender = false;
 
 export const GET: APIRoute = async (ctx) => {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: ctx.request.headers });
-  if (!session?.user) return json({ error: 'Unauthorized' }, 401);
-
-  const user = await env.DB
-    .prepare('SELECT role FROM "user" WHERE id = ?')
-    .bind(session.user.id)
-    .first<{ role: string }>();
-  if (user?.role !== 'admin') return json({ error: 'Admin only' }, 403);
-
   const url = new URL(ctx.request.url);
   const from = url.searchParams.get('from') ?? undefined;
   const to = url.searchParams.get('to') ?? undefined;

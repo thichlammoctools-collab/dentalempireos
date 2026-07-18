@@ -189,6 +189,50 @@ export async function searchWebsite(
   return keywordSearch(db, query, limit, opts);
 }
 
+/**
+ * Preserve the surrounding idea when vector search finds a chunk in a long
+ * book section. Chunks are ordered within a section during indexing.
+ */
+export async function expandWebsiteContext(
+  db: D1Database,
+  chunks: WebsiteChunk[],
+  maxChunks = 10,
+): Promise<WebsiteChunk[]> {
+  if (chunks.length >= maxChunks) return chunks;
+
+  const result = [...chunks];
+  const seen = new Set(chunks.map((chunk) => chunk.id));
+  const bookSeeds = chunks.filter((chunk) => chunk.content_type === 'book' && chunk.heading_path);
+
+  for (const seed of bookSeeds) {
+    if (result.length >= maxChunks) break;
+    const { results } = await db
+      .prepare(
+        `SELECT "id","content_type","source_id","source_slug","title","heading_path","content","url"
+         FROM "website_content"
+         WHERE "content_type" = 'book' AND "source_id" = ? AND "heading_path" = ?
+           AND "chunk_order" BETWEEN (
+             SELECT "chunk_order" - 1 FROM "website_content" WHERE "id" = ?
+           ) AND (
+             SELECT "chunk_order" + 1 FROM "website_content" WHERE "id" = ?
+           )
+         ORDER BY "chunk_order"`,
+      )
+      .bind(seed.source_id, seed.heading_path, seed.id, seed.id)
+      .all<{
+        id: string; content_type: 'book'; source_id: string; source_slug: string | null;
+        title: string; heading_path: string | null; content: string; url: string;
+      }>();
+
+    for (const row of results ?? []) {
+      if (seen.has(row.id) || result.length >= maxChunks) continue;
+      result.push({ ...row, text: row.content, score: seed.score - 0.01 });
+      seen.add(row.id);
+    }
+  }
+  return result;
+}
+
 export interface FormattedChunk {
   id: string;
   content_type: 'book' | 'blog' | 'resource';
