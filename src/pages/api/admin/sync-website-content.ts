@@ -73,8 +73,8 @@ async function clearExistingChunks(db: D1Database, types: ContentType[]): Promis
 
   const vectorIds = (results ?? []).map((row) => row.vector_id).filter(Boolean);
   if (env.VECTORIZE && vectorIds.length) {
-    for (let start = 0; start < vectorIds.length; start += 500) {
-      await env.VECTORIZE.deleteByIds(vectorIds.slice(start, start + 500));
+    for (let start = 0; start < vectorIds.length; start += 100) {
+      await env.VECTORIZE.deleteByIds(vectorIds.slice(start, start + 100));
     }
   }
 
