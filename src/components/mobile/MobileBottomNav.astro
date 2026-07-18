@@ -190,11 +190,11 @@ const activeNav = getNavState();
       href="/ai-tools"
       class:list={[
         'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'aitools' ? 'text-primary' : 'text-on-surface-variant'
+        activeNav === 'aitools' ? 'text-sky-200' : 'text-sky-300'
       ]}
     >
-      <span class="material-symbols-outlined text-2xl">psychology</span>
-      <span class="text-[10px] font-medium">Công cụ</span>
+      <span class="material-symbols-outlined inline-flex w-6 h-6 items-center justify-center text-2xl leading-none" style="filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.7));">psychology</span>
+      <span class="text-[10px] font-semibold">Công cụ</span>
       <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
   </div>

@@ -121,7 +121,12 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     #website-chat-trigger { bottom: calc(1rem + 64px + env(safe-area-inset-bottom, 0px)); }
     /* Book reader has a three-button section navigation stack above its bottom bar. */
     .website-chat-root--book #website-chat-trigger {
+      right: 12px !important;
       bottom: calc(4.5rem + 8.5rem + 0.75rem + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(145deg, #075985, #0c4a6e);
+      border-color: #38bdf8;
+      color: #e0f2fe;
+      box-shadow: 0 5px 18px rgba(14, 165, 233, 0.4);
     }
   }
   #website-chat-trigger:hover { transform: scale(1.06); border-color: var(--color-primary, #92ccff); background: color-mix(in srgb, var(--color-primary, #92ccff) 10%, var(--reader-chrome-surface-high, #1e293b)); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32); }
