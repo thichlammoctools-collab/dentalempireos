@@ -1020,12 +1020,12 @@ try {
     // Show streaming state
     if (type === 'plan') {
       document.getElementById('plan-cta')?.classList.add('hidden');
-      document.getElementById('plan-loading')?.classList.add('hidden');
+      document.getElementById('plan-loading')?.classList.remove('hidden');
       document.getElementById('plan-error')?.classList.add('hidden');
     }
     if (type === 'analysis') {
       ['analysis-cta', 'analysis-free-cta'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
-      ['analysis-loading', 'analysis-free-loading'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      document.getElementById(isFree ? 'analysis-free-loading' : 'analysis-loading')?.classList.remove('hidden');
       ['analysis-error', 'analysis-free-error'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
     }
 
@@ -1055,17 +1055,16 @@ try {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() ?? '';
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
+        for (const rawEvent of events) {
+          if (!rawEvent.trim()) continue;
 
           let event = '';
           let dataStr = '';
 
-          for (const segment of trimmed.split('\n')) {
+          for (const segment of rawEvent.split(/\r?\n/)) {
             const s = segment.trim();
             if (s.startsWith('event: ')) event = s.slice(7).trim();
             if (s.startsWith('data: ')) dataStr = s.slice(6).trim();
