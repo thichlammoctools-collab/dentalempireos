@@ -20,6 +20,14 @@ function isGeminiUrl(url: string): boolean {
   return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
 }
 
+function openAiEmbeddingUrl(baseUrl: string): string {
+  const base = baseUrl.replace(/\/+$/, '')
+    .replace(/\/v1\/chat\/completions$/i, '')
+    .replace(/\/chat\/completions$/i, '')
+    .replace(/\/v1$/i, '');
+  return `${base}/v1/embeddings`;
+}
+
 async function getEmbeddingProvider(
   db: D1Database,
 ): Promise<{ provider: AiProviderRow; model: AiModelRow }> {
@@ -88,7 +96,7 @@ export async function getEmbedding(
   }
 
   // OpenAI-compatible embedding
-  const url = `${provider.base_url.replace(/\/+$/, '')}/embeddings`;
+  const url = openAiEmbeddingUrl(provider.base_url);
   const resp = await fetch(url, {
     method: 'POST',
     headers: {
@@ -103,7 +111,8 @@ export async function getEmbedding(
 
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error(`Embedding API error (${resp.status}): ${err}`);
+    const endpoint = new URL(url).pathname;
+    throw new Error(`Embedding API error (${resp.status}) for ${provider.name} / ${model.model_id} at ${endpoint}: ${err}`);
   }
 
   const data = (await resp.json()) as EmbeddingResponse;
