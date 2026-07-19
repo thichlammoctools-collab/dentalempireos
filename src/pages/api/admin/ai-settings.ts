@@ -6,8 +6,7 @@ import { hasAiGatewayToken } from '../../../lib/ai-gateway';
 
 export const prerender = false;
 
-// GET /api/admin/ai-settings — fetch current settings
-// (api_key masked for safety)
+// GET /api/admin/ai-settings — fetch central Gateway settings.
 export const GET: APIRoute = async ({ locals }) => {
   const user = locals.user;
   if (!user) return json({ error: 'unauthorized' }, 401);

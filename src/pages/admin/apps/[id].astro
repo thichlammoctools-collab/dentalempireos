@@ -2,7 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getApp, parseAppConfig } from '../../../lib/app-db';
-import { getActiveModelsWithProvider } from '../../../lib/ai-provider-db';
+import { getAiSettings } from '../../../lib/ai-settings-db';
 
 export const prerender = false;
 
@@ -25,13 +25,9 @@ const maxTokensOverride = (config.max_tokens_override as number) ?? '';
 
 let activeModels: Array<{ providerName: string; modelId: string; modelName: string }> = [];
 try {
-  const map = await getActiveModelsWithProvider(env.DB);
-  for (const [, { provider, models }] of map) {
-    for (const m of models) {
-      if (m.is_active) {
-        activeModels.push({ providerName: provider.name, modelId: m.model_id, modelName: m.name });
-      }
-    }
+  const settings = await getAiSettings(env.DB);
+  if (settings.gateway_default_model) {
+    activeModels = [{ providerName: 'Cloudflare AI Gateway', modelId: settings.gateway_default_model, modelName: settings.gateway_default_model }];
   }
 } catch {}
 

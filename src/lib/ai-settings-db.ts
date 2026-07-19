@@ -104,8 +104,8 @@ export async function updateAiSettings(
         now,
       )
       .run();
-  } catch {
-    // Table may not exist yet — silently ignore (admin must apply migration)
+  } catch (error) {
+    throw new Error(`Không thể lưu cấu hình AI Gateway: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

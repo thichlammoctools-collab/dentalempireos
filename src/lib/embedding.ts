@@ -1,6 +1,5 @@
 /**
- * Embedding service — supports OpenAI-compatible and Gemini APIs.
- * Uses the active provider from the database.
+ * Embedding service backed exclusively by Cloudflare AI Gateway.
  */
 
 import { getAiGatewayConfig } from './ai-gateway';

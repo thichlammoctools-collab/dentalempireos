@@ -245,6 +245,7 @@ async function* streamOpenAI(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  gatewayId?: string,
 ): AsyncGenerator<string> {
   const allMessages: ChatMessage[] = [];
   if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
@@ -262,7 +263,7 @@ async function* streamOpenAI(
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
-      ...cloudflareGatewayHeaders(baseUrl),
+      ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
   });

@@ -22,10 +22,11 @@ export async function getAiGatewayConfig(
     return null;
   }
 
-  const model = (isCloudflareModelId(modelOverride) ? modelOverride : undefined)
-    || (usage === 'chat' ? settings.gateway_chat_model : undefined)
-    || (usage === 'embedding' ? settings.gateway_embedding_model : undefined)
-    || settings.gateway_default_model;
+  const model = usage === 'embedding'
+    ? settings.gateway_embedding_model
+    : (isCloudflareModelId(modelOverride) ? modelOverride : undefined)
+      || (usage === 'chat' ? settings.gateway_chat_model : undefined)
+      || settings.gateway_default_model;
   if (!model) return null;
 
   return {
