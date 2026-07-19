@@ -193,15 +193,15 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    /* Messages are injected by the client script, so these selectors must stay global. */
    :global(#website-chat-root .chat-msg) { width: 100%; display: flex; align-items: flex-end; gap: 8px; animation: msgIn 0.2s ease-out; }
    @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-   :global(#website-chat-root .chat-msg.user) { justify-content: flex-end; flex-direction: row-reverse; }
+    :global(#website-chat-root .chat-msg.user) { justify-content: flex-end; flex-direction: row-reverse; }
    :global(#website-chat-root .chat-msg.assistant) { justify-content: flex-start; }
    :global(#website-chat-root .chat-avatar-small) { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; font-weight: 600; }
    :global(#website-chat-root .chat-msg.user .chat-avatar-small) { background: #f97316; color: #fff; }
    :global(#website-chat-root .chat-msg.assistant .chat-avatar-small) { background: #fef3c7; color: #f97316; border: 1.5px solid #fed7aa; }
    :global(#website-chat-root .chat-msg-body) { display: flex; flex-direction: column; gap: 3px; max-width: 84%; min-width: 0; }
-   :global(#website-chat-root .chat-msg.user .chat-msg-body) { align-items: flex-end; }
+    :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: 84%; align-items: flex-end; text-align: right; }
    :global(#website-chat-root .chat-msg-role) { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8494ad; }
-   :global(#website-chat-root .chat-msg.user .chat-msg-role) { color: #fdba74; }
+    :global(#website-chat-root .chat-msg.user .chat-msg-role) { align-self: flex-end; color: #fdba74; text-align: right; }
    :global(#website-chat-root .chat-msg-bubble) { padding: 8px 10px; border-radius: 13px; font-size: 12px; line-height: 1.5; word-break: break-word; }
    :global(#website-chat-root .chat-msg.user .chat-msg-bubble) { background: #f97316; color: #fff; border-bottom-right-radius: 4px; }
    :global(#website-chat-root .chat-msg.assistant .chat-msg-bubble) { background: #1b263b; color: #edf3fc; border: 1px solid #2b3a53; border-bottom-left-radius: 4px; }
