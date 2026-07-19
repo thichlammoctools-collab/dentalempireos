@@ -18,6 +18,12 @@ import { createAuth } from '../../lib/auth';
 
 export const prerender = false;
 
+const MAX_CHAT_OUTPUT_TOKENS = 1024;
+
+function getChatMaxTokens(maxTokens?: number): number {
+  return Math.min(maxTokens ?? MAX_CHAT_OUTPUT_TOKENS, MAX_CHAT_OUTPUT_TOKENS);
+}
+
 function buildSystemPrompt(ragContext: string): string {
   return `Bạn là Dental Empire AI, trợ lý nội dung của Dental Empire OS về vận hành và quản trị phòng khám nha khoa tại Việt Nam.
 
@@ -90,7 +96,7 @@ export const POST: APIRoute = async (ctx) => {
     base_url: settings.base_url,
     api_key: settings.api_key,
     model_id: settings.model,
-    max_tokens: settings.max_tokens,
+    max_tokens: getChatMaxTokens(settings.max_tokens),
   };
 
   // A configured Chat Assistant model takes priority; legacy Wizard settings remain
@@ -111,7 +117,7 @@ export const POST: APIRoute = async (ctx) => {
       base_url: provider.base_url,
       api_key: provider.api_key,
       model_id: model.model_id,
-      max_tokens: model.max_tokens ?? settings.max_tokens,
+      max_tokens: getChatMaxTokens(model.max_tokens ?? settings.max_tokens),
     };
   }
 
