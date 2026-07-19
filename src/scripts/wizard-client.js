@@ -280,10 +280,13 @@
     }
 
     try {
+      var modelOverrideEl = document.getElementById('generate-model');
+      var modelOverride = modelOverrideEl ? (modelOverrideEl.value || null) : null;
+
       var resp = await fetch('/api/admin/wizard/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ type: data.type, answers: data.answers, model_id: modelOverride }),
       });
 
       var result = await resp.json();

@@ -401,6 +401,26 @@ import Layout from '../layouts/Layout.astro';
     font-size: 12px;
   }
 
+  /* ── Follow-up suggestions ──────────────────────────────────── */
+  .page-followup { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+  .page-followup-label { font-size: 11px; color: #a8a29e; font-weight: 500; }
+  .page-followup-btn {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    font-family: inherit;
+    color: #44403c;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .page-followup-btn:hover { border-color: #f97316; background: #fff7ed; color: #1c1917; }
+  .page-followup-btn:active { transform: scale(0.98); }
+
   /* ── Mobile ─────────────────────────────────────────────────── */
   @media (max-width: 640px) {
     .page-msg-body { max-width: 88%; }
@@ -417,6 +437,8 @@ import Layout from '../layouts/Layout.astro';
   const inputEl = document.getElementById('page-chat-input') as HTMLTextAreaElement;
   const sendBtn = document.getElementById('page-chat-send') as HTMLButtonElement;
 
+  const SESSION_KEY = 'de_chat_session_id';
+  let currentSessionId: string | null = sessionStorage.getItem(SESSION_KEY);
   let isLoading = false;
   let welcomeShown = true;
 
@@ -491,6 +513,31 @@ import Layout from '../layouts/Layout.astro';
     return { el: msg, bubble };
   }
 
+  function addFollowupSuggestions(suggestions: string[]) {
+    if (!suggestions.length) return;
+    const lastMsg = messagesArea.lastElementChild;
+    if (!lastMsg) return;
+    const body = lastMsg.querySelector('.page-msg-body');
+    if (!body) return;
+
+    const fu = document.createElement('div');
+    fu.className = 'page-followup';
+    fu.innerHTML = '<div class="page-followup-label">💡 Hỏi tiếp:</div>';
+    for (let i = 0; i < Math.min(suggestions.length, 3); i++) {
+      const btn = document.createElement('button');
+      btn.className = 'page-followup-btn';
+      btn.textContent = suggestions[i];
+      btn.addEventListener('click', () => {
+        inputEl.value = suggestions[i];
+        autoResize();
+        sendMessage();
+      });
+      fu.appendChild(btn);
+    }
+    body.appendChild(fu);
+    scrollToBottom();
+  }
+
   function showTyping() {
     hideWelcome();
     const msg = document.createElement('div');
@@ -532,7 +579,10 @@ import Layout from '../layouts/Layout.astro';
       const res = await fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          session_id: currentSessionId,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -563,8 +613,12 @@ import Layout from '../layouts/Layout.astro';
           try {
             const parsed = JSON.parse(data);
 
-            if (parsed.event === 'chunks_used') {
+            if (parsed.event === 'metadata' || parsed.event === 'chunks_used') {
               currentSources = parsed.sources || [];
+              if (parsed.session_id) {
+                currentSessionId = parsed.session_id;
+                try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch { /* ignore */ }
+              }
             } else if (parsed.event === 'chunk') {
               accumulatedText += parsed.text || '';
               const now = Date.now();
@@ -573,8 +627,14 @@ import Layout from '../layouts/Layout.astro';
                 scrollToBottom();
                 lastRenderTime = now;
               }
+            } else if (parsed.event === 'followup_suggestions' && parsed.suggestions?.length) {
+              addFollowupSuggestions(parsed.suggestions);
             } else if (parsed.event === 'done') {
               currentSources = parsed.sources || currentSources;
+              if (parsed.session_id) {
+                currentSessionId = parsed.session_id;
+                try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch { /* ignore */ }
+              }
             } else if (parsed.event === 'error') {
               throw new Error(parsed.message || 'Lỗi AI');
             }

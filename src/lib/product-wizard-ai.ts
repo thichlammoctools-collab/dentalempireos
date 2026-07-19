@@ -1,13 +1,8 @@
 // AI generation logic for the product creation wizard.
-// Calls Anthropic Claude to generate a complete product configuration from wizard answers.
+// Nhận ModelConfig từ caller — không phụ thuộc vào ai_settings legacy.
 
-import { getAiSettings } from './ai-settings-db';
-
-interface AnthropicResponse {
-  content: Array<{ type: string; text?: string }>;
-  stop_reason?: string;
-  usage?: { input_tokens: number; output_tokens: number };
-}
+import { chatCompletion } from './ai-client';
+import type { ModelConfig } from './ai-client';
 
 interface WizardAnswers {
   // Step 2
@@ -280,53 +275,20 @@ function validateOutput(obj: unknown): GeneratedOutput {
 }
 
 export async function wizardGenerate(
-  db: D1Database,
+  modelCfg: ModelConfig,
   type: string,
   answers: WizardAnswers,
 ): Promise<GeneratedOutput> {
-  const aiSettings = await getAiSettings(db);
-  if (!aiSettings.is_active) {
-    throw new Error('AI chưa được bật. Vui lòng vào AI Settings để kích hoạt.');
-  }
-  if (!aiSettings.api_key) {
-    throw new Error('AI API key chưa được cấu hình.');
-  }
-
   const systemPrompt = buildSystemPrompt(type);
   const userMessage = buildUserMessage(type, answers);
 
-  const baseUrl = aiSettings.base_url.replace(/\/+$/, '');
-  const url = `${baseUrl}/v1/messages`;
-  const model = aiSettings.model;
-  const maxTokens = 8192; // Larger for generation prompts
+  const text = await chatCompletion(
+    { ...modelCfg, max_tokens: modelCfg.max_tokens || 8192 },
+    [{ role: 'user', content: userMessage }],
+    systemPrompt,
+  );
 
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': aiSettings.api_key,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Anthropic API error (${resp.status}): ${errText}`);
-  }
-
-  const data = (await resp.json()) as AnthropicResponse;
-  const text = data.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text ?? '')
-    .join('\n');
-
-  if (!text) throw new Error('Empty response from Anthropic API');
+  if (!text) throw new Error('Empty response from AI provider');
 
   const parsed = extractJson(text);
   if (!parsed) {
