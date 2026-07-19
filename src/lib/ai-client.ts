@@ -448,7 +448,7 @@ export function chatCompletionStream(
   messages: ChatMessage[],
   systemPrompt?: string,
   onChunk?: (text: string) => void,
-): ReadableStream {
+): ReadableStream<string> {
   const baseUrl = config.base_url.replace(/\/+$/, '').replace(/\/v1$/, '');
 
   let iterator: AsyncGenerator<string> | null = null;

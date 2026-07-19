@@ -139,7 +139,7 @@ export function buildAnalysisStream(
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): ReadableStream {
+): ReadableStream<string> {
   const { systemPrompt, messages } = buildMessages(response, full, aiConfig, scoringRules);
   return chatCompletionStream(modelConfig, messages, systemPrompt);
 }
@@ -150,7 +150,7 @@ export function buildPlanStream(
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): ReadableStream {
+): ReadableStream<string> {
   if (!response) throw new Error('No response');
 
   const lang = response.lang === 'en' ? 'en' : 'vi';

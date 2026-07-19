@@ -96,7 +96,7 @@ export const POST: APIRoute = async (ctx) => {
           let fullText = '';
 
           // Build the stream
-          let aiStream: ReadableStream;
+          let aiStream: ReadableStream<string>;
           if (t === 'analysis') {
             aiStream = buildAnalysisStream(response, full, surveyAiConfig, scoringRules, modelConfig);
           } else {
@@ -108,14 +108,13 @@ export const POST: APIRoute = async (ctx) => {
 
           // Stream chunks to client, accumulate for R2
           const reader = aiStream.getReader();
-          const decoder = new TextDecoder();
 
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              const text = decoder.decode(value, { stream: true });
+              const text = value;
               if (text) {
                 // ai-client.ts streams raw text chunks (not SSE-encoded).
                 fullText += text;
@@ -124,11 +123,6 @@ export const POST: APIRoute = async (ctx) => {
             }
           } finally {
             reader.releaseLock();
-            const finalText = decoder.decode();
-            if (finalText) {
-              fullText += finalText;
-              sseEnqueue(controller, 'chunk', { text: finalText, type: t });
-            }
           }
 
           if (!fullText.trim()) throw new Error('AI returned an empty result');
