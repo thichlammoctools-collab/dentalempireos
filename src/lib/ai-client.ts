@@ -10,6 +10,7 @@ export interface ModelConfig {
   provider_id: string;
   base_url: string;
   api_key: string;
+  gateway_id?: string;
   model_id: string;
   max_tokens?: number;
 }
@@ -27,7 +28,20 @@ export class AiError extends Error {
 
 function isOpenAIUrl(url: string): boolean {
   const u = url.toLowerCase();
-  return u.includes('openai') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together');
+  return u.includes('openai') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together') || isCloudflareOpenAIEndpoint(u);
+}
+
+function isCloudflareOpenAIEndpoint(url: string): boolean {
+  const u = url.toLowerCase();
+  return u.includes('api.cloudflare.com/client/v4/accounts/') && u.includes('/ai/v1')
+    || u.includes('gateway.ai.cloudflare.com') && /\/openai\/?$/.test(u);
+}
+
+function cloudflareGatewayHeaders(baseUrl: string, gatewayId?: string): Record<string, string> {
+  if (!isCloudflareOpenAIEndpoint(baseUrl) && !baseUrl.toLowerCase().includes('gateway.ai.cloudflare.com')) {
+    return {};
+  }
+  return gatewayId ? { 'cf-aig-gateway-id': gatewayId } : {};
 }
 
 function isGeminiUrl(url: string): boolean {
@@ -60,9 +74,11 @@ export async function chatCompletion(
   systemPrompt?: string,
 ): Promise<string> {
   const baseUrl = config.base_url.replace(/\/+$/, '');
-  const cleanBase = baseUrl.replace(/\/v1$/, '');
+  // Cloudflare's OpenAI-compatible endpoints already include their required
+  // API version segment, so stripping /v1 would produce an invalid URL.
+  const cleanBase = isCloudflareOpenAIEndpoint(baseUrl) ? baseUrl : baseUrl.replace(/\/v1$/, '');
   if (isOpenAIUrl(cleanBase)) {
-    return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+    return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id);
   } else if (isGeminiUrl(cleanBase)) {
     return chatGemini(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
   } else {
@@ -77,6 +93,7 @@ async function chatOpenAI(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  gatewayId?: string,
 ): Promise<string> {
   const allMessages: ChatMessage[] = [];
   if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
@@ -90,6 +107,7 @@ async function chatOpenAI(
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
+      ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
   });
@@ -112,6 +130,7 @@ async function chatAnthropic(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  gatewayId?: string,
 ): Promise<string> {
   // Preserve original role for assistant messages (fixes the role-mapping bug)
   const anthropicMessages = messages.map((m) => ({
@@ -132,6 +151,7 @@ async function chatAnthropic(
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
   });
@@ -242,6 +262,7 @@ async function* streamOpenAI(
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
+      ...cloudflareGatewayHeaders(baseUrl),
     },
     body: JSON.stringify(body),
   });
@@ -314,6 +335,7 @@ async function* streamAnthropic(
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-beta': 'prompt-caching-2025-05-14',
+      ...cloudflareGatewayHeaders(baseUrl),
     },
     body: JSON.stringify(body),
   });
@@ -449,14 +471,15 @@ export function chatCompletionStream(
   systemPrompt?: string,
   onChunk?: (text: string) => void,
 ): ReadableStream<string> {
-  const baseUrl = config.base_url.replace(/\/+$/, '').replace(/\/v1$/, '');
+  const rawBaseUrl = config.base_url.replace(/\/+$/, '');
+  const baseUrl = isCloudflareOpenAIEndpoint(rawBaseUrl) ? rawBaseUrl : rawBaseUrl.replace(/\/v1$/, '');
 
   let iterator: AsyncGenerator<string> | null = null;
   let cancelled = false;
 
   async function getIterator(): AsyncGenerator<string> {
     if (isOpenAIUrl(baseUrl)) {
-      return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+      return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id);
     } else if (isGeminiUrl(baseUrl)) {
       return streamGemini(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
     } else {

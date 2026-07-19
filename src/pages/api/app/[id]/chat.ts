@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { getApp, parseAppConfig } from '../../../../lib/app-db';
-import { getActiveModelsWithProvider } from '../../../../lib/ai-provider-db';
+import { getAiGatewayConfig } from '../../../../lib/ai-gateway';
 import { chatCompletion } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
 
@@ -60,37 +60,7 @@ async function getModelConfig(db: D1Database, app: ReturnType<typeof parseAppCon
   const config = parseAppConfig(app.config_json);
   const modelOverride = config.model_override as string | undefined;
 
-  const allModels = await getActiveModelsWithProvider(db);
-
-  if (modelOverride) {
-    // Find by model_id
-    for (const [, { provider, models }] of allModels) {
-      const model = models.find(m => m.model_id === modelOverride && m.is_active);
-      if (model) {
-        return {
-          base_url: provider.base_url,
-          api_key: provider.api_key,
-          model_id: model.model_id,
-          max_tokens: model.max_tokens || 8192,
-        };
-      }
-    }
-  }
-
-  // Fallback: use default provider's first active model
-  for (const [, { provider, models }] of allModels) {
-    const model = models.find(m => m.is_active);
-    if (model) {
-      return {
-        base_url: provider.base_url,
-        api_key: provider.api_key,
-        model_id: model.model_id,
-        max_tokens: model.max_tokens || 8192,
-      };
-    }
-  }
-
-  return null;
+  return getAiGatewayConfig(db, 'default', modelOverride);
 }
 
 export const POST: APIRoute = async ({ request, params }) => {
@@ -113,7 +83,7 @@ export const POST: APIRoute = async ({ request, params }) => {
   const modelCfg = await getModelConfig(env.DB, app);
 
   if (!modelCfg) {
-    return json({ error: 'Chưa có AI model nào được kích hoạt. Vui lòng vào AI Settings để thêm provider.' }, 503);
+    return json({ error: 'Cloudflare AI Gateway chưa được cấu hình. Vui lòng vào AI Settings.' }, 503);
   }
 
   const systemPrompt = buildSystemPrompt(body.app_name || app.name, config.prompt_vi as string || '');

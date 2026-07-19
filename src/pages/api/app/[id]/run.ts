@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { getApp, parseAppConfig } from '../../../../lib/app-db';
-import { getActiveModelsWithProvider } from '../../../../lib/ai-provider-db';
+import { getAiGatewayConfig } from '../../../../lib/ai-gateway';
 import { chatCompletion } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
 
@@ -12,25 +12,7 @@ async function getModelConfig(db: D1Database, configJson: string | null): Promis
   const config = parseAppConfig(configJson);
   const modelOverride = config.model_override as string | undefined;
 
-  const allModels = await getActiveModelsWithProvider(db);
-
-  if (modelOverride) {
-    for (const [, { provider, models }] of allModels) {
-      const model = models.find(m => m.model_id === modelOverride && m.is_active);
-      if (model) {
-        return { base_url: provider.base_url, api_key: provider.api_key, model_id: model.model_id, max_tokens: model.max_tokens || 8192 };
-      }
-    }
-  }
-
-  for (const [, { provider, models }] of allModels) {
-    const model = models.find(m => m.is_active);
-    if (model) {
-      return { base_url: provider.base_url, api_key: provider.api_key, model_id: model.model_id, max_tokens: model.max_tokens || 8192 };
-    }
-  }
-
-  return null;
+  return getAiGatewayConfig(db, 'default', modelOverride);
 }
 
 export const POST: APIRoute = async ({ request, params }) => {

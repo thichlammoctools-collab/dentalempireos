@@ -9,7 +9,7 @@ import { env } from 'cloudflare:workers';
 import { sseResponse, sseEnqueue } from '../../../lib/sse';
 import { chatCompletionStream } from '../../../lib/ai-client';
 import type { ModelConfig, ChatMessage } from '../../../lib/ai-client';
-import { getActiveModelsWithProvider } from '../../../lib/ai-provider-db';
+import { getAiGatewayConfig } from '../../../lib/ai-gateway';
 import { searchChunks, buildRagContext, type RagChunk } from '../../../lib/rag-search';
 import { createAuth } from '../../../lib/auth';
 import { getApp } from '../../../lib/app-db';
@@ -24,20 +24,7 @@ interface StoredMessage {
 }
 
 async function getAiModel(db: D1Database): Promise<ModelConfig | null> {
-  const all = await getActiveModelsWithProvider(db);
-  for (const [, entry] of all) {
-    const model = entry.models.find((m) => m.is_active);
-    if (model) {
-      return {
-        provider_id: String(entry.provider.id),
-        base_url: entry.provider.base_url,
-        api_key: entry.provider.api_key,
-        model_id: model.model_id,
-        max_tokens: model.max_tokens ?? 4096,
-      };
-    }
-  }
-  return null;
+  return getAiGatewayConfig(db);
 }
 
 async function getOrCreateSession(

@@ -19,12 +19,13 @@ const activeChatModel = models.find((model) => model.id === settings.chat_model_
 const embeddingModels = models.filter((model) => `${model.name} ${model.model_id}`.toLowerCase().includes('embedding'));
 const activeEmbeddingProvider = providers.find((provider) => provider.id === settings.embedding_provider_id);
 const activeEmbeddingModel = embeddingModels.find((model) => model.id === settings.embedding_model_id);
+const gatewayReady = settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
 ---
 
 <AdminLayout title="Cài đặt AI | Admin">
   <div class="mb-6">
     <h2 class="text-3xl font-bold text-white mb-1">Cài đặt AI</h2>
-    <p class="text-on-surface-variant text-sm">Cấu hình API cho AI Wizard tạo ứng dụng và AI Providers cho app chạy thực tế.</p>
+    <p class="text-on-surface-variant text-sm">Mọi luồng AI của website chạy qua Cloudflare AI Gateway. Token chỉ được lưu dưới dạng Worker secret.</p>
   </div>
 
   <!-- ============================================================
@@ -33,32 +34,39 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
   <div class="glass-card rounded-xl p-6 mb-6">
     <div class="flex items-center gap-3 mb-5">
       <span class="material-symbols-outlined text-primary text-2xl">auto_awesome</span>
-      <h3 class="text-lg font-bold text-white">AI Wizard</h3>
-      <span class="text-xs text-on-surface-variant/50 ml-2">Dùng khi Wizard tạo ứng dụng mới</span>
+        <h3 class="text-lg font-bold text-white">Cloudflare AI Gateway</h3>
+        <span class={`text-xs ml-2 ${gatewayReady ? 'text-emerald-300' : 'text-amber-300'}`}>{gatewayReady ? 'Đang hoạt động' : 'Chưa hoàn tất cấu hình'}</span>
     </div>
 
-    <form id="wizard-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <p class="text-xs text-on-surface-variant/60 mb-5">Cloudflare Unified Billing hoặc BYOK xử lý provider credentials. Không nhập OpenAI/Anthropic API key vào website.</p>
+    <form id="gateway-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Base URL</label>
-        <input type="url" id="wiz-base_url" value={settings.base_url} placeholder="https://api.nkq.vn"
+        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Cloudflare Account ID</label>
+        <input type="text" id="gateway-account-id" value={settings.gateway_account_id ?? ''} placeholder="32-character account ID"
           class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50" />
       </div>
       <div>
-        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">API Key</label>
-        <input type="password" id="wiz-api_key" value={settings.api_key ? '•••••••••••••••••••' : ''} placeholder="sk-ant-..."
+        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Gateway ID</label>
+        <input type="text" id="gateway-id" value={settings.gateway_id || 'default'} placeholder="dentalempire"
           class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50" />
       </div>
       <div>
-        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model</label>
-        <input type="text" id="wiz-model" value={settings.model} placeholder="claude-sonnet-4-6"
+        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model mặc định</label>
+        <input type="text" id="gateway-default-model" value={settings.gateway_default_model ?? ''} placeholder="openai/gpt-4.1-mini"
           class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50" />
       </div>
-      <div class="md:col-span-3 flex items-center gap-3">
-        <button type="button" id="wiz-test" class="px-4 py-2 bg-surface-container border border-outline-variant/30 text-on-surface-variant text-sm font-medium rounded-xl hover:text-white transition-all">▶ Test</button>
-        <button type="submit" id="wiz-save" class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">Lưu</button>
-        <span id="wiz-msg" class="hidden text-sm"></span>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Max output tokens</label>
+        <input type="number" id="gateway-max-tokens" value={settings.max_tokens} min="256" max="8192"
+          class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50" />
+      </div>
+      <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+        <label class="flex items-center gap-2 text-sm text-on-surface"><input type="checkbox" id="gateway-enabled" checked={settings.gateway_enabled === 1} class="accent-primary w-4 h-4" /> Kích hoạt AI Gateway</label>
+        <button type="submit" id="gateway-save" class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">Lưu Gateway</button>
+        <span id="gateway-msg" class="hidden text-sm"></span>
       </div>
     </form>
+    <p class="mt-4 text-xs text-amber-300/80">Thiết lập secret trước khi bật: <code class="font-mono">npx wrangler secret put CF_AI_GATEWAY_TOKEN</code>. Token cần quyền AI Gateway; không được nhập token vào trang này.</p>
   </div>
 
   <!-- ============================================================
@@ -83,32 +91,15 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
         </p>
       </div>
     </div>
-    {providers.length > 0 ? (
-      <form id="chat-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end mt-5">
-        <div>
-          <label for="chat-provider" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Provider</label>
-          <select id="chat-provider" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <option value="">Chọn provider</option>
-            {providers.filter((provider) => provider.is_active && provider.api_key).map((provider) => (
-              <option value={provider.id} selected={settings.chat_provider_id === provider.id}>{provider.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label for="chat-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model</label>
-          <select id="chat-model" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <option value="">Chọn model</option>
-            {models.filter((model) => model.is_active).map((model) => (
-              <option value={model.id} data-provider-id={model.provider_id} selected={settings.chat_model_id === model.id}>{model.name} ({model.model_id})</option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" id="chat-save" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu Chat</button>
-        <p id="chat-save-msg" class="hidden md:col-span-3 text-sm"></p>
-      </form>
-    ) : (
-      <p class="mt-4 text-sm text-on-surface-variant">Thêm provider và model bên dưới trước khi cấu hình Chat Assistant.</p>
-    )}
+    <form id="chat-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end mt-5">
+      <div>
+        <label for="gateway-chat-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Cloudflare model ID</label>
+        <input id="gateway-chat-model" type="text" value={settings.gateway_chat_model ?? ''} placeholder="openai/gpt-4.1-mini"
+          class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      </div>
+      <button type="submit" id="chat-save" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu Chat</button>
+      <p id="chat-save-msg" class="hidden md:col-span-2 text-sm"></p>
+    </form>
   </div>
 
   <!-- ============================================================
@@ -125,35 +116,18 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
         </div>
       </div>
     </div>
-    {embeddingModels.length > 0 ? (
-      <form id="embedding-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end mt-5">
-        <div>
-          <label for="embedding-provider" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Provider embedding</label>
-          <select id="embedding-provider" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <option value="">Chọn provider</option>
-            {providers.filter((provider) => provider.is_active && provider.api_key).map((provider) => (
-              <option value={provider.id} selected={settings.embedding_provider_id === provider.id}>{provider.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label for="embedding-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Model embedding</label>
-          <select id="embedding-model" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <option value="">Chọn model embedding</option>
-            {embeddingModels.filter((model) => model.is_active).map((model) => (
-              <option value={model.id} data-provider-id={model.provider_id} selected={settings.embedding_model_id === model.id}>{model.name} ({model.model_id})</option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" id="embedding-save" class="px-5 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm font-semibold rounded-xl hover:border-primary/60 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu embedding</button>
-        <p id="embedding-save-msg" class="hidden md:col-span-3 text-sm"></p>
-      </form>
-    ) : (
-      <p class="mt-5 text-sm text-amber-300/80">Chưa có model embedding. Thêm model ở phần AI Providers với tên hoặc Model ID chứa <code class="font-mono">embedding</code>, sau đó tải lại trang để chọn tại đây.</p>
-    )}
+    <form id="embedding-model-form" class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end mt-5">
+      <div>
+        <label for="gateway-embedding-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Cloudflare embedding model ID</label>
+        <input id="gateway-embedding-model" type="text" value={settings.gateway_embedding_model ?? ''} placeholder="openai/text-embedding-3-small"
+          class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      </div>
+      <button type="submit" id="embedding-save" class="px-5 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm font-semibold rounded-xl hover:border-primary/60 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Lưu embedding</button>
+      <p id="embedding-save-msg" class="hidden md:col-span-2 text-sm"></p>
+    </form>
     <div class="mt-5 pt-5 border-t border-outline-variant/15 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <p id="embedding-active-label" class={`text-xs ${activeEmbeddingProvider && activeEmbeddingModel ? 'text-emerald-300' : 'text-amber-300/80'}`}>
-        {activeEmbeddingProvider && activeEmbeddingModel ? `Đang dùng: ${activeEmbeddingProvider.name} / ${activeEmbeddingModel.name} (${activeEmbeddingModel.model_id})` : 'Chưa chọn model embedding.'}
+        {settings.gateway_embedding_model ? `Đang dùng: ${settings.gateway_embedding_model}` : 'Chưa chọn model embedding.'}
       </p>
       <button id="rebuild-knowledge-btn" type="button" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0">
         <span class="material-symbols-outlined text-[18px]">database_upload</span>
@@ -270,10 +244,11 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
       <label class="block text-xs font-semibold text-on-surface-variant/70 mb-1.5">Slug</label>
       <input type="text" id="pm-slug" placeholder="VD: openai" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 font-mono" />
     </div>
-    <div>
-      <label class="block text-xs font-semibold text-on-surface-variant/70 mb-1.5">Base URL</label>
-      <input type="url" id="pm-url" placeholder="https://api.openai.com/v1" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 font-mono" />
-    </div>
+     <div>
+       <label class="block text-xs font-semibold text-on-surface-variant/70 mb-1.5">Base URL</label>
+       <input type="url" id="pm-url" placeholder="https://api.openai.com/v1" class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 font-mono" />
+       <p class="mt-1.5 text-xs text-on-surface-variant/50">Cloudflare AI Gateway (OpenAI): <code class="font-mono">https://gateway.ai.cloudflare.com/v1/ACCOUNT_ID/GATEWAY_ID/openai</code>. Gateway xác thực dùng Worker secret <code class="font-mono">CF_AI_GATEWAY_TOKEN</code>.</p>
+     </div>
     <div>
       <label class="block text-xs font-semibold text-on-surface-variant/70 mb-1.5">API Key</label>
       <input type="password" id="pm-key" placeholder="sk-..." class="w-full px-4 py-2.5 bg-surface-container-high border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 font-mono" />
@@ -327,60 +302,34 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
   function showModal(id: string) { const el = document.getElementById(id); if (el) { el.classList.remove('hidden'); el.classList.add('flex'); } }
   function hideModal(id: string) { const el = document.getElementById(id); if (el) { el.classList.add('hidden'); el.classList.remove('flex'); } }
 
-  // ===================== Wizard form =====================
-  const wizForm = document.getElementById('wizard-form') as HTMLFormElement;
-  const wizSaveBtn = document.getElementById('wiz-save') as HTMLButtonElement;
-  const wizTestBtn = document.getElementById('wiz-test') as HTMLButtonElement;
-  const wizMsg = document.getElementById('wiz-msg') as HTMLElement;
-  const wizKey = document.getElementById('wiz-api_key') as HTMLInputElement;
-  wizKey.addEventListener('focus', () => { if (wizKey.value.includes('•')) wizKey.value = ''; });
+  // ===================== Cloudflare AI Gateway =====================
+  const gatewayForm = document.getElementById('gateway-form') as HTMLFormElement;
+  const gatewaySaveBtn = document.getElementById('gateway-save') as HTMLButtonElement;
+  const gatewayMsg = document.getElementById('gateway-msg') as HTMLElement;
 
-  wizForm.addEventListener('submit', async (e) => {
+  gatewayForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    wizMsg.classList.add('hidden');
-    wizSaveBtn.disabled = true;
-    const body: Record<string, unknown> = {
-      is_active: true,
-      base_url: (document.getElementById('wiz-base_url') as HTMLInputElement).value,
-      model: (document.getElementById('wiz-model') as HTMLInputElement).value,
-      max_tokens: 4096,
+    gatewayMsg.classList.add('hidden');
+    gatewaySaveBtn.disabled = true;
+    const body = {
+      gateway_enabled: (document.getElementById('gateway-enabled') as HTMLInputElement).checked,
+      gateway_account_id: (document.getElementById('gateway-account-id') as HTMLInputElement).value,
+      gateway_id: (document.getElementById('gateway-id') as HTMLInputElement).value,
+      gateway_default_model: (document.getElementById('gateway-default-model') as HTMLInputElement).value,
+      max_tokens: Number((document.getElementById('gateway-max-tokens') as HTMLInputElement).value),
     };
-    const keyVal = wizKey.value.trim();
-    // Only send api_key if user typed something new (not just the masked dots)
-    if (keyVal && keyVal.replace(/[^\S ]/g, '').length > 0 && !/^[\s•]+$/.test(keyVal)) {
-      body.api_key = keyVal;
-    }
     const res = await fetch('/api/admin/ai-settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     const data = await res.json() as { error?: string };
-    wizSaveBtn.disabled = false;
-    if (res.ok) { wizMsg.textContent = '✅ Đã lưu'; wizMsg.className = 'text-sm text-emerald-400'; }
-    else { wizMsg.textContent = `❌ ${data.error || 'Lỗi'}`; wizMsg.className = 'text-sm text-rose-400'; }
-    wizMsg.classList.remove('hidden');
-  });
-
-  wizTestBtn.addEventListener('click', async () => {
-    wizTestBtn.disabled = true; wizTestBtn.textContent = '⏳...';
-    const baseUrl = (document.getElementById('wiz-base_url') as HTMLInputElement).value;
-    const apiKey = (document.getElementById('wiz-api_key') as HTMLInputElement).value;
-    const model = (document.getElementById('wiz-model') as HTMLInputElement).value;
-    try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/v1/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: 10, messages: [{ role: 'user', content: 'Hi' }] }),
-      });
-      wizMsg.textContent = res.ok ? '✅ Kết nối thành công' : `❌ Lỗi ${res.status}`;
-      wizMsg.className = `text-sm ${res.ok ? 'text-emerald-400' : 'text-rose-400'}`;
-    } catch { wizMsg.textContent = '❌ Không kết nối được'; wizMsg.className = 'text-sm text-rose-400'; }
-    wizMsg.classList.remove('hidden');
-    wizTestBtn.disabled = false; wizTestBtn.textContent = '▶ Test';
+    gatewaySaveBtn.disabled = false;
+    if (res.ok) { gatewayMsg.textContent = 'Đã lưu Cloudflare AI Gateway.'; gatewayMsg.className = 'text-sm text-emerald-400'; }
+    else { gatewayMsg.textContent = data.error || 'Không thể lưu Gateway.'; gatewayMsg.className = 'text-sm text-rose-400'; }
+    gatewayMsg.classList.remove('hidden');
   });
 
   // ===================== Public Chat model =====================
-  const chatProvider = document.getElementById('chat-provider') as HTMLSelectElement | null;
-  const chatModel = document.getElementById('chat-model') as HTMLSelectElement | null;
+  const chatModel = document.getElementById('gateway-chat-model') as HTMLInputElement | null;
   const chatSaveBtn = document.getElementById('chat-save') as HTMLButtonElement | null;
   const chatSaveMsg = document.getElementById('chat-save-msg') as HTMLElement | null;
   const activeChatStatus = document.getElementById('active-chat-status') as HTMLElement | null;
@@ -394,10 +343,8 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
   }
 
   function updateActiveChatStatus() {
-    if (!chatProvider || !chatModel || !activeChatStatus || !activeChatLabel) return;
-    const providerOption = chatProvider.selectedOptions[0];
-    const modelOption = chatModel.selectedOptions[0];
-    const hasSelection = Boolean(chatProvider.value && chatModel.value && providerOption && modelOption);
+    if (!chatModel || !activeChatStatus || !activeChatLabel) return;
+    const hasSelection = Boolean(chatModel.value.trim());
 
     activeChatStatus.className = hasSelection
       ? 'rounded-xl border px-4 py-3 text-sm border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
@@ -407,33 +354,19 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
     if (title) title.textContent = hasSelection ? 'AI đang hoạt động' : 'Chưa cấu hình AI chat';
     if (icon) icon.textContent = hasSelection ? 'check_circle' : 'info';
     activeChatLabel.textContent = hasSelection
-      ? `${providerOption.textContent?.trim()} / ${modelOption.textContent?.trim()}`
-      : 'Chọn provider và model rồi bấm Lưu Chat.';
+      ? chatModel.value.trim()
+      : 'Nhập Cloudflare model ID rồi bấm Lưu Chat.';
   }
-
-  function filterChatModels(showPendingMessage = false) {
-    if (!chatProvider || !chatModel) return;
-    const selectedProvider = chatProvider.value;
-    for (const option of Array.from(chatModel.options)) {
-      if (!option.value) continue;
-      option.hidden = option.dataset.providerId !== selectedProvider;
-    }
-    const current = chatModel.selectedOptions[0];
-    if (current?.dataset.providerId !== selectedProvider) chatModel.value = '';
-    if (showPendingMessage) setChatSaveMessage('Có thay đổi chưa lưu.', 'muted');
-  }
-  chatProvider?.addEventListener('change', () => filterChatModels(true));
   chatModel?.addEventListener('change', () => setChatSaveMessage('Có thay đổi chưa lưu.', 'muted'));
-  filterChatModels();
   document.getElementById('chat-model-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!chatProvider?.value || !chatModel?.value) { showToast('Chọn provider và model cho Chat Assistant.', 'error'); return; }
+    if (!chatModel?.value.trim()) { showToast('Nhập Cloudflare model ID cho Chat Assistant.', 'error'); return; }
     if (chatSaveBtn) chatSaveBtn.disabled = true;
     setChatSaveMessage('Đang lưu cấu hình Chat Assistant...', 'muted');
     try {
       const res = await fetch('/api/admin/ai-settings', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_provider_id: Number(chatProvider.value), chat_model_id: Number(chatModel.value) }),
+        body: JSON.stringify({ gateway_chat_model: chatModel.value }),
       });
       if (res.ok) {
         updateActiveChatStatus();
@@ -453,8 +386,7 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
   });
 
   // ===================== Website knowledge base =====================
-  const embeddingProvider = document.getElementById('embedding-provider') as HTMLSelectElement | null;
-  const embeddingModel = document.getElementById('embedding-model') as HTMLSelectElement | null;
+  const embeddingModel = document.getElementById('gateway-embedding-model') as HTMLInputElement | null;
   const embeddingSaveBtn = document.getElementById('embedding-save') as HTMLButtonElement | null;
   const embeddingSaveMsg = document.getElementById('embedding-save-msg') as HTMLElement | null;
   const embeddingActiveLabel = document.getElementById('embedding-active-label') as HTMLElement | null;
@@ -481,36 +413,21 @@ const activeEmbeddingModel = embeddingModels.find((model) => model.id === settin
     embeddingSaveMsg.className = `${color} md:col-span-3 text-sm`;
   }
 
-  function filterEmbeddingModels(showPendingMessage = false) {
-    if (!embeddingProvider || !embeddingModel) return;
-    const selectedProvider = embeddingProvider.value;
-    for (const option of Array.from(embeddingModel.options)) {
-      if (!option.value) continue;
-      option.hidden = option.dataset.providerId !== selectedProvider;
-    }
-    const current = embeddingModel.selectedOptions[0];
-    if (current?.dataset.providerId !== selectedProvider) embeddingModel.value = '';
-    if (showPendingMessage) setEmbeddingSaveMessage('Có thay đổi chưa lưu.', 'muted');
-  }
-  embeddingProvider?.addEventListener('change', () => filterEmbeddingModels(true));
   embeddingModel?.addEventListener('change', () => setEmbeddingSaveMessage('Có thay đổi chưa lưu.', 'muted'));
-  filterEmbeddingModels();
   document.getElementById('embedding-model-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!embeddingProvider?.value || !embeddingModel?.value) { showToast('Chọn provider và model embedding.', 'error'); return; }
+    if (!embeddingModel?.value.trim()) { showToast('Nhập Cloudflare embedding model ID.', 'error'); return; }
     if (embeddingSaveBtn) embeddingSaveBtn.disabled = true;
     setEmbeddingSaveMessage('Đang lưu model embedding...', 'muted');
     try {
       const response = await fetch('/api/admin/ai-settings', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embedding_provider_id: Number(embeddingProvider.value), embedding_model_id: Number(embeddingModel.value) }),
+        body: JSON.stringify({ gateway_embedding_model: embeddingModel.value }),
       });
       const data = await readJsonResponse<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error || 'Không thể lưu model embedding.');
-      const providerName = embeddingProvider.selectedOptions[0]?.textContent?.trim() || 'Provider';
-      const modelName = embeddingModel.selectedOptions[0]?.textContent?.trim() || 'Model embedding';
       if (embeddingActiveLabel) {
-        embeddingActiveLabel.textContent = `Đang dùng: ${providerName} / ${modelName}`;
+        embeddingActiveLabel.textContent = `Đang dùng: ${embeddingModel.value.trim()}`;
         embeddingActiveLabel.className = 'text-xs text-emerald-300';
       }
       setEmbeddingSaveMessage('Đã lưu model embedding.', 'success');

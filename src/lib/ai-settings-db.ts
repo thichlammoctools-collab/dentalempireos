@@ -12,6 +12,12 @@ export interface AiSettingsRow {
   chat_model_id: number | null;
   embedding_provider_id: number | null;
   embedding_model_id: number | null;
+  gateway_enabled: number;
+  gateway_account_id: string | null;
+  gateway_id: string;
+  gateway_default_model: string | null;
+  gateway_chat_model: string | null;
+  gateway_embedding_model: string | null;
   updated_at: string;
 }
 
@@ -26,6 +32,12 @@ const AI_SETTINGS_DEFAULTS: AiSettingsRow = {
   chat_model_id: null,
   embedding_provider_id: null,
   embedding_model_id: null,
+  gateway_enabled: 0,
+  gateway_account_id: null,
+  gateway_id: 'default',
+  gateway_default_model: null,
+  gateway_chat_model: null,
+  gateway_embedding_model: null,
   updated_at: '',
 };
 
@@ -53,6 +65,12 @@ export async function updateAiSettings(
     chat_model_id?: number | null;
     embedding_provider_id?: number | null;
     embedding_model_id?: number | null;
+    gateway_enabled?: number;
+    gateway_account_id?: string | null;
+    gateway_id?: string;
+    gateway_default_model?: string | null;
+    gateway_chat_model?: string | null;
+    gateway_embedding_model?: string | null;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -62,7 +80,9 @@ export async function updateAiSettings(
       .prepare(
         `UPDATE "ai_settings"
          SET "base_url" = ?, "api_key" = ?, "model" = ?, "max_tokens" = ?, "is_active" = ?,
-              "chat_provider_id" = ?, "chat_model_id" = ?, "embedding_provider_id" = ?, "embedding_model_id" = ?, "updated_at" = ?
+               "chat_provider_id" = ?, "chat_model_id" = ?, "embedding_provider_id" = ?, "embedding_model_id" = ?,
+               "gateway_enabled" = ?, "gateway_account_id" = ?, "gateway_id" = ?, "gateway_default_model" = ?,
+               "gateway_chat_model" = ?, "gateway_embedding_model" = ?, "updated_at" = ?
          WHERE "id" = 1`,
       )
       .bind(
@@ -75,6 +95,12 @@ export async function updateAiSettings(
         data.chat_model_id ?? current.chat_model_id,
         data.embedding_provider_id ?? current.embedding_provider_id,
         data.embedding_model_id ?? current.embedding_model_id,
+        data.gateway_enabled ?? current.gateway_enabled,
+        data.gateway_account_id ?? current.gateway_account_id,
+        data.gateway_id ?? current.gateway_id,
+        data.gateway_default_model ?? current.gateway_default_model,
+        data.gateway_chat_model ?? current.gateway_chat_model,
+        data.gateway_embedding_model ?? current.gateway_embedding_model,
         now,
       )
       .run();
@@ -86,5 +112,5 @@ export async function updateAiSettings(
 /** Check if AI analysis is enabled and configured */
 export async function isAiEnabled(db: D1Database): Promise<boolean> {
   const settings = await getAiSettings(db);
-  return settings.is_active === 1 && settings.api_key.length > 0;
+  return settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
 }

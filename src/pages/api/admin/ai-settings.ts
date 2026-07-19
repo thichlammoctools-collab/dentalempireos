@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import { getAiSettings, updateAiSettings } from '../../../lib/ai-settings-db';
-import { getProviderById, listModels } from '../../../lib/ai-provider-db';
+import { hasAiGatewayToken } from '../../../lib/ai-gateway';
 
 export const prerender = false;
 
@@ -14,16 +14,14 @@ export const GET: APIRoute = async ({ locals }) => {
 
   const settings = await getAiSettings(env.DB);
   return json({
-    base_url: settings.base_url,
-    api_key: settings.api_key ? maskKey(settings.api_key) : '',
-    api_key_set: settings.api_key.length > 0,
-    model: settings.model,
     max_tokens: settings.max_tokens,
-    is_active: settings.is_active === 1,
-    chat_provider_id: settings.chat_provider_id,
-    chat_model_id: settings.chat_model_id,
-    embedding_provider_id: settings.embedding_provider_id,
-    embedding_model_id: settings.embedding_model_id,
+    gateway_enabled: settings.gateway_enabled === 1,
+    gateway_account_id: settings.gateway_account_id ?? '',
+    gateway_id: settings.gateway_id,
+    gateway_default_model: settings.gateway_default_model ?? '',
+    gateway_chat_model: settings.gateway_chat_model ?? '',
+    gateway_embedding_model: settings.gateway_embedding_model ?? '',
+    gateway_token_set: hasAiGatewayToken(),
     updated_at: settings.updated_at,
   });
 };
@@ -38,51 +36,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const updates: Parameters<typeof updateAiSettings>[1] = {};
 
-  if (typeof body.base_url === 'string') {
-    updates.base_url = body.base_url.trim() || 'https://api.anthropic.com';
-  }
-  if (typeof body.model === 'string' && body.model.trim()) {
-    updates.model = body.model.trim();
-  }
   if (typeof body.max_tokens === 'number' && body.max_tokens > 0) {
     updates.max_tokens = Math.min(body.max_tokens, 8192);
   }
-  if (typeof body.is_active === 'boolean') {
-    updates.is_active = body.is_active ? 1 : 0;
+  if (typeof body.gateway_enabled === 'boolean') {
+    updates.gateway_enabled = body.gateway_enabled ? 1 : 0;
   }
-  if (typeof body.chat_provider_id === 'number' && typeof body.chat_model_id === 'number') {
-    const [provider, models] = await Promise.all([
-      getProviderById(env.DB, body.chat_provider_id),
-      listModels(env.DB, body.chat_provider_id),
-    ]);
-    const model = models.find((item) => item.id === body.chat_model_id);
-    if (!provider || !provider.is_active || !provider.api_key || !model || !model.is_active) {
-      return badRequest('Provider hoặc model Chat Assistant không hợp lệ.');
+  if (typeof body.gateway_account_id === 'string') {
+    const accountId = body.gateway_account_id.trim();
+    if (accountId && !/^[a-f0-9]{32}$/i.test(accountId)) {
+      return badRequest('Cloudflare Account ID phải gồm 32 ký tự hexadecimal.');
     }
-    updates.chat_provider_id = provider.id;
-    updates.chat_model_id = model.id;
+    updates.gateway_account_id = accountId || null;
   }
-  if (typeof body.embedding_provider_id === 'number' && typeof body.embedding_model_id === 'number') {
-    const [provider, models] = await Promise.all([
-      getProviderById(env.DB, body.embedding_provider_id),
-      listModels(env.DB, body.embedding_provider_id),
-    ]);
-    const model = models.find((item) => item.id === body.embedding_model_id);
-    const isEmbeddingModel = Boolean(model && `${model.name} ${model.model_id}`.toLowerCase().includes('embedding'));
-    if (!provider || !provider.is_active || !provider.api_key || !model || !model.is_active || !isEmbeddingModel) {
-      return badRequest('Provider hoặc model embedding không hợp lệ. Model phải có chữ "embedding" trong tên hoặc Model ID.');
+  if (typeof body.gateway_id === 'string') {
+    const gatewayId = body.gateway_id.trim();
+    if (!gatewayId || gatewayId.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(gatewayId)) {
+      return badRequest('Gateway ID chỉ gồm chữ, số, dấu gạch ngang và gạch dưới.');
     }
-    updates.embedding_provider_id = provider.id;
-    updates.embedding_model_id = model.id;
+    updates.gateway_id = gatewayId;
   }
-  // api_key — if '•••' sent (placeholder meaning "keep current"), don't update
-  // if empty string sent, clear it
-  // otherwise, set it
-  if (typeof body.api_key === 'string') {
-    if (body.api_key === '•••') {
-      // keep current
-    } else {
-      updates.api_key = body.api_key.trim();
+  for (const field of ['gateway_default_model', 'gateway_chat_model', 'gateway_embedding_model'] as const) {
+    if (typeof body[field] === 'string') {
+      const model = body[field].trim();
+      if (model && !/^(openai|anthropic|google|@cf)\//.test(model)) {
+        return badRequest(`Model ${field} phải dùng ID Cloudflare, ví dụ openai/gpt-4.1-mini hoặc @cf/...`);
+      }
+      updates[field] = model || null;
     }
   }
 
@@ -92,24 +72,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   return json({
     success: true,
     settings: {
-      base_url: updated.base_url,
-      api_key: updated.api_key ? maskKey(updated.api_key) : '',
-      api_key_set: updated.api_key.length > 0,
-      model: updated.model,
-      max_tokens: updated.max_tokens,
-      is_active: updated.is_active === 1,
-      chat_provider_id: updated.chat_provider_id,
-      chat_model_id: updated.chat_model_id,
-      embedding_provider_id: updated.embedding_provider_id,
-      embedding_model_id: updated.embedding_model_id,
+       max_tokens: updated.max_tokens,
+       gateway_enabled: updated.gateway_enabled === 1,
+       gateway_account_id: updated.gateway_account_id ?? '',
+       gateway_id: updated.gateway_id,
+       gateway_default_model: updated.gateway_default_model ?? '',
+       gateway_chat_model: updated.gateway_chat_model ?? '',
+       gateway_embedding_model: updated.gateway_embedding_model ?? '',
+       gateway_token_set: hasAiGatewayToken(),
       updated_at: updated.updated_at,
     },
   });
 };
 
-// ── helpers ───────────────────────────────────────────────
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return '•••';
-  return key.slice(0, 4) + '••••' + key.slice(-4);
-}

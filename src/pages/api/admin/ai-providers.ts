@@ -22,7 +22,10 @@ export const GET: APIRoute = async () => {
     if (!modelsByProvider.has(m.provider_id)) modelsByProvider.set(m.provider_id, []);
     modelsByProvider.get(m.provider_id)!.push(m);
   }
-  return json({ providers, models: modelsByProvider });
+  return json({
+    providers: providers.map(({ api_key: _apiKey, ...provider }) => provider),
+    models: modelsByProvider,
+  });
 };
 
 // POST — create/update provider
