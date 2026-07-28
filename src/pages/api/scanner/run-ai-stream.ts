@@ -66,7 +66,13 @@ export const POST: APIRoute = async (ctx) => {
 
   const aiConfig = await getScannerAiConfig(env.DB);
   if (!aiConfig) {
-    return new Response(JSON.stringify({ error: 'AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+    const isEnglish = response.lang === 'en';
+    console.error(`[run-ai-stream] AI Gateway is unavailable for response ${responseId}.`);
+    return new Response(JSON.stringify({
+      error: isEnglish
+        ? 'AI is not configured. Please contact an administrator.'
+        : 'AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+    }), { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
 
   const surveyAiConfig = parseAiConfig(full.definition.ai_config);

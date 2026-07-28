@@ -16,6 +16,8 @@ import {
 } from './scanner-response-db';
 import { getSurveyDefinitionFull } from './survey-config-db';
 import { getAiGatewayConfig } from './ai-gateway';
+import { getAiSettings } from './ai-settings-db';
+import { getActiveModelsWithProvider } from './ai-provider-db';
 import { chatCompletion, chatCompletionStream, withRetry } from './ai-client';
 import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
@@ -28,11 +30,50 @@ export interface ScannerAiConfig {
 
 /**
  * Resolve the active AI config for scanner AI.
- * All scanner calls use the central Cloudflare AI Gateway configuration.
+ * Prefer Cloudflare AI Gateway, while retaining configured providers and the
+ * legacy setting as operational fallbacks during Gateway migration.
  */
 export async function getScannerAiConfig(db: D1Database): Promise<ScannerAiConfig | null> {
-  const config = await getAiGatewayConfig(db);
-  return config ? { config, maxTokens: config.max_tokens ?? 4096 } : null;
+  const gatewayConfig = await getAiGatewayConfig(db);
+  if (gatewayConfig) {
+    return { config: gatewayConfig, maxTokens: gatewayConfig.max_tokens ?? 4096 };
+  }
+
+  try {
+    const modelsByProvider = await getActiveModelsWithProvider(db);
+    for (const [, { provider, models }] of modelsByProvider) {
+      const model = models[0];
+      if (model) {
+        return {
+          config: {
+            provider_id: String(provider.id),
+            base_url: provider.base_url,
+            api_key: provider.api_key,
+            model_id: model.model_id,
+            max_tokens: model.max_tokens ?? 4096,
+          },
+          maxTokens: model.max_tokens ?? 4096,
+        };
+      }
+    }
+  } catch (error) {
+    // Provider tables may not exist until their migrations have been applied.
+    console.warn('[scanner-ai] Unable to load configured AI providers:', error);
+  }
+
+  const settings = await getAiSettings(db);
+  if (!settings.is_active || !settings.api_key) return null;
+
+  return {
+    config: {
+      provider_id: 'legacy',
+      base_url: settings.base_url || 'https://api.anthropic.com',
+      api_key: settings.api_key,
+      model_id: settings.model || 'claude-sonnet-4-6',
+      max_tokens: settings.max_tokens,
+    },
+    maxTokens: settings.max_tokens,
+  };
 }
 
 // ─── Build prompt helpers ──────────────────────────────────────────────────────

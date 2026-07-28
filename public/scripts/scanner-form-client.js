@@ -195,8 +195,46 @@
     stepLabels.innerHTML = labels.join('');
   }
 
+  function validateSection(sectionIndex) {
+    var section = surveyData.sections[sectionIndex];
+    if (!section) return true;
+    var missing = [];
+    section.questions.forEach(function (q) {
+      if (!q.required) return;
+      var value = answers[q.question_id];
+      if (value === undefined || value === null || String(value).trim() === '') {
+        missing.push(t(q.label_vi, q.label_en));
+      }
+    });
+    if (!missing.length) return true;
+    alert(
+      currentLang === 'vi'
+        ? 'Vui lòng trả lời các câu hỏi bắt buộc trước khi tiếp tục:\n- ' + missing.join('\n- ')
+        : 'Please answer the required questions before continuing:\n- ' + missing.join('\n- '),
+    );
+    return false;
+  }
+
+  function validateSubmission() {
+    for (var i = 0; i < surveyData.sections.length; i++) {
+      if (!validateSection(i)) {
+        goTo(i);
+        return false;
+      }
+    }
+    var email = String(answers.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert(currentLang === 'vi' ? 'Vui lòng nhập email hợp lệ.' : 'Please enter a valid email address.');
+      goTo(-1);
+      return false;
+    }
+    return true;
+  }
+
   function goTo(step) {
     if (step < -1 || step > surveyData.sections.length) return;
+
+    if (currentStep >= 0 && step > currentStep && !validateSection(currentStep)) return;
 
     if (currentStep === -1 && step >= 0) {
       var lead = surveyData.lead_fields || {};
@@ -301,9 +339,6 @@
   function submit() {
     if (!submitError) return;
     submitError.classList.add('hidden');
-    if (btnSubmit) btnSubmit.disabled = true;
-    var original = btnSubmit ? btnSubmit.innerHTML : '';
-    if (btnSubmit) btnSubmit.innerHTML = '<span>' + getTrans('submitting', 'Đang xử lý...', 'Processing...') + '</span>';
 
     document.querySelectorAll('input, textarea').forEach(function (el) {
       var input = el;
@@ -312,6 +347,12 @@
       }
     });
     answers.lang = currentLang;
+
+    if (!validateSubmission()) return;
+
+    if (btnSubmit) btnSubmit.disabled = true;
+    var original = btnSubmit ? btnSubmit.innerHTML : '';
+    if (btnSubmit) btnSubmit.innerHTML = '<span>' + getTrans('submitting', 'Đang xử lý...', 'Processing...') + '</span>';
 
     var saveChecked = true;
     var saveCheckEl = document.getElementById('save-profile-check');
@@ -322,7 +363,14 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({}, answers, { save_profile: saveChecked })),
     })
-    .then(function (res) { return res.json(); })
+    .then(function (res) {
+      return res.json().catch(function () {
+        return { error: 'Máy chủ không trả về dữ liệu hợp lệ.' };
+      }).then(function (data) {
+        if (!res.ok) throw new Error(data.error || data.message || 'Submit failed');
+        return data;
+      });
+    })
     .then(function (data) {
       if (!data.id && data.requiresAuth) {
         window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
