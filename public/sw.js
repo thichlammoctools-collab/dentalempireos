@@ -1,7 +1,7 @@
 // Dental Empire OS — Service Worker
 // Strategy: cache-first cho static assets, network-first cho HTML.
 
-const VERSION = 'de-v2';
+const VERSION = 'de-v3';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -62,7 +62,10 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() =>
-          caches.match(req).then((cached) => cached || caches.match('/'))
+          caches.match(req).then((cached) => cached || new Response(
+            '<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Không thể tải trang</title><body style="font-family:system-ui,sans-serif;background:#101217;color:#f5f7fb;display:grid;place-items:center;min-height:100vh;margin:0"><main style="max-width:28rem;padding:2rem;text-align:center"><h1>Không thể tải trang</h1><p>Vui lòng kiểm tra kết nối mạng và thử lại.</p><button onclick="location.reload()" style="padding:.7rem 1rem;border:0;border-radius:.5rem;background:#92ccff;color:#101217;font-weight:700;cursor:pointer">Thử lại</button></main></body></html>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+          ))
         )
     );
     return;

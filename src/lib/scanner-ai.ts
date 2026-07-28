@@ -98,6 +98,13 @@ function buildMessages(
   };
 }
 
+function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
+  const format = lang === 'vi'
+    ? `\n\n# ĐỊNH DẠNG BẮT BUỘC ĐỂ CÓ THỂ IN VÀ GIAO VIỆC\nTrả lời bằng Markdown, không dùng lời mở đầu hoặc kết luận chung chung.\n- Dùng ## cho từng tuần/giai đoạn.\n- Mỗi hành động bắt đầu bằng ### Hành động N: [tên ngắn, hướng hành động].\n- Ngay dưới tiêu đề hành động, viết chính xác ba dòng có nhãn in đậm:\n  - **Việc cần làm:** các bước cụ thể, có thể giao ngay.\n  - **Mục tiêu:** lý do hoặc kết quả vận hành cần đạt.\n  - **Hoàn thành khi:** tiêu chí kiểm chứng được, có con số/thời hạn nếu phù hợp.\n- Khi hữu ích, thêm **Người phụ trách gợi ý:** và **Thời hạn:**.\n- Mỗi hành động là một khối độc lập, ngắn gọn, để có thể copy/paste hoặc in trực tiếp cho nhân sự.`
+    : `\n\n# REQUIRED PRINT-READY FORMAT\nReply in Markdown only. Do not add a generic introduction or conclusion.\n- Use ## for each week/phase.\n- Start every action with ### Action N: [short action-oriented title].\n- Directly below each action title, write exactly these bold labels:\n  - **What to do:** concrete, assignable steps.\n  - **Objective:** the operational outcome.\n  - **Done when:** a verifiable completion criterion, with a number/deadline where useful.\n- Add **Suggested owner:** and **Due date:** when useful.\n- Keep each action an independent, concise block that can be copied or printed for the team.`;
+  return `${prompt}${format}`;
+}
+
 // ─── Streaming exports ─────────────────────────────────────────────────────────
 
 export function buildAnalysisStream(
@@ -128,7 +135,10 @@ export function buildPlanStream(
   if (!promptTemplate) throw new Error('No plan prompt configured');
 
   const allQuestions = full.sections.flatMap((s) => s.questions);
-  const systemPrompt = buildPrompt(promptTemplate, response, scoringRules, allQuestions);
+  const systemPrompt = withOperationalPlanFormat(
+    buildPrompt(promptTemplate, response, scoringRules, allQuestions),
+    lang,
+  );
   const userContext = buildAiContext(response, allQuestions);
   const userMessage = JSON.stringify(userContext, null, 2);
 
@@ -171,7 +181,10 @@ async function doPlan(
   if (!promptTemplate) throw new Error('No plan prompt configured');
 
   const allQuestions = full.sections.flatMap((s) => s.questions);
-  const systemPrompt = buildPrompt(promptTemplate, response, scoringRules, allQuestions);
+  const systemPrompt = withOperationalPlanFormat(
+    buildPrompt(promptTemplate, response, scoringRules, allQuestions),
+    lang,
+  );
   const userContext = buildAiContext(response, allQuestions);
   const userMessage = JSON.stringify(userContext, null, 2);
 

@@ -385,7 +385,11 @@ try {
               {lang === 'vi' ? 'Xuất PDF' : 'Export PDF'}
             </button>
           </div>
-          <article class="prose-content" id="plan-content" set:html={planHtml}></article>
+          <div class="plan-document-meta">
+            <span class="material-symbols-outlined">assignment_turned_in</span>
+            <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
+          </div>
+          <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{response.ai_plan}</template>
         </>
       ) : (
@@ -701,6 +705,65 @@ try {
     border-top: 1px solid var(--outline-variant);
     margin: 2rem 0;
   }
+
+  .plan-document-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 0.625rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 0 0 1.5rem;
+    padding: 0.7rem 0.875rem;
+  }
+  .plan-document-meta .material-symbols-outlined { font-size: 1.125rem; flex: none; }
+  .plan-content :global(h2) {
+    align-items: center;
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.02));
+    border: 1px solid rgba(245, 158, 11, 0.24);
+    border-left: 4px solid #f59e0b;
+    border-radius: 0 0.625rem 0.625rem 0;
+    color: #f8fafc;
+    display: flex;
+    font-size: 1.1rem;
+    margin: 2rem 0 0.875rem;
+    min-height: 3rem;
+    padding: 0.55rem 0.875rem;
+  }
+  .plan-content :global(h2:first-child) { margin-top: 0; }
+  .plan-content :global(h3) {
+    border-bottom: 1px solid var(--outline-variant);
+    color: #fbbf24;
+    font-size: 0.95rem;
+    margin: 1.25rem 0 0;
+    padding: 0 0 0.5rem;
+  }
+  .plan-content :global(p:has(> strong:first-child)) {
+    background: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+    line-height: 1.7;
+    margin: 0 0 0.875rem;
+    padding: 1rem 1.125rem;
+  }
+  .plan-content :global(p:has(> strong:first-child) > strong:first-child) { color: #fbbf24; }
+  .plan-content :global(p:has(> strong:first-child) > strong ~ strong) { color: #4ade80; }
+  .plan-content :global(ul:has(> li > strong)) {
+    background: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.75rem;
+    list-style: none;
+    margin: 0 0 0.875rem;
+    padding: 0.75rem 1rem;
+  }
+  .plan-content :global(ul:has(> li > strong) li) { border-bottom: 1px solid var(--outline-variant); margin: 0; padding: 0.55rem 0; }
+  .plan-content :global(ul:has(> li > strong) li:last-child) { border-bottom: 0; }
+  .plan-content :global(ul:has(> li > strong) strong) { color: #fbbf24; }
 
   .paywall-overlay {
     display: flex;
@@ -1310,11 +1373,11 @@ try {
   .plan-content strong { color: #b45309; }
   .document-footer { border-top: 1px solid #e2e8f0; color: #64748b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
   @media print { .document-footer { position: running(footer); } }
-</style></head><body>
+</style></head><body onload="window.print()">
 <header class="brand-header">${logo}<div class="brand-copy">${clinic}${practitioner}</div></header>
 <main><h1 class="document-title">${escapeHtml(title)}</h1><p class="document-date">${escapeHtml(generatedOn)}</p><article class="plan-content">${plan.innerHTML}</article></main>
 <footer class="document-footer">Dental Empire OS</footer>
-<script>window.addEventListener('load', function () { window.print(); });</script></body></html>`);
+</body></html>`);
     printWindow.document.close();
   }
 
