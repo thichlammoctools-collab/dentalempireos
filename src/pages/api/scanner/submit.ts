@@ -147,14 +147,20 @@ export const POST: APIRoute = async (ctx) => {
     }).catch((err) => console.error('[submit] upsertClinicProfile failed:', err));
   }
 
-  // addToHistory is non-critical — don't fail submit if it errors
-  addToHistory(env.DB, {
-    user_id: session.user.id,
-    survey_id: surveyId,
-    response_id: id,
-    score_total: totalScore,
-    score_label: level.label_vi,
-  }).catch((err) => console.error('[submit] addToHistory failed:', err));
+  // The result page verifies ownership from scanner_history. Await this write so
+  // the redirect never reaches the result before the authorization row exists.
+  try {
+    await addToHistory(env.DB, {
+      user_id: session.user.id,
+      survey_id: surveyId,
+      response_id: id,
+      score_total: totalScore,
+      score_label: level.label_vi,
+    });
+  } catch (err) {
+    console.error('[submit] addToHistory failed:', err);
+    return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại.' }, 500);
+  }
 
   return json(
     {
