@@ -706,9 +706,6 @@ import { resourceCategories } from '../../../data/resources';
   });
   modalClose.addEventListener('click', closeModal);
   modalCancel.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
-  });
 
   // ── Form submit (create / update) ─────────────────────────
   form.addEventListener('submit', async (e) => {

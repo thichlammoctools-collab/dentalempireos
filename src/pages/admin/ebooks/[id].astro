@@ -324,7 +324,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Modal state ──────────────────────────────────────
     const modal = document.getElementById('section-modal')!;
-    const modalBackdrop = document.getElementById('modal-backdrop')!;
     const modalTitle = document.getElementById('modal-section-title')!;
     const modalBody = document.getElementById('modal-blocks-body')!;
     const modalSaveStatus = document.getElementById('modal-save-status')!;
@@ -682,7 +681,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Bulk add sections modal ──────────────────────────
     const bulkAddModal = document.getElementById('bulk-add-modal')!;
-    const bulkAddBackdrop = document.getElementById('bulk-add-backdrop')!;
     const bulkAddTextarea = document.getElementById('bulk-add-textarea') as HTMLTextAreaElement;
     const bulkAddCount = document.getElementById('bulk-add-count')!;
     const bulkAddSubmit = document.getElementById('bulk-add-submit') as HTMLButtonElement;
@@ -704,7 +702,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     document.getElementById('btn-bulk-add')?.addEventListener('click', openBulkAddModal);
     bulkAddClose.addEventListener('click', closeBulkAddModal);
-    bulkAddBackdrop.addEventListener('click', closeBulkAddModal);
 
     bulkAddTextarea.addEventListener('input', () => {
       const lines = bulkAddTextarea.value.split('\n').filter((l: string) => l.trim()).length;
@@ -1103,7 +1100,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     } catch { moveTreeData = []; }
 
     const movePopup = document.getElementById('move-block-popup') as HTMLElement | null;
-    const moveBackdrop = document.getElementById('move-block-backdrop');
     const moveSearch = document.getElementById('move-block-search') as HTMLInputElement | null;
     const moveTreeEl = document.getElementById('move-block-tree');
     const moveBreadcrumb = document.getElementById('move-block-breadcrumb');
@@ -1395,8 +1391,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       });
     }
 
-    // Cancel + backdrop + ESC
-    moveBackdrop?.addEventListener('click', closeMovePopup);
+    // Cancel + close button + ESC
     moveCancelBtn?.addEventListener('click', closeMovePopup);
     document.getElementById('move-block-close')?.addEventListener('click', closeMovePopup);
     moveConfirmBtn?.addEventListener('click', executeMove);
@@ -1444,7 +1439,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
 
     // ── Modal close handlers ──────────────────────────────
     modalCloseBtn.addEventListener('click', closeModal);
-    modalBackdrop.addEventListener('click', closeModal);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
         closeModal();

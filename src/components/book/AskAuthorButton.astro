@@ -105,7 +105,6 @@ const { chapterId, chapterTitle } = Astro.props;
   // ── Modal open/close ──
   const btn = document.getElementById('ask-author-btn');
   const modal = document.getElementById('ask-author-modal');
-  const backdrop = document.getElementById('ask-author-backdrop');
   const closeBtn = document.getElementById('ask-author-close');
   const form = document.getElementById('ask-author-form');
   const submitBtn = document.getElementById('ask-author-submit');
@@ -138,7 +137,6 @@ const { chapterId, chapterTitle } = Astro.props;
   btn?.addEventListener('click', openModal);
   document.getElementById('toolbar-ask-btn')?.addEventListener('click', openModal);
   closeBtn?.addEventListener('click', closeModal);
-  backdrop?.addEventListener('click', closeModal);
 
   // ESC to close
   document.addEventListener('keydown', (e) => {

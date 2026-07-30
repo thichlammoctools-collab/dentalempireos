@@ -106,14 +106,13 @@ const utmParams = `utm_source=blog&utm_medium=popup&utm_campaign=ebook${postSlug
   (function () {
     const STORAGE_KEY = 'popup_seen' + (typeof window !== 'undefined' && window.location.pathname ? window.location.pathname.replace(/\//g, '_') : '');
 
-    const backdrop = document.getElementById(popupId + '-backdrop');
     const closeBtn = document.getElementById(popupId + '-close');
     const popup = document.getElementById(popupId);
     const card = document.getElementById(popupId + '-card');
     const form = document.getElementById(popupId + '-form');
     const successEl = document.getElementById(popupId + '-success');
 
-    if (!popup || !form || !closeBtn || !backdrop) return;
+    if (!popup || !form || !closeBtn) return;
 
     function showPopup() {
       popup.classList.remove('hidden');
@@ -129,9 +128,6 @@ const utmParams = `utm_source=blog&utm_medium=popup&utm_campaign=ebook${postSlug
       popup.classList.add('hidden');
       document.body.style.overflow = '';
     }
-
-    // Close on backdrop click
-    backdrop.addEventListener('click', hidePopup);
 
     // Close on button
     closeBtn.addEventListener('click', hidePopup);

@@ -282,7 +282,6 @@ function closeQuestionModal() {
 
 document.getElementById('question-modal-close')?.addEventListener('click', closeQuestionModal);
 document.getElementById('question-modal-cancel')?.addEventListener('click', closeQuestionModal);
-qBackdrop?.addEventListener('click', closeQuestionModal);
 
 document.querySelectorAll('.btn-add-question').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -467,7 +466,6 @@ function closeSectionModal() {
 document.getElementById('btn-add-section')?.addEventListener('click', function() { openSectionModal(); });
 document.getElementById('section-modal-close')?.addEventListener('click', closeSectionModal);
 document.getElementById('section-modal-cancel')?.addEventListener('click', closeSectionModal);
-sectionBackdrop?.addEventListener('click', closeSectionModal);
 
 document.querySelectorAll('.btn-edit-section').forEach(function(btn) {
   btn.addEventListener('click', function() {

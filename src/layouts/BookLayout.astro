@@ -1429,7 +1429,6 @@ function toggleToc() {
 
       // ── Preview modal ──
       const previewModal = document.getElementById('file-preview-modal');
-      const previewBackdrop = document.getElementById('preview-backdrop');
       const previewBody = document.getElementById('preview-body');
       const previewFilename = document.getElementById('preview-filename');
       const previewCloseBtn = document.getElementById('preview-close');
@@ -1480,7 +1479,6 @@ function toggleToc() {
       }
 
       previewCloseBtn?.addEventListener('click', closePreview);
-      previewBackdrop?.addEventListener('click', closePreview);
       previewOpenExt?.addEventListener('click', () => {
         if (previewUrl) window.open(previewUrl, '_blank', 'noopener');
       });

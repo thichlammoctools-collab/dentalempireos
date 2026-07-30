@@ -230,7 +230,6 @@ const newId = nanoid();
 
   <script define:vars={{ typeLabels }}>
     const modal = document.getElementById('new-product-modal');
-    const backdrop = document.getElementById('modal-backdrop');
     const closeBtn = document.getElementById('modal-close');
     const newBtn = document.getElementById('btn-new-product');
     const form = document.getElementById('product-form');
@@ -305,7 +304,6 @@ const newId = nanoid();
     }
 
     newBtn?.addEventListener('click', openModal);
-    backdrop?.addEventListener('click', closeModal);
     closeBtn?.addEventListener('click', closeModal);
 
     // Edit buttons
