@@ -75,6 +75,11 @@ try {
   // Gracefully degrade if product table doesn't have book_unlock type yet
 }
 
+// The reader response varies by the viewer's entitlement. Never let an unlocked
+// render be reused for a visitor who has not purchased the book.
+Astro.response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+Astro.response.headers.set('Vary', 'Cookie');
+
 const groupedByTier = [1, 2, 3].map((tier) => ({
   tier,
   label: getTierLabel(tier),
@@ -122,6 +127,10 @@ interface AttachmentItem {
   sectionSlug: string; sectionTitle: string; ext?: string; previewable: boolean;
 }
 
+interface PreviewState {
+  exhausted: boolean;
+}
+
 function getFileMeta(mime: string | null): { icon: string; badge: string; iconBg: string; badgeClass: string; isPreviewable: boolean; mimeLabel: string } {
   if (!mime) return { icon: 'description', badge: 'FILE', iconBg: 'bg-secondary/15 text-secondary', badgeClass: 'bg-secondary/15 text-secondary', isPreviewable: false, mimeLabel: 'File' };
   if (mime.includes('pdf')) return { icon: 'picture_as_pdf', badge: 'PDF', iconBg: 'bg-error/15 text-error', badgeClass: 'bg-error/15 text-error', isPreviewable: true, mimeLabel: 'PDF Document' };
@@ -159,8 +168,11 @@ function renderSection(
   attachments: AttachmentItem[],
   sectionNumber = '',
   hasChapterAccess = true,
+  previewState?: PreviewState,
 ): string {
   const accessible = hasChapterAccess || s.is_free === 1;
+  if (previewState?.exhausted) return '';
+
   const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
   let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
@@ -179,6 +191,7 @@ function renderSection(
       }
       // Marks the end of the server-rendered preview without duplicating an element ID.
       html += `<div class="paywall-marker" data-paywall="true"></div>`;
+      if (previewState) previewState.exhausted = true;
       break; // Stop rendering more blocks
     }
     if (block.type === 'text' && block.text_md) {
@@ -256,7 +269,7 @@ function renderSection(
 
   for (let ci = 0; ci < s.children.length; ci++) {
     const childNum = sectionNumber ? `${sectionNumber}.${ci + 1}` : `${ci + 1}`;
-    html += renderSection(s.children[ci], attachments, childNum, hasChapterAccess);
+    html += renderSection(s.children[ci], attachments, childNum, hasChapterAccess, previewState);
   }
 
   return html;
@@ -274,8 +287,9 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
   attachments = cached.attachments;
 } else {
   const localAttachments: AttachmentItem[] = [];
+  const previewState = userHasAccess ? undefined : { exhausted: false };
   const sectionsHtml = sections
-    .map((s, i) => renderSection(s, localAttachments, `${i + 1}`, userHasAccess))
+    .map((s, i) => renderSection(s, localAttachments, `${i + 1}`, userHasAccess && !!bookProduct, previewState))
     .join('');
   strippedContent = sectionsHtml;
   attachments = localAttachments;
@@ -285,8 +299,9 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 // Trigger stale revalidation in background (non-blocking)
 if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
+  const previewState = userHasAccess ? undefined : { exhausted: false };
   const freshSectionsHtml = sections
-    .map((s, i) => renderSection(s, staleAttachments, `${i + 1}`, userHasAccess))
+    .map((s, i) => renderSection(s, staleAttachments, `${i + 1}`, userHasAccess && !!bookProduct, previewState))
     .join('');
   const freshHtml = freshSectionsHtml;
   _chapterCache.set(readerCacheKey, { html: freshHtml, attachments: staleAttachments, sectionNavItems: [], ts: Date.now(), ch });
