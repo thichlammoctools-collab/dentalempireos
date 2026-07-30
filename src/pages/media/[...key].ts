@@ -70,14 +70,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   const headers = new Headers();
-  headers.set('Cache-Control', 'private, no-store');
-
   const ct = object.httpMetadata?.contentType ?? 'application/octet-stream';
   headers.set('Content-Type', ct);
 
   const filename = key.split('/').pop() || 'download';
-  const cd = object.httpMetadata?.contentDisposition;
-  headers.set('Content-Disposition', cd || `attachment; filename="${filename}"`);
+  if (ct.startsWith('image/')) {
+    // Images must remain inline so book figures can render in the reader.
+    headers.set('Cache-Control', 'private, max-age=3600');
+    headers.set('Content-Disposition', 'inline');
+  } else {
+    headers.set('Cache-Control', 'private, no-store');
+    headers.set('Content-Disposition', object.httpMetadata?.contentDisposition || `attachment; filename="${filename}"`);
+  }
 
   return new Response(object.body, { status: 200, headers });
 };

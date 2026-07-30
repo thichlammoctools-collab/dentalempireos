@@ -1586,34 +1586,38 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         toggleFreeBtn.classList.toggle('hover:text-amber-300', newIsFree !== 1);
         toggleFreeBtn.title = newIsFree === 1 ? 'Miễn phí — Click để chuyển trả phí' : 'Trả phí — Click để chuyển miễn phí';
 
-        // Save to server
+        // Save only the access flag. Sending the complete section risks
+        // overwriting editor data when the client-side tree is stale.
+        toggleFreeBtn.setAttribute('aria-busy', 'true');
+        toggleFreeBtn.disabled = true;
         const section = currentTree ? findSection(currentTree.sections, sectionId) : null;
-        fetch(`/api/admin/sections/${sectionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            chapter_id: chapterId,
-            parent_id: section?.parent_id ?? null,
-            level: section?.level ?? 2,
-            title: section?.title ?? '',
-            slug: section?.slug ?? '',
-            order: section?.order ?? 0,
-            keywords: section?.keywords ?? '[]',
-            is_free: newIsFree,
-          }),
-        }).then(res => {
-          if (!res.ok) {
-            // Revert on error
+        void (async () => {
+          try {
+            const res = await fetch(`/api/admin/sections/${sectionId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ is_free: newIsFree }),
+            });
+            if (!res.ok) {
+              const data = await res.json().catch(() => null) as { error?: string } | null;
+              throw new Error(data?.error ?? 'Không thể lưu trạng thái truy cập');
+            }
+            if (section) section.is_free = newIsFree;
+          } catch (err) {
+            // Revert the optimistic state when the database update failed.
             sectionItem.dataset.sectionIsFree = String(currentIsFree);
             if (icon) icon.textContent = currentIsFree === 1 ? 'lock_open' : 'lock';
             toggleFreeBtn.classList.toggle('text-emerald-400', currentIsFree === 1);
             toggleFreeBtn.classList.toggle('hover:text-emerald-300', currentIsFree === 1);
             toggleFreeBtn.classList.toggle('text-amber-400', currentIsFree !== 1);
             toggleFreeBtn.classList.toggle('hover:text-amber-300', currentIsFree !== 1);
+            alert(err instanceof Error ? err.message : 'Không thể lưu trạng thái truy cập');
+          } finally {
+            toggleFreeBtn.removeAttribute('aria-busy');
+            toggleFreeBtn.disabled = false;
           }
-          if (section) section.is_free = newIsFree;
-        });
+        })();
         return;
       }
 
