@@ -538,6 +538,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       li.dataset.sectionDepth = String(depth);
       li.dataset.sectionParentId = s.parent_id ?? '';
       li.dataset.sectionKeywords = s.keywords ?? '[]';
+      li.dataset.sectionIsFree = String(s.is_free ?? 0);
       li.className = 'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border bg-surface-container-low border-outline-variant/30 hover:border-outline-variant hover:bg-surface-container transition-all duration-200';
       const isLevel3 = s.level === 3;
       const iconClass = isLevel3 ? 'text-on-surface-variant' : 'text-primary';
@@ -560,6 +561,8 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         ? `<button data-section-toggle class="section-toggle-btn p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" title="Thu gọn / Mở rộng"><span class="material-symbols-outlined text-[14px] section-toggle-icon text-on-surface-variant">expand_more</span></button>`
         : `<span class="material-symbols-outlined text-[16px] ${iconClass}">${icon}</span>`;
       const countBadge = hasChildren ? `<span data-section-count class="text-[10px] text-on-surface-variant/40 tabular-nums select-none">${s.children.length} mục</span>` : '';
+      const isFree = (s.is_free ?? 0) === 1;
+      const freeToggleBtn = `<button data-section-toggle-free class="p-1 rounded transition-colors ${isFree ? 'text-emerald-400 hover:text-emerald-300' : 'text-amber-400 hover:text-amber-300'}" title="${isFree ? 'Miễn phí — Click để chuyển trả phí' : 'Trả phí — Click để chuyển miễn phí'}"><span class="material-symbols-outlined text-[14px]">${isFree ? 'lock_open' : 'lock'}</span></button>`;
       li.innerHTML = `
         <div class="flex items-center gap-2">
           <span class="section-drag-handle group cursor-grab active:cursor-grabbing text-on-surface-variant/50 hover:text-primary shrink-0 flex items-center justify-center w-7 h-8 rounded-md hover:bg-primary/10 transition-all duration-200" title="Kéo để sắp xếp" draggable="true">
@@ -581,6 +584,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           <button data-section-keywords class="p-1 rounded ${kwArr.length > 0 ? 'text-primary hover:text-primary/80' : 'text-on-surface-variant hover:text-primary'} transition-colors" title="${kwArr.length > 0 ? 'Keywords: ' + kwArr.join(', ') : 'Thêm keywords'}">
             <span class="material-symbols-outlined text-[14px]">sell</span>
           </button>
+          ${freeToggleBtn}
         </div>
         ${kwChips}
         ${childUlHtml}
@@ -1558,6 +1562,58 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             if (icon) icon.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
           }
         }
+        return;
+      }
+
+      // Toggle free/premium
+      const toggleFreeBtn = target.closest<HTMLElement>('[data-section-toggle-free]');
+      if (toggleFreeBtn) {
+        const sectionItem = toggleFreeBtn.closest<HTMLElement>('[data-section-item]');
+        if (!sectionItem) return;
+        const sectionId = sectionItem.dataset.sectionId!;
+        const currentIsFree = parseInt(sectionItem.dataset.sectionIsFree ?? '0', 10);
+        const newIsFree = currentIsFree === 1 ? 0 : 1;
+
+        // Optimistic UI update
+        sectionItem.dataset.sectionIsFree = String(newIsFree);
+        const icon = toggleFreeBtn.querySelector<HTMLElement>('.material-symbols-outlined');
+        if (icon) {
+          icon.textContent = newIsFree === 1 ? 'lock_open' : 'lock';
+        }
+        toggleFreeBtn.classList.toggle('text-emerald-400', newIsFree === 1);
+        toggleFreeBtn.classList.toggle('hover:text-emerald-300', newIsFree === 1);
+        toggleFreeBtn.classList.toggle('text-amber-400', newIsFree !== 1);
+        toggleFreeBtn.classList.toggle('hover:text-amber-300', newIsFree !== 1);
+        toggleFreeBtn.title = newIsFree === 1 ? 'Miễn phí — Click để chuyển trả phí' : 'Trả phí — Click để chuyển miễn phí';
+
+        // Save to server
+        const section = currentTree ? findSection(currentTree.sections, sectionId) : null;
+        fetch(`/api/admin/sections/${sectionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            chapter_id: chapterId,
+            parent_id: section?.parent_id ?? null,
+            level: section?.level ?? 2,
+            title: section?.title ?? '',
+            slug: section?.slug ?? '',
+            order: section?.order ?? 0,
+            keywords: section?.keywords ?? '[]',
+            is_free: newIsFree,
+          }),
+        }).then(res => {
+          if (!res.ok) {
+            // Revert on error
+            sectionItem.dataset.sectionIsFree = String(currentIsFree);
+            if (icon) icon.textContent = currentIsFree === 1 ? 'lock_open' : 'lock';
+            toggleFreeBtn.classList.toggle('text-emerald-400', currentIsFree === 1);
+            toggleFreeBtn.classList.toggle('hover:text-emerald-300', currentIsFree === 1);
+            toggleFreeBtn.classList.toggle('text-amber-400', currentIsFree !== 1);
+            toggleFreeBtn.classList.toggle('hover:text-amber-300', currentIsFree !== 1);
+          }
+          if (section) section.is_free = newIsFree;
+        });
         return;
       }
 

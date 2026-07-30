@@ -239,6 +239,7 @@ function stripMarkdown(s: string): string {
 export async function generateScannerPdf(
   db: D1Database,
   response: ScannerResponseRow,
+  identity?: { logo?: Uint8Array; logoType?: 'image/png' | 'image/jpeg'; phone?: string | null },
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
 
@@ -281,6 +282,23 @@ export async function generateScannerPdf(
     font: fontBold, color: AMBER,
   });
 
+  if (identity?.logo) {
+    try {
+      const logo = identity.logoType === 'image/png'
+        ? await doc.embedPng(identity.logo)
+        : await doc.embedJpg(identity.logo);
+      const scale = Math.min(90 / logo.width, 54 / logo.height, 1);
+      cover.drawImage(logo, {
+        x: PAGE_WIDTH - 50 - logo.width * scale,
+        y: PAGE_HEIGHT - 102,
+        width: logo.width * scale,
+        height: logo.height * scale,
+      });
+    } catch {
+      // A logo must never prevent a report from being generated.
+    }
+  }
+
   cover.drawText(lang === 'vi' ? definitionRow.title_vi : (definitionRow.title_en || definitionRow.title_vi), {
     x: 50, y: PAGE_HEIGHT - 130, size: 28,
     font: fontBold, color: rgb(1, 1, 1),
@@ -314,6 +332,11 @@ export async function generateScannerPdf(
   if (response.staff_count !== null) {
     cover.drawText(t.staff, { x: 50, y: infoY, size: 10, font, color: MUTED });
     cover.drawText(String(response.staff_count), { x: 200, y: infoY, size: 11, font, color: TEXT });
+    infoY -= 22;
+  }
+  if (identity?.phone) {
+    cover.drawText(lang === 'vi' ? 'Điện thoại' : 'Phone', { x: 50, y: infoY, size: 10, font, color: MUTED });
+    cover.drawText(identity.phone, { x: 200, y: infoY, size: 11, font, color: TEXT });
     infoY -= 22;
   }
 

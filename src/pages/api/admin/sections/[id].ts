@@ -30,7 +30,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const body = await request.json().catch(() => null);
   if (!body) return badRequest('Invalid JSON body');
 
-  const { chapter_id, parent_id, level, title, slug, order, sibling_ids, keywords } = body as {
+  const { chapter_id, parent_id, level, title, slug, order, sibling_ids, keywords, is_free } = body as {
     chapter_id?: string;
     parent_id?: string | null;
     level?: number;
@@ -39,6 +39,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     order?: number;
     sibling_ids?: string[];
     keywords?: string;
+    is_free?: number;
   };
 
   if (!chapter_id) return badRequest('chapter_id is required');
@@ -52,6 +53,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     slug: slug || slugify(title ?? ''),
     order: order ?? 0,
     keywords: keywords ?? '[]',
+    is_free: is_free ?? 0,
   });
 
   // Optional: batch-reorder siblings in the same call (for atomic reparent + reorder)

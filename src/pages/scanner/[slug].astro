@@ -44,6 +44,7 @@ try {
 const surveyData = {
   id: definition.id,
   slug: definition.slug,
+  is_free: definition.is_free,
   title_vi: definition.title_vi,
   title_en: definition.title_en || definition.title_vi,
   description_vi: definition.description_vi || '',
@@ -109,7 +110,8 @@ const defaultScaleEn: Record<string, string> = {
         data-survey-id={surveyData.id}
         data-survey-slug={surveyData.slug}
         data-survey={JSON.stringify(surveyData)}
-        data-clinic={clinicProfile ? JSON.stringify(clinicProfile) : ''}
+        data-clinic={definition.is_free === 0 && clinicProfile ? JSON.stringify(clinicProfile) : ''}
+        data-is-free={definition.is_free}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
       >
@@ -257,6 +259,23 @@ const defaultScaleEn: Record<string, string> = {
     line-height: 1.6;
   }
   .intro-info { margin: 1.25rem 0 0.75rem; }
+  .premium-profile-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    color: var(--on-surface-variant);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    border-radius: 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+  .premium-profile-summary .material-symbols-outlined { color: #60a5fa; font-size: 1.2rem; }
+  .premium-profile-summary div { flex: 1; }
+  .premium-profile-summary strong { color: var(--on-surface); }
+  .premium-profile-summary p { margin: 0.15rem 0 0; }
+  .premium-profile-summary a { color: #93c5fd; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .intro-info-title {
     font-size: 0.75rem;
     font-weight: 600;

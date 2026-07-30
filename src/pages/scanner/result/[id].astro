@@ -17,6 +17,7 @@ import { getScoreLevel } from '../../../lib/scoring-engine';
 import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
+import { getClinicProfile } from '../../../lib/clinic-profile-db';
 
 export const prerender = false;
 
@@ -169,6 +170,10 @@ const priceFormatted = linkedProduct
   : linkedProduct === null && definition.is_free === 1 ? '0' : '199.000';
 
 const surveyTitle = lang === 'vi' ? definition.title_vi : (definition.title_en || definition.title_vi);
+const clinicProfile = await getClinicProfile(env.DB, currentUser.id);
+const reportDate = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+}).format(new Date(response.created_at));
 
 // AI analysis sections from ai_config (optional, used for header)
 const analysisSections = aiConfig.analysis_sections ?? [];
@@ -203,20 +208,26 @@ try {
 >
   <section class="result-wrap" data-response-id={id} data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
     <!-- Header -->
-    <div class="result-header">
-      <div>
-        <p class="text-xs uppercase tracking-wider text-amber-500 font-bold mb-1">
-          {surveyTitle}
-        </p>
-        <h1 class="result-title">
-          {response.clinic_name ?? (lang === 'vi' ? 'Phòng khám' : 'Clinic')}
-        </h1>
-        <p class="text-sm text-on-surface-variant mt-1">
-          {response.owner_name ? `${response.owner_name} · ` : ''}
-          {new Date(response.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-        </p>
+    <header class="report-hero">
+      <div class="report-identity">
+        <div class="clinic-mark" aria-hidden="true">
+          {clinicProfile?.logo_url ? (
+            <img src={clinicProfile.logo_url} alt="" />
+          ) : (
+            <span class="material-symbols-outlined">local_hospital</span>
+          )}
+        </div>
+        <div class="report-identity-copy">
+          <p class="report-kicker">{surveyTitle}</p>
+          <h1 class="result-title">{response.clinic_name ?? (lang === 'vi' ? 'Phòng khám' : 'Clinic')}</h1>
+          <div class="report-meta">
+            {response.owner_name && <span><span class="material-symbols-outlined">person</span>{response.owner_name}</span>}
+            {response.clinic_address && <span><span class="material-symbols-outlined">location_on</span>{response.clinic_address}</span>}
+            <span><span class="material-symbols-outlined">calendar_today</span>{reportDate}</span>
+          </div>
+        </div>
       </div>
-      <div class="flex gap-2 flex-wrap">
+      <div class="report-actions">
         {hasPlan && hasAnalysis && (
           <a href={`/api/scanner/${id}/pdf`} class="btn btn-primary">
             <span class="material-symbols-outlined text-base">picture_as_pdf</span>
@@ -231,10 +242,17 @@ try {
           {lang === 'vi' ? 'Làm khảo sát mới' : 'New survey'}
         </a>
       </div>
-    </div>
+    </header>
 
     <!-- Score Overview Card — ALWAYS FREE -->
     <div class="card score-card">
+      <div class="report-context">
+        <span class="material-symbols-outlined">verified</span>
+        <span>{definition.is_free === 1
+          ? (lang === 'vi' ? 'Thông tin do bạn cung cấp trong lượt khảo sát này.' : 'Details supplied for this survey response.')
+          : (lang === 'vi' ? 'Thông tin được đồng bộ từ Hồ sơ phòng khám.' : 'Details synchronized from your clinic profile.')}</span>
+        {definition.is_free === 0 && <a href="/account/clinic">{lang === 'vi' ? 'Cập nhật hồ sơ' : 'Update profile'}</a>}
+      </div>
       <div class="score-header">
         <div>
           <p class="text-xs uppercase tracking-wider text-on-surface-variant font-bold">
@@ -546,20 +564,46 @@ try {
     margin: 0 auto;
     padding: 2rem 1rem 5rem;
   }
-  .result-header {
+  .report-hero {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.55));
+    border: 1px solid var(--outline-variant);
+    border-radius: 1rem;
     flex-wrap: wrap;
   }
+  .report-identity { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+  .clinic-mark {
+    display: grid;
+    place-items: center;
+    width: 3.75rem;
+    height: 3.75rem;
+    flex: none;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 0.875rem;
+    overflow: hidden;
+  }
+  .clinic-mark .material-symbols-outlined { font-size: 1.75rem; }
+  .clinic-mark img { width: 100%; height: 100%; object-fit: contain; background: white; }
+  .report-identity-copy { min-width: 0; }
+  .report-kicker { color: #fbbf24; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; margin: 0 0 0.35rem; text-transform: uppercase; }
   .result-title {
-    font-size: 1.875rem;
-    font-weight: 700;
+    font-size: clamp(1.45rem, 3vw, 2rem);
+    font-weight: 800;
+    line-height: 1.15;
     margin: 0;
     color: var(--on-surface);
   }
+  .report-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.65rem; color: var(--on-surface-variant); font-size: 0.8rem; }
+  .report-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .report-meta .material-symbols-outlined { font-size: 0.95rem; color: #94a3b8; }
+  .report-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
   .card {
     background: var(--surface);
@@ -577,6 +621,22 @@ try {
     margin-bottom: 2rem;
     flex-wrap: wrap;
   }
+  .report-context {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: -0.25rem 0 1.5rem;
+    padding: 0.65rem 0.75rem;
+    color: var(--on-surface-variant);
+    background: rgba(59, 130, 246, 0.07);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: 0.625rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .report-context .material-symbols-outlined { color: #60a5fa; font-size: 1.05rem; }
+  .report-context a { margin-left: auto; color: #93c5fd; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .report-context a:hover { color: #dbeafe; }
   .score-total {
     display: flex;
     align-items: baseline;
@@ -997,6 +1057,12 @@ try {
 
   @media (max-width: 640px) {
     .result-wrap { padding: 1rem 0.5rem 3rem; }
+    .report-hero { align-items: stretch; padding: 1.15rem; margin-bottom: 1.25rem; }
+    .report-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .report-actions .btn { justify-content: center; padding-inline: 0.75rem; }
+    .report-actions .btn:last-child { grid-column: span 2; }
+    .report-context { align-items: flex-start; flex-wrap: wrap; }
+    .report-context a { width: 100%; margin-left: 1.55rem; }
     .card { padding: 1.25rem; }
     .score-num { font-size: 2.75rem; }
     .paywall-overlay { padding: 1.5rem 0.5rem; }

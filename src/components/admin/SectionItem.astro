@@ -40,6 +40,7 @@ if (section.keywords) {
   data-section-parent-id={section.parent_id ?? ''}
   data-section-keywords={section.keywords ?? '[]'}
   data-section-number={number}
+  data-section-is-free={section.is_free ?? 0}
   class:list={[
     'section-nestable relative flex flex-col gap-1 p-2.5 rounded-lg border transition-all duration-200',
     isSelected
@@ -91,6 +92,14 @@ if (section.keywords) {
         : 'text-on-surface-variant hover:text-primary'
     ]} title={keywordList.length > 0 ? `Keywords: ${keywordList.join(', ')}` : 'Thêm keywords'}>
       <span class="material-symbols-outlined text-[14px]">sell</span>
+    </button>
+    <button data-section-toggle-free class:list={[
+      'p-1 rounded transition-colors',
+      (section.is_free ?? 0) === 1
+        ? 'text-emerald-400 hover:text-emerald-300'
+        : 'text-amber-400 hover:text-amber-300'
+    ]} title={(section.is_free ?? 0) === 1 ? 'Miễn phí — Click để chuyển trả phí' : 'Trả phí — Click để chuyển miễn phí'}>
+      <span class="material-symbols-outlined text-[14px]">{(section.is_free ?? 0) === 1 ? 'lock_open' : 'lock'}</span>
     </button>
   </div>
 

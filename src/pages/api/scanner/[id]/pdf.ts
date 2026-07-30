@@ -9,6 +9,7 @@ import { generateScannerPdf } from '../../../../lib/scanner-pdf';
 import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
+import { getClinicProfile } from '../../../../lib/clinic-profile-db';
 
 export const prerender = false;
 
@@ -67,7 +68,23 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   // Generate PDF
   try {
-    const pdfBytes = await generateScannerPdf(env.DB, response);
+    const clinicProfile = await getClinicProfile(env.DB, session.user.id);
+    let logo: Uint8Array | undefined;
+    let logoType: 'image/png' | 'image/jpeg' | undefined;
+    if (clinicProfile?.logo_url) {
+      const key = clinicProfile.logo_url.replace('/media/', '');
+      const object = await env.MEDIA.get(key);
+      const contentType = object?.httpMetadata?.contentType;
+      if (object && (contentType === 'image/png' || contentType === 'image/jpeg')) {
+        logo = new Uint8Array(await object.arrayBuffer());
+        logoType = contentType;
+      }
+    }
+    const pdfBytes = await generateScannerPdf(env.DB, response, {
+      logo,
+      logoType,
+      phone: clinicProfile?.phone,
+    });
     const filename = `scanner-${definition?.slug ?? id}-${id}.pdf`;
     return new Response(pdfBytes as BodyInit, {
       status: 200,

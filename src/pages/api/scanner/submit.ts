@@ -18,7 +18,7 @@ import {
 } from '../../../lib/scanner-response-db';
 // AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
-import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
+import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory } from '../../../lib/scanner-history-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { hasAccess } from '../../../lib/payos-db';
@@ -79,11 +79,21 @@ export const POST: APIRoute = async (ctx) => {
     }
   }
 
-  // Validate clinic_name + email
-  const clinicName = asString(body.clinic_name);
-  if (!clinicName) return badRequest('clinic_name is required');
+  // Free scanners collect a per-response contact snapshot. Premium scanners
+  // use the account's clinic profile so reports stay consistent and verified.
+  const profile = def.is_free === 0
+    ? await getClinicProfile(env.DB, session.user.id)
+    : null;
+  const clinicName = def.is_free === 0
+    ? profile?.clinic_name ?? null
+    : asString(body.clinic_name);
+  if (!clinicName) {
+    return badRequest(def.is_free === 0
+      ? 'Vui lòng hoàn thiện Hồ sơ phòng khám trước khi làm scanner premium.'
+      : 'clinic_name is required');
+  }
 
-  const email = asString(body.email);
+  const email = def.is_free === 0 ? session.user.email : asString(body.email);
   if (email && !email.includes('@')) return badRequest('Invalid email');
 
   // Load all questions for this survey (across all sections)
@@ -114,9 +124,9 @@ export const POST: APIRoute = async (ctx) => {
   const { id } = await createScannerResponse(env.DB, {
     survey_id: surveyId,
     lang,
-    owner_name: asString(body.owner_name),
+    owner_name: def.is_free === 0 ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
     clinic_name: clinicName,
-    clinic_address: asString(body.clinic_address),
+    clinic_address: def.is_free === 0 ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
     email,
     years_in_operation: asInt(body.years_in_operation),
     staff_count: asInt(body.staff_count),
@@ -137,7 +147,7 @@ export const POST: APIRoute = async (ctx) => {
   }, lang);
 
   // Upsert clinic profile if user wants to save — non-critical
-  const saveProfile = body.save_profile === true;
+  const saveProfile = def.is_free === 1 && body.save_profile === true;
   if (saveProfile) {
     upsertClinicProfile(env.DB, {
       id: session.user.id,

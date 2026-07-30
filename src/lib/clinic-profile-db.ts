@@ -36,20 +36,25 @@ export async function upsertClinicProfile(
       `INSERT INTO "clinic_profile" ("id","name","clinic_name","clinic_address","phone","logo_url")
        VALUES (?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
-         "name" = excluded."name",
-         "clinic_name" = excluded."clinic_name",
-         "clinic_address" = excluded."clinic_address",
-         "phone" = excluded."phone",
-         "logo_url" = excluded."logo_url",
-         "updated_at" = datetime('now')`,
+          "name" = CASE WHEN ? THEN excluded."name" ELSE "clinic_profile"."name" END,
+          "clinic_name" = CASE WHEN ? THEN excluded."clinic_name" ELSE "clinic_profile"."clinic_name" END,
+          "clinic_address" = CASE WHEN ? THEN excluded."clinic_address" ELSE "clinic_profile"."clinic_address" END,
+          "phone" = CASE WHEN ? THEN excluded."phone" ELSE "clinic_profile"."phone" END,
+          "logo_url" = CASE WHEN ? THEN excluded."logo_url" ELSE "clinic_profile"."logo_url" END,
+          "updated_at" = datetime('now')`,
     )
     .bind(
       input.id,
       input.name ?? null,
       input.clinic_name ?? null,
       input.clinic_address ?? null,
-      input.phone ?? null,
-      input.logo_url ?? null,
-    )
+        input.phone ?? null,
+        input.logo_url ?? null,
+        input.name !== undefined ? 1 : 0,
+        input.clinic_name !== undefined ? 1 : 0,
+        input.clinic_address !== undefined ? 1 : 0,
+        input.phone !== undefined ? 1 : 0,
+        input.logo_url !== undefined ? 1 : 0,
+      )
     .run();
 }

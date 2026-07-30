@@ -8,6 +8,7 @@
   var surveyData = JSON.parse(wrap.dataset.survey || '{}');
   var rawProfile = wrap.dataset.clinic;
   var clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
+  var isFreeScanner = wrap.dataset.isFree === '1';
   var defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
   var defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
   var STORAGE_KEY = 'dentalempire-scanner-draft-' + surveyData.id;
@@ -51,9 +52,22 @@
     var lead = surveyData.lead_fields || {};
     var order = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
 
+    if (!isFreeScanner) {
+      var profileSummary = document.createElement('div');
+      profileSummary.className = 'premium-profile-summary';
+      if (clinicProfile && clinicProfile.clinic_name) {
+        profileSummary.innerHTML = '<span class="material-symbols-outlined">verified</span><div><strong>' + escapeHtml(clinicProfile.clinic_name) + '</strong><p>' + escapeHtml(clinicProfile.name || (currentLang === 'vi' ? 'Hồ sơ phòng khám premium' : 'Premium clinic profile')) + (clinicProfile.clinic_address ? ' · ' + escapeHtml(clinicProfile.clinic_address) : '') + '</p></div><a href="/account/clinic">' + (currentLang === 'vi' ? 'Cập nhật' : 'Update') + '</a>';
+      } else {
+        profileSummary.innerHTML = '<span class="material-symbols-outlined">warning</span><div><strong>' + (currentLang === 'vi' ? 'Hồ sơ phòng khám chưa hoàn chỉnh' : 'Clinic profile is incomplete') + '</strong><p>' + (currentLang === 'vi' ? 'Hoàn thiện hồ sơ trước khi gửi scanner premium.' : 'Complete your clinic profile before submitting this premium scanner.') + '</p></div><a href="/account/clinic">' + (currentLang === 'vi' ? 'Cập nhật hồ sơ' : 'Update profile') + '</a>';
+      }
+      container.appendChild(profileSummary);
+    }
+
     order.forEach(function (fieldName) {
       var cfg = lead[fieldName];
-      if (!cfg) return;
+      // Premium scanners use the verified clinic profile server-side.
+      // Free scanners collect a fresh contact snapshot with each response.
+      if (!cfg || !isFreeScanner) return;
       var label = t(cfg.label_vi, cfg.label_en);
       var placeholder = t(cfg.placeholder_vi, cfg.placeholder_en);
       var type = cfg.type || (fieldName === 'email' ? 'email' : (fieldName.indexOf('_operation') !== -1 || fieldName.indexOf('_count') !== -1) ? 'number' : 'text');
@@ -65,7 +79,7 @@
       container.appendChild(div);
     });
 
-    if (clinicProfile) {
+    if (isFreeScanner && clinicProfile) {
       var saveDiv = document.createElement('div');
       saveDiv.className = 'form-row';
       saveDiv.innerHTML = '<div class="form-col" style="grid-column:1/-1"><label class="save-profile-row"><input type="checkbox" id="save-profile-check" checked style="accent-color:var(--primary);width:16px;height:16px;" /><span class="form-label" style="margin:0;font-weight:400;color:var(--on-surface-variant);cursor:pointer;">' + (currentLang === 'vi' ? 'Lưu thông tin này cho lần sau' : 'Save this info for next time') + '</span></label></div>';
@@ -354,7 +368,7 @@
     var original = btnSubmit ? btnSubmit.innerHTML : '';
     if (btnSubmit) btnSubmit.innerHTML = '<span>' + getTrans('submitting', 'Đang xử lý...', 'Processing...') + '</span>';
 
-    var saveChecked = true;
+    var saveChecked = isFreeScanner;
     var saveCheckEl = document.getElementById('save-profile-check');
     if (saveCheckEl) saveChecked = saveCheckEl.checked;
 

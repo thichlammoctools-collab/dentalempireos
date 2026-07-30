@@ -11,6 +11,7 @@ import DonateWidget from '../../components/book/DonateWidget.astro';
 
 import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
 import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
+import { getProduct, hasAccess } from '../../lib/payos-db';
 
 // Configure marked ONCE at module level (persists across requests within the same isolate)
 marked.use({ breaks: true });
@@ -50,6 +51,31 @@ if (!tree) {
 }
 
 const { chapter: ch, sections } = tree;
+
+// ── Book paywall: check access ──────────────────────────────
+let bookProduct: Awaited<ReturnType<typeof getProduct>> = null;
+let userHasAccess = false;
+let isBookLocked = false;
+
+try {
+  // Find the book_unlock product linked to this chapter
+  const { results: products } = await db
+    .prepare('SELECT * FROM "product" WHERE "type" = ? AND "reference_id" = ? AND "is_active" = 1 LIMIT 1')
+    .bind('book_unlock', slug)
+    .all();
+  bookProduct = (products as any[])[0] ?? null;
+
+  if (bookProduct) {
+    isBookLocked = true;
+    // Check if logged-in user has access
+    const currentUser = Astro.locals.user;
+    if (currentUser) {
+      userHasAccess = await hasAccess(db, currentUser.id, bookProduct.id);
+    }
+  }
+} catch {
+  // Gracefully degrade if product table doesn't have book_unlock type yet
+}
 
 const groupedByTier = [1, 2, 3].map((tier) => ({
   tier,
@@ -130,11 +156,34 @@ function renderMarkdown(text: string): string {
   return html;
 }
 
-function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNumber = ''): string {
+function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNumber = '', accessible = true): string {
   const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
   let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
   for (const block of s.blocks) {
+    if (!accessible) {
+      // Render only first block as preview, then add paywall marker
+      if (block.type === 'text' && block.text_md) {
+        const previewText = block.text_md.slice(0, 200);
+        html += renderMarkdown(previewText);
+        if (block.text_md.length > 200) html += '...';
+      } else if (block.type === 'image' && block.r2_key) {
+        const imageUrl = `/media/${block.r2_key}`;
+        attachments.push({
+          id: block.id, type: 'image',
+          title: block.caption ?? `Hình ảnh trong ${s.title}`,
+          url: imageUrl, caption: block.caption ?? undefined,
+          sectionSlug: s.slug, sectionTitle: s.title, previewable: true,
+        });
+        html += `<figure class="my-6">
+          <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" decoding="async" />
+          ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
+        </figure>`;
+      }
+      // Add paywall marker after first block
+      html += `<div id="paywall-marker" data-paywall="true"></div>`;
+      break; // Stop rendering more blocks
+    }
     if (block.type === 'text' && block.text_md) {
       html += renderMarkdown(block.text_md);
     } else if (block.type === 'image' && block.r2_key) {

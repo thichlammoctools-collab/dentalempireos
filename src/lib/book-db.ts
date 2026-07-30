@@ -22,6 +22,7 @@ export interface SectionRow {
   slug: string;
   order: number;
   keywords: string; // JSON array of keyword strings, e.g. '["CRM","quản trị"]'
+  is_free: number; // 0 = premium (trả phí), 1 = free (miễn phí)
 }
 
 export type BlockType = 'text' | 'image' | 'file';
@@ -128,21 +129,24 @@ export interface SectionInput {
   slug: string;
   order: number;
   keywords?: string; // JSON array of keyword strings
+  is_free?: number; // 0 = premium, 1 = free
 }
 
 export async function upsertSection(db: D1Database, input: SectionInput): Promise<void> {
   const keywordsJson = input.keywords ?? '[]';
+  const isFree = input.is_free ?? 0;
   await db
     .prepare(
-      `INSERT INTO "section" ("id","chapter_id","parent_id","level","title","slug","order","keywords")
-       VALUES (?,?,?,?,?,?,?,?)
+      `INSERT INTO "section" ("id","chapter_id","parent_id","level","title","slug","order","keywords","is_free")
+       VALUES (?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "parent_id"=excluded."parent_id",
          "level"=excluded."level",
          "title"=excluded."title",
          "slug"=excluded."slug",
          "order"=excluded."order",
-         "keywords"=excluded."keywords"`,
+         "keywords"=excluded."keywords",
+         "is_free"=excluded."is_free"`,
     )
     .bind(
       input.id,
@@ -153,6 +157,7 @@ export async function upsertSection(db: D1Database, input: SectionInput): Promis
       input.slug,
       input.order,
       keywordsJson,
+      isFree,
     )
     .run();
 }
