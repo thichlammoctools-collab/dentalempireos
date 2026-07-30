@@ -6,7 +6,7 @@ import { createAuth } from '../../../../lib/auth';
 export const prerender = false;
 
 // GET /api/admin/auth/users — list users
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, request }) => {
   try {
     const auth = createAuth(env);
     const limit = Number(url.searchParams.get('limit') ?? 50);
@@ -14,6 +14,7 @@ export const GET: APIRoute = async ({ url }) => {
     const search = url.searchParams.get('search') ?? undefined;
 
     const result = await auth.api.listUsers({
+      headers: request.headers,
       limit,
       offset,
       sortBy: 'createdAt',

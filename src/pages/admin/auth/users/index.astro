@@ -8,7 +8,12 @@ export const prerender = false;
 const auth = createAuth(env);
 
 const limit = 20;
-const result = await auth.api.listUsers({ limit, sortBy: 'createdAt', sortDirection: 'desc' });
+const result = await auth.api.listUsers({
+  headers: Astro.request.headers,
+  limit,
+  sortBy: 'createdAt',
+  sortDirection: 'desc',
+});
 const users = result.users;
 const total = result.total;
 ---
@@ -153,6 +158,8 @@ async function fetchUserDetail(userId: string) {
 
     const sessions = data.sessions ?? [];
     const accounts = data.accounts ?? [];
+    const products = data.products ?? [];
+    const accesses = data.accesses ?? [];
 
     modalContent.innerHTML = `
       <div class="grid grid-cols-2 gap-4">
@@ -210,6 +217,33 @@ async function fetchUserDetail(userId: string) {
         </div>
       </div>
       ` : ''}
+
+      <div class="pt-4 border-t border-outline-variant/20">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <div class="text-sm font-semibold text-on-surface">Quyền sản phẩm</div>
+            <p class="text-xs text-on-surface-variant mt-0.5">Cấp quyền thủ công theo thời hạn đã cấu hình cho sản phẩm.</p>
+          </div>
+          <select id="manual-product-select" class="min-w-52 rounded-lg border border-outline-variant/40 bg-surface-container px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none">
+            <option value="">Chọn sản phẩm để kích hoạt</option>
+            ${products.map((product: any) => `<option value="${product.id}">${product.name}${product.duration_days ? ` (${product.duration_days} ngày)` : ' (vĩnh viễn)'}</option>`).join('')}
+          </select>
+        </div>
+        ${accesses.length > 0 ? `
+          <div class="space-y-2 mb-3">
+            ${accesses.map((access: any) => `
+              <div class="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm">
+                <span class="font-medium text-on-surface">${access.product_name}</span>
+                <span class="text-xs text-emerald-400">${access.expires_at ? `HSD ${new Date(access.expires_at).toLocaleDateString('vi-VN')}` : 'Vĩnh viễn'}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<p class="mb-3 text-sm text-on-surface-variant">Chưa có quyền sản phẩm đang hiệu lực.</p>'}
+        <button data-action="grant-product" data-user-id="${userId}"
+          class="modal-action-btn rounded-xl border border-primary/30 bg-primary/15 px-4 py-2 text-sm font-bold text-primary transition-all hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50">
+          Kích hoạt sản phẩm
+        </button>
+      </div>
 
       <div class="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/20">
         <button data-action="revoke-sessions" data-user-id="${userId}" data-modal="true"
@@ -275,6 +309,36 @@ modalContent.addEventListener('click', async (e) => {
 
   const action = btn.dataset.action!;
   const userId = btn.dataset.userId!;
+
+  if (action === 'grant-product') {
+    const select = document.getElementById('manual-product-select') as HTMLSelectElement | null;
+    const productId = select?.value;
+    if (!productId) {
+      showToast('Chọn sản phẩm cần kích hoạt', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/admin/auth/users/${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Không thể kích hoạt sản phẩm', 'error');
+        return;
+      }
+      showToast('Đã kích hoạt sản phẩm cho người dùng');
+      await fetchUserDetail(userId);
+    } catch {
+      showToast('Lỗi kết nối', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
 
   btn.disabled = true;
   try {

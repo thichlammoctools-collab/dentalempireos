@@ -19,25 +19,25 @@ export const POST: APIRoute = async ({ request }) => {
 
     switch (action) {
       case 'ban':
-        await auth.api.banUser({ userId, banReason });
+        await auth.api.banUser({ userId, banReason, headers: request.headers });
         return json({ success: true });
 
       case 'unban':
-        await auth.api.unbanUser({ userId });
+        await auth.api.unbanUser({ userId, headers: request.headers });
         return json({ success: true });
 
       case 'revoke-sessions':
-        await auth.api.revokeUserSessions({ userId });
+        await auth.api.revokeUserSessions({ userId, headers: request.headers });
         return json({ success: true });
 
       case 'send-verification':
         // Resolve the recipient server-side so the action only targets the selected user.
-        const user = await auth.api.getUser({ id: userId });
+        const user = await auth.api.getUser({ id: userId, headers: request.headers });
         await auth.api.sendVerificationEmail({ email: user.email });
         return json({ success: true });
 
       case 'delete':
-        await auth.api.removeUser({ userId });
+        await auth.api.removeUser({ userId, headers: request.headers });
         return json({ success: true });
 
       default:
