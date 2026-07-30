@@ -388,10 +388,16 @@ try {
               <span class="material-symbols-outlined text-base">content_copy</span>
               {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
             </button>
-            <button type="button" class="btn btn-primary plan-tool-button" id="btn-export-plan">
-              <span class="material-symbols-outlined text-base">picture_as_pdf</span>
-              {lang === 'vi' ? 'Xuất PDF' : 'Export PDF'}
-            </button>
+            {hasAnalysis ? (
+              <a href={`/api/scanner/${id}/pdf`} class="btn btn-primary plan-tool-button">
+                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                {lang === 'vi' ? 'Tải báo cáo PDF' : 'Download PDF report'}
+              </a>
+            ) : (
+              <span class="plan-export-note">
+                {lang === 'vi' ? 'Hoàn tất bản soi chiếu AI để tải báo cáo PDF gộp.' : 'Complete the AI analysis to download the consolidated PDF report.'}
+              </span>
+            )}
           </div>
           <div class="plan-document-meta">
             <span class="material-symbols-outlined">assignment_turned_in</span>
@@ -532,47 +538,6 @@ try {
     )}
   </section>
 
-  {hasPlan && (
-    <dialog class="export-dialog" id="plan-export-dialog" aria-labelledby="plan-export-title">
-      <form method="dialog" class="export-dialog-card">
-        <div class="export-dialog-header">
-          <div>
-            <p class="export-dialog-eyebrow">{lang === 'vi' ? 'Xuất bản in' : 'Print export'}</p>
-            <h2 id="plan-export-title">{lang === 'vi' ? 'Tùy chỉnh PDF' : 'Customize PDF'}</h2>
-          </div>
-          <button type="submit" class="dialog-close" aria-label={lang === 'vi' ? 'Đóng' : 'Close'}>
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <p class="export-dialog-description">
-          {lang === 'vi'
-            ? 'Kế hoạch sẽ mở ở định dạng A4. Chọn “Save as PDF” trong hộp thoại in để tải file PDF.'
-            : 'Your plan opens in A4 format. Choose “Save as PDF” in the print dialog to download it.'}
-        </p>
-        <div class="branding-fields">
-          <label>
-            <span>{lang === 'vi' ? 'Logo phòng khám' : 'Clinic logo'}</span>
-            <input type="file" id="export-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-          </label>
-          <label>
-            <span>{lang === 'vi' ? 'Tên phòng khám' : 'Clinic name'}</span>
-            <input type="text" id="export-clinic-name" maxlength="100" placeholder={lang === 'vi' ? 'Ví dụ: Nha khoa Ánh Dương' : 'e.g. Sunlight Dental'} />
-          </label>
-          <label>
-            <span>{lang === 'vi' ? 'Tên bác sĩ/chuyên viên' : 'Practitioner name'}</span>
-            <input type="text" id="export-practitioner-name" maxlength="100" placeholder={lang === 'vi' ? 'Ví dụ: BS. Nguyễn Văn An' : 'e.g. Dr. Jane Smith'} />
-          </label>
-        </div>
-        <div class="export-dialog-actions">
-          <button type="submit" class="btn btn-ghost">{lang === 'vi' ? 'Hủy' : 'Cancel'}</button>
-          <button type="button" class="btn btn-primary" id="btn-confirm-export">
-            <span class="material-symbols-outlined text-base">print</span>
-            {lang === 'vi' ? 'Mở bản PDF' : 'Open PDF export'}
-          </button>
-        </div>
-      </form>
-    </dialog>
-  )}
 </BaseLayout>
 
 <style>
@@ -1026,29 +991,7 @@ try {
     flex-wrap: wrap;
   }
   .plan-tool-button { padding: 0.5rem 0.875rem; }
-
-  .export-dialog {
-    width: min(100% - 2rem, 34rem);
-    padding: 0;
-    color: var(--on-surface);
-    background: var(--surface);
-    border: 1px solid var(--outline-variant);
-    border-radius: 1rem;
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  }
-  .export-dialog::backdrop { background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(3px); }
-  .export-dialog-card { padding: 1.5rem; }
-  .export-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-  .export-dialog-header h2 { font-size: 1.25rem; font-weight: 700; margin: 0.125rem 0 0; }
-  .export-dialog-eyebrow { color: #f59e0b; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; margin: 0; text-transform: uppercase; }
-  .dialog-close { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; color: var(--on-surface-variant); background: transparent; border: 0; border-radius: 0.5rem; cursor: pointer; }
-  .dialog-close:hover { color: var(--on-surface); background: var(--surface-container); }
-  .export-dialog-description { color: var(--on-surface-variant); font-size: 0.875rem; line-height: 1.55; margin: 1rem 0 1.25rem; }
-  .branding-fields { display: grid; gap: 1rem; }
-  .branding-fields label { display: grid; gap: 0.4rem; color: var(--on-surface); font-size: 0.8rem; font-weight: 700; }
-  .branding-fields input { width: 100%; color: var(--on-surface); background: var(--surface-container); border: 1px solid var(--outline-variant); border-radius: 0.5rem; font: inherit; padding: 0.65rem 0.75rem; }
-  .branding-fields input[type="file"] { font-size: 0.75rem; }
-  .export-dialog-actions { display: flex; justify-content: flex-end; gap: 0.625rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .plan-export-note { color: var(--on-surface-variant); font-size: 0.8rem; line-height: 1.45; max-width: 18rem; }
 
   .hidden { display: none !important; }
 
@@ -1060,7 +1003,6 @@ try {
     .paywall-amount { font-size: 1.5rem; }
     .plan-tools { justify-content: stretch; }
     .plan-tool-button { flex: 1; justify-content: center; }
-    .export-dialog-card { padding: 1.25rem; }
   }
   .ai-stream-preview {
     background: var(--color-surface-container-lowest, #1a1a1a);
@@ -1298,11 +1240,8 @@ try {
   document.getElementById('btn-run-analysis-free')?.addEventListener('click', () => triggerAi('analysis', true));
   document.getElementById('btn-retry-analysis-free')?.addEventListener('click', () => triggerAi('analysis', true));
 
-  // ── Plan copy and print export ────────────────────────────────────
+  // ── Plan copy ─────────────────────────────────────────────────────
   const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;
-  const btnExportPlan = document.getElementById('btn-export-plan');
-  const exportDialog = document.getElementById('plan-export-dialog') as HTMLDialogElement | null;
-  const btnConfirmExport = document.getElementById('btn-confirm-export');
 
   async function copyPlanText(text: string) {
     if (navigator.clipboard?.writeText) {
@@ -1332,75 +1271,6 @@ try {
       btnCopyPlan.innerHTML = `<span class="material-symbols-outlined text-base">error</span>${lang === 'vi' ? 'Không thể sao chép' : 'Copy failed'}`;
       setTimeout(() => { btnCopyPlan.innerHTML = original; }, 2500);
     }
-  });
-
-  btnExportPlan?.addEventListener('click', () => exportDialog?.showModal());
-
-  function escapeHtml(value: string) {
-    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-  }
-
-  function openPrintExport(logoUrl: string | null, clinicName: string, practitionerName: string) {
-    const plan = document.getElementById('plan-content');
-    if (!plan) return;
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-    if (!printWindow) {
-      alert(lang === 'vi' ? 'Trình duyệt đang chặn cửa sổ xuất PDF.' : 'Your browser is blocking the PDF export window.');
-      return;
-    }
-    const title = lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-Day Action Plan';
-    const generatedOn = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'long' }).format(new Date());
-    const logo = logoUrl ? `<img class="brand-logo" src="${logoUrl}" alt="" />` : '';
-    const clinic = clinicName ? `<p class="clinic-name">${escapeHtml(clinicName)}</p>` : '';
-    const practitioner = practitionerName ? `<p class="practitioner-name">${escapeHtml(practitionerName)}</p>` : '';
-
-    printWindow.document.write(`<!doctype html>
-<html lang="${lang}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>
-  @page { size: A4; margin: 16mm 15mm 18mm; }
-  * { box-sizing: border-box; }
-  body { color: #172033; background: #fff; font-family: "Be Vietnam Pro", Arial, sans-serif; font-size: 10.5pt; line-height: 1.65; margin: 0; }
-  .brand-header { align-items: center; border-bottom: 2px solid #f59e0b; display: flex; gap: 14px; margin-bottom: 24px; padding-bottom: 14px; }
-  .brand-logo { max-height: 48px; max-width: 120px; object-fit: contain; }
-  .brand-copy { flex: 1; }
-  .clinic-name { color: #172033; font-size: 15pt; font-weight: 800; line-height: 1.25; margin: 0; }
-  .practitioner-name { color: #64748b; font-size: 9.5pt; margin: 3px 0 0; }
-  .document-title { color: #172033; font-size: 22pt; font-weight: 800; line-height: 1.2; margin: 0 0 4px; }
-  .document-date { color: #64748b; font-size: 9pt; margin: 0 0 22px; }
-  .plan-content h1, .plan-content h2, .plan-content h3 { break-after: avoid; color: #172033; line-height: 1.3; }
-  .plan-content h1 { font-size: 18pt; margin: 0 0 14px; }
-  .plan-content h2 { border-left: 4px solid #f59e0b; font-size: 14pt; margin: 25px 0 10px; padding-left: 10px; }
-  .plan-content h3 { font-size: 11.5pt; margin: 18px 0 6px; }
-  .plan-content p { margin: 0 0 10px; orphans: 3; widows: 3; }
-  .plan-content ul, .plan-content ol { margin: 0 0 12px; padding-left: 22px; }
-  .plan-content li { break-inside: avoid; margin-bottom: 6px; }
-  .plan-content strong { color: #b45309; }
-  .document-footer { border-top: 1px solid #e2e8f0; color: #64748b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
-  @media print { .document-footer { position: running(footer); } }
-</style></head><body onload="window.print()">
-<header class="brand-header">${logo}<div class="brand-copy">${clinic}${practitioner}</div></header>
-<main><h1 class="document-title">${escapeHtml(title)}</h1><p class="document-date">${escapeHtml(generatedOn)}</p><article class="plan-content">${plan.innerHTML}</article></main>
-<footer class="document-footer">Dental Empire OS</footer>
-</body></html>`);
-    printWindow.document.close();
-  }
-
-  btnConfirmExport?.addEventListener('click', () => {
-    const logoInput = document.getElementById('export-logo') as HTMLInputElement | null;
-    const clinicInput = document.getElementById('export-clinic-name') as HTMLInputElement | null;
-    const practitionerInput = document.getElementById('export-practitioner-name') as HTMLInputElement | null;
-    const logoFile = logoInput?.files?.[0];
-    const openExport = (logoUrl: string | null) => {
-      exportDialog?.close();
-      openPrintExport(logoUrl, clinicInput?.value.trim() ?? '', practitionerInput?.value.trim() ?? '');
-    };
-    if (!logoFile) {
-      openExport(null);
-      return;
-    }
-    const reader = new FileReader();
-    reader.addEventListener('load', () => openExport(typeof reader.result === 'string' ? reader.result : null));
-    reader.readAsDataURL(logoFile);
   });
 
   // ── Initial UI state from server status ─────────────────────────
