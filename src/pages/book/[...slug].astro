@@ -172,17 +172,10 @@ function renderSection(
         html += renderMarkdown(previewText);
         if (block.text_md.length > 200) html += '...';
       } else if (block.type === 'image' && block.r2_key) {
-        const imageUrl = `/media/${block.r2_key}`;
-        attachments.push({
-          id: block.id, type: 'image',
-          title: block.caption ?? `Hình ảnh trong ${s.title}`,
-          url: imageUrl, caption: block.caption ?? undefined,
-          sectionSlug: s.slug, sectionTitle: s.title, previewable: true,
-        });
-        html += `<figure class="my-6">
-          <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" decoding="async" />
-          ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
-        </figure>`;
+        html += `<div class="my-6 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/10 p-4 text-on-surface-variant">
+          <span class="material-symbols-outlined text-primary">lock</span>
+          <p class="m-0 text-sm">Hình minh họa này thuộc phần nội dung chuyên sâu. Mở khóa chương để xem đầy đủ.</p>
+        </div>`;
       }
       // Marks the end of the server-rendered preview without duplicating an element ID.
       html += `<div class="paywall-marker" data-paywall="true"></div>`;
