@@ -10,6 +10,7 @@ import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
+import { hasScannerAccess } from '../../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -44,34 +45,8 @@ export const GET: APIRoute = async ({ params, request }) => {
     .bind(response.survey_id)
     .first<{ id: string; slug: string; is_free: number }>();
 
-  if (definition && definition.is_free === 0 && response.email) {
-    // Look up user + active access for any product of this scanner
-    const user = await env.DB
-      .prepare('SELECT id FROM "user" WHERE email = ? LIMIT 1')
-      .bind(response.email)
-      .first<{ id: string }>();
-
-    if (user) {
-      const access = await env.DB
-        .prepare(
-          `SELECT a.id
-           FROM "access" a
-           INNER JOIN "product" p ON a.product_id = p.id
-           INNER JOIN "product_scanner" ps ON p.id = ps.product_id
-           WHERE a.user_id = ? AND a.is_active = 1
-             AND (a.expires_at IS NULL OR a.expires_at > datetime('now'))
-             AND ps.scanner_id = ?
-           LIMIT 1`,
-        )
-        .bind(user.id, response.survey_id)
-        .first<{ id: string }>();
-
-      if (!access) {
-        return new Response('Payment required', { status: 402 });
-      }
-    } else {
-      return new Response('Payment required', { status: 402 });
-    }
+  if (definition?.is_free === 0 && type !== 'plan' && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
+    return new Response('Payment required', { status: 402 });
   }
 
   // Generate PDF

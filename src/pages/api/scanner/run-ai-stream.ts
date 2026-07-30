@@ -17,6 +17,7 @@ import { getScannerAiConfig, buildAnalysisStream, buildPlanStream } from '../../
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 import { createAuth } from '../../../lib/auth';
+import { hasScannerAccess } from '../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -62,6 +63,10 @@ export const POST: APIRoute = async (ctx) => {
   const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
   if (!full) {
     return new Response(JSON.stringify({ error: 'Survey definition not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (full.definition.is_free === 0 && type !== 'plan' && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
+    return new Response(JSON.stringify({ error: 'Bạn cần mở khóa scanner này để chạy phân tích AI.' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
 
   const aiConfig = await getScannerAiConfig(env.DB);

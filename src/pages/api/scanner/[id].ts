@@ -7,6 +7,7 @@ import { json, badRequest, notFound } from '../../../lib/api-helpers';
 import { getScannerResponse, maskEmail } from '../../../lib/scanner-response-db';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
+import { getUserByEmail } from '../../../lib/user-db';
 
 export const prerender = false;
 
@@ -22,7 +23,10 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!response) return notFound('Response not found');
 
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
-  if (!owned) return json({ error: 'Không có quyền với kết quả này' }, 403);
+  const ownsByEmail = response.email
+    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+    : false;
+  if (!owned && !ownsByEmail) return json({ error: 'Không có quyền với kết quả này' }, 403);
 
   const result = {
     ...response,

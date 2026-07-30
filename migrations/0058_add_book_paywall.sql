@@ -1,5 +1,5 @@
 -- Migration 0058: Add book paywall support.
--- A book_unlock product is linked to one chapter through product.reference_id.
+-- A single book_unlock product grants access to all locked book sections.
 -- Section-level is_free controls which parts remain readable without that product.
 
 -- 1. Add is_free to section
@@ -35,6 +35,6 @@ ALTER TABLE "product_v3" RENAME TO "product";
 CREATE INDEX IF NOT EXISTS "idx_section_is_free" ON "section" ("is_free");
 CREATE INDEX IF NOT EXISTS "idx_product_type_v3" ON "product" ("type");
 CREATE INDEX IF NOT EXISTS "idx_product_app_id" ON "product" ("app_id");
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_book_unlock_chapter"
-  ON "product" ("reference_id")
-  WHERE "type" = 'book_unlock' AND "reference_id" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_active_book_unlock"
+  ON "product" ("type")
+  WHERE "type" = 'book_unlock' AND "is_active" = 1;

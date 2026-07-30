@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getManualPaymentSettings, getOrder } from '../../lib/payos-db';
+
+export const prerender = false;
+
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const [order, settings] = await Promise.all([
+  orderId ? getOrder(env.DB, orderId) : null,
+  getManualPaymentSettings(env.DB),
+]);
+const isOwner = order && Astro.locals.user?.id === order.user_id;
+const transferContent = order ? `DEOS ${order.order_code}` : '';
+const qrUrl = isOwner && settings?.bank_bin && settings.account_number
+  ? `https://img.vietqr.io/image/${encodeURIComponent(settings.bank_bin)}-${encodeURIComponent(settings.account_number)}-compact2.png?amount=${order.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(settings.account_name)}`
+  : '';
+const zaloMessage = order
+  ? `Chào Dental Empire OS, tôi đã chuyển khoản thanh toán đơn ${order.id} (${transferContent}) với số tiền ${order.amount.toLocaleString('vi-VN')}đ. Vui lòng kích hoạt tài khoản giúp tôi.`
+  : '';
+const zaloUrl = settings?.zalo_url
+  ? `${settings.zalo_url}${settings.zalo_url.includes('?') ? '&' : '?'}text=${encodeURIComponent(zaloMessage)}`
+  : '';
+---
+
+<BaseLayout title="Thanh toán chuyển khoản | Dental Empire OS" noindex={true}>
+  <section class="max-w-[560px] mx-auto px-6 py-12">
+    {isOwner && order && settings && qrUrl ? (
+      <div class="glass-card rounded-2xl p-6 sm:p-8 border border-outline-variant/20 text-center">
+        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold">THANH TOÁN CHUYỂN KHOẢN</span>
+        <h1 class="mt-4 text-2xl font-bold text-white">Quét mã để thanh toán</h1>
+        <p class="mt-2 text-sm text-on-surface-variant">Vui lòng chuyển đúng số tiền và nội dung để được kích hoạt nhanh chóng.</p>
+
+        <img src={qrUrl} alt="Mã QR chuyển khoản" class="w-full max-w-[320px] mx-auto my-6 rounded-xl bg-white p-2" />
+
+        <dl class="text-left rounded-xl bg-surface-container/70 divide-y divide-outline-variant/20 text-sm">
+          <div class="p-4 flex justify-between gap-4"><dt class="text-on-surface-variant">Số tiền</dt><dd class="font-bold text-primary">{order.amount.toLocaleString('vi-VN')}đ</dd></div>
+          <div class="p-4 flex justify-between gap-4"><dt class="text-on-surface-variant">Ngân hàng</dt><dd class="font-semibold text-white">{settings.bank_bin}</dd></div>
+          <div class="p-4 flex justify-between gap-4"><dt class="text-on-surface-variant">Số tài khoản</dt><dd class="font-semibold text-white">{settings.account_number}</dd></div>
+          <div class="p-4 flex justify-between gap-4"><dt class="text-on-surface-variant">Nội dung</dt><dd class="font-mono font-bold text-primary">{transferContent}</dd></div>
+        </dl>
+
+        <div class="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-left">
+          <p class="font-semibold text-amber-200 text-sm">Đã chuyển khoản?</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Nhấn nút dưới đây để gửi thông tin đơn cho đội ngũ xác nhận và kích hoạt tài khoản.</p>
+          <a href={zaloUrl} target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl btn-primary-metallic font-bold text-sm">
+            <span class="material-symbols-outlined text-[19px]">chat</span>
+            Nhắn Zalo để kích hoạt tài khoản
+          </a>
+        </div>
+      </div>
+    ) : (
+      <div class="glass-card rounded-2xl p-8 border border-outline-variant/20 text-center">
+        <h1 class="text-xl font-bold text-white">Không tìm thấy đơn thanh toán</h1>
+        <p class="mt-2 text-sm text-on-surface-variant">Vui lòng đăng nhập bằng tài khoản đã tạo đơn để xem hướng dẫn chuyển khoản.</p>
+        <a href="/" class="inline-block mt-5 px-5 py-2.5 btn-primary-metallic rounded-xl text-sm font-bold">Về trang chủ</a>
+      </div>
+    )}
+  </section>
+</BaseLayout>

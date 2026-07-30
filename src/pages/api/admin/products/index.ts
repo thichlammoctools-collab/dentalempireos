@@ -40,15 +40,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (!type) return badRequest('type is required');
   if (price == null || price < 0) return badRequest('price must be >= 0');
   if (!PRODUCT_TYPES.has(type)) return badRequest('Loại sản phẩm không hợp lệ');
-  if (type === 'book_unlock') {
-    if (!reference_id) return badRequest('Mở khóa chương sách cần Reference ID của chương');
-    const chapter = await env.DB
-      .prepare('SELECT 1 FROM "chapter" WHERE "id" = ? LIMIT 1')
-      .bind(reference_id)
-      .first();
-    if (!chapter) return badRequest('Không tìm thấy chương tương ứng với Reference ID');
+  if (type === 'book_unlock' && is_active !== 0) {
+    const activeBookProduct = await env.DB
+      .prepare('SELECT "id" FROM "product" WHERE "type" = ? AND "is_active" = 1 LIMIT 1')
+      .bind('book_unlock')
+      .first<{ id: string }>();
+    if (activeBookProduct) return badRequest('Chỉ được phép có một gói mở khóa sách đang bán');
   }
-
   const id = slugify(name) + '-' + Date.now().toString(36);
   await upsertProduct(env.DB, {
     id,
@@ -57,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
     price,
     description,
     duration_days,
-    reference_id,
+    reference_id: type === 'book_unlock' ? null : reference_id,
     app_id: app_id || null,
     is_active,
   });

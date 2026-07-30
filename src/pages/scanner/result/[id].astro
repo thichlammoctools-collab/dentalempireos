@@ -135,12 +135,24 @@ if (definition.chapter_refs) {
 // Resolve linked product (for paywall)
 let linkedProduct: { id: string; name: string; price: number } | null = null;
 try {
+  // Product mappings are the source of truth: packs may unlock many scanners.
+  linkedProduct = await env.DB
+    .prepare(
+      `SELECT p.id, p.name, p.price
+       FROM "product" p
+       INNER JOIN "product_scanner" ps ON ps."product_id" = p.id
+       WHERE ps."scanner_id" = ? AND p."is_active" = 1
+       ORDER BY p."price" ASC
+       LIMIT 1`,
+    )
+    .bind(definition.id)
+    .first<{ id: string; name: string; price: number }>();
   // Try: ai_application → product (for scanners with AI app)
-  const app = await env.DB
+  const app = !linkedProduct && await env.DB
     .prepare('SELECT id FROM "ai_application" WHERE "slug" = ? OR "id" = ?')
     .bind(definition.slug, `survey-${definition.id}`)
     .first<{ id: string }>();
-  if (app) {
+  if (app && !linkedProduct) {
     linkedProduct = await env.DB
       .prepare('SELECT id, name, price FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
       .bind(app.id)
@@ -206,7 +218,7 @@ try {
   description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-response-id={id} data-survey-id={id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
+  <section class="result-wrap" data-response-id={id} data-scanner-id={definition.id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
     <!-- Header -->
     <header class="report-hero">
       <div class="report-identity">
@@ -1085,6 +1097,7 @@ try {
 <script>
   const wrap = document.querySelector('.result-wrap') as HTMLElement;
   const responseId = wrap?.dataset.responseId;
+  const scannerId = wrap?.dataset.scannerId;
   const productId = wrap?.dataset.productId;
   const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
   const isFree = wrap?.dataset.isFree === '1';
@@ -1385,9 +1398,9 @@ try {
   }
 
   async function checkAccess() {
-    if (!responseId || !productId) return false;
+    if (!scannerId) return false;
     try {
-      const res = await fetch(`/api/scanner/check-access?id=${responseId}&product_id=${productId}`);
+      const res = await fetch(`/api/scanner/check-access?scanner_id=${encodeURIComponent(scannerId)}`);
       const data = await res.json() as { hasAccess?: boolean };
       return data.hasAccess === true;
     } catch {

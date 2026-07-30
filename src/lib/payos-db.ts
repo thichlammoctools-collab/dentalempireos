@@ -74,18 +74,24 @@ export async function getProduct(db: D1Database, id: string): Promise<Product | 
   return db.prepare('SELECT * FROM "product" WHERE "id" = ?').bind(id).first<Product>();
 }
 
-/** Return the active product that unlocks a single book chapter, if configured. */
-export async function getActiveBookProductForChapter(
-  db: D1Database,
-  chapterId: string,
-): Promise<Product | null> {
+export interface ManualPaymentSettings {
+  id: number;
+  is_active: number;
+  bank_bin: string;
+  account_number: string;
+  account_name: string;
+  zalo_url: string;
+  updated_at: string;
+}
+
+/** Return the active product that unlocks all premium book sections. */
+export async function getActiveBookProduct(db: D1Database): Promise<Product | null> {
   return db
     .prepare(
       `SELECT * FROM "product"
-       WHERE "type" = 'book_unlock' AND "reference_id" = ? AND "is_active" = 1
+       WHERE "type" = 'book_unlock' AND "is_active" = 1
        LIMIT 1`,
     )
-    .bind(chapterId)
     .first<Product>();
 }
 
@@ -288,6 +294,43 @@ export async function hasAccess(
   return !!row;
 }
 
+/** Create a pending order for a bank transfer. Its order code is the transfer reference. */
+export async function createManualOrder(
+  db: D1Database,
+  input: { id: string; user_id: string; product_id: string; order_code: number; amount: number },
+): Promise<Order> {
+  const ts = now();
+  await db
+    .prepare(
+      `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at")
+       VALUES (?,?,?,?,?,'pending',NULL,NULL,?)`,
+    )
+    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts)
+    .run();
+  return getOrder(db, input.id) as Promise<Order>;
+}
+
+/** Return whether a user has an active product that unlocks this scanner. */
+export async function hasScannerAccess(
+  db: D1Database,
+  userId: string,
+  scannerId: string,
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const row = await db
+    .prepare(
+      `SELECT 1
+       FROM "access" a
+       INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
+       WHERE a."user_id" = ? AND ps."scanner_id" = ? AND a."is_active" = 1
+         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+       LIMIT 1`,
+    )
+    .bind(userId, scannerId, now)
+    .first();
+  return !!row;
+}
+
 // ── Product ↔ Scanner mapping ────────────────────────────────
 
 /** Get all scanner IDs assigned to a product. */
@@ -470,6 +513,40 @@ export async function upsertPayosSettings(
       input.webhook_url ?? '',
       input.sandbox_mode ?? 1,
       input.is_active ?? 0,
+      ts,
+    )
+    .run();
+}
+
+// ── Manual payment settings ──────────────────────────────────
+
+export async function getManualPaymentSettings(db: D1Database): Promise<ManualPaymentSettings | null> {
+  return db.prepare('SELECT * FROM "manual_payment_settings" WHERE "id" = 1').first<ManualPaymentSettings>();
+}
+
+export async function upsertManualPaymentSettings(
+  db: D1Database,
+  input: Partial<Omit<ManualPaymentSettings, 'id' | 'updated_at'>>,
+): Promise<void> {
+  const ts = now();
+  await db
+    .prepare(
+      `INSERT INTO "manual_payment_settings" ("id","is_active","bank_bin","account_number","account_name","zalo_url","updated_at")
+       VALUES (1,?,?,?,?,?,?)
+       ON CONFLICT("id") DO UPDATE SET
+         "is_active"=excluded."is_active",
+         "bank_bin"=excluded."bank_bin",
+         "account_number"=excluded."account_number",
+         "account_name"=excluded."account_name",
+         "zalo_url"=excluded."zalo_url",
+         "updated_at"=excluded."updated_at"`,
+    )
+    .bind(
+      input.is_active ?? 1,
+      input.bank_bin ?? '',
+      input.account_number ?? '',
+      input.account_name ?? '',
+      input.zalo_url ?? '',
       ts,
     )
     .run();

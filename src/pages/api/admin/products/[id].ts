@@ -88,18 +88,17 @@ export const PUT: APIRoute = async ({ params, request }) => {
 
   const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body;
   const resolvedType = type ?? existing.type;
-  const resolvedReferenceId = reference_id ?? existing.reference_id;
+  const resolvedReferenceId = resolvedType === 'book_unlock' ? null : reference_id ?? existing.reference_id;
 
   if (!PRODUCT_TYPES.has(resolvedType)) return badRequest('Loại sản phẩm không hợp lệ');
-  if (resolvedType === 'book_unlock') {
-    if (!resolvedReferenceId) return badRequest('Mở khóa chương sách cần Reference ID của chương');
-    const chapter = await env.DB
-      .prepare('SELECT 1 FROM "chapter" WHERE "id" = ? LIMIT 1')
-      .bind(resolvedReferenceId)
-      .first();
-    if (!chapter) return badRequest('Không tìm thấy chương tương ứng với Reference ID');
+  const willBeActive = is_active ?? existing.is_active;
+  if (resolvedType === 'book_unlock' && willBeActive !== 0) {
+    const activeBookProduct = await env.DB
+      .prepare('SELECT "id" FROM "product" WHERE "type" = ? AND "is_active" = 1 AND "id" != ? LIMIT 1')
+      .bind('book_unlock', id)
+      .first<{ id: string }>();
+    if (activeBookProduct) return badRequest('Chỉ được phép có một gói mở khóa sách đang bán');
   }
-
   await upsertProduct(env.DB, {
     id,
     name: name ?? existing.name,

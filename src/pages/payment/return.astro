@@ -7,18 +7,18 @@ export const prerender = false;
 const orderId = Astro.url.searchParams.get('order') || '';
 
 // Fetch order details to show which product was purchased
-let orderInfo: { product_name: string; product_id: string; product_type: string; reference_id: string | null } | null = null;
+let orderInfo: { product_name: string; product_id: string; product_type: string } | null = null;
 if (orderId) {
   try {
     const result = await env.DB
       .prepare(
-        `SELECT p.name as product_name, p.type as product_type, p.reference_id, o.product_id
+        `SELECT p.name as product_name, p.type as product_type, o.product_id
          FROM "order" o
          JOIN "product" p ON o.product_id = p.id
          WHERE o.id = ? LIMIT 1`
       )
       .bind(orderId)
-        .first<{ product_name: string; product_id: string; product_type: string; reference_id: string | null }>();
+        .first<{ product_name: string; product_id: string; product_type: string }>();
     if (result) {
       orderInfo = result;
     }
@@ -28,8 +28,8 @@ if (orderId) {
 }
 
 const productName = orderInfo?.product_name ?? 'nội dung của bạn';
-const bookChapterUrl = orderInfo?.product_type === 'book_unlock' && orderInfo.reference_id
-  ? `/book/${orderInfo.reference_id}`
+const bookUrl = orderInfo?.product_type === 'book_unlock'
+  ? '/book'
   : null;
 ---
 
@@ -64,10 +64,10 @@ const bookChapterUrl = orderInfo?.product_type === 'book_unlock' && orderInfo.re
               Khám phá Scanner
             </a>
           )}
-          {bookChapterUrl && (
-            <a href={bookChapterUrl} class="flex-1 px-6 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all">
+          {bookUrl && (
+            <a href={bookUrl} class="flex-1 px-6 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all">
               <span class="material-symbols-outlined text-base">menu_book</span>
-              Đọc chương đã mở khóa
+              Đọc sách đã mở khóa
             </a>
           )}
         </div>

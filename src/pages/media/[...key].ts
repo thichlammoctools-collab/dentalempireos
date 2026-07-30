@@ -16,10 +16,8 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
       `SELECT s."is_free", p."id" AS product_id
        FROM "block" b
        JOIN "section" s ON s."id" = b."section_id"
-       JOIN "chapter" c ON c."id" = s."chapter_id"
        LEFT JOIN "product" p
          ON p."type" = 'book_unlock'
-        AND p."reference_id" = c."id"
         AND p."is_active" = 1
        WHERE b."r2_key" = ?
        LIMIT 1`,
@@ -28,8 +26,8 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .first<BookMediaAccess>();
 
   // Files not attached to a book block remain public to preserve existing media behavior.
-  if (!block || block.is_free === 1 || !block.product_id) return true;
-  return !!userId && hasAccess(env.DB, userId, block.product_id);
+  if (!block || block.is_free === 1) return true;
+  return !!userId && !!block.product_id && hasAccess(env.DB, userId, block.product_id);
 }
 
 // GET /media/[...key] — serve file from R2 with caching

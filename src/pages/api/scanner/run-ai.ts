@@ -10,6 +10,9 @@ import { json, badRequest } from '../../../lib/api-helpers';
 import { runAiAnalysis, runPlanAnalysis } from '../../../lib/scanner-ai';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
+import { getScannerResponse } from '../../../lib/scanner-response-db';
+import { hasScannerAccess } from '../../../lib/payos-db';
+import { getUserByEmail } from '../../../lib/user-db';
 
 export const prerender = false;
 
@@ -34,10 +37,25 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: 'Vui lòng đăng nhập' }, 401);
   }
 
-  // Ownership check
+  const response = await getScannerResponse(env.DB, responseId);
+  if (!response) return json({ error: 'Không tìm thấy kết quả này' }, 404);
+
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, responseId);
-  if (!owned) {
+  const ownsByEmail = response.email
+    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+    : false;
+  if (!owned && !ownsByEmail) {
     return json({ error: 'Không có quyền với kết quả này' }, 403);
+  }
+
+  const definition = await env.DB
+    .prepare('SELECT is_free FROM "survey_definition" WHERE id = ?')
+    .bind(response.survey_id)
+    .first<{ is_free: number }>();
+  if (!definition) return json({ error: 'Không tìm thấy scanner' }, 404);
+
+  if (definition.is_free === 0 && type !== 'plan' && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
+    return json({ error: 'Bạn cần mở khóa scanner này để chạy phân tích AI.' }, 402);
   }
 
   // Queue AI work in background via waitUntil

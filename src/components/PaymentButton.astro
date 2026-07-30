@@ -1,6 +1,6 @@
 ---
 /**
- * PaymentButton — "Mua ngay" button that initiates PayOS payment flow.
+ * PaymentButton — opens a choice between automatic PayOS and manual transfer.
  *
  * Usage:
  *   <PaymentButton productId="course-premium" productName="Khóa học Premium" price={500000} />
@@ -25,21 +25,37 @@ const user = Astro.locals.user;
 ---
 
 {user ? (
+  <>
   <button
     data-product-id={productId}
-    class={`payos-pay-btn group relative px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+    data-product-name={productName ?? ''}
+    class={`payment-method-trigger group relative px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all ${className}`}
   >
-    <span class="payos-btn-text">
+    <span>
       {price ? `Mua ngay — ${price.toLocaleString('vi-VN')}₫` : 'Mua ngay'}
     </span>
-    <span class="payos-btn-loading hidden">
-      <svg class="animate-spin inline w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
-      Đang xử lý...
-    </span>
   </button>
+  <dialog class="payment-method-dialog fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-0 text-on-surface shadow-2xl backdrop:bg-black/70">
+    <div class="p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Chọn phương thức thanh toán</h2>
+          <p class="mt-1 text-sm text-on-surface-variant">Bạn có thể thanh toán tự động hoặc chuyển khoản thủ công.</p>
+        </div>
+        <button type="button" class="payment-dialog-close rounded-lg p-1 text-on-surface-variant hover:bg-white/10" aria-label="Đóng"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="mt-5 grid gap-3">
+        <button type="button" class="payment-option text-left rounded-xl border border-primary/35 bg-primary/10 p-4 hover:bg-primary/15 transition-colors" data-method="payos">
+          <span class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">bolt</span><span><strong class="block text-sm text-white">Thanh toán tự động qua PayOS</strong><span class="text-xs text-on-surface-variant">Xác nhận và kích hoạt tự động sau thanh toán.</span></span></span>
+        </button>
+        <button type="button" class="payment-option text-left rounded-xl border border-outline-variant/30 p-4 hover:bg-white/5 transition-colors" data-method="manual">
+          <span class="flex items-center gap-3"><span class="material-symbols-outlined text-emerald-400">qr_code_2</span><span><strong class="block text-sm text-white">Chuyển khoản ngân hàng</strong><span class="text-xs text-on-surface-variant">Quét QR đúng số tiền, sau đó nhắn Zalo để kích hoạt.</span></span></span>
+        </button>
+      </div>
+      <p class="payment-dialog-error hidden mt-4 text-xs text-rose-300" role="alert"></p>
+    </div>
+  </dialog>
+  </>
 ) : (
   <a
     href={`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`}
@@ -50,45 +66,50 @@ const user = Astro.locals.user;
 )}
 
 <script>
-  document.querySelectorAll('.payos-pay-btn').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const productId = target.dataset.productId;
-      if (!productId) return;
+  document.querySelectorAll('.payment-method-trigger').forEach((trigger) => {
+    const button = trigger as HTMLButtonElement;
+    const dialog = button.nextElementSibling as HTMLDialogElement | null;
+    if (!dialog) return;
 
-      const textEl = target.querySelector('.payos-btn-text') as HTMLElement;
-      const loadingEl = target.querySelector('.payos-btn-loading') as HTMLElement;
+    button.addEventListener('click', () => dialog.showModal());
+    dialog.querySelector('.payment-dialog-close')?.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
 
-      target.disabled = true;
-      textEl?.classList.add('hidden');
-      loadingEl?.classList.remove('hidden');
+    dialog.querySelectorAll('.payment-option').forEach((option) => {
+      option.addEventListener('click', async (event) => {
+        const target = event.currentTarget as HTMLButtonElement;
+        const method = target.dataset.method;
+        const productId = button.dataset.productId;
+        const error = dialog.querySelector('.payment-dialog-error') as HTMLElement;
+        if (!productId || !method) return;
 
-      try {
-        const resp = await fetch('/api/payos/create-payment', {
+        target.disabled = true;
+        error.classList.add('hidden');
+        try {
+          const resp = await fetch(method === 'manual' ? '/api/manual-payment/create-payment' : '/api/payos/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ product_id: productId }),
         });
-
         const data = await resp.json() as Record<string, unknown>;
-
         if (!resp.ok || data.error) {
-          alert((data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.');
-          target.disabled = false;
-          textEl?.classList.remove('hidden');
-          loadingEl?.classList.add('hidden');
+          error.textContent = (data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.';
+          error.classList.remove('hidden');
           return;
         }
-
-        // Redirect to PayOS checkout
-        if (data.checkoutUrl) {
+        if (method === 'manual' && data.orderId) {
+          window.location.href = `/payment/manual?order=${encodeURIComponent(data.orderId as string)}`;
+        } else if (data.checkoutUrl) {
           window.location.href = data.checkoutUrl as string;
         }
       } catch {
-        alert('Lỗi kết nối. Vui lòng thử lại.');
-        target.disabled = false;
-        textEl?.classList.remove('hidden');
-        loadingEl?.classList.add('hidden');
+          error.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+          error.classList.remove('hidden');
+        } finally {
+          target.disabled = false;
+        }
       }
     });
   });
