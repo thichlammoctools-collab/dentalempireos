@@ -147,7 +147,7 @@ export const POST: APIRoute = async (ctx) => {
               await updateAiAnalysis(env.DB, responseId, fullText);
               await updateAiAnalysisStatus(env.DB, responseId, 'done');
             } else {
-              await updateAiPlan(env.DB, responseId, fullText);
+            await updateAiPlan(env.DB, responseId, fullText.trim());
               await updateAiPlanStatus(env.DB, responseId, 'done');
             }
 
@@ -159,15 +159,16 @@ export const POST: APIRoute = async (ctx) => {
               await updateAiAnalysis(env.DB, responseId, fullText);
               await updateAiAnalysisStatus(env.DB, responseId, 'done');
             } else {
-              await updateAiPlan(env.DB, responseId, fullText);
+              await updateAiPlan(env.DB, responseId, fullText.trim());
               await updateAiPlanStatus(env.DB, responseId, 'done');
             }
             sseEnqueue(controller, 'status', { status: 'done', message: 'Hoàn tất (lưu DB)', type: t });
           }
         }
 
-        // Send final done event
-        sseEnqueue(controller, 'done', { r2_keys: r2Keys });
+        // The database is the source of truth for the result. R2 is optional,
+        // so clients must receive a completion signal even when its upload failed.
+        sseEnqueue(controller, 'done', { r2_keys: r2Keys, completed_types: types });
         controller.close();
       } catch (err) {
         console.error('[run-ai-stream] Stream error:', err);

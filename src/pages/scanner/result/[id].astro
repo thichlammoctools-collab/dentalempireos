@@ -83,10 +83,12 @@ const totalLevel = getScoreLevel(totalScore, scoringRules ?? { dimensions: [], t
 
 // Pre-render analysis and plan
 marked.setOptions({ gfm: true, breaks: true });
-const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) as string) : '';
+const analysisText = response.ai_analysis?.trim() ?? '';
+const planText = response.ai_plan?.trim() ?? '';
+const analysisHtml = analysisText ? (marked.parse(analysisText) as string) : '';
 const hasAnalysis = !!analysisHtml;
-const hasPlan = !!response.ai_plan;
-const planHtml = response.ai_plan ? (marked.parse(response.ai_plan) as string) : '';
+const hasPlan = !!planText;
+const planHtml = planText ? (marked.parse(planText) as string) : '';
 
 // AI status (from DB, defaults to 'pending' for old responses)
 const planStatus = (response as any).ai_plan_status ?? 'pending';
@@ -396,7 +398,7 @@ try {
             <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
           </div>
           <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
-          <template id="plan-copy-source">{response.ai_plan}</template>
+          <template id="plan-copy-source">{planText}</template>
         </>
       ) : (
         <!-- Not done: show button or loading -->
@@ -1253,13 +1255,9 @@ try {
           } else if (event === 'done') {
             const targetStatus = getStatusEl(chunkType, isFree);
             if (targetStatus) targetStatus.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
-            // If this is the last chunk type, reload after a moment
-            const totalExpected = type === 'all' ? 2 : 1;
-            const r2Keys = data.r2_keys as Record<string, string> | undefined;
-            const keyCount = r2Keys ? Object.keys(r2Keys).length : 0;
-            if (keyCount >= totalExpected) {
-              setTimeout(() => window.location.reload(), 800);
-            }
+            // The API sends this event only after the result is saved to D1.
+            // R2 is optional, so do not wait for its keys before displaying it.
+            setTimeout(() => window.location.reload(), 300);
           } else if (event === 'error') {
             throw new Error(String(data.message ?? 'Stream error'));
           }
