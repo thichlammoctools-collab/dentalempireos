@@ -48,7 +48,10 @@ function isActive(item: AdminNavItem): boolean {
   <!-- Sections nav: scrollable list of grouped items -->
   <nav class="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-hide px-2 sidebar-section" aria-label="Menu quản trị">
     {adminNav.map((section) => (
-      <div class="flex flex-col gap-1">
+      <div class:list={[
+        'flex flex-col gap-1',
+        (section.key === 'overview' || section.key === 'ai') && 'lg:hidden',
+      ]}>
         <div class="sidebar-section-label px-3 pb-1 text-[11px] font-bold tracking-wider text-on-surface-variant/60 uppercase whitespace-nowrap overflow-hidden">
           {section.label}
         </div>

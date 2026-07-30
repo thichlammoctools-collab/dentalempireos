@@ -319,7 +319,8 @@ body {
   --reader-chrome-text-muted: var(--color-on-surface-variant);
   --reader-border: rgba(255, 255, 255, 0.06);
   --reader-border-hover: rgba(255, 255, 255, 0.2);
-  --reader-scrollbar: rgba(255, 255, 255, 0.08);
+  --reader-scrollbar: rgba(146, 204, 255, 0.22);
+  --reader-scrollbar-hover: rgba(146, 204, 255, 0.48);
 }
 .reader-app {
   background-color: var(--reader-bg);
@@ -350,6 +351,48 @@ html:has(.reader-app) body > footer {
   overscroll-behavior-y: contain;
 }
 
+/* Keep reader scrollbars quiet until they are needed, while preserving an
+   easy-to-grab thumb for long chapters and navigation panels. */
+#reader-scroll,
+.toc-sidebar,
+.section-nav-desktop,
+#section-nav-links {
+  scrollbar-width: thin;
+  scrollbar-color: var(--reader-scrollbar) transparent;
+}
+
+#reader-scroll::-webkit-scrollbar,
+.toc-sidebar::-webkit-scrollbar,
+.section-nav-desktop::-webkit-scrollbar,
+#section-nav-links::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+#reader-scroll::-webkit-scrollbar-track,
+.toc-sidebar::-webkit-scrollbar-track,
+.section-nav-desktop::-webkit-scrollbar-track,
+#section-nav-links::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#reader-scroll::-webkit-scrollbar-thumb,
+.toc-sidebar::-webkit-scrollbar-thumb,
+.section-nav-desktop::-webkit-scrollbar-thumb,
+#section-nav-links::-webkit-scrollbar-thumb {
+  background-color: var(--reader-scrollbar);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+#reader-scroll:hover::-webkit-scrollbar-thumb,
+.toc-sidebar:hover::-webkit-scrollbar-thumb,
+.section-nav-desktop:hover::-webkit-scrollbar-thumb,
+#section-nav-links:hover::-webkit-scrollbar-thumb {
+  background-color: var(--reader-scrollbar-hover);
+}
+
 /* Reader flex containers need min-height:0 so overflow-y-auto works inside flex layout */
 html:has(.reader-app) #reader-app {
   min-height: 0;
@@ -373,7 +416,8 @@ body.light-mode {
   --reader-chrome-text-muted: #5a5a5a;
   --reader-border: rgba(0, 0, 0, 0.08);
   --reader-border-hover: rgba(0, 0, 0, 0.15);
-  --reader-scrollbar: rgba(0, 0, 0, 0.1);
+  --reader-scrollbar: rgba(0, 100, 151, 0.24);
+  --reader-scrollbar-hover: rgba(0, 100, 151, 0.48);
 }
 
 /* Sepia mode */
@@ -391,7 +435,8 @@ body.sepia-mode {
   --reader-chrome-text-muted: #6b5a40;
   --reader-border: rgba(67, 52, 34, 0.12);
   --reader-border-hover: rgba(67, 52, 34, 0.22);
-  --reader-scrollbar: rgba(67, 52, 34, 0.15);
+  --reader-scrollbar: rgba(139, 94, 60, 0.3);
+  --reader-scrollbar-hover: rgba(139, 94, 60, 0.54);
 }
 
 /* Mobile bottom bar padding + reader layout fixes */

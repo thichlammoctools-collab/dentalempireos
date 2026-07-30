@@ -11,8 +11,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) return json({ error: 'Chưa đăng nhập' }, 401);
 
   const settings = await getPayosSettings(env.DB);
-  if (!settings?.client_id || !settings?.api_key) {
-    return json({ error: 'PayOS chưa được cấu hình. Vui lòng liên hệ admin.' }, 500);
+  if (!settings?.is_active || !settings.client_id || !settings.api_key || !settings.checksum_key) {
+    return json({ error: 'Thanh toán PayOS hiện chưa khả dụng. Vui lòng chọn chuyển khoản ngân hàng.' }, 503);
   }
   const creds = getPayosEnv(env.DB, settings, env);
 

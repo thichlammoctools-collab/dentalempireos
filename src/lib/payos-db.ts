@@ -74,6 +74,11 @@ export async function getProduct(db: D1Database, id: string): Promise<Product | 
   return db.prepare('SELECT * FROM "product" WHERE "id" = ?').bind(id).first<Product>();
 }
 
+export interface OrderWithProduct extends Order {
+  product_name: string;
+  product_type: Product['type'];
+}
+
 export interface ManualPaymentSettings {
   id: number;
   is_active: number;
@@ -292,6 +297,33 @@ export async function hasAccess(
     .bind(userId, productId, now)
     .first();
   return !!row;
+}
+
+export async function listUserOrders(db: D1Database, userId: string): Promise<OrderWithProduct[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT o.*, p."name" AS "product_name", p."type" AS "product_type"
+       FROM "order" o
+       INNER JOIN "product" p ON p."id" = o."product_id"
+       WHERE o."user_id" = ?
+       ORDER BY o."created_at" DESC`,
+    )
+    .bind(userId)
+    .all<OrderWithProduct>();
+  return results;
+}
+
+export async function listManualOrders(db: D1Database): Promise<OrderWithProduct[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT o.*, p."name" AS "product_name", p."type" AS "product_type"
+       FROM "order" o
+       INNER JOIN "product" p ON p."id" = o."product_id"
+       WHERE o."payment_link_id" IS NULL
+       ORDER BY CASE o."status" WHEN 'pending' THEN 0 ELSE 1 END, o."created_at" DESC`,
+    )
+    .all<OrderWithProduct>();
+  return results;
 }
 
 /** Create a pending order for a bank transfer. Its order code is the transfer reference. */

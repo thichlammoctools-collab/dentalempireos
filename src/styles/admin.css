@@ -135,6 +135,48 @@ body.admin-sidebar-collapsed .admin-topbar {
   outline: none;
 }
 
+/* ── Header navigation ────────────────────────────────────── */
+.admin-header-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-header-menu[open] > summary {
+  background: rgba(146, 204, 255, 0.12);
+  color: #92ccff;
+}
+.admin-header-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  min-width: 13rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(146, 204, 255, 0.22);
+  border-radius: 0.75rem;
+  background: rgba(30, 31, 35, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+}
+.admin-header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  color: #c7c5d0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.admin-header-menu-item:hover,
+.admin-header-menu-item:focus,
+.admin-header-menu-item.is-active {
+  background: rgba(146, 204, 255, 0.12);
+  color: #92ccff;
+  outline: none;
+}
+
 @media (max-width: 1023px) {
   .admin-main-shell {
     margin-left: 0;

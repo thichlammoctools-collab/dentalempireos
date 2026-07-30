@@ -45,10 +45,10 @@ const user = Astro.locals.user;
         <button type="button" class="payment-dialog-close rounded-lg p-1 text-on-surface-variant hover:bg-white/10" aria-label="Đóng"><span class="material-symbols-outlined">close</span></button>
       </div>
       <div class="mt-5 grid gap-3">
-        <button type="button" class="payment-option text-left rounded-xl border border-primary/35 bg-primary/10 p-4 hover:bg-primary/15 transition-colors" data-method="payos">
+        <button type="button" class="payment-option payment-option-payos text-left rounded-xl border border-primary/35 bg-primary/10 p-4 hover:bg-primary/15 transition-colors" data-method="payos">
           <span class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">bolt</span><span><strong class="block text-sm text-white">Thanh toán tự động qua PayOS</strong><span class="text-xs text-on-surface-variant">Xác nhận và kích hoạt tự động sau thanh toán.</span></span></span>
         </button>
-        <button type="button" class="payment-option text-left rounded-xl border border-outline-variant/30 p-4 hover:bg-white/5 transition-colors" data-method="manual">
+        <button type="button" class="payment-option payment-option-manual text-left rounded-xl border border-outline-variant/30 p-4 hover:bg-white/5 transition-colors" data-method="manual">
           <span class="flex items-center gap-3"><span class="material-symbols-outlined text-emerald-400">qr_code_2</span><span><strong class="block text-sm text-white">Chuyển khoản ngân hàng</strong><span class="text-xs text-on-surface-variant">Quét QR đúng số tiền, sau đó nhắn Zalo để kích hoạt.</span></span></span>
         </button>
       </div>
@@ -77,6 +77,10 @@ const user = Astro.locals.user;
       if (event.target === dialog) dialog.close();
     });
 
+    dialog.addEventListener('close', () => {
+      dialog.querySelectorAll('.payment-option').forEach((option) => option.removeAttribute('disabled'));
+    });
+
     dialog.querySelectorAll('.payment-option').forEach((option) => {
       option.addEventListener('click', async (event) => {
         const target = event.currentTarget as HTMLButtonElement;
@@ -92,7 +96,7 @@ const user = Astro.locals.user;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ product_id: productId }),
-        });
+          });
         const data = await resp.json() as Record<string, unknown>;
         if (!resp.ok || data.error) {
           error.textContent = (data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.';
@@ -110,7 +114,7 @@ const user = Astro.locals.user;
         } finally {
           target.disabled = false;
         }
-      }
+      });
     });
   });
 </script>
