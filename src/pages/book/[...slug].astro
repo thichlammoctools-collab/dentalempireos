@@ -11,7 +11,8 @@ import DonateWidget from '../../components/book/DonateWidget.astro';
 
 import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
 import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
-import { getProduct, hasAccess } from '../../lib/payos-db';
+import { getActiveBookProductForChapter, hasAccess } from '../../lib/payos-db';
+import PaymentButton from '../../components/PaymentButton.astro';
 
 // Configure marked ONCE at module level (persists across requests within the same isolate)
 marked.use({ breaks: true });
@@ -52,22 +53,13 @@ if (!tree) {
 
 const { chapter: ch, sections } = tree;
 
-// ── Book paywall: check access ──────────────────────────────
-let bookProduct: Awaited<ReturnType<typeof getProduct>> = null;
+// ── Book paywall: each active book_unlock product unlocks one chapter ───────────
+let bookProduct: Awaited<ReturnType<typeof getActiveBookProductForChapter>> = null;
 let userHasAccess = false;
-let isBookLocked = false;
 
 try {
-  // Find the book_unlock product linked to this chapter
-  const { results: products } = await db
-    .prepare('SELECT * FROM "product" WHERE "type" = ? AND "reference_id" = ? AND "is_active" = 1 LIMIT 1')
-    .bind('book_unlock', slug)
-    .all();
-  bookProduct = (products as any[])[0] ?? null;
-
+  bookProduct = await getActiveBookProductForChapter(db, slug);
   if (bookProduct) {
-    isBookLocked = true;
-    // Check if logged-in user has access
     const currentUser = Astro.locals.user;
     if (currentUser) {
       userHasAccess = await hasAccess(db, currentUser.id, bookProduct.id);
@@ -156,7 +148,13 @@ function renderMarkdown(text: string): string {
   return html;
 }
 
-function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNumber = '', accessible = true): string {
+function renderSection(
+  s: SectionNode,
+  attachments: AttachmentItem[],
+  sectionNumber = '',
+  hasChapterAccess = true,
+): string {
+  const accessible = hasChapterAccess || s.is_free === 1;
   const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
   let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
@@ -180,8 +178,8 @@ function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNum
           ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
         </figure>`;
       }
-      // Add paywall marker after first block
-      html += `<div id="paywall-marker" data-paywall="true"></div>`;
+      // Marks the end of the server-rendered preview without duplicating an element ID.
+      html += `<div class="paywall-marker" data-paywall="true"></div>`;
       break; // Stop rendering more blocks
     }
     if (block.type === 'text' && block.text_md) {
@@ -259,14 +257,16 @@ function renderSection(s: SectionNode, attachments: AttachmentItem[], sectionNum
 
   for (let ci = 0; ci < s.children.length; ci++) {
     const childNum = sectionNumber ? `${sectionNumber}.${ci + 1}` : `${ci + 1}`;
-    html += renderSection(s.children[ci], attachments, childNum);
+    html += renderSection(s.children[ci], attachments, childNum, hasChapterAccess);
   }
 
   return html;
 }
 
 // ── Cache lookup (chapter content rendering is the expensive part) ───────────────
-const cached = _chapterCache.get(slug);
+// Never share a rendered premium chapter between an entitled and a locked visitor.
+const readerCacheKey = `${slug}:${bookProduct ? (userHasAccess ? 'unlocked' : 'locked') : 'public'}`;
+const cached = _chapterCache.get(readerCacheKey);
 let strippedContent: string;
 let attachments: AttachmentItem[];
 
@@ -275,18 +275,22 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
   attachments = cached.attachments;
 } else {
   const localAttachments: AttachmentItem[] = [];
-  const sectionsHtml = sections.map((s, i) => renderSection(s, localAttachments, `${i + 1}`)).join('');
+  const sectionsHtml = sections
+    .map((s, i) => renderSection(s, localAttachments, `${i + 1}`, !bookProduct || userHasAccess))
+    .join('');
   strippedContent = sectionsHtml;
   attachments = localAttachments;
-  _chapterCache.set(slug, { html: strippedContent, attachments, sectionNavItems: [], ts: Date.now(), ch });
+  _chapterCache.set(readerCacheKey, { html: strippedContent, attachments, sectionNavItems: [], ts: Date.now(), ch });
 }
 
 // Trigger stale revalidation in background (non-blocking)
 if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
-  const freshSectionsHtml = sections.map((s, i) => renderSection(s, staleAttachments, `${i + 1}`)).join('');
+  const freshSectionsHtml = sections
+    .map((s, i) => renderSection(s, staleAttachments, `${i + 1}`, !bookProduct || userHasAccess))
+    .join('');
   const freshHtml = freshSectionsHtml;
-  _chapterCache.set(slug, { html: freshHtml, attachments: staleAttachments, sectionNavItems: [], ts: Date.now(), ch });
+  _chapterCache.set(readerCacheKey, { html: freshHtml, attachments: staleAttachments, sectionNavItems: [], ts: Date.now(), ch });
 }
 
 const attachmentCount = attachments.length;
@@ -342,6 +346,31 @@ const currentUser = Astro.locals.user;
 
   <!-- Chapter Content -->
   <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
+
+  {bookProduct && !userHasAccess ? (
+    <section id="book-paywall" class="relative -mt-8 mb-10 pt-14">
+      <div class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-transparent via-surface/85 to-surface pointer-events-none"></div>
+      <div class="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-surface-container to-surface-container-low p-6 sm:p-8 text-center shadow-xl">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary">
+          <span class="material-symbols-outlined text-2xl">lock</span>
+        </div>
+        <p class="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">Nội dung chuyên sâu</p>
+        <h2 class="m-0 text-xl font-bold text-white sm:text-2xl">Mở khóa chương này để đọc toàn bộ</h2>
+        <p class="mx-auto mt-3 max-w-lg text-sm leading-6 text-on-surface-variant">
+          {bookProduct.description || `Bạn đang xem phần đọc thử của ${ch.title}. Mua một lần để truy cập đầy đủ chương này.`}
+        </p>
+        <div class="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <PaymentButton productId={bookProduct.id} productName={bookProduct.name} price={bookProduct.price} />
+          {!currentUser && (
+            <a href={`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`} class="text-sm font-semibold text-primary hover:underline">
+              Đã có tài khoản? Đăng nhập
+            </a>
+          )}
+        </div>
+        <p class="mt-4 text-xs text-on-surface-variant/70">Thanh toán an toàn qua PayOS · {bookProduct.duration_days ? `Truy cập ${bookProduct.duration_days} ngày` : 'Truy cập vĩnh viễn'}</p>
+      </div>
+    </section>
+  ) : null}
 
   {attachmentCount > 0 ? (
     <section id="attachments-summary" class="att-list-section mt-10 mb-8">

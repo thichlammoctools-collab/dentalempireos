@@ -74,6 +74,21 @@ export async function getProduct(db: D1Database, id: string): Promise<Product | 
   return db.prepare('SELECT * FROM "product" WHERE "id" = ?').bind(id).first<Product>();
 }
 
+/** Return the active product that unlocks a single book chapter, if configured. */
+export async function getActiveBookProductForChapter(
+  db: D1Database,
+  chapterId: string,
+): Promise<Product | null> {
+  return db
+    .prepare(
+      `SELECT * FROM "product"
+       WHERE "type" = 'book_unlock' AND "reference_id" = ? AND "is_active" = 1
+       LIMIT 1`,
+    )
+    .bind(chapterId)
+    .first<Product>();
+}
+
 export async function getActiveProducts(db: D1Database): Promise<Product[]> {
   const { results } = await db
     .prepare('SELECT * FROM "product" WHERE "is_active" = 1 ORDER BY "created_at" DESC')

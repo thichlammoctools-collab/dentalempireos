@@ -21,7 +21,6 @@ import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory } from '../../../lib/scanner-history-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
-import { hasAccess } from '../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -60,27 +59,9 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  // Access check: free scanners are open, paid scanners require active access
-  if (!def.is_free) {
-    const { results: products } = await env.DB
-      .prepare(
-        `SELECT p.id FROM "product" p
-         INNER JOIN "product_scanner" ps ON p.id = ps.product_id
-         WHERE ps.scanner_id = ? AND p.is_active = 1`,
-      )
-      .bind(surveyId)
-      .all<{ id: string }>();
-
-    const hasAccessToAny = await Promise.all(
-      (products ?? []).map((p) => hasAccess(env.DB, session.user.id, p.id)),
-    );
-    if (!hasAccessToAny.some(Boolean)) {
-      return json({ requiresAuth: true, message: 'Bạn cần mở khóa scanner này trước.' }, 403);
-    }
-  }
-
   // Free scanners collect a per-response contact snapshot. Premium scanners
   // use the account's clinic profile so reports stay consistent and verified.
+  // Premium AI analysis is gated on the result page, not before scoring.
   const profile = def.is_free === 0
     ? await getClinicProfile(env.DB, session.user.id)
     : null;

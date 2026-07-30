@@ -2,6 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listProducts, getAllProductScanners, getScannerProductMapping } from '../../../lib/payos-db';
+import { listChapters } from '../../../lib/book-db';
 import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 
 export const prerender = false;
@@ -12,6 +13,7 @@ const products = await listProducts(db);
 const mappings = await getAllProductScanners(db);
 const scannerProductMap = await getScannerProductMapping(db);
 const scanners = await listSurveyDefinitions(db, { status: 'active' });
+const chapters = await listChapters(db);
 
 const activeCount = products.filter((p) => p.is_active === 1).length;
 const typeLabels: Record<string, string> = {
@@ -20,6 +22,7 @@ const typeLabels: Record<string, string> = {
   booking: 'Booking tư vấn',
   event_ticket: 'Vé sự kiện',
   survey_unlock: 'Mở khóa khảo sát AI',
+  book_unlock: 'Mở khóa chương sách',
 };
 
 const scannerMap = Object.fromEntries(scanners.map((s) => [s.id, s.title_vi]));
@@ -86,6 +89,7 @@ const newId = nanoid();
               <option value="booking">Booking tư vấn</option>
               <option value="event_ticket">Vé sự kiện</option>
               <option value="survey_unlock">Mở khóa khảo sát AI</option>
+              <option value="book_unlock">Mở khóa chương sách</option>
             </select>
           </div>
           <div>
@@ -121,11 +125,14 @@ const newId = nanoid();
           </div>
           <div>
             <label class="block text-sm font-semibold text-on-surface-variant mb-2">Reference ID</label>
-            <input type="text" name="reference_id"
+            <input type="text" name="reference_id" list="book-chapters"
               class="w-full px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-1 focus:ring-primary focus:outline-none"
-              placeholder="ID nội dung liên kết"
+              placeholder="ID chương sách hoặc nội dung liên kết"
             />
-            <p class="text-xs text-white/40 mt-1">ID của course/resource liên kết</p>
+            <p class="text-xs text-white/40 mt-1">Với chương sách, chọn Chapter ID trong danh sách gợi ý.</p>
+            <datalist id="book-chapters">
+              {chapters.map((chapter) => <option value={chapter.id}>{`Ch.${chapter.chapter_no} · ${chapter.title}`}</option>)}
+            </datalist>
           </div>
         </div>
         <div class="flex items-center gap-3">

@@ -5,7 +5,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
 import { getScannerResponse } from '../../../../lib/scanner-response-db';
-import { generateScannerPdf } from '../../../../lib/scanner-pdf';
+import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
 import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
@@ -29,6 +29,14 @@ export const GET: APIRoute = async ({ params, request }) => {
     ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
     : false;
   if (!owned && !ownsByEmail) return json({ error: 'Không có quyền với kết quả này' }, 403);
+
+  const requestedType = new URL(request.url).searchParams.get('type');
+  const type: ScannerPdfType = requestedType === 'plan' || requestedType === 'analysis' ? requestedType : 'combined';
+  if (type === 'plan' && !response.ai_plan?.trim()) return json({ error: 'Kế hoạch 30 ngày chưa sẵn sàng.' }, 409);
+  if (type === 'analysis' && !response.ai_analysis?.trim()) return json({ error: 'Bản soi chiếu hệ thống chưa sẵn sàng.' }, 409);
+  if (type === 'combined' && (!response.ai_plan?.trim() || !response.ai_analysis?.trim())) {
+    return json({ error: 'Hoàn tất kế hoạch và bản soi chiếu AI để xuất báo cáo tổng hợp.' }, 409);
+  }
 
   // Access check: if scanner is paid, user must have access
   const definition = await env.DB
@@ -84,8 +92,8 @@ export const GET: APIRoute = async ({ params, request }) => {
       logo,
       logoType,
       phone: clinicProfile?.phone,
-    });
-    const filename = `scanner-${definition?.slug ?? id}-${id}.pdf`;
+    }, type);
+    const filename = `scanner-${definition?.slug ?? id}-${type}-${id}.pdf`;
     return new Response(pdfBytes as BodyInit, {
       status: 200,
       headers: {

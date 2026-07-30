@@ -229,7 +229,7 @@ try {
       </div>
       <div class="report-actions">
         {hasPlan && hasAnalysis && (
-          <a href={`/api/scanner/${id}/pdf`} class="btn btn-primary">
+          <a href={`/api/scanner/${id}/pdf?type=combined`} class="btn btn-primary">
             <span class="material-symbols-outlined text-base">picture_as_pdf</span>
             <span>{lang === 'vi' ? 'Xuất báo cáo PDF' : 'Export PDF report'}</span>
           </a>
@@ -406,16 +406,10 @@ try {
               <span class="material-symbols-outlined text-base">content_copy</span>
               {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
             </button>
-            {hasAnalysis ? (
-              <a href={`/api/scanner/${id}/pdf`} class="btn btn-primary plan-tool-button">
-                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
-                {lang === 'vi' ? 'Tải báo cáo PDF' : 'Download PDF report'}
-              </a>
-            ) : (
-              <span class="plan-export-note">
-                {lang === 'vi' ? 'Hoàn tất bản soi chiếu AI để tải báo cáo PDF gộp.' : 'Complete the AI analysis to download the consolidated PDF report.'}
-              </span>
-            )}
+            <a href={`/api/scanner/${id}/pdf?type=plan`} class="btn btn-primary plan-tool-button">
+              <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+              {lang === 'vi' ? 'Tải PDF kế hoạch' : 'Download plan PDF'}
+            </a>
           </div>
           <div class="plan-document-meta">
             <span class="material-symbols-outlined">assignment_turned_in</span>
@@ -462,7 +456,15 @@ try {
 
       <div id="analysis-unlocked" class="hidden">
         {hasAnalysis ? (
-          <article class="prose-content" set:html={analysisHtml}></article>
+          <>
+            <div class="analysis-tools">
+              <a href={`/api/scanner/${id}/pdf?type=analysis`} class="btn btn-primary plan-tool-button">
+                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
+              </a>
+            </div>
+            <article class="prose-content" set:html={analysisHtml}></article>
+          </>
         ) : (
           <div id="analysis-action">
             <div id="analysis-loading" class="hidden">
@@ -1050,8 +1052,8 @@ try {
     margin: -0.25rem 0 1.25rem;
     flex-wrap: wrap;
   }
+  .analysis-tools { display: flex; justify-content: flex-end; margin: -0.25rem 0 1.25rem; }
   .plan-tool-button { padding: 0.5rem 0.875rem; }
-  .plan-export-note { color: var(--on-surface-variant); font-size: 0.8rem; line-height: 1.45; max-width: 18rem; }
 
   .hidden { display: none !important; }
 

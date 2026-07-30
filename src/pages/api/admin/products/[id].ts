@@ -5,6 +5,15 @@ import { getProduct, upsertProduct, deleteProduct } from '../../../../lib/payos-
 
 export const prerender = false;
 
+const PRODUCT_TYPES = new Set([
+  'course_unlock',
+  'document_unlock',
+  'booking',
+  'event_ticket',
+  'survey_unlock',
+  'book_unlock',
+]);
+
 // GET /api/admin/products/[id] — get a single product
 export const GET: APIRoute = async ({ params }) => {
   const id = params.id;
@@ -78,15 +87,27 @@ export const PUT: APIRoute = async ({ params, request }) => {
   if (!body) return badRequest('Invalid JSON body');
 
   const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body;
+  const resolvedType = type ?? existing.type;
+  const resolvedReferenceId = reference_id ?? existing.reference_id;
+
+  if (!PRODUCT_TYPES.has(resolvedType)) return badRequest('Loại sản phẩm không hợp lệ');
+  if (resolvedType === 'book_unlock') {
+    if (!resolvedReferenceId) return badRequest('Mở khóa chương sách cần Reference ID của chương');
+    const chapter = await env.DB
+      .prepare('SELECT 1 FROM "chapter" WHERE "id" = ? LIMIT 1')
+      .bind(resolvedReferenceId)
+      .first();
+    if (!chapter) return badRequest('Không tìm thấy chương tương ứng với Reference ID');
+  }
 
   await upsertProduct(env.DB, {
     id,
     name: name ?? existing.name,
-    type: type ?? existing.type,
+    type: resolvedType,
     price: price ?? existing.price,
     description: description ?? existing.description ?? undefined,
     duration_days: duration_days ?? existing.duration_days,
-    reference_id: reference_id ?? existing.reference_id,
+    reference_id: resolvedReferenceId,
     app_id: app_id !== undefined ? app_id : existing.app_id,
     is_active: is_active ?? existing.is_active,
   });
