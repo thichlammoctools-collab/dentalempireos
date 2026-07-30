@@ -1,4 +1,4 @@
-// Public API: Download PDF report for a scanner response.
+// Authenticated API: Download the consolidated A4 PDF report for a scanner response.
 // GET /api/scanner/[id]/pdf
 
 import type { APIRoute } from 'astro';
@@ -6,15 +6,28 @@ import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
 import { getScannerResponse } from '../../../../lib/scanner-response-db';
 import { generateScannerPdf } from '../../../../lib/scanner-pdf';
+import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
+import { getUserByEmail } from '../../../../lib/user-db';
+import { createAuth } from '../../../../lib/auth';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ params, url }) => {
+export const GET: APIRoute = async ({ params, request }) => {
   const id = parseInt(params.id ?? '', 10);
   if (!id) return badRequest('id is required');
 
+  const auth = createAuth(env);
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Vui lòng đăng nhập' }, 401);
+
   const response = await getScannerResponse(env.DB, id);
   if (!response) return notFound('Response not found');
+
+  const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
+  const ownsByEmail = response.email
+    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
+    : false;
+  if (!owned && !ownsByEmail) return json({ error: 'Không có quyền với kết quả này' }, 403);
 
   // Access check: if scanner is paid, user must have access
   const definition = await env.DB

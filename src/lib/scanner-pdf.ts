@@ -7,17 +7,13 @@ import fontkit from '@pdf-lib/fontkit';
 import { marked } from 'marked';
 import {
   type ScannerResponseRow,
-  parseResponses,
   parseScores,
 } from './scanner-response-db';
 import {
-  type SurveyDefinitionFull,
   type ScoringRules,
   parseScoringRules,
-  parseJSON,
 } from './survey-config-db';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
-import { getScoreLevel } from './scoring-engine';
 
 const NAVY = rgb(0.13, 0.27, 0.55);
 const AMBER = rgb(0.96, 0.62, 0.04);
@@ -54,8 +50,8 @@ const T = {
     years: 'Số năm',
     staff: 'Nhân sự',
     section1: 'I. ĐIỂM TỔNG HỢP',
-    section2: 'II. CHI TIẾT CÂU TRẢ LỜI',
-    section3: 'III. PHÂN TÍCH AI',
+    section2: 'II. KẾ HOẠCH HÀNH ĐỘNG 30 NGÀY',
+    section3: 'III. BẢN SOI CHIẾU HỆ THỐNG',
     totalLabel: 'TỔNG ĐIỂM',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Trang',
@@ -68,8 +64,8 @@ const T = {
     years: 'Years',
     staff: 'Staff',
     section1: 'I. OVERALL SCORE',
-    section2: 'II. ANSWERS IN DETAIL',
-    section3: 'III. AI ANALYSIS',
+    section2: 'II. 30-DAY ACTION PLAN',
+    section3: 'III. SYSTEM ILLUMINATION',
     totalLabel: 'TOTAL SCORE',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Page',
@@ -253,32 +249,6 @@ export async function generateScannerPdf(
     .first<{ id: string; title_vi: string; title_en: string }>();
   if (!definitionRow) throw new Error('Survey definition not found');
 
-  const sectionsResult = await db
-    .prepare(
-      `SELECT s.*, q.* FROM "survey_section" s
-       LEFT JOIN "survey_question" q ON q."section_id" = s."id"
-       WHERE s."survey_id" = ?
-       ORDER BY s."order_idx" ASC, q."order_idx" ASC`,
-    )
-    .bind(response.survey_id)
-    .all<any>();
-
-  const sectionsMap = new Map<number, { section: any; questions: any[] }>();
-  for (const row of sectionsResult.results ?? []) {
-    if (!sectionsMap.has(row.id)) {
-      sectionsMap.set(row.id, { section: row, questions: [] });
-    }
-    const entry = sectionsMap.get(row.id)!;
-    if (row.question_id) {
-      entry.questions.push(row);
-    }
-  }
-
-  const sections = Array.from(sectionsMap.values()).map((e) => ({
-    ...e.section,
-    questions: e.questions,
-  }));
-
   const scoringRules: ScoringRules = parseScoringRules(
     (await db.prepare('SELECT scoring_rules FROM "survey_definition" WHERE id = ?').bind(response.survey_id).first<{ scoring_rules: string | null }>())?.scoring_rules,
   ) ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } };
@@ -379,38 +349,14 @@ export async function generateScannerPdf(
   }
   ctx.y -= 8;
 
-  // Section 2: Detailed answers (highlight scoring dimensions first)
+  // Section 2: AI-generated 30-day plan
   drawSectionTitle(ctx, t.section2);
-
-  const responses = parseResponses(response.responses_json);
-
-  for (const section of sections) {
-    if (section.questions.length === 0) continue;
-    drawParagraph(ctx, section.title_vi, { bold: true, size: 11, color: NAVY });
-    ctx.y -= 4;
-
-    for (const q of section.questions) {
-      const val = responses[q.question_id];
-      const questionText = lang === 'vi' ? q.label_vi : (q.label_en || q.label_vi);
-      drawParagraph(ctx, `${questionText}`, { bold: false, size: 9, color: MUTED });
-
-      let answerText: string;
-      if (val === undefined || val === null || val === '') {
-        answerText = '—';
-      } else if (q.type === 'select' || q.type === 'yesno') {
-        const labels = parseJSON<Record<string, string> | null>(q.scale_labels_vi, null);
-        const label = labels?.[String(val)] ?? String(val);
-        answerText = `${val} — ${label}`;
-      } else if (q.type === 'radio') {
-        answerText = String(val);
-      } else {
-        answerText = String(val);
-      }
-
-      drawParagraph(ctx, answerText, { bold: false, size: 9 });
-      ctx.y -= 2;
-    }
-    ctx.y -= 6;
+  if (response.ai_plan) {
+    renderMarkdownToPdf(ctx, response.ai_plan);
+  } else {
+    drawParagraph(ctx, lang === 'vi'
+      ? 'Kế hoạch 30 ngày đang được tạo. Vui lòng tải lại sau vài phút.'
+      : 'The 30-day action plan is being generated. Please download the report again in a few minutes.', { color: MUTED });
   }
 
   // Section 3: AI analysis

@@ -215,6 +215,12 @@ try {
         </p>
       </div>
       <div class="flex gap-2 flex-wrap">
+        {hasPlan && hasAnalysis && (
+          <a href={`/api/scanner/${id}/pdf`} class="btn btn-primary">
+            <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+            <span>{lang === 'vi' ? 'Xuất báo cáo PDF' : 'Export PDF report'}</span>
+          </a>
+        )}
         <button type="button" id="btn-share" class="btn btn-ghost">
           <span class="material-symbols-outlined text-base">share</span>
           <span>{lang === 'vi' ? 'Chia sẻ' : 'Share'}</span>
