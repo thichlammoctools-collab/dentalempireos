@@ -457,8 +457,58 @@
     }
   }
 
+  // ── Load AI Models ──────────────────────────────────────
+  async function loadModels() {
+    try {
+      var res = await fetch('/api/admin/ai-models', { method: 'POST' });
+      var data = await res.json();
+      if (!res.ok || !data.models) return;
+
+      var chatModels = data.models.filter(function(m) { return m.category === 'chat'; });
+
+      // Populate generate-model and final-model dropdowns
+      populateModelSelect('generate-model', chatModels);
+      populateModelSelect('final-model', chatModels);
+    } catch {
+      console.error('Không thể tải danh sách model');
+    }
+  }
+
+  function populateModelSelect(selectId, models) {
+    var select = document.getElementById(selectId);
+    if (!select) return;
+
+    // Group by provider
+    var grouped = {};
+    for (var i = 0; i < models.length; i++) {
+      var m = models[i];
+      if (!grouped[m.provider]) grouped[m.provider] = [];
+      grouped[m.provider].push(m);
+    }
+
+    select.innerHTML = '<option value="">— Mặc định —</option>';
+    var providers = Object.keys(grouped);
+    for (var p = 0; p < providers.length; p++) {
+      var provider = providers[p];
+      var providerModels = grouped[provider];
+      var group = document.createElement('optgroup');
+      group.label = provider;
+      for (var j = 0; j < providerModels.length; j++) {
+        var model = providerModels[j];
+        var opt = document.createElement('option');
+        opt.value = model.id;
+        opt.textContent = model.name + ' (' + model.id + ')';
+        group.appendChild(opt);
+      }
+      select.appendChild(group);
+    }
+  }
+
   // ── Event Binding ─────────────────────────────────────
   function init() {
+    // Load AI models
+    loadModels();
+
     // Slug preview
     var nameInput = document.getElementById('step2-name');
     if (nameInput) {
