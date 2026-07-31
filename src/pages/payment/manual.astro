@@ -48,6 +48,11 @@ const zaloUrl = settings?.zalo_url
             Nhắn Zalo để kích hoạt tài khoản
           </a>
         </div>
+
+        <a href={`/orders/${orderId}`} class="mt-4 inline-flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors">
+          <span class="material-symbols-outlined text-sm">receipt_long</span>
+          Xem chi tiết đơn hàng
+        </a>
       </div>
     ) : (
       <div class="glass-card rounded-2xl p-8 border border-outline-variant/20 text-center">

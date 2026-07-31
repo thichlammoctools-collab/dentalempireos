@@ -185,6 +185,22 @@ export async function getOrder(db: D1Database, id: string): Promise<Order | null
   return db.prepare('SELECT * FROM "order" WHERE "id" = ?').bind(id).first<Order>();
 }
 
+export async function getOrderWithProduct(
+  db: D1Database,
+  orderId: string,
+  userId: string,
+): Promise<OrderWithProduct | null> {
+  return db
+    .prepare(
+      `SELECT o.*, p."name" AS "product_name", p."type" AS "product_type"
+       FROM "order" o
+       INNER JOIN "product" p ON p."id" = o."product_id"
+       WHERE o."id" = ? AND o."user_id" = ?`,
+    )
+    .bind(orderId, userId)
+    .first<OrderWithProduct>();
+}
+
 export async function getOrderByCode(db: D1Database, orderCode: number): Promise<Order | null> {
   return db
     .prepare('SELECT * FROM "order" WHERE "order_code" = ?')
