@@ -1116,6 +1116,7 @@ try {
 
   // ── Polling ───────────────────────────────────────────────────────
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+  const activeGenerations = new Set<string>();
 
   function pollForResult() {
     if (pollInterval) return;
@@ -1212,7 +1213,42 @@ try {
     return document.getElementById(isFree ? 'analysis-free-status' : 'analysis-status');
   }
 
+  function getElapsedEl(type: 'analysis' | 'plan', isFree = false): HTMLElement | null {
+    if (type === 'plan') return document.getElementById('plan-elapsed');
+    return document.getElementById(isFree ? 'analysis-free-elapsed' : 'analysis-elapsed');
+  }
+
+  function startGenerationFeedback(type: 'analysis' | 'plan', isFree = false): () => void {
+    const elapsedEl = getElapsedEl(type, isFree);
+    const startedAt = Date.now();
+    const task = type === 'plan'
+      ? (lang === 'vi' ? 'kế hoạch 30 ngày' : '30-day plan')
+      : (lang === 'vi' ? 'bản soi chiếu hệ thống' : 'system reflection');
+
+    const update = () => {
+      if (!elapsedEl) return;
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      const stage = seconds < 3
+        ? (lang === 'vi' ? 'Đã nhận yêu cầu, đang chuẩn bị dữ liệu...' : 'Request received, preparing your data...')
+        : seconds < 10
+          ? (lang === 'vi' ? `Đang đọc kết quả để tạo ${task}...` : `Reviewing your results for the ${task}...`)
+          : seconds < 25
+            ? (lang === 'vi' ? 'AI đang soạn nội dung riêng cho bạn...' : 'AI is drafting your personalised content...')
+            : (lang === 'vi' ? 'Đang hoàn thiện và lưu kết quả, vui lòng giữ trang này mở.' : 'Finalising and saving your result. Please keep this page open.');
+      elapsedEl.textContent = `${stage} (${seconds}s)`;
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }
+
   async function triggerAi(type: 'analysis' | 'plan', isFree = false) {
+    const generationKey = `${type}:${isFree ? 'free' : 'standard'}`;
+    if (activeGenerations.has(generationKey)) return;
+    activeGenerations.add(generationKey);
+    const stopFeedback = startGenerationFeedback(type, isFree);
+
     // Show streaming state
     if (type === 'plan') {
       document.getElementById('plan-cta')?.classList.add('hidden');
@@ -1230,6 +1266,7 @@ try {
     if (statusEl) statusEl.textContent = lang === 'vi' ? 'Đang phân tích...' : 'Analyzing...';
     if (container) container.classList.remove('hidden');
 
+    let completed = false;
     try {
       const res = await fetch('/api/scanner/run-ai-stream', {
         method: 'POST',
@@ -1291,12 +1328,14 @@ try {
             if (targetStatus) targetStatus.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
             // The API sends this event only after the result is saved to D1.
             // R2 is optional, so do not wait for its keys before displaying it.
+            completed = true;
             setTimeout(() => window.location.reload(), 300);
           } else if (event === 'error') {
             throw new Error(String(data.message ?? 'Stream error'));
           }
         }
       }
+      if (!completed) throw new Error(lang === 'vi' ? 'Kết nối kết thúc trước khi hoàn tất. Vui lòng thử lại.' : 'The connection ended before completion. Please try again.');
     } catch (err) {
       console.error('[scanner] SSE error:', err);
       const targetContainer = getStreamContainer(type, isFree);
@@ -1321,6 +1360,9 @@ try {
         const errId = isFree ? 'analysis-free-error' : 'analysis-error';
         document.getElementById(errId)?.classList.remove('hidden');
       }
+    } finally {
+      stopFeedback();
+      activeGenerations.delete(generationKey);
     }
   }
 

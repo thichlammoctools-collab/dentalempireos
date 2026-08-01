@@ -58,7 +58,6 @@ const T = {
     section1: 'I. ĐIỂM TỔNG HỢP',
     section2: 'II. KẾ HOẠCH HÀNH ĐỘNG 30 NGÀY',
     section3: 'III. BẢN SOI CHIẾU HỆ THỐNG',
-    section4: 'IV. CHI TIẾT TỰ SOI CHIẾU',
     totalLabel: 'TỔNG ĐIỂM',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Trang',
@@ -73,7 +72,6 @@ const T = {
     section1: 'I. OVERALL SCORE',
     section2: 'II. 30-DAY ACTION PLAN',
     section3: 'III. SYSTEM ILLUMINATION',
-    section4: 'IV. SELF-ASSESSMENT DETAILS',
     totalLabel: 'TOTAL SCORE',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Page',
@@ -223,33 +221,6 @@ interface PdfQuestionRow {
   section_title_en: string;
 }
 
-function drawResponseDetails(ctx: PdfContext, response: ScannerResponseRow, questions: PdfQuestionRow[]) {
-  const answers = parseResponses(response.responses_json);
-  let activeSection = '';
-
-  for (const question of questions) {
-    const answer = answers[question.question_id];
-    if (answer === undefined || answer === null || answer === '') continue;
-
-    const sectionTitle = ctx.lang === 'vi' ? question.section_title_vi : question.section_title_en || question.section_title_vi;
-    if (sectionTitle !== activeSection) {
-      activeSection = sectionTitle;
-      drawParagraph(ctx, sectionTitle, { bold: true, size: 11, color: NAVY });
-    }
-
-    const questionText = ctx.lang === 'vi' ? question.label_vi : question.label_en || question.label_vi;
-    drawParagraph(ctx, questionText, { bold: true, size: 9.5, color: TEXT });
-
-    let answerText = String(answer);
-    if (question.type === 'select' || question.type === 'yesno') {
-      const labels = parseScaleLabels(ctx.lang === 'vi' ? question.scale_labels_vi : question.scale_labels_en);
-      answerText = `${answer}/5${labels[String(answer)] ? ` - ${labels[String(answer)]}` : ''}`;
-    }
-    drawParagraph(ctx, answerText, { size: 9.5, color: MUTED });
-    ctx.y -= 5;
-  }
-}
-
 function maturityMessage(score: number, lang: 'vi' | 'en'): string {
   if (lang === 'en') {
     if (score < 40) return 'Your clinic is in the early stage - this is a good time to illuminate and deepen.';
@@ -271,7 +242,7 @@ function drawQuestionInsight(
   const questionText = ctx.lang === 'vi' ? question.label_vi : question.label_en || question.label_vi;
   const lineHeight = 13;
   const questionLines = wrapText(questionText, ctx.fontBold, 9.5, CONTENT_WIDTH - 155);
-  const needed = Math.max(46, questionLines.length * lineHeight + 34);
+  const needed = Math.max(58, questionLines.length * lineHeight + 46);
   ensureSpace(ctx, needed);
 
   questionLines.forEach((line, index) => {
@@ -279,24 +250,27 @@ function drawQuestionInsight(
   });
 
   const badge = `${value}/5 - ${label}`;
-  const badgeWidth = Math.min(220, ctx.fontBold.widthOfTextAtSize(badge, 8.5) + 16);
+  const badgeWidth = Math.min(CONTENT_WIDTH, ctx.fontBold.widthOfTextAtSize(badge, 8.5) + 16);
+  const badgeLines = wrapText(badge, ctx.fontBold, 8.5, badgeWidth - 16);
+  const badgeHeight = Math.max(18, badgeLines.length * 11 + 7);
+  const badgeY = ctx.y - questionLines.length * lineHeight - badgeHeight - 2;
   ctx.page.drawRectangle({
-    x: PAGE_WIDTH - MARGIN_X - badgeWidth,
-    y: ctx.y - 16,
+    x: MARGIN_X,
+    y: badgeY,
     width: badgeWidth,
-    height: 18,
+    height: badgeHeight,
     color,
     opacity: 0.16,
   });
-  ctx.page.drawText(badge, {
-    x: PAGE_WIDTH - MARGIN_X - badgeWidth + 8,
-    y: ctx.y - 11,
+  badgeLines.forEach((line, index) => ctx.page.drawText(line, {
+    x: MARGIN_X + 8,
+    y: badgeY + badgeHeight - 12 - index * 11,
     size: 8.5,
     font: ctx.fontBold,
     color,
-  });
+  }));
 
-  const barY = ctx.y - questionLines.length * lineHeight - 12;
+  const barY = badgeY - 10;
   ctx.page.drawRectangle({ x: MARGIN_X, y: barY - 5, width: CONTENT_WIDTH, height: 5, color: LIGHT });
   ctx.page.drawRectangle({ x: MARGIN_X, y: barY - 5, width: CONTENT_WIDTH * (value / 5), height: 5, color });
   ctx.y = barY - 16;
@@ -532,7 +506,7 @@ export async function generateScannerPdf(
   const ctx: PdfContext = {
     page: cover,
     doc, font, fontBold,
-    y: type === 'combined' ? 315 : 430,
+    y: type === 'combined' ? 315 : 480,
     pageNum: 1,
     lang,
   };
@@ -562,13 +536,6 @@ export async function generateScannerPdf(
         ? 'Bản phân tích AI đang được tạo. Vui lòng tải lại sau vài phút.'
         : 'The AI analysis is being generated. Please download the report again in a few minutes.', { color: MUTED });
     }
-  }
-
-  // Score bars summarize the result; the answers below provide the full audit
-  // trail required to review the assessment and assign 30-day actions.
-  if (questions?.length) {
-    drawSectionTitle(ctx, type === 'plan' ? t.section3 : t.section4);
-    drawResponseDetails(ctx, response, questions);
   }
 
   return doc.save();
