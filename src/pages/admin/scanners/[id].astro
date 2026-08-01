@@ -103,7 +103,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
         </div>
       </header>
 
-      <div class="flex gap-2 border-b border-outline-variant/15 -mb-px overflow-x-auto scrollbar-hide">
+      <div class="sticky top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex gap-1 border-b border-outline-variant/15 bg-surface/95 backdrop-blur-md overflow-x-auto scrollbar-hide">
         <a href="#info" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap">Thông tin cơ bản</a>
         <a href="#sections" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Sections & Questions ({sections.length})</a>
         <a href="#ai" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">AI Config</a>
@@ -111,7 +111,8 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
       </div>
 
       <!-- Basic Info -->
-      <form id="form-info" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
+      <div id="info" class="scroll-mt-24"></div>
+      <form id="form-info" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
         <h2 class="text-lg font-bold text-on-surface">Thông tin cơ bản</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -169,7 +170,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
       </form>
 
       <!-- Sections & Questions -->
-      <div id="sections" class="glass-card rounded-2xl p-6 flex flex-col gap-3">
+      <div id="sections" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-bold text-on-surface">Sections & Questions</h2>
           <button type="button" id="btn-add-section" class="bg-primary-container text-white px-4 py-2 rounded-xl font-bold text-sm cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center gap-2">
@@ -181,8 +182,8 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
           <p class="text-sm text-on-surface-variant text-center py-4">Chưa có section nào.</p>
         ) : (
           sections.map((section, idx) => (
-            <div class="bg-surface-container/40 rounded-xl p-4 border border-outline-variant/15">
-              <div class="flex items-center gap-3 mb-2">
+            <details class="bg-surface-container/40 rounded-xl border border-outline-variant/15 group/section" open={idx === 0}>
+              <summary class="flex items-center gap-3 p-4 cursor-pointer list-none hover:bg-surface-container/40 rounded-xl">
                 <span class="text-xs text-on-surface-variant/70 font-mono">#{idx + 1}</span>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-semibold text-on-surface truncate">{section.title_vi}</p>
@@ -195,9 +196,11 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
                 <button type="button" class="btn-delete-section p-1.5 rounded-lg hover:bg-red-500/20 text-on-surface-variant hover:text-red-400" data-section-id={section.id} data-name={section.title_vi}>
                   <span class="material-symbols-outlined text-[18px]">delete</span>
                 </button>
-              </div>
+                <span class="material-symbols-outlined text-on-surface-variant/60 transition-transform group-open/section:rotate-180">expand_more</span>
+              </summary>
+              <div class="px-4 pb-4">
               {section.questions.length > 0 && (
-                <ol class="list-decimal list-inside ml-4 flex flex-col gap-1.5 mt-2">
+                <ol class="list-decimal list-inside ml-4 flex flex-col gap-1.5">
                   {section.questions.map((q) => (
                     <li class="text-sm text-on-surface group">
                       <div class="flex items-start gap-2">
@@ -225,13 +228,15 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
                 <span class="material-symbols-outlined text-[16px]">add</span>
                 Thêm câu hỏi
               </button>
-            </div>
+              </div>
+            </details>
           ))
         )}
       </div>
 
       <!-- AI Config -->
-      <form id="form-ai" class="glass-card rounded-2xl p-6 flex flex-col gap-4">
+      <div id="ai" class="scroll-mt-24"></div>
+      <form id="form-ai" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
@@ -260,7 +265,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
         <!-- Structured view (default) -->
         <div id="ai-panel-structured" class="flex flex-col gap-5">
           <!-- Prompt tab -->
-          <div id="ai-tab-prompt" class="ai-tab-panel flex flex-col gap-4">
+          <div id="ai-tab-prompt" data-ai-tab="prompt" class="ai-tab-panel flex flex-col gap-4">
             <p class="text-xs text-on-surface-variant/60">Override prompt mặc định từ <code class="bg-surface-container px-1 py-0.5 rounded font-mono">ai_settings</code>. Dùng placeholder <code class="bg-surface-container px-1 py-0.5 rounded font-mono">{'{{SCORE_<dim>}}'}</code>, <code class="bg-surface-container px-1 py-0.5 rounded font-mono">{'{{SCORE_TOTAL}}'}</code>, <code class="bg-surface-container px-1 py-0.5 rounded font-mono">{'{{LANG}}'}</code>.</p>
 
             <!-- VI prompt -->
@@ -289,7 +294,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
           </div>
 
           <!-- Model & Tokens tab -->
-          <div id="ai-tab-model" class="ai-tab-panel hidden flex flex-col gap-4">
+          <div id="ai-tab-model" data-ai-tab="model" class="ai-tab-panel hidden flex flex-col gap-4">
             <p class="text-xs text-on-surface-variant/60">Chọn model theo giá bán và độ sâu phân tích của Scanner. Để trống để dùng model Scanner mặc định trong <code class="bg-surface-container px-1 py-0.5 rounded font-mono">AI Settings</code>.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -321,7 +326,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
           </div>
 
           <!-- Analysis Sections tab -->
-          <div id="ai-tab-sections" class="ai-tab-panel hidden flex flex-col gap-4">
+          <div id="ai-tab-sections" data-ai-tab="sections" class="ai-tab-panel hidden flex flex-col gap-4">
             <p class="text-xs text-on-surface-variant/60">Định nghĩa các mục trong báo cáo AI. Báo cáo sẽ có cấu trúc theo các section này. Dùng <code class="bg-surface-container px-1 py-0.5 rounded font-mono">{'{{SCORE_<dim>}}'}</code> trong prompt để hiển thị điểm dimension.</p>
 
             <div id="analysis-sections-list" class="flex flex-col gap-3">
@@ -363,7 +368,8 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
       </form>
 
       <!-- Scoring Rules (Visual UI) -->
-      <form id="form-scoring" class="glass-card rounded-2xl p-6 flex flex-col gap-6">
+      <div id="scoring" class="scroll-mt-24"></div>
+      <form id="form-scoring" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[20px]">speed</span>
@@ -677,5 +683,5 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
 </AdminLayout>
 
 <script>
-import '../../../scripts/scanner-edit-client.js';
+import '../../../scripts/scanner-edit-client.ts';
 </script>

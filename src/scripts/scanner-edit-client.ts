@@ -167,7 +167,7 @@ function updatePreview() {
   if (type === 'textarea') {
     inputHtml = '<textarea class="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface" placeholder="' + escapeHtml(placeholder) + '"' + (required ? ' required' : '') + '></textarea>';
   } else if (type === 'select') {
-    const labels = {
+    let labels = {
       '1': String(fd.get('scale_1') || '').trim(),
       '2': String(fd.get('scale_2') || '').trim(),
       '3': String(fd.get('scale_3') || '').trim(),
@@ -497,14 +497,18 @@ document.getElementById('section-modal-close')?.addEventListener('click', closeS
 document.getElementById('section-modal-cancel')?.addEventListener('click', closeSectionModal);
 
 document.querySelectorAll('.btn-edit-section').forEach(function(btn) {
-  btn.addEventListener('click', function() {
+  btn.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
     const id = parseInt(btn.getAttribute('data-section-id') || '0', 10);
     openSectionModal(id);
   });
 });
 
 document.querySelectorAll('.btn-delete-section').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
+  btn.addEventListener('click', async function(event) {
+    event.preventDefault();
+    event.stopPropagation();
     const id = btn.getAttribute('data-section-id');
     const name = btn.getAttribute('data-name');
     if (!id) return;

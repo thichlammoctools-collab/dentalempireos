@@ -1,12 +1,6 @@
 ---
-import { env } from 'cloudflare:workers';
-import { getSurveyDefinitionBySlug } from '../../../../lib/survey-config-db';
-
 export const prerender = false;
 
-const definition = await getSurveyDefinitionBySlug(env.DB, 'ho-so-goc-re');
-
-return Astro.redirect(
-  definition ? `/admin/scanners/${definition.id}` : '/admin/scanners',
-);
+// The scanner editor is served by ../[id].astro after the legacy URL redirects.
+return Astro.redirect('/admin/scanners/ho-so-goc-re');
 ---
