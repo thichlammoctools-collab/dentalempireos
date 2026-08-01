@@ -19,7 +19,8 @@ import {
 // AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
-import { addToHistory } from '../../../lib/scanner-history-db';
+import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
+import { hasScannerAccess } from '../../../lib/payos-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -58,6 +59,20 @@ export const POST: APIRoute = async (ctx) => {
   const def = await getSurveyDefinitionById(env.DB, surveyId);
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
+
+  const paidAccess = def.is_free === 0 && await hasScannerAccess(env.DB, session.user.id, surveyId);
+  if (def.is_free === 0 && !paidAccess) {
+    return json({ error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.', requiresPayment: true }, 402);
+  }
+  const usage = await getScannerUsage(env.DB, session.user.id, surveyId, def.is_free === 1);
+  if (usage.remaining <= 0) {
+    return json({
+      error: def.is_free === 1
+        ? 'Scanner miễn phí này chỉ được thực hiện 1 lần.'
+        : 'Scanner trả phí được thực hiện tối đa 3 lần trong tháng.',
+      quota: usage,
+    }, 429);
+  }
 
   // Free scanners collect a per-response contact snapshot. Premium scanners
   // use the account's clinic profile so reports stay consistent and verified.

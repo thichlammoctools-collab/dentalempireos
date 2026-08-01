@@ -32,6 +32,9 @@ export interface ScannerResponseRow {
   ai_plan: string | null;
   ai_analysis_status: string;
   ai_plan_status: string;
+  pdf_combined_key: string | null;
+  pdf_plan_key: string | null;
+  pdf_analysis_key: string | null;
 }
 
 // ── Input Types ─────────────────────────────────────────
@@ -266,6 +269,16 @@ export async function updateAiPlan(
     )
     .bind(plan, id)
     .run();
+}
+
+export async function setScannerPdfKey(
+  db: D1Database,
+  id: number,
+  type: 'combined' | 'plan' | 'analysis',
+  key: string,
+): Promise<void> {
+  const column = type === 'combined' ? 'pdf_combined_key' : type === 'plan' ? 'pdf_plan_key' : 'pdf_analysis_key';
+  await db.prepare(`UPDATE "scanner_response" SET "${column}" = ? WHERE "id" = ?`).bind(key, id).run();
 }
 
 // ── AI Context Builder ──────────────────────────────────

@@ -290,9 +290,24 @@ function drawScoreDashboard(
   ctx.page.drawText(ctx.lang === 'vi' ? 'ĐIỂM TỔNG HỢP' : 'OVERALL SCORE', {
     x: MARGIN_X, y: ctx.y - 10, size: 9, font: ctx.fontBold, color: MUTED,
   });
-  ctx.page.drawText(String(total), { x: MARGIN_X, y: ctx.y - 66, size: 46, font: ctx.fontBold, color: scoreColor(total, rules) });
-  ctx.page.drawText('/100', { x: MARGIN_X + 95, y: ctx.y - 52, size: 16, font: ctx.fontBold, color: TEXT });
-  ctx.page.drawText(totalLevel.label_vi, { x: MARGIN_X, y: ctx.y - 84, size: 10, font: ctx.fontBold, color: scoreColor(total, rules) });
+  const scoreText = String(total);
+  const scoreSize = 46;
+  const scoreY = ctx.y - 66;
+  const scoreColorValue = scoreColor(total, rules);
+  const scoreWidth = ctx.fontBold.widthOfTextAtSize(scoreText, scoreSize);
+
+  ctx.page.drawText(scoreText, {
+    x: MARGIN_X, y: scoreY, size: scoreSize,
+    font: ctx.fontBold, color: scoreColorValue,
+  });
+  ctx.page.drawText('/100', {
+    x: MARGIN_X + scoreWidth + 6, y: scoreY + 10, size: 16,
+    font: ctx.fontBold, color: TEXT,
+  });
+  ctx.page.drawText(totalLevel.label_vi, {
+    x: MARGIN_X, y: ctx.y - 84, size: 10,
+    font: ctx.fontBold, color: scoreColorValue,
+  });
   ctx.y -= 102;
   drawParagraph(ctx, maturityMessage(total, ctx.lang), { bold: true, size: 10, color: TEXT });
   ctx.y -= 4;

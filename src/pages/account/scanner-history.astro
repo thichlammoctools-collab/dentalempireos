@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
 import { getUserHistory } from '../../lib/scanner-history-db';
+import { getScannerResponse, parseScores } from '../../lib/scanner-response-db';
 
 export const prerender = false;
 
@@ -13,6 +14,17 @@ if (!session?.user) {
 }
 
 const history = await getUserHistory(env.DB, session.user.id, 50);
+const selectedIds = [...new Set(Astro.url.searchParams.getAll('compare').map(Number).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 3);
+const selectedEntries = history.filter((entry) => selectedIds.includes(entry.response_id));
+const comparisonSurveyId = selectedEntries[0]?.survey_id;
+const comparableEntries = comparisonSurveyId
+  ? selectedEntries.filter((entry) => entry.survey_id === comparisonSurveyId)
+  : [];
+const comparison = await Promise.all(comparableEntries.map(async (entry) => {
+  const response = await getScannerResponse(env.DB, entry.response_id);
+  return response ? { entry, scores: parseScores(response.scores_json) } : null;
+}));
+const comparisonRows = comparison.filter((item): item is NonNullable<typeof item> => item !== null);
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -107,22 +119,49 @@ function scoreColor(label: string | null): { bg: string; text: string; border: s
             </div>
           </div>
 
-          <!-- History list -->
-          <div class="flex flex-col gap-3">
+           <!-- History list -->
+           {comparisonRows.length >= 2 && (
+             <section class="glass-card rounded-2xl p-5 mb-6 border border-primary/30 overflow-x-auto">
+               <div class="flex items-center justify-between gap-4 mb-4">
+                 <div>
+                   <h2 class="text-base font-bold text-white">So sánh các lần Scanner</h2>
+             <p class="text-xs text-on-surface-variant mt-1">Đối chiếu điểm tổng và thay đổi theo từng lần thực hiện cùng Scanner.</p>
+                 </div>
+                 <a href="/account/scanner-history" class="text-xs text-primary font-semibold">Xóa so sánh</a>
+               </div>
+               <table class="w-full min-w-[500px] text-sm">
+                 <thead class="text-on-surface-variant text-xs border-b border-outline-variant/20">
+                   <tr><th class="text-left pb-3 font-medium">Lần thực hiện</th>{comparisonRows.map(({ entry }) => <th class="text-right pb-3 font-medium">{formatDate(entry.created_at)}</th>)}</tr>
+                 </thead>
+                 <tbody>
+                   <tr class="border-b border-outline-variant/10"><td class="py-3 text-on-surface-variant">Điểm tổng</td>{comparisonRows.map(({ scores, entry }) => <td class="py-3 text-right text-lg font-bold text-white">{scores.total?.toFixed(1) ?? entry.score_total?.toFixed(1) ?? '—'}</td>)}</tr>
+                   <tr class="border-b border-outline-variant/10"><td class="py-3 text-on-surface-variant">Thay đổi</td>{comparisonRows.map(({ scores, entry }, index) => {
+                     const firstScore = comparisonRows[0]?.scores.total ?? comparisonRows[0]?.entry.score_total;
+                     const currentScore = scores.total ?? entry.score_total;
+                     const delta = typeof firstScore === 'number' && typeof currentScore === 'number' ? currentScore - firstScore : null;
+                     return <td class:list={['py-3 text-right font-semibold', delta !== null && delta > 0 ? 'text-emerald-400' : delta !== null && delta < 0 ? 'text-rose-400' : 'text-on-surface-variant']}>{index === 0 || delta === null ? 'Mốc so sánh' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)} điểm`}</td>;
+                   })}</tr>
+                   <tr><td class="pt-3 text-on-surface-variant">Mức đánh giá</td>{comparisonRows.map(({ entry }) => <td class="pt-3 text-right font-semibold">{entry.score_label ?? '—'}</td>)}</tr>
+                 </tbody>
+               </table>
+             </section>
+           )}
+           <form method="get" class="flex flex-col gap-3">
+           <div class="flex flex-col gap-3">
             {history.map(entry => {
               const colors = scoreColor(entry.score_label);
               return (
-                <a
-                  href={`/scanner/result/${entry.response_id}`}
+                <div
                   class="glass-card rounded-2xl p-4 md:p-5 border border-outline-variant/20 hover:border-primary/30 hover:bg-white/[0.06] transition-all group flex items-center gap-4"
                 >
+                  <input type="checkbox" name="compare" value={entry.response_id} checked={selectedIds.includes(entry.response_id)} aria-label={`So sánh ${entry.scanner_title_vi ?? 'Scanner'}`} class="w-4 h-4 accent-primary flex-shrink-0" />
                   <!-- Scanner icon -->
                   <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/15 transition-colors">
                     <span class="material-symbols-outlined text-primary text-xl">analytics</span>
                   </div>
 
                   <!-- Info -->
-                  <div class="flex-1 min-w-0">
+                  <a href={`/scanner/result/${entry.response_id}`} class="flex-1 min-w-0">
                     <h3 class="text-sm font-semibold text-white group-hover:text-primary transition-colors truncate">
                       {entry.scanner_title_vi ?? 'Scanner'}
                     </h3>
@@ -135,7 +174,7 @@ function scoreColor(label: string | null): { bg: string; text: string; border: s
                         <span class="text-[10px] text-on-surface-variant/50">{entry.scanner_slug}</span>
                       )}
                     </div>
-                  </div>
+                  </a>
 
                   <!-- Score -->
                   <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -157,10 +196,14 @@ function scoreColor(label: string | null): { bg: string; text: string; border: s
                   <span class="material-symbols-outlined text-on-surface-variant/30 group-hover:text-primary transition-colors flex-shrink-0">
                     chevron_right
                   </span>
-                </a>
+                </div>
               );
             })}
-          </div>
+           </div>
+           <div class="sticky bottom-4 self-end">
+             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg">So sánh tối đa 3 lần</button>
+           </div>
+           </form>
         </>
       )}
     </div>

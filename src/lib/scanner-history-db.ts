@@ -94,3 +94,18 @@ export async function getUserHistoryCount(
     .first<{ cnt: number }>();
   return row?.cnt ?? 0;
 }
+
+export async function getScannerUsage(
+  db: D1Database,
+  userId: string,
+  surveyId: string,
+  isFree: boolean,
+): Promise<{ used: number; limit: number; remaining: number }> {
+  const month = new Date().toISOString().slice(0, 7);
+  const row = isFree
+    ? await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>()
+    : await db.prepare(`SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ? AND substr("created_at", 1, 7) = ?`).bind(userId, surveyId, month).first<{ used: number }>();
+  const limit = isFree ? 1 : 3;
+  const used = row?.used ?? 0;
+  return { used, limit, remaining: Math.max(0, limit - used) };
+}

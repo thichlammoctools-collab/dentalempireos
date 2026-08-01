@@ -9,6 +9,7 @@
   var rawProfile = wrap.dataset.clinic;
   var clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
   var isFreeScanner = wrap.dataset.isFree === '1';
+  var scannerUnavailable = wrap.dataset.scannerUnavailable === 'true';
   var defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
   var defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
   var STORAGE_KEY = 'dentalempire-scanner-draft-' + surveyData.id;
@@ -27,6 +28,14 @@
   var currentStep = -1;
   var answers = { lang: 'vi', survey_id: surveyData.id };
   var partEls = [];
+
+  function showUnavailableMessage() {
+    if (!submitError) return;
+    submitError.textContent = isFreeScanner
+      ? 'Bạn đã dùng hết lượt cho Scanner miễn phí này. Xem lại kết quả trong Lịch sử Scanner.'
+      : 'Bạn chưa thể thực hiện Scanner này. Vui lòng kiểm tra quyền truy cập hoặc hạn mức tháng trong Lịch sử Scanner.';
+    submitError.classList.remove('hidden');
+  }
 
   function t(vi, en) {
     return currentLang === 'vi' ? (vi || en || '') : (en || vi || '');
@@ -353,6 +362,10 @@
   function submit() {
     if (!submitError) return;
     submitError.classList.add('hidden');
+    if (scannerUnavailable) {
+      showUnavailableMessage();
+      return;
+    }
 
     document.querySelectorAll('input, textarea').forEach(function (el) {
       var input = el;
@@ -424,10 +437,18 @@
   buildParts();
   buildStepLabels();
 
+  if (scannerUnavailable) {
+    if (btnStart) btnStart.disabled = true;
+    if (btnSubmit) btnSubmit.disabled = true;
+  }
+
   document.querySelectorAll('.lang-btn').forEach(function (b) {
     b.addEventListener('click', function () { setLang(b.dataset['lang']); saveDraft(); });
   });
-  if (btnStart) btnStart.addEventListener('click', function () { goTo(0); });
+  if (btnStart) btnStart.addEventListener('click', function () {
+    if (scannerUnavailable) { showUnavailableMessage(); return; }
+    goTo(0);
+  });
   if (btnSubmit) btnSubmit.addEventListener('click', function () { submit(); });
   if (btnBackSubmit) btnBackSubmit.addEventListener('click', function () { goTo(surveyData.sections.length - 1); });
 
@@ -436,6 +457,7 @@
   var stickyNext = document.getElementById('sticky-btn-next');
   if (stickyBack) stickyBack.addEventListener('click', function () { goTo(currentStep - 1); });
   if (stickyNext) stickyNext.addEventListener('click', function () {
+    if (scannerUnavailable) { showUnavailableMessage(); return; }
     if (currentStep === surveyData.sections.length - 1) {
       submit();
     } else {

@@ -4,7 +4,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
-import { getScannerResponse } from '../../../../lib/scanner-response-db';
+import { getScannerResponse, setScannerPdfKey } from '../../../../lib/scanner-response-db';
 import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
 import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
@@ -49,6 +49,12 @@ export const GET: APIRoute = async ({ params, request }) => {
     return new Response('Payment required', { status: 402 });
   }
 
+  const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
+  if (cachedKey) {
+    const cached = await env.MEDIA.get(cachedKey);
+    if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+  }
+
   // Generate PDF
   try {
     const clinicProfile = await getClinicProfile(env.DB, session.user.id);
@@ -69,6 +75,9 @@ export const GET: APIRoute = async ({ params, request }) => {
       phone: clinicProfile?.phone,
     }, type);
     const filename = `scanner-${definition?.slug ?? id}-${type}-${id}.pdf`;
+    const key = `scanner-reports/${session.user.id}/${id}/${type}.pdf`;
+    await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
+    await setScannerPdfKey(env.DB, id, type, key);
     return new Response(pdfBytes as BodyInit, {
       status: 200,
       headers: {

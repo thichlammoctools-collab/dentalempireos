@@ -3,6 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
+import { getScannerUsage } from '../../lib/scanner-history-db';
+import { hasScannerAccess } from '../../lib/payos-db';
 
 export const prerender = false;
 
@@ -33,6 +35,17 @@ if (full.definition.status !== 'active') {
 }
 
 const { definition, sections } = full;
+
+const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, definition.is_free === 1);
+const hasPaidAccess = definition.is_free === 0
+  ? await hasScannerAccess(env.DB, currentUser.id, definition.id)
+  : true;
+const scannerUnavailable = !hasPaidAccess || usage.remaining === 0;
+const scannerNotice = !hasPaidAccess
+  ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
+  : definition.is_free === 1
+  ? `Scanner miễn phí: bạn còn ${usage.remaining}/1 lượt.`
+  : `Scanner trả phí: bạn còn ${usage.remaining}/3 lượt trong tháng này.`;
 
 let clinicProfile: any = null;
 try {
@@ -112,12 +125,19 @@ const defaultScaleEn: Record<string, string> = {
         data-survey={JSON.stringify(surveyData)}
         data-clinic={definition.is_free === 0 && clinicProfile ? JSON.stringify(clinicProfile) : ''}
         data-is-free={definition.is_free}
+        data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
       >
         <div class="lang-toggle">
           <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
           <button type="button" class="lang-btn" data-lang="en">English</button>
+        </div>
+
+        <div class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']} role="status">
+          <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
+          <span>{scannerNotice}</span>
+          {scannerUnavailable && <a href="/account/scanner-history">Xem lịch sử</a>}
         </div>
 
         <!-- Stepper -->
@@ -185,6 +205,21 @@ const defaultScaleEn: Record<string, string> = {
     margin: 0 auto;
     padding: 1rem 0 7rem;
   }
+  .scanner-quota-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: 0.75rem;
+    background: rgba(34, 197, 94, 0.08);
+    color: #bbf7d0;
+    font-size: 0.8rem;
+  }
+  .scanner-quota-notice--blocked { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.1); color: #fde68a; }
+  .scanner-quota-notice .material-symbols-outlined { font-size: 1rem; }
+  .scanner-quota-notice a { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; }
   .lang-toggle {
     display: flex;
     justify-content: flex-end;
