@@ -24,6 +24,8 @@ export const GET: APIRoute = async ({ locals }) => {
     ai_provider: settings.ai_provider,
     motapis_enabled: settings.motapis_enabled === 1,
     motapis_model: settings.motapis_model ?? '',
+    motapis_scanner_model: settings.motapis_scanner_model ?? '',
+    motapis_chat_model: settings.motapis_chat_model ?? '',
     motapis_api_key_set: hasMotapisApiKey(),
     updated_at: settings.updated_at,
   });
@@ -51,12 +53,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (typeof body.motapis_enabled === 'boolean') {
     updates.motapis_enabled = body.motapis_enabled ? 1 : 0;
   }
-  if (typeof body.motapis_model === 'string') {
-    const model = body.motapis_model.trim();
-    if (model.length > 128 || (model && !/^[a-zA-Z0-9._:/-]+$/.test(model))) {
-      return badRequest('Motapis model ID chỉ gồm chữ, số, dấu chấm, gạch ngang, gạch dưới, dấu hai chấm hoặc dấu gạch chéo.');
+  for (const field of ['motapis_model', 'motapis_scanner_model', 'motapis_chat_model'] as const) {
+    if (typeof body[field] === 'string') {
+      const model = body[field].trim();
+      if (model.length > 128 || (model && !/^[a-zA-Z0-9._:/-]+$/.test(model))) {
+        return badRequest('Motapis model ID chỉ gồm chữ, số, dấu chấm, gạch ngang, gạch dưới, dấu hai chấm hoặc dấu gạch chéo.');
+      }
+      updates[field] = model || null;
     }
-    updates.motapis_model = model || null;
   }
   if (typeof body.gateway_account_id === 'string') {
     const accountId = body.gateway_account_id.trim();
@@ -99,6 +103,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ai_provider: updated.ai_provider,
         motapis_enabled: updated.motapis_enabled === 1,
         motapis_model: updated.motapis_model ?? '',
+        motapis_scanner_model: updated.motapis_scanner_model ?? '',
+        motapis_chat_model: updated.motapis_chat_model ?? '',
         motapis_api_key_set: hasMotapisApiKey(),
       updated_at: updated.updated_at,
     },

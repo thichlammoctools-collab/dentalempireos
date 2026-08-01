@@ -22,6 +22,7 @@ import { chatCompletion, chatCompletionStream, withRetry } from './ai-client';
 import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
+import { logAiUsage } from './ai-usage-log';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -34,7 +35,7 @@ export interface ScannerAiConfig {
  * legacy setting as operational fallbacks during Gateway migration.
  */
 export async function getScannerAiConfig(db: D1Database): Promise<ScannerAiConfig | null> {
-  const gatewayConfig = await getAiGatewayConfig(db);
+  const gatewayConfig = await getAiGatewayConfig(db, 'scanner');
   if (gatewayConfig) {
     return { config: gatewayConfig, maxTokens: gatewayConfig.max_tokens ?? 4096 };
   }
@@ -262,6 +263,7 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
   try {
     await updateAiAnalysisStatus(db, responseId, 'running');
 
+    const analysisStartedAt = Date.now();
     const analysis = await withRetry(
       () => doAnalyze(db, response, full, config, scoringRules, modelConfig),
       3,
@@ -269,6 +271,7 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
 
     await updateAiAnalysis(db, responseId, analysis);
     await updateAiAnalysisStatus(db, responseId, 'done');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4) }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'analysis').catch((err) => console.error('[scanner-ai] email failed:', err)),
@@ -276,6 +279,7 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
     ]);
   } catch (err) {
     await updateAiAnalysisStatus(db, responseId, 'failed');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: false, error_message: String(err).slice(0, 500) }).catch(() => undefined);
     console.error(`[scanner-ai] Analysis failed for ${responseId}:`, err);
   }
 }
@@ -304,6 +308,7 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
   try {
     await updateAiPlanStatus(db, responseId, 'running');
 
+    const planStartedAt = Date.now();
     const plan = await withRetry(
       () => doPlan(db, response, full, config, scoringRules, modelConfig),
       3,
@@ -311,6 +316,7 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
 
     await updateAiPlan(db, responseId, plan);
     await updateAiPlanStatus(db, responseId, 'done');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4) }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),
@@ -318,6 +324,7 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
     ]);
   } catch (err) {
     await updateAiPlanStatus(db, responseId, 'failed');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: false, error_message: String(err).slice(0, 500) }).catch(() => undefined);
     console.error(`[scanner-ai] Plan: Failed for ${responseId}:`, err);
   }
 }

@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { getAiSettings } from './ai-settings-db';
 import type { ModelConfig } from './ai-client';
 
-export type AiGatewayUsage = 'default' | 'chat' | 'embedding';
+export type AiGatewayUsage = 'default' | 'scanner' | 'chat' | 'embedding';
 
 export function hasAiGatewayToken(): boolean {
   return Boolean(env.CF_AI_GATEWAY_TOKEN);
@@ -32,7 +32,10 @@ export async function getAiGatewayConfig(
       provider_id: 'motapis',
       base_url: 'https://motapis.com/v1',
       api_key: env.MOTAPIS_API_KEY,
-      model_id: modelOverride || settings.motapis_model,
+      model_id: modelOverride
+        || (usage === 'scanner' ? settings.motapis_scanner_model : undefined)
+        || (usage === 'chat' ? settings.motapis_chat_model : undefined)
+        || settings.motapis_model,
       max_tokens: settings.max_tokens,
     };
   }

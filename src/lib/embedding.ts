@@ -3,6 +3,7 @@
  */
 
 import { getAiGatewayConfig } from './ai-gateway';
+import { logAiUsage } from './ai-usage-log';
 
 interface EmbeddingResponse {
   data: Array<{ embedding: number[] }>;
@@ -19,6 +20,7 @@ export async function getEmbedding(
     throw new Error('Cloudflare AI Gateway chưa được cấu hình hoặc Worker secret CF_AI_GATEWAY_TOKEN chưa có.');
   }
   const truncated = text.slice(0, 8000);
+  const startedAt = Date.now();
   const resp = await fetch(`${config.base_url}/embeddings`, {
     method: 'POST',
     headers: {
@@ -34,12 +36,14 @@ export async function getEmbedding(
 
   if (!resp.ok) {
     const err = await resp.text();
+    await logAiUsage(db, { provider_id: config.provider_id, model_id: config.model_id, feature: 'knowledge_base_embedding', success: false, error_message: err.slice(0, 500), latency_ms: Date.now() - startedAt });
     throw new Error(`Cloudflare AI Gateway embedding error (${resp.status}) for ${config.model_id}: ${err}`);
   }
 
   const data = (await resp.json()) as EmbeddingResponse;
   const embedding = data.data[0]?.embedding;
   if (!embedding) throw new Error('Empty embedding response');
+  await logAiUsage(db, { provider_id: config.provider_id, model_id: config.model_id, feature: 'knowledge_base_embedding', success: true, input_tokens: data.usage?.prompt_tokens, latency_ms: Date.now() - startedAt });
   return embedding;
 }
 

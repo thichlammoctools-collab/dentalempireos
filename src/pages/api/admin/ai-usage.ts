@@ -4,7 +4,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json } from '../../../lib/api-helpers';
-import { queryUsageStats, getUsageTotals } from '../../../lib/ai-usage-log';
+import { queryUsageStats, getUsageTotals, getOperationalSummary } from '../../../lib/ai-usage-log';
 
 export const prerender = false;
 
@@ -13,6 +13,9 @@ export const GET: APIRoute = async (ctx) => {
   const from = url.searchParams.get('from') ?? undefined;
   const to = url.searchParams.get('to') ?? undefined;
   const providerId = url.searchParams.get('provider_id') ?? undefined;
+  if (url.searchParams.get('summary') === '30d') {
+    return json({ summary: await getOperationalSummary(env.DB, 30) });
+  }
   const groupBy = (url.searchParams.get('group_by') as 'day' | 'model' | 'feature' | 'user') ?? 'day';
 
   if (!['day', 'model', 'feature', 'user'].includes(groupBy)) {

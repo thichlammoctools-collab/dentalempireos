@@ -14,6 +14,7 @@ import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToForma
 import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
 import { generateFollowupSuggestions } from '../../lib/ai-followup';
 import { createAuth } from '../../lib/auth';
+import { logAiUsage } from '../../lib/ai-usage-log';
 
 export const prerender = false;
 
@@ -133,10 +134,15 @@ export const POST: APIRoute = async (ctx) => {
 
   // Summarize history nếu quá dài, rồi thêm user message mới
   const summarizedHistory = summarizeHistory(history);
-  const chatMessages: ChatMessage[] = [...summarizedHistory, { role: 'user', content: body.message.trim() }].slice(-9);
+  const chatMessages: ChatMessage[] = [
+    ...summarizedHistory.map((message) => ({ role: message.role as ChatMessage['role'], content: message.content })),
+    { role: 'user', content: body.message.trim() },
+  ].slice(-9);
 
   let aiResponse = '';
   let aiError: string | null = null;
+  let fallbackUsed = false;
+  const aiStartedAt = Date.now();
   try {
     aiResponse = await chatCompletion(modelCfg, chatMessages, systemPrompt);
   } catch (err) {
@@ -148,8 +154,24 @@ export const POST: APIRoute = async (ctx) => {
   // useful even when the configured model is unavailable or returns whitespace.
   if (aiError || !aiResponse.trim()) {
     aiResponse = buildContextFallback(chunks);
+    fallbackUsed = true;
     aiError = null;
   }
+
+  await logAiUsage(env.DB, {
+    provider_id: modelCfg.provider_id,
+    model_id: modelCfg.model_id,
+    user_id: userId ?? undefined,
+    session_id: sessionId,
+    feature: 'website_chat',
+    success: !fallbackUsed && Boolean(aiResponse.trim()),
+    error_message: fallbackUsed ? 'AI response fallback' : undefined,
+    latency_ms: Date.now() - aiStartedAt,
+    input_tokens: Math.ceil((systemPrompt.length + chatMessages.reduce((sum, message) => sum + message.content.length, 0)) / 4),
+    output_tokens: Math.ceil(aiResponse.length / 4),
+    fallback_used: fallbackUsed,
+    retrieval_chunks: chunks.length,
+  }).catch((err) => console.warn('[website-chat] usage log failed:', err));
 
   // Generate follow-up suggestions (chạy song song với streaming)
   let followupSuggestions: string[] = [];
