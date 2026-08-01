@@ -13,6 +13,8 @@ import { getAiGatewayConfig } from '../../../lib/ai-gateway';
 import { searchChunks, buildRagContext, type RagChunk } from '../../../lib/rag-search';
 import { createAuth } from '../../../lib/auth';
 import { getApp } from '../../../lib/app-db';
+import { reserveAiQuota, requestId } from '../../../lib/ai-operations';
+import { logAiUsage } from '../../../lib/ai-usage-log';
 
 export const prerender = false;
 
@@ -135,6 +137,11 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   const userId = authSession.user.id;
+  const request = requestId();
+  const quota = await reserveAiQuota(env.DB, userId, 'mentor_chat');
+  if (!quota.allowed) {
+    return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn AI Mentor trong giờ này.', quota }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
   const appSlug = body.app_slug ?? 'ai-mentor';
   const app = await getApp(env.DB, appSlug);
   if (!app || app.status !== 'active') {
@@ -178,6 +185,7 @@ export const POST: APIRoute = async (ctx) => {
 
   const stream = new ReadableStream({
     async start(controller) {
+      const startedAt = Date.now();
       try {
         sseEnqueue(controller, 'chunks_used', { count: chunks.length, ids: chunkIds });
 
@@ -204,11 +212,34 @@ export const POST: APIRoute = async (ctx) => {
         };
         storedMessages.push(assistantMsg);
         await saveSession(env.DB, sessionId, storedMessages, chunkIds);
+        await logAiUsage(env.DB, {
+          provider_id: modelCfg.provider_id,
+          model_id: modelCfg.model_id,
+          user_id: userId,
+          session_id: sessionId,
+          feature: 'mentor_chat',
+          success: true,
+          latency_ms: Date.now() - startedAt,
+          input_tokens: Math.ceil(chatMessages.reduce((n, m) => n + m.content.length, 0) / 4),
+          output_tokens: Math.ceil(fullText.length / 4),
+          retrieval_chunks: chunks.length,
+          request_id: request,
+        }).catch((logErr) => console.warn('[ai-mentor] usage log failed:', logErr));
 
         sseEnqueue(controller, 'done', { session_id: sessionId, chunks_used: chunks.length });
         controller.close();
       } catch (err) {
         console.error('[ai-mentor] Stream error:', err);
+        await logAiUsage(env.DB, {
+          provider_id: modelCfg.provider_id,
+          model_id: modelCfg.model_id,
+          user_id: userId,
+          session_id: sessionId,
+          feature: 'mentor_chat',
+          success: false,
+          error_message: String(err).slice(0, 500),
+          request_id: request,
+        }).catch(() => undefined);
         sseEnqueue(controller, 'error', { message: String(err) });
         controller.error(err);
       }

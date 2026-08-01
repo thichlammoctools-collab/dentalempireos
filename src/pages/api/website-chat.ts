@@ -15,6 +15,7 @@ import { createSession, loadSession, saveSession } from '../../lib/website-chat-
 import { generateFollowupSuggestions } from '../../lib/ai-followup';
 import { createAuth } from '../../lib/auth';
 import { logAiUsage } from '../../lib/ai-usage-log';
+import { reserveAiQuota, requestId } from '../../lib/ai-operations';
 
 export const prerender = false;
 
@@ -84,6 +85,11 @@ export const POST: APIRoute = async (ctx) => {
   const auth = createAuth(env);
   const authSession = await auth.api.getSession({ headers: ctx.request.headers });
   const userId = authSession?.user?.id ?? null;
+  const request = requestId();
+  const quota = await reserveAiQuota(env.DB, userId ?? `ip:${ctx.clientAddress ?? 'anonymous'}`, 'website_chat');
+  if (!quota.allowed) {
+    return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn Website Chat trong giờ này.', quota }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
 
   // Get or create session
   let sessionId = body.session_id;
@@ -171,6 +177,7 @@ export const POST: APIRoute = async (ctx) => {
     output_tokens: Math.ceil(aiResponse.length / 4),
     fallback_used: fallbackUsed,
     retrieval_chunks: chunks.length,
+    request_id: request,
   }).catch((err) => console.warn('[website-chat] usage log failed:', err));
 
   // Generate follow-up suggestions (chạy song song với streaming)

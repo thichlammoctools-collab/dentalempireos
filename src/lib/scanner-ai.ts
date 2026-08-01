@@ -24,6 +24,7 @@ import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
 import { logAiUsage } from './ai-usage-log';
 import { buildWebsiteContext, searchWebsite } from './rag-website-search';
+import { claimScannerAiJob, finishScannerAiJob, reserveAiQuota, requestId } from './ai-operations';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -303,6 +304,9 @@ async function doPlan(
  * Run AI analysis with retry (3 attempts, exponential backoff).
  */
 export async function runAiAnalysis(db: D1Database, responseId: number): Promise<void> {
+  const request = requestId();
+  const job = await claimScannerAiJob(db, responseId, 'analysis');
+  if (!job.claimed) return;
   const response = await getScannerResponse(db, responseId);
   if (!response) { console.error(`[scanner-ai] Response ${responseId} not found`); return; }
 
@@ -331,7 +335,8 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
 
     await updateAiAnalysis(db, responseId, analysis);
     await updateAiAnalysisStatus(db, responseId, 'done');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4) }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
+    await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'done');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, user_id: response.email ?? undefined, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'analysis').catch((err) => console.error('[scanner-ai] email failed:', err)),
@@ -339,7 +344,8 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
     ]);
   } catch (err) {
     await updateAiAnalysisStatus(db, responseId, 'failed');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: false, error_message: String(err).slice(0, 500) }).catch(() => undefined);
+    await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: false, error_message: String(err).slice(0, 500), request_id: request }).catch(() => undefined);
     console.error(`[scanner-ai] Analysis failed for ${responseId}:`, err);
   }
 }
@@ -348,6 +354,9 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
  * Run AI plan generation with retry (3 attempts, exponential backoff).
  */
 export async function runPlanAnalysis(db: D1Database, responseId: number): Promise<void> {
+  const request = requestId();
+  const job = await claimScannerAiJob(db, responseId, 'plan');
+  if (!job.claimed) return;
   const response = await getScannerResponse(db, responseId);
   if (!response) { console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return; }
 
@@ -376,7 +385,8 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
 
     await updateAiPlan(db, responseId, plan);
     await updateAiPlanStatus(db, responseId, 'done');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4) }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
+    await finishScannerAiJob(db, responseId, 'plan', job.runId, 'done');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),
@@ -384,7 +394,8 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
     ]);
   } catch (err) {
     await updateAiPlanStatus(db, responseId, 'failed');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: false, error_message: String(err).slice(0, 500) }).catch(() => undefined);
+    await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed');
+    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: false, error_message: String(err).slice(0, 500), request_id: request }).catch(() => undefined);
     console.error(`[scanner-ai] Plan: Failed for ${responseId}:`, err);
   }
 }
