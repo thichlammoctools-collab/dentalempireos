@@ -1,6 +1,6 @@
 ---
 /**
- * PaymentButton — opens a choice between automatic PayOS and manual transfer.
+ * PaymentButton — uses the enabled automatic or manual payment method.
  *
  * Usage:
  *   <PaymentButton productId="course-premium" productName="Khóa học Premium" price={500000} />
@@ -35,6 +35,11 @@ const [payosSettings, manualSettings] = await Promise.all([
 const payosEnabled = payosSettings?.is_active === 1;
 const manualEnabled = manualSettings?.is_active === 1;
 const hasAnyMethod = payosEnabled || manualEnabled;
+const paymentMethodDescription = payosEnabled && manualEnabled
+  ? 'Chọn phương thức thanh toán phù hợp với bạn.'
+  : payosEnabled
+    ? 'Thanh toán và kích hoạt tự động sau khi hoàn tất.'
+    : 'Quét QR đúng số tiền, sau đó nhắn Zalo để kích hoạt.';
 
 // Nếu chỉ còn 1 phương thức, tự động chọn (bỏ qua dialog)
 const singleMethod = payosEnabled && !manualEnabled ? 'payos'
@@ -67,7 +72,7 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-lg font-bold text-white">Chọn phương thức thanh toán</h2>
-              <p class="mt-1 text-sm text-on-surface-variant">Bạn có thể thanh toán tự động hoặc chuyển khoản thủ công.</p>
+              <p class="mt-1 text-sm text-on-surface-variant">{paymentMethodDescription}</p>
             </div>
             <button type="button" class="payment-dialog-close rounded-lg p-1 text-on-surface-variant hover:bg-white/10" aria-label="Đóng"><span class="material-symbols-outlined">close</span></button>
           </div>

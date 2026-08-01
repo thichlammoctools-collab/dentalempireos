@@ -11,10 +11,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) return json({ error: 'Chưa đăng nhập' }, 401);
 
   const settings = await getPayosSettings(env.DB);
-  if (!settings?.is_active || !settings.client_id || !settings.api_key || !settings.checksum_key) {
-    return json({ error: 'Thanh toán PayOS hiện chưa khả dụng. Vui lòng chọn chuyển khoản ngân hàng.' }, 503);
-  }
   const creds = getPayosEnv(env.DB, settings, env);
+  if (!settings?.is_active || !creds.PAYOS_CLIENT_ID || !creds.PAYOS_API_KEY || !creds.PAYOS_CHECKSUM_KEY) {
+    return json({ error: 'Thanh toán PayOS hiện chưa khả dụng. Vui lòng liên hệ quản trị viên.' }, 503);
+  }
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body?.product_id) return badRequest('Thiếu product_id');
