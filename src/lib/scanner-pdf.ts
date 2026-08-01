@@ -8,10 +8,12 @@ import { marked } from 'marked';
 import {
   type ScannerResponseRow,
   parseScores,
+  parseResponses,
 } from './scanner-response-db';
 import {
   type ScoringRules,
   parseScoringRules,
+  parseScaleLabels,
 } from './survey-config-db';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
 
@@ -55,6 +57,7 @@ const T = {
     section1: 'I. ĐIỂM TỔNG HỢP',
     section2: 'II. KẾ HOẠCH HÀNH ĐỘNG 30 NGÀY',
     section3: 'III. BẢN SOI CHIẾU HỆ THỐNG',
+    section4: 'IV. CHI TIẾT TỰ SOI CHIẾU',
     totalLabel: 'TỔNG ĐIỂM',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Trang',
@@ -69,6 +72,7 @@ const T = {
     section1: 'I. OVERALL SCORE',
     section2: 'II. 30-DAY ACTION PLAN',
     section3: 'III. SYSTEM ILLUMINATION',
+    section4: 'IV. SELF-ASSESSMENT DETAILS',
     totalLabel: 'TOTAL SCORE',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Page',
@@ -206,6 +210,45 @@ function drawScoreBar(ctx: PdfContext, label: string, score: number, rules: Scor
   ctx.y -= 24;
 }
 
+interface PdfQuestionRow {
+  question_id: string;
+  order_idx: number;
+  type: string;
+  label_vi: string;
+  label_en: string;
+  scale_labels_vi: string | null;
+  scale_labels_en: string | null;
+  section_title_vi: string;
+  section_title_en: string;
+}
+
+function drawResponseDetails(ctx: PdfContext, response: ScannerResponseRow, questions: PdfQuestionRow[]) {
+  const answers = parseResponses(response.responses_json);
+  let activeSection = '';
+
+  for (const question of questions) {
+    const answer = answers[question.question_id];
+    if (answer === undefined || answer === null || answer === '') continue;
+
+    const sectionTitle = ctx.lang === 'vi' ? question.section_title_vi : question.section_title_en || question.section_title_vi;
+    if (sectionTitle !== activeSection) {
+      activeSection = sectionTitle;
+      drawParagraph(ctx, sectionTitle, { bold: true, size: 11, color: NAVY });
+    }
+
+    const questionText = ctx.lang === 'vi' ? question.label_vi : question.label_en || question.label_vi;
+    drawParagraph(ctx, questionText, { bold: true, size: 9.5, color: TEXT });
+
+    let answerText = String(answer);
+    if (question.type === 'select' || question.type === 'yesno') {
+      const labels = parseScaleLabels(ctx.lang === 'vi' ? question.scale_labels_vi : question.scale_labels_en);
+      answerText = `${answer}/5${labels[String(answer)] ? ` - ${labels[String(answer)]}` : ''}`;
+    }
+    drawParagraph(ctx, answerText, { size: 9.5, color: MUTED });
+    ctx.y -= 5;
+  }
+}
+
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   const paragraphs = text.split('\n');
@@ -262,6 +305,16 @@ export async function generateScannerPdf(
   const scoringRules: ScoringRules = parseScoringRules(
     (await db.prepare('SELECT scoring_rules FROM "survey_definition" WHERE id = ?').bind(response.survey_id).first<{ scoring_rules: string | null }>())?.scoring_rules,
   ) ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } };
+
+  const { results: questions } = await db.prepare(`
+    SELECT q.question_id, q.order_idx, q.type, q.label_vi, q.label_en,
+           q.scale_labels_vi, q.scale_labels_en, s.title_vi AS section_title_vi,
+           s.title_en AS section_title_en
+    FROM survey_question q
+    JOIN survey_section s ON s.id = q.section_id
+    WHERE s.survey_id = ?
+    ORDER BY s.order_idx, q.order_idx
+  `).bind(response.survey_id).all<PdfQuestionRow>();
 
   const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
   const t = T[lang];
@@ -414,6 +467,13 @@ export async function generateScannerPdf(
     }
   }
 
+  // Score bars summarize the result; the answers below provide the full audit
+  // trail required to review the assessment and assign 30-day actions.
+  if (questions?.length) {
+    drawSectionTitle(ctx, type === 'plan' ? t.section3 : t.section4);
+    drawResponseDetails(ctx, response, questions);
+  }
+
   return doc.save();
 }
 
@@ -430,18 +490,10 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
       drawParagraph(ctx, text, { bold: true, size, color: NAVY });
       ctx.y -= 4;
     } else if (tok.type === 'paragraph') {
-      const text = (tok.tokens ?? [])
-        .filter((t: any) => t.type === 'text')
-        .map((t: any) => t.raw ?? t.text ?? '')
-        .join('');
-      drawParagraph(ctx, stripMarkdown(text));
+      drawParagraph(ctx, stripMarkdown(tokenText(tok)));
     } else if (tok.type === 'list') {
       for (const item of tok.items) {
-        const text = item.tokens
-          .filter((t: any) => t.type === 'text' || t.type === 'paragraph')
-          .map((t: any) => t.text ?? t.raw ?? '')
-          .join(' ');
-        drawBullet(ctx, stripMarkdown(text));
+        drawBullet(ctx, stripMarkdown(tokenText(item)));
       }
       ctx.y -= 4;
     } else if (tok.type === 'hr') {
@@ -454,10 +506,7 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
       });
       ctx.y -= 10;
     } else if (tok.type === 'blockquote') {
-      const text = (tok.tokens ?? [])
-        .filter((t: any) => t.type === 'text' || t.type === 'paragraph')
-        .map((t: any) => t.text ?? t.raw ?? '')
-        .join(' ');
+      const text = tokenText(tok);
       ensureSpace(ctx, 20);
       ctx.page.drawRectangle({
         x: MARGIN_X, y: ctx.y - 14, width: 2, height: 14, color: AMBER,
@@ -472,6 +521,27 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
         ctx.y -= 15;
       }
       ctx.y -= 4;
+    } else if (tok.type === 'table') {
+      const rows = [tok.header, ...(tok.rows ?? [])] as Array<Array<{ text?: string }>>;
+      for (const row of rows) {
+        drawParagraph(ctx, row.map((cell) => stripMarkdown(cell.text ?? '')).join(' | '), {
+          bold: row === tok.header,
+          size: 9,
+        });
+      }
+    } else {
+      // Preserve any Markdown construct not styled above instead of silently
+      // dropping it from a downloadable report.
+      const text = tokenText(tok);
+      if (text.trim()) drawParagraph(ctx, stripMarkdown(text));
     }
   }
+}
+
+function tokenText(token: any): string {
+  if (typeof token.text === 'string' && token.text.trim()) return token.text;
+  if (typeof token.raw === 'string' && token.raw.trim()) return token.raw;
+  if (Array.isArray(token.tokens)) return token.tokens.map(tokenText).join(' ');
+  if (Array.isArray(token.items)) return token.items.map(tokenText).join(' ');
+  return '';
 }
