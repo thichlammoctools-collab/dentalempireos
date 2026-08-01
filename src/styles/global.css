@@ -447,6 +447,16 @@
 
 /* === Reader Theme Variables === */
 /* Reader theme is scoped to the reader app so it cannot change the global site theme. */
+:root {
+  /* Fallbacks for .reader-content rendered on public pages outside BookLayout. */
+  --reader-text: var(--color-on-surface);
+  --reader-text-muted: var(--color-on-surface-variant);
+  --reader-accent: var(--color-primary);
+  --reader-chrome-text: var(--color-on-surface);
+  --reader-chrome-text-muted: var(--color-on-surface-variant);
+  --reader-border: var(--color-outline-variant);
+}
+
 #reader-app[data-reader-theme="dark"],
 html:has(#reader-app[data-reader-theme="dark"]) {
   --reader-bg: #121317;
@@ -641,6 +651,7 @@ html:has(#reader-app[data-reader-theme="sepia"]) {
 .reader-content {
   font-size: 1.0625rem;
   line-height: 1.85;
+  color: var(--reader-text, var(--color-on-surface)) !important;
   word-break: break-word;
   overflow-wrap: break-word;
   touch-action: pan-y;
@@ -648,7 +659,7 @@ html:has(#reader-app[data-reader-theme="sepia"]) {
 
 /* Paragraphs */
 .reader-content p {
-  color: var(--reader-text);
+  color: var(--reader-text, var(--color-on-surface)) !important;
   margin-bottom: 1em;
 }
 
@@ -719,7 +730,7 @@ h4.section-heading {
 .reader-content ol {
   padding-left: 1.5em;
   margin-bottom: 1em;
-  color: var(--reader-text);
+  color: var(--reader-text, var(--color-on-surface)) !important;
 }
 .reader-content li {
   margin-bottom: 0.35em;
@@ -744,19 +755,19 @@ h4.section-heading {
 
 /* Bold: primary emphasis */
 .reader-content strong {
-  color: var(--reader-text);
+  color: var(--reader-text, var(--color-on-surface)) !important;
   font-weight: 700;
 }
 
 /* Italic: secondary emphasis — muted */
 .reader-content em {
-  color: var(--reader-text-muted);
+  color: var(--reader-text-muted, var(--color-on-surface-variant)) !important;
   font-style: italic;
 }
 
 /* Blockquote */
 .reader-content blockquote {
-  color: var(--reader-text-muted);
+  color: var(--reader-text-muted, var(--color-on-surface-variant)) !important;
   border-left: 3px solid color-mix(in srgb, var(--reader-accent) 65%, transparent);
   padding-left: 1.2em;
   margin: 1.2em 0;
