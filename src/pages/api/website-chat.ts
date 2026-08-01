@@ -144,7 +144,7 @@ export const POST: APIRoute = async (ctx) => {
   const chatMessages: ChatMessage[] = [
     ...summarizedHistory.map((message): ChatMessage => ({ role: message.role as ChatMessage['role'], content: message.content })),
     { role: 'user', content: body.message.trim() },
-  ].slice(-9);
+  ].slice(-9) as ChatMessage[];
 
   let aiResponse = '';
   let aiError: string | null = null;
