@@ -11,6 +11,8 @@ export interface ChapterRow {
   status: 'draft' | 'published';
   createdAt: string;
   updatedAt: string;
+  /** true khi chương có ít nhất 1 section trả phí (is_free=0) */
+  has_premium?: boolean;
 }
 
 export interface SectionRow {
@@ -70,7 +72,16 @@ export async function listChapters(db: D1Database): Promise<ChapterRow[]> {
 
 export async function listPublishedChapters(db: D1Database): Promise<ChapterRow[]> {
   const { results } = await db
-    .prepare('SELECT * FROM "chapter" WHERE "status" = \'published\' ORDER BY "tier", "order"')
+    .prepare(`
+      SELECT c.*,
+        EXISTS (
+          SELECT 1 FROM "section" s
+          WHERE s."chapter_id" = c."id" AND s."is_free" = 0
+        ) AS "has_premium"
+      FROM "chapter" c
+      WHERE c."status" = 'published'
+      ORDER BY c."tier", c."order"
+    `)
     .all<ChapterRow>();
   return results;
 }

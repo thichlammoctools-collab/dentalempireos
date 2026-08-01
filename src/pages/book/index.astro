@@ -44,7 +44,12 @@ const tiers = [1, 2, 3];
                 >
                   <div class="flex items-start justify-between">
                     <div>
-                      <p class="text-xs text-on-surface-variant mb-1">Chương {ch.chapter_no}</p>
+                      <div class="flex items-center gap-2 mb-1">
+                        <p class="text-xs text-on-surface-variant">Chương {ch.chapter_no}</p>
+                        {ch.has_premium && (
+                          <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
+                        )}
+                      </div>
                       <h3 class="font-bold text-white group-hover:text-primary transition-colors">{ch.title}</h3>
                       <p class="text-sm text-on-surface-variant mt-2 line-clamp-2">{ch.description}</p>
                     </div>

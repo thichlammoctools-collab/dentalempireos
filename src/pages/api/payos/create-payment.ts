@@ -1,7 +1,13 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
-import { getProduct, createOrder, getPayosSettings, getPayosEnv } from '../../../lib/payos-db';
+import {
+  getProduct,
+  createOrder,
+  getPayosSettings,
+  getPayosEnv,
+  getRecentPendingOrder,
+} from '../../../lib/payos-db';
 import { createPaymentLink } from '../../../lib/payos';
 
 export const prerender = false;
@@ -22,6 +28,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const product = await getProduct(env.DB, body.product_id as string);
   if (!product || !product.is_active) {
     return badRequest('Sản phẩm không tồn tại hoặc đã ngừng bán');
+  }
+
+  // Reuse an in-flight checkout so retries or double-clicks cannot create duplicate charges.
+  const pendingOrder = await getRecentPendingOrder(env.DB, locals.user.id, product.id);
+  if (pendingOrder?.checkout_url) {
+    return json({
+      checkoutUrl: pendingOrder.checkout_url,
+      orderCode: pendingOrder.order_code,
+      orderId: pendingOrder.id,
+    });
   }
 
   // Unique order_code — PayOS requires integer, use timestamp modulo

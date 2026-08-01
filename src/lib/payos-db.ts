@@ -185,6 +185,24 @@ export async function getOrder(db: D1Database, id: string): Promise<Order | null
   return db.prepare('SELECT * FROM "order" WHERE "id" = ?').bind(id).first<Order>();
 }
 
+export async function getRecentPendingOrder(
+  db: D1Database,
+  userId: string,
+  productId: string,
+): Promise<Order | null> {
+  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  return db
+    .prepare(
+      `SELECT * FROM "order"
+       WHERE "user_id" = ? AND "product_id" = ? AND "status" = 'pending'
+         AND "payment_link_id" IS NOT NULL AND "created_at" >= ?
+       ORDER BY "created_at" DESC
+       LIMIT 1`,
+    )
+    .bind(userId, productId, cutoff)
+    .first<Order>();
+}
+
 export async function getOrderWithProduct(
   db: D1Database,
   orderId: string,

@@ -46,7 +46,7 @@ export const CHU_THE_HOA_CHECK_SEED: SeedScanner = {
       order_idx: 0,
       title_vi: 'PHẦN 1: ĐÁNH GIÁ CHỦ THỂ HÓA',
       title_en: 'PART 1: PATIENT AGENCY EVALUATION',
-      subtitle_vi: '5chiều đánh giá: thông tin, lựa chọn, hợp tác, theo dõi, và phản hồi.',
+      subtitle_vi: '5 chiều đánh giá: thông tin, lựa chọn, hợp tác, theo dõi, và phản hồi.',
       subtitle_en: '5 evaluation dimensions: information, choice, cooperation, tracking, and feedback.',
       ref: 'Chủ thể hóa — Patient Agency',
       icon: 'person',

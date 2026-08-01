@@ -94,7 +94,7 @@ const bookUrl = orderInfo?.product_type === 'book_unlock'
   <script is:inline define:vars={{ orderId }}>
     const ORDER_ID = orderId;
     let attempts = 0;
-    const MAX_ATTEMPTS = 12;
+    const MAX_ATTEMPTS = 30;
 
     const loading = document.getElementById('state-loading');
     const success = document.getElementById('state-success');
@@ -129,44 +129,9 @@ const bookUrl = orderInfo?.product_type === 'book_unlock'
     // Start polling after 2 seconds (webhook needs time to process)
     setTimeout(checkStatus, 2000);
 
-    // Also try to get order status directly
-    async function getOrderStatus() {
-      if (!ORDER_ID) {
-        loading?.classList.add('hidden');
-        failed?.classList.remove('hidden');
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/payos/check-access?order_id=${ORDER_ID}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === 'paid') {
-            loading?.classList.add('hidden');
-            success?.classList.remove('hidden');
-            return;
-          }
-        }
-      } catch {}
-
-      // Give a final delay then check actual status before showing result
-      setTimeout(async () => {
-        loading?.classList.add('hidden');
-        try {
-          const res = await fetch('/api/payos/check-access?order_id=' + ORDER_ID);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'paid') {
-              success?.classList.remove('hidden');
-              return;
-            }
-          }
-        } catch {}
-        failed?.classList.remove('hidden');
-      }, 4000);
+    if (!ORDER_ID) {
+      loading?.classList.add('hidden');
+      failed?.classList.remove('hidden');
     }
-
-    // Fallback: show success after timeout
-    setTimeout(getOrderStatus, 1000);
   </script>
 </BaseLayout>

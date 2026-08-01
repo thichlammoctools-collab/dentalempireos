@@ -115,12 +115,15 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
 
     const singleMethod = button.dataset.singleMethod;
     const productId = button.dataset.productId;
+    let isCreatingPayment = false;
 
     // Helper: tạo thanh toán theo phương thức
     async function createPayment(method: string) {
       const error = dialog.querySelector('.payment-dialog-error') as HTMLElement;
-      if (!productId || !method) return;
+      if (!productId || !method || isCreatingPayment) return;
 
+      isCreatingPayment = true;
+      button.disabled = true;
       error.classList.add('hidden');
       try {
         const resp = await fetch(method === 'manual' ? '/api/manual-payment/create-payment' : '/api/payos/create-payment', {
@@ -142,6 +145,9 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
       } catch {
         error.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
         error.classList.remove('hidden');
+      } finally {
+        isCreatingPayment = false;
+        button.disabled = false;
       }
     }
 

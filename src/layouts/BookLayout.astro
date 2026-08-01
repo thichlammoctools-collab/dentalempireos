@@ -9,7 +9,7 @@ import QuestionDrawer from '../components/book/QuestionDrawer.astro';
 import WebsiteChatWidget from '../components/chat/WebsiteChatWidget.astro';
 interface ChapterItem {
   id: string;
-  data: { title: string; tier: number; chapter: number };
+  data: { title: string; tier: number; chapter: number; has_premium?: boolean };
 }
 
 interface ModuleItem {
@@ -339,6 +339,9 @@ const breadcrumbSchema = {
                       >
                         <span class="shrink-0 text-xs w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                         <span class="truncate leading-relaxed">{ch.data.title}</span>
+                        {ch.data.has_premium && (
+                          <span class="material-symbols-outlined text-amber-400 text-[14px] shrink-0" title="Nội dung cao cấp">star</span>
+                        )}
                       </a>
                     );
                   })}

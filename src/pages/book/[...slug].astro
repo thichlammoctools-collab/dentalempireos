@@ -87,7 +87,7 @@ const groupedByTier = [1, 2, 3].map((tier) => ({
     .filter((c) => c.tier === tier)
     .map((c) => ({
       id: c.id,
-      data: { title: c.title, tier: c.tier, chapter: c.chapter_no },
+      data: { title: c.title, tier: c.tier, chapter: c.chapter_no, has_premium: c.has_premium ?? false },
     })),
 }));
 

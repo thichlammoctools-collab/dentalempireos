@@ -88,12 +88,20 @@ const statusLabels: Record<string, string> = {
               </td>
               <td class="px-4 py-3 text-center">
                 {o.payment_link_id === null && o.status === 'pending' ? (
-                  <button
-                    data-order-id={o.id}
-                    class="confirm-manual-order px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 disabled:opacity-50"
-                  >
-                    Xác nhận chuyển khoản
-                  </button>
+                  <div class="flex justify-center gap-2">
+                    <button
+                      data-order-id={o.id}
+                      class="confirm-manual-order px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      Xác nhận chuyển khoản
+                    </button>
+                    <button
+                      data-order-id={o.id}
+                      class="cancel-manual-order px-3 py-1.5 rounded-lg bg-rose-500 text-white text-xs font-bold hover:bg-rose-400 disabled:opacity-50"
+                    >
+                      Hủy đơn
+                    </button>
+                  </div>
                 ) : (
                   <span class="text-xs text-on-surface-variant">—</span>
                 )}
@@ -121,6 +129,24 @@ const statusLabels: Record<string, string> = {
       } catch {
         target.disabled = false;
         alert('Không thể xác nhận đơn hàng. Vui lòng thử lại.');
+      }
+    });
+  });
+
+  document.querySelectorAll('.cancel-manual-order').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      const target = event.currentTarget as HTMLButtonElement;
+      if (!confirm('Hủy đơn hàng này? Thao tác này không thể hoàn tác.')) return;
+      target.disabled = true;
+      try {
+        const response = await fetch(`/api/admin/orders/${target.dataset.orderId}/cancel`, {
+          method: 'POST', credentials: 'include',
+        });
+        if (!response.ok) throw new Error();
+        window.location.reload();
+      } catch {
+        target.disabled = false;
+        alert('Không thể hủy đơn hàng. Vui lòng thử lại.');
       }
     });
   });
