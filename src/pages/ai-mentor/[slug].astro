@@ -48,7 +48,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
         </div>
 
         <div class="mb-4">
-          <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+           <h1 class="text-2xl font-bold text-on-surface flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-3xl">psychology</span>
             {title}
           </h1>
@@ -73,7 +73,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
             <input
               id="chat-input"
               type="text"
-              class="flex-1 px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+               class="flex-1 px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
               placeholder="Hỏi về nội dung sách, quản trị phòng khám..."
               required
             />
@@ -121,7 +121,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
       chatMsgs.innerHTML = currentMessages.map((m, i) => `
         <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
           <div class="max-w-[80%] rounded-2xl px-4 py-3 ${m.role === 'user'
-            ? 'rounded-tr-sm bg-primary text-white'
+             ? 'rounded-tr-sm bg-primary text-on-primary'
             : 'rounded-tl-sm bg-surface-container-high text-on-surface'}">
             <p class="text-sm leading-relaxed whitespace-pre-wrap" data-msg-idx="${i}">${escapeHtml(m.content)}</p>
           </div>

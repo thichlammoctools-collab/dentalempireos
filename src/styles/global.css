@@ -221,6 +221,28 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  /* Legacy page markup often uses text-white for dark-mode headings and form
+     controls. Restrict the compatibility rule to content roles so white text
+     remains valid on primary buttons, image overlays, and badges. */
+  html:not(.dark) .site-theme h1.text-white,
+  html:not(.dark) .site-theme h2.text-white,
+  html:not(.dark) .site-theme h3.text-white,
+  html:not(.dark) .site-theme h4.text-white,
+  html:not(.dark) .site-theme h5.text-white,
+  html:not(.dark) .site-theme h6.text-white,
+  html:not(.dark) .site-theme p.text-white,
+  html:not(.dark) .site-theme strong.text-white,
+  html:not(.dark) .site-theme input.text-white,
+  html:not(.dark) .site-theme textarea.text-white,
+  html:not(.dark) .site-theme select.text-white {
+    color: var(--color-on-surface) !important;
+  }
+
+  html:not(.dark) .site-theme input::placeholder,
+  html:not(.dark) .site-theme textarea::placeholder {
+    color: color-mix(in srgb, var(--color-on-surface-variant) 65%, transparent);
+  }
 }
 
 /* === Utility Classes === */
@@ -424,19 +446,20 @@
 }
 
 /* === Reader Theme Variables === */
-/* Default (dark) theme — defined on body so body.light-mode / body.sepia-mode can override via same-level cascade */
-body {
-  --reader-bg: var(--color-surface);
-  --reader-surface: var(--color-surface-container-low);
-  --reader-text: var(--color-on-surface);
-  --reader-text-muted: var(--color-on-surface-variant);
-  --reader-accent: var(--color-primary);
+/* Reader theme is scoped to the reader app so it cannot change the global site theme. */
+#reader-app[data-reader-theme="dark"],
+html:has(#reader-app[data-reader-theme="dark"]) {
+  --reader-bg: #121317;
+  --reader-surface: #1a1b1f;
+  --reader-text: #e3e2e7;
+  --reader-text-muted: #bfc7d2;
+  --reader-accent: #92ccff;
   /* Reader chrome (toolbar, sidebar, status bar, drawers) */
-  --reader-chrome-bg: var(--color-surface-container-low);
-  --reader-chrome-surface: var(--color-surface-container);
-  --reader-chrome-surface-high: var(--color-surface-container-high);
-  --reader-chrome-text: var(--color-on-surface);
-  --reader-chrome-text-muted: var(--color-on-surface-variant);
+  --reader-chrome-bg: #1a1b1f;
+  --reader-chrome-surface: #1e1f23;
+  --reader-chrome-surface-high: #292a2e;
+  --reader-chrome-text: #e3e2e7;
+  --reader-chrome-text-muted: #bfc7d2;
   --reader-border: rgba(255, 255, 255, 0.06);
   --reader-border-hover: rgba(255, 255, 255, 0.2);
   --reader-scrollbar: rgba(146, 204, 255, 0.22);
@@ -521,8 +544,9 @@ html:has(.reader-app) #reader-app > * {
   min-height: 0;
 }
 
-/* Light mode */
-body.light-mode {
+/* Reader light mode */
+#reader-app[data-reader-theme="light"],
+html:has(#reader-app[data-reader-theme="light"]) {
   --reader-bg: #faf9f7;
   --reader-surface: #f0eee9;
   --reader-text: #2d2d2d;
@@ -540,8 +564,9 @@ body.light-mode {
   --reader-scrollbar-hover: rgba(0, 100, 151, 0.48);
 }
 
-/* Sepia mode */
-body.sepia-mode {
+/* Reader sepia mode */
+#reader-app[data-reader-theme="sepia"],
+html:has(#reader-app[data-reader-theme="sepia"]) {
   --reader-bg: #f4ecd8;
   --reader-surface: #ede5d0;
   --reader-text: #433422;

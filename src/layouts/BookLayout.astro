@@ -289,7 +289,7 @@ const breadcrumbSchema = {
   <!-- ==========================================
        READER LAYOUT WRAPPER
        ========================================== -->
-  <div id="reader-app" class="reader-app flex flex-col overflow-hidden">
+  <div id="reader-app" data-reader-theme="dark" class="reader-app flex flex-col overflow-hidden">
 
     <!-- ==========================================
          MAIN BODY: Sidebar + Reader
@@ -498,7 +498,6 @@ const breadcrumbSchema = {
       let tocOpen = true;
 
       const doc = document;
-      const body = doc.body;
       const readerApp = doc.getElementById('reader-app');
       const readerScroll = doc.getElementById('reader-scroll');
       const tocSidebar = doc.getElementById('toc-sidebar');
@@ -508,9 +507,7 @@ const breadcrumbSchema = {
 
       // ---- Theme cycling ----
       function applyTheme(idx: number) {
-        body.classList.remove('light-mode', 'sepia-mode');
-        if (idx === 1) body.classList.add('light-mode');
-        if (idx === 2) body.classList.add('sepia-mode');
+        if (readerApp) readerApp.dataset.readerTheme = themes[idx];
         const icons = ['dark_mode', 'light_mode', 'coffee'];
         const labels = ['Tối', 'Sáng', 'Sepia'];
         doc.getElementById('theme-icon')!.textContent = icons[idx];
@@ -521,11 +518,25 @@ const breadcrumbSchema = {
         currentThemeIdx = idx;
       }
 
+      try {
+        const savedReaderTheme = localStorage.getItem('deos_reader_theme');
+        if (savedReaderTheme && themes.includes(savedReaderTheme)) {
+          currentThemeIdx = themes.indexOf(savedReaderTheme);
+        } else if (!document.documentElement.classList.contains('dark')) {
+          currentThemeIdx = 1;
+        }
+      } catch {
+        currentThemeIdx = document.documentElement.classList.contains('dark') ? 0 : 1;
+      }
+      applyTheme(currentThemeIdx);
+
       doc.getElementById('theme-btn')?.addEventListener('click', () => {
         applyTheme((currentThemeIdx + 1) % themes.length);
+        try { localStorage.setItem('deos_reader_theme', themes[currentThemeIdx]); } catch {}
       });
       doc.getElementById('mobile-theme-btn')?.addEventListener('click', () => {
         applyTheme((currentThemeIdx + 1) % themes.length);
+        try { localStorage.setItem('deos_reader_theme', themes[currentThemeIdx]); } catch {}
       });
 
       // ---- Bookmark & Reading Progress ----

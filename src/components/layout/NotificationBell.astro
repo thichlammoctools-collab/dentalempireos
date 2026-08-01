@@ -11,13 +11,13 @@
     title="Thông báo"
   >
     <span class="material-symbols-outlined text-xl">notifications</span>
-    <span id="notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[9px] font-bold text-white bg-error rounded-full hidden">0</span>
+    <span id="notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[9px] font-bold text-on-error bg-error rounded-full hidden">0</span>
   </button>
 
   <!-- Dropdown -->
   <div id="notif-dropdown" class="hidden absolute right-0 top-full mt-2 z-[70] w-[360px] max-h-[420px] glass-panel-dark rounded-xl shadow-2xl border border-outline-variant/20 overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant/15">
-      <h4 class="text-sm font-bold text-white">Thông báo</h4>
+      <h4 class="text-sm font-bold text-on-surface">Thông báo</h4>
       <button id="notif-mark-all" class="text-[11px] text-primary hover:underline font-bold">Đánh dấu tất cả đã đọc</button>
     </div>
     <div id="notif-list" class="overflow-y-auto max-h-[350px] divide-y divide-outline-variant/10">
@@ -92,7 +92,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-2">
-            <p class="text-xs font-bold ${n.read ? 'text-on-surface-variant' : 'text-white'} leading-snug truncate">${n.title}</p>
+            <p class="text-xs font-bold ${n.read ? 'text-on-surface-variant' : 'text-on-surface'} leading-snug truncate">${n.title}</p>
             <span class="text-[10px] text-on-surface-variant/40 shrink-0">${new Date(n.createdAt).toLocaleDateString('vi-VN')}</span>
           </div>
           <p class="text-[11px] text-on-surface-variant/60 mt-0.5 line-clamp-2">${n.body}</p>
