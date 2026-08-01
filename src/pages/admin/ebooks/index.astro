@@ -107,6 +107,12 @@ const tiers = [1, 2, 3];
                         ) : (
                           <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-primary bg-primary/10">Published</span>
                         )}
+                        {ch.is_premium === 1 && (
+                          <span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase text-amber-300 bg-amber-400/10 border border-amber-400/20">
+                            <span class="material-symbols-outlined text-[13px]">lock</span>
+                            Đang khóa
+                          </span>
+                        )}
                       </div>
                       <h4 class="text-base font-semibold text-white truncate">{ch.title}</h4>
                       <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{ch.description}</p>
@@ -115,6 +121,11 @@ const tiers = [1, 2, 3];
                         <a href={`/admin/ebooks/${ch.id}`} class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
                           <span class="material-symbols-outlined text-[16px]">edit</span> Sửa
                         </a>
+                        {ch.is_premium === 1 && (
+                          <a href={`/admin/ebooks/${ch.id}#chapter-meta-form`} class="text-xs font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[16px]">lock_open</span> Thiết lập khóa
+                          </a>
+                        )}
                         {ch.status === 'published' && (
                           <a href={`/book/${ch.id}`} target="_blank" class="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1">
                             <span class="material-symbols-outlined text-[16px]">visibility</span> Xem

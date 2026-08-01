@@ -7,6 +7,7 @@ interface ChapterItem {
     title: string;
     tier: number;
     chapter: number;
+    has_premium?: boolean;
   };
 }
 
@@ -92,6 +93,9 @@ const currentTier = groupedChapters.find((g) =>
               >
                 <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--color-on-surface-variant);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                 <span class="truncate text-xs">{ch.data.title}</span>
+                {ch.data.has_premium && (
+                  <span class="material-symbols-outlined text-amber-400 text-[14px] ml-auto shrink-0" title="Chương cần mở khóa">lock</span>
+                )}
                 {isCurrent && (
                   <span class="material-symbols-outlined text-primary text-base ml-auto shrink-0">play_arrow</span>
                 )}
