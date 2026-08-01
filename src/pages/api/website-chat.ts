@@ -142,7 +142,7 @@ export const POST: APIRoute = async (ctx) => {
   // Summarize history nếu quá dài, rồi thêm user message mới
   const summarizedHistory = summarizeHistory(history);
   const chatMessages: ChatMessage[] = [
-    ...summarizedHistory.map((message): ChatMessage => ({ role: message.role, content: message.content })),
+    ...summarizedHistory.map((message): ChatMessage => ({ role: message.role as ChatMessage['role'], content: message.content })),
     { role: 'user', content: body.message.trim() },
   ].slice(-9);
 

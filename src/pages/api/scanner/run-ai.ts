@@ -83,8 +83,9 @@ export const POST: APIRoute = async (ctx) => {
     tasks.push(runPlanAnalysis(env.DB, responseId, session.user.id));
   }
 
-  if (ctx.waitUntil) {
-    ctx.waitUntil(Promise.allSettled(tasks));
+  const waitUntil = (ctx as typeof ctx & { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
+  if (waitUntil) {
+    waitUntil(Promise.allSettled(tasks));
   } else {
     // Fallback if waitUntil is unavailable — still run async but won't survive request termination
     Promise.allSettled(tasks).catch((err) => {
