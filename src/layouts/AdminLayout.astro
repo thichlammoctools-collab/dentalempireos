@@ -18,7 +18,7 @@ const {
 ---
 
 <!doctype html>
-<html lang="vi" class="dark">
+  <html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -45,8 +45,14 @@ const {
       rel="stylesheet"
     />
 
+    <meta name="theme-color" content="#f8f9fc" />
     <script is:inline>
-      document.documentElement.classList.add('dark');
+      (function() {
+        var t = localStorage.getItem('theme');
+        var isDark = t === 'dark' || (t !== 'light' && t !== 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+      })();
     </script>
   </head>
 
@@ -75,6 +81,11 @@ const {
         </div>
       </footer>
     </main>
+
+    <script>
+      import { initializeTheme } from '../scripts/theme';
+      initializeTheme();
+    </script>
 
     <!-- Toast notification system -->
     <style>

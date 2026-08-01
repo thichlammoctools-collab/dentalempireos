@@ -76,6 +76,16 @@ const currentPath = Astro.url.pathname;
 
     <!-- Right side (desktop only) -->
     <div class="hidden md:flex items-center gap-4">
+      <button
+        id="desktop-theme-toggle"
+        type="button"
+        role="switch"
+        aria-checked="false"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors"
+        title="Đổi giao diện"
+      >
+        <span id="desktop-theme-icon" class="material-symbols-outlined text-[20px]">light_mode</span>
+      </button>
       <!-- Auth: logged-out state -->
       <div id="auth-logged-out" class="hidden items-center gap-2">
         <a
@@ -116,6 +126,7 @@ const currentPath = Astro.url.pathname;
 
 <script>
   import { getSession, signOut } from '../../lib/auth-client';
+  import { onThemeChange, toggleTheme, updateThemeToggle } from '../../scripts/theme';
 
   async function initAuthState() {
     const { data } = await getSession();
@@ -143,4 +154,14 @@ const currentPath = Astro.url.pathname;
   }
 
   initAuthState();
+
+  const desktopThemeToggle = document.getElementById('desktop-theme-toggle');
+  const desktopThemeIcon = document.getElementById('desktop-theme-icon');
+  const syncDesktopTheme = () => updateThemeToggle(desktopThemeToggle, null, desktopThemeIcon);
+  desktopThemeToggle?.addEventListener('click', () => {
+    toggleTheme();
+    syncDesktopTheme();
+  });
+  syncDesktopTheme();
+  onThemeChange(syncDesktopTheme);
 </script>

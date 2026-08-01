@@ -76,6 +76,121 @@
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
 }
 
+/* Light mode is the default application palette. Dark mode overrides the same
+   semantic tokens so existing Tailwind utilities remain theme-aware. */
+:root {
+  --color-background: #f8f9fc;
+  --color-surface: #f8f9fc;
+  --color-surface-dim: #dee2e8;
+  --color-surface-container: #edf0f4;
+  --color-surface-container-low: #f3f5f8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #e6eaf0;
+  --color-surface-container-highest: #dfe4eb;
+  --color-surface-bright: #ffffff;
+  --color-surface-variant: #e1e5eb;
+
+  --color-primary: #006497;
+  --color-primary-container: #bfe6ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #003351;
+  --color-on-primary-fixed: #001d31;
+  --color-on-primary-fixed-variant: #004b73;
+  --color-primary-fixed: #cce5ff;
+  --color-primary-fixed-dim: #92ccff;
+
+  --color-secondary: #5c6268;
+  --color-secondary-container: #dfe3e7;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #1a1c1e;
+  --color-on-secondary-fixed: #1a1c1c;
+  --color-on-secondary-fixed-variant: #464747;
+  --color-secondary-fixed: #e3e2e2;
+  --color-secondary-fixed-dim: #c6c6c6;
+
+  --color-tertiary: #995000;
+  --color-tertiary-container: #ffdcc2;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #432100;
+  --color-on-tertiary-fixed: #2e1500;
+  --color-on-tertiary-fixed-variant: #6d3a00;
+  --color-tertiary-fixed: #ffdcc2;
+  --color-tertiary-fixed-dim: #ffb77a;
+
+  --color-on-surface: #1a1c20;
+  --color-on-surface-variant: #545c67;
+  --color-on-background: #1a1c20;
+  --color-inverse-surface: #2f3034;
+  --color-inverse-on-surface: #f0f0f5;
+  --color-inverse-primary: #92ccff;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #410002;
+
+  --color-outline: #747c87;
+  --color-outline-variant: #c4c9d2;
+  --color-metallic-blue: #006497;
+  --color-brand-cyan: #0077ad;
+  --color-success: #166534;
+  --color-success-container: #dcfce7;
+  --color-warning: #8a4b00;
+  --color-warning-container: #ffddb5;
+  --color-overlay: rgb(0 0 0 / 0.56);
+  --color-elevated-shadow: rgb(22 28 36 / 0.14);
+}
+
+.dark {
+  --color-background: #121317;
+  --color-surface: #121317;
+  --color-surface-dim: #121317;
+  --color-surface-container: #1e1f23;
+  --color-surface-container-low: #1a1b1f;
+  --color-surface-container-lowest: #0d0e12;
+  --color-surface-container-high: #292a2e;
+  --color-surface-container-highest: #343539;
+  --color-surface-bright: #38393d;
+  --color-surface-variant: #343539;
+
+  --color-primary: #92ccff;
+  --color-primary-container: #2b98dd;
+  --color-on-primary: #003351;
+  --color-on-primary-container: #002c47;
+  --color-on-primary-fixed: #001d31;
+  --color-on-primary-fixed-variant: #004b73;
+  --color-primary-fixed: #cce5ff;
+  --color-primary-fixed-dim: #92ccff;
+  --color-secondary: #c6c6c6;
+  --color-secondary-container: #484949;
+  --color-on-secondary: #2f3131;
+  --color-on-secondary-container: #b8b8b8;
+  --color-tertiary: #ffb77a;
+  --color-tertiary-container: #d37b1e;
+  --color-on-tertiary: #4c2700;
+  --color-on-tertiary-container: #432100;
+  --color-on-surface: #e3e2e7;
+  --color-on-surface-variant: #bfc7d2;
+  --color-on-background: #e3e2e7;
+  --color-inverse-surface: #e3e2e7;
+  --color-inverse-on-surface: #2f3034;
+  --color-inverse-primary: #006497;
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
+  --color-outline: #89929b;
+  --color-outline-variant: #3f4850;
+  --color-metallic-blue: #2b98dd;
+  --color-brand-cyan: #0088cc;
+  --color-success: #4ade80;
+  --color-success-container: #14532d;
+  --color-warning: #fbbf24;
+  --color-warning-container: #78350f;
+  --color-overlay: rgb(0 0 0 / 0.72);
+  --color-elevated-shadow: rgb(0 0 0 / 0.42);
+}
+
 /* === Base layer === */
 @layer base {
   html {
@@ -99,7 +214,12 @@
   /* Selection color */
   ::selection {
     background-color: var(--color-primary-container);
-    color: white;
+    color: var(--color-on-primary-container);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -248,16 +368,16 @@
     box-shadow: 0 0 20px rgba(0, 136, 204, 0.3);
   }
   .glass-card {
-    background: rgba(30, 31, 35, 0.7);
+    background: color-mix(in srgb, var(--color-surface-container) 88%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(192, 192, 192, 0.1);
+    border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
   }
   .glass-panel-dark {
-    background: rgba(20, 21, 25, 0.92);
+    background: color-mix(in srgb, var(--color-surface-container-lowest) 94%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(192, 192, 192, 0.08);
+    border: 1px solid color-mix(in srgb, var(--color-outline-variant) 48%, transparent);
   }
   .text-gradient-cyan {
     background: linear-gradient(135deg, #92ccff 0%, #0088cc 100%);

@@ -111,12 +111,14 @@
     <!-- Theme Toggle -->
     <div class="px-4 py-3">
       <button
-        id="theme-toggle"
+         id="theme-toggle"
+         role="switch"
+         aria-checked="false"
         class="flex items-center justify-between w-full p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors"
       >
         <div class="flex items-center gap-3">
-          <span class="material-symbols-outlined text-sm text-on-surface-variant">dark_mode</span>
-          <span class="text-sm text-on-surface">Chế độ tối</span>
+          <span id="theme-toggle-icon" class="material-symbols-outlined text-sm text-on-surface-variant">light_mode</span>
+          <span id="theme-toggle-label" class="text-sm text-on-surface">Chế độ sáng</span>
         </div>
         <div class="relative w-10 h-6 bg-surface-container-high rounded-full p-0.5">
           <div id="theme-knob" class="w-5 h-5 bg-on-surface-variant rounded-full transition-transform duration-200" style="transform: translateX(16px)"></div>
@@ -138,6 +140,8 @@
 </style>
 
 <script>
+  import { onThemeChange, toggleTheme, updateThemeToggle } from '../../scripts/theme';
+
   var overlay = document.getElementById('mobile-user-overlay');
   var drawer = document.getElementById('mobile-user-drawer');
   var closeBtn = document.getElementById('mobile-user-close');
@@ -251,19 +255,18 @@
 
   var themeBtn = document.getElementById('theme-toggle');
   var themeKnob = document.getElementById('theme-knob');
-  var isDark = document.documentElement.classList.contains('dark');
-
   themeBtn && themeBtn.addEventListener('click', function() {
-    isDark = !isDark;
-    document.documentElement.classList.toggle('dark', isDark);
-    if (themeKnob) {
-      themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
-    }
+    toggleTheme();
+    syncThemeToggle();
   });
 
-  if (themeKnob) {
-    themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+  var themeIcon = document.getElementById('theme-toggle-icon');
+  var themeLabel = document.getElementById('theme-toggle-label');
+  function syncThemeToggle() {
+    updateThemeToggle(themeBtn, themeKnob, themeIcon, themeLabel);
   }
+  syncThemeToggle();
+  onThemeChange(syncThemeToggle);
 
   logoutBtn && logoutBtn.addEventListener('click', function() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })

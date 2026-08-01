@@ -72,7 +72,7 @@ const sameAs = [
 ---
 
 <!doctype html>
-<html lang="vi" class="dark scroll-smooth">
+  <html lang="vi" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -117,7 +117,7 @@ const sameAs = [
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#0a0a14" />
+     <meta name="theme-color" content="#f8f9fc" />
 
     <!-- Be Vietnam Pro font — self-hosted via @fontsource (see global.css) -->
     <!-- Material Symbols — kept from Google Fonts CDN with display=swap to avoid FOIT -->
@@ -135,15 +135,15 @@ const sameAs = [
       rel="stylesheet"
     />
 
-    <!-- Prevent flash of wrong theme on page load -->
-    <script is:inline>
-      (function() {
-        var t = localStorage.getItem('theme');
-        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+     <!-- Prevent flash of wrong theme on page load -->
+     <script is:inline>
+       (function() {
+         var t = localStorage.getItem('theme');
+         var isDark = t === 'dark' || (t !== 'light' && t !== 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+         document.documentElement.classList.toggle('dark', isDark);
+         document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+       })();
+     </script>
 
     <!-- Structured Data: WebSite + Organization + Person -->
     <StructuredData type="website" data={{
@@ -189,6 +189,11 @@ const sameAs = [
 
     <!-- PWA Install Prompt -->
     <PwaInstallPrompt />
+
+    <script>
+      import { initializeTheme } from '../scripts/theme';
+      initializeTheme();
+    </script>
 
     <!-- Toast container -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="true"></div>

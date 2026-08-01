@@ -117,10 +117,10 @@ const activeNav = getNavState();
 
     <!-- Theme Toggle -->
     <div class="px-4 py-3">
-      <button id="menu-theme-toggle" class="flex items-center justify-between w-full p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
-        <div class="flex items-center gap-3">
-          <span class="material-symbols-outlined text-sm text-on-surface-variant">dark_mode</span>
-          <span class="text-sm text-on-surface">Chế độ tối</span>
+       <button id="menu-theme-toggle" role="switch" aria-checked="false" class="flex items-center justify-between w-full p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+         <div class="flex items-center gap-3">
+           <span id="menu-theme-icon" class="material-symbols-outlined text-sm text-on-surface-variant">light_mode</span>
+           <span id="menu-theme-label" class="text-sm text-on-surface">Chế độ sáng</span>
         </div>
         <div class="relative w-10 h-6 bg-surface-container-high rounded-full p-0.5">
           <div id="menu-theme-knob" class="w-5 h-5 bg-on-surface-variant rounded-full transition-transform duration-200"></div>
@@ -276,6 +276,8 @@ const activeNav = getNavState();
 </style>
 
 <script>
+  import { onThemeChange, toggleTheme, updateThemeToggle } from '../../scripts/theme';
+
   (function() {
     // ====== MENU DRAWER ======
     var menuOverlay = document.getElementById('menu-overlay');
@@ -367,11 +369,11 @@ const activeNav = getNavState();
       }
     }
 
-    function initThemeKnob() {
-      if (!themeKnob) return;
-      var isDark = document.documentElement.classList.contains('dark');
-      themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
-    }
+     var themeIcon = document.getElementById('menu-theme-icon');
+     var themeLabel = document.getElementById('menu-theme-label');
+     function initThemeKnob() {
+       updateThemeToggle(themeToggle, themeKnob, themeIcon, themeLabel);
+     }
 
     menuBtn && menuBtn.addEventListener('click', function() {
       isMenuOpen ? closeMenu() : openMenu();
@@ -385,12 +387,12 @@ const activeNav = getNavState();
         .catch(function() { window.location.href = '/'; });
     });
 
-    themeToggle && themeToggle.addEventListener('click', function() {
-      var isDark = document.documentElement.classList.toggle('dark');
-      if (themeKnob) {
-        themeKnob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
-      }
-    });
+     themeToggle && themeToggle.addEventListener('click', function() {
+       toggleTheme();
+       initThemeKnob();
+     });
+     initThemeKnob();
+     onThemeChange(initThemeKnob);
 
     // Swipe drawer left to close
     var menuStartX = 0;
