@@ -514,18 +514,18 @@ export async function getPayosSettings(db: D1Database): Promise<PayosSettings | 
 
 /**
  * Get PayOS credentials as an env-like object for use by payos.ts functions.
- * Falls back to env vars if D1 settings are empty.
+ * Production Cloudflare Secrets take priority over editable D1 settings.
  */
 export function getPayosEnv(
-  db: D1Database,
+  _db: D1Database,
   settings: PayosSettings | null,
   env: Cloudflare.Env,
 ): { PAYOS_CLIENT_ID: string; PAYOS_API_KEY: string; PAYOS_CHECKSUM_KEY: string; PAYOS_WEBHOOK_URL: string } {
   return {
-    PAYOS_CLIENT_ID: settings?.client_id || env.PAYOS_CLIENT_ID || '',
-    PAYOS_API_KEY: settings?.api_key || env.PAYOS_API_KEY || '',
-    PAYOS_CHECKSUM_KEY: settings?.checksum_key || env.PAYOS_CHECKSUM_KEY || '',
-    PAYOS_WEBHOOK_URL: settings?.webhook_url || env.PAYOS_WEBHOOK_URL || '',
+    PAYOS_CLIENT_ID: env.PAYOS_CLIENT_ID || settings?.client_id || '',
+    PAYOS_API_KEY: env.PAYOS_API_KEY || settings?.api_key || '',
+    PAYOS_CHECKSUM_KEY: env.PAYOS_CHECKSUM_KEY || settings?.checksum_key || '',
+    PAYOS_WEBHOOK_URL: (env.PAYOS_WEBHOOK_URL || settings?.webhook_url || '').trim(),
   };
 }
 

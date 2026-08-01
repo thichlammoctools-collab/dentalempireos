@@ -53,10 +53,10 @@ export const PUT: APIRoute = async ({ request }) => {
 // POST /api/admin/payos-settings — register webhook with PayOS
 export const POST: APIRoute = async () => {
   const settings = await getPayosSettings(env.DB);
-  if (!settings?.client_id) {
+  const creds = getPayosEnv(env.DB, settings, env);
+  if (!creds.PAYOS_CLIENT_ID || !creds.PAYOS_API_KEY || !creds.PAYOS_CHECKSUM_KEY || !creds.PAYOS_WEBHOOK_URL) {
     return json({ error: 'Chưa cấu hình PayOS credentials' }, 400);
   }
-  const creds = getPayosEnv(env.DB, settings, env);
 
   try {
     const result = await registerWebhook(creds);
