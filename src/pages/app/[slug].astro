@@ -8,6 +8,12 @@ export const prerender = false;
 const slugParam = Astro.params.slug;
 const slug = slugParam ?? '';
 
+// Hồ Sơ Gốc Rễ is a Scanner, not a conversational SOP generator. Keep the
+// legacy app URL working while directing users to its dedicated survey flow.
+if (slug === 'ho-so-goc-re') {
+  return Astro.redirect('/scanner/ho-so-goc-re');
+}
+
 const app = await getAppBySlug(env.DB, slug);
 
 if (!app) return new Response('Không tìm thấy ứng dụng', { status: 404 });
