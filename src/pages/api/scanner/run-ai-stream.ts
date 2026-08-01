@@ -102,20 +102,20 @@ export const POST: APIRoute = async (ctx) => {
       try {
         for (const t of types) {
           activeType = t;
-          sseEnqueue(controller, 'status', { status: 'streaming', message: `Đang phân tích ${t === 'analysis' ? 'phân tích' : 'kế hoạch'}...` });
+          await setStatus(t, 'running');
+          sseEnqueue(controller, 'status', { status: 'retrieving', type: t, message: 'Đang tìm nội dung liên quan trong sách...' });
 
           let fullText = '';
 
           // Build the stream
           let aiStream: ReadableStream<string>;
           if (t === 'analysis') {
-            aiStream = buildAnalysisStream(response, full, surveyAiConfig, scoringRules, modelConfig);
+            aiStream = await buildAnalysisStream(env.DB, env, response, full, surveyAiConfig, scoringRules, modelConfig);
           } else {
-            aiStream = buildPlanStream(response, full, surveyAiConfig, scoringRules, modelConfig);
+            aiStream = await buildPlanStream(env.DB, env, response, full, surveyAiConfig, scoringRules, modelConfig);
           }
 
-          // Set status to running
-          await setStatus(t, 'running');
+          sseEnqueue(controller, 'status', { status: 'streaming', type: t, message: `AI đang tạo ${t === 'analysis' ? 'bản soi chiếu' : 'kế hoạch 30 ngày'}...` });
 
           // Stream chunks to client, accumulate for R2
           const reader = aiStream.getReader();

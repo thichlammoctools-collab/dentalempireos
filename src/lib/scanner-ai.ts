@@ -23,6 +23,7 @@ import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
 import { logAiUsage } from './ai-usage-log';
+import { buildWebsiteContext, searchWebsite } from './rag-website-search';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -140,6 +141,56 @@ function buildMessages(
   };
 }
 
+/**
+ * Retrieves only the book passages relevant to this scanner and its weakest
+ * areas. Retrieval failure is deliberately non-fatal: scanner prompts remain
+ * useful before the knowledge base has been indexed.
+ */
+async function getBookContext(
+  db: D1Database,
+  env: Env,
+  response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>,
+  full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
+  scoringRules: ScoringRules | null,
+): Promise<string> {
+  const scores = parseScores(response.scores_json);
+  const weakDimensions = (scoringRules?.dimensions ?? [])
+    .map((dimension) => ({ label: dimension.name_vi, score: scores[dimension.id] ?? 0 }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2)
+    .map((dimension) => `${dimension.label}: ${dimension.score}/100`);
+  const sectionTitles = full.sections.map((section) => section.title_vi).slice(0, 4);
+  const query = [
+    full.definition.title_vi,
+    full.definition.description_vi,
+    ...sectionTitles,
+    ...weakDimensions,
+  ].filter(Boolean).join('\n');
+
+  if (!query) return '';
+
+  try {
+    const chunks = await Promise.race([
+      searchWebsite(db, query, 4, { contentType: 'book' }, env),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Book retrieval timed out')), 8000)),
+    ]);
+    // A bounded context keeps generation responsive and focused on the result.
+    return buildWebsiteContext(chunks).slice(0, 6000);
+  } catch (error) {
+    console.warn('[scanner-ai] Book retrieval failed; continuing without RAG:', error);
+    return '';
+  }
+}
+
+function addBookContext(systemPrompt: string, bookContext: string, lang: 'vi' | 'en'): string {
+  if (!bookContext) return systemPrompt;
+
+  const instruction = lang === 'vi'
+    ? `\n\n# NGỮ CẢNH ĐÃ KIỂM CHỨNG TỪ SÁCH DENTAL EMPIRE OS\n${bookContext}\n# HẾT NGỮ CẢNH\nDùng ngữ cảnh này để làm phân tích và hành động bám sát framework của sách. Chỉ nêu chi tiết thuộc sách khi chúng có trong ngữ cảnh; không bịa tên chương, số liệu hoặc khuyến nghị.`
+    : `\n\n# VERIFIED DENTAL EMPIRE OS BOOK CONTEXT\n${bookContext}\n# END CONTEXT\nUse this context to ground the analysis and actions in the book's framework. Only state book-specific details that appear in this context; do not invent chapter names, numbers, or recommendations.`;
+  return `${systemPrompt}${instruction}`;
+}
+
 function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
   const format = lang === 'vi'
     ? `\n\n# ĐỊNH DẠNG BẮT BUỘC ĐỂ CÓ THỂ IN VÀ GIAO VIỆC\nTrả lời bằng Markdown, không dùng lời mở đầu hoặc kết luận chung chung.\n- Dùng ## cho từng tuần/giai đoạn.\n- Mỗi hành động bắt đầu bằng ### Hành động N: [tên ngắn, hướng hành động].\n- Ngay dưới tiêu đề hành động, viết chính xác ba dòng có nhãn in đậm:\n  - **Việc cần làm:** các bước cụ thể, có thể giao ngay.\n  - **Mục tiêu:** lý do hoặc kết quả vận hành cần đạt.\n  - **Hoàn thành khi:** tiêu chí kiểm chứng được, có con số/thời hạn nếu phù hợp.\n- Khi hữu ích, thêm **Người phụ trách gợi ý:** và **Thời hạn:**.\n- Mỗi hành động là một khối độc lập, ngắn gọn, để có thể copy/paste hoặc in trực tiếp cho nhân sự.`
@@ -149,24 +200,30 @@ function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
 
 // ─── Streaming exports ─────────────────────────────────────────────────────────
 
-export function buildAnalysisStream(
+export async function buildAnalysisStream(
+  db: D1Database,
+  env: Env,
   response: Awaited<ReturnType<typeof getScannerResponse>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): ReadableStream<string> {
+): Promise<ReadableStream<string>> {
   const { systemPrompt, messages } = buildMessages(response, full, aiConfig, scoringRules);
-  return chatCompletionStream(modelConfig, messages, systemPrompt);
+  if (!response) throw new Error('No response');
+  const bookContext = await getBookContext(db, env, response, full, scoringRules);
+  return chatCompletionStream(modelConfig, messages, addBookContext(systemPrompt, bookContext, response.lang === 'en' ? 'en' : 'vi'));
 }
 
-export function buildPlanStream(
+export async function buildPlanStream(
+  db: D1Database,
+  env: Env,
   response: Awaited<ReturnType<typeof getScannerResponse>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): ReadableStream<string> {
+): Promise<ReadableStream<string>> {
   if (!response) throw new Error('No response');
 
   const lang = response.lang === 'en' ? 'en' : 'vi';
@@ -184,10 +241,11 @@ export function buildPlanStream(
   const userContext = buildAiContext(response, allQuestions);
   const userMessage = JSON.stringify(userContext, null, 2);
 
+  const bookContext = await getBookContext(db, env, response, full, scoringRules);
   return chatCompletionStream(
     modelConfig,
     [{ role: 'user', content: userMessage }],
-    systemPrompt,
+    addBookContext(systemPrompt, bookContext, lang),
   );
 }
 
@@ -202,7 +260,8 @@ async function doAnalyze(
   modelConfig: ModelConfig,
 ): Promise<string> {
   const { systemPrompt, messages } = buildMessages(response, full, aiConfig, scoringRules);
-  return chatCompletion(modelConfig, messages, systemPrompt);
+  const bookContext = await getBookContext(db, env, response, full, scoringRules);
+  return chatCompletion(modelConfig, messages, addBookContext(systemPrompt, bookContext, response.lang === 'en' ? 'en' : 'vi'));
 }
 
 async function doPlan(
@@ -230,10 +289,11 @@ async function doPlan(
   const userContext = buildAiContext(response, allQuestions);
   const userMessage = JSON.stringify(userContext, null, 2);
 
+  const bookContext = await getBookContext(db, env, response, full, scoringRules);
   return chatCompletion(
     modelConfig,
     [{ role: 'user', content: userMessage }],
-    systemPrompt,
+    addBookContext(systemPrompt, bookContext, lang),
   );
 }
 

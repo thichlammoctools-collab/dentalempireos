@@ -151,7 +151,14 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   #website-chat-panel.chat-expanded { width: 520px; }
   @media (max-width: 1023px) { #website-chat-panel { width: 380px; } }
   @media (max-width: 640px) {
-     #website-chat-panel { width: 100vw; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+     #website-chat-panel {
+       top: auto;
+       width: 100%;
+       height: min(78dvh, 620px);
+       right: 0;
+       bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+       border-radius: 18px 18px 0 0;
+     }
   }
   /* Hide mobile FABs and chapter nav when chat panel is open */
   body.chat-active #mobile-fab-container,
@@ -172,7 +179,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    .chat-action-btn:hover { background: #273449; color: #fff; }
 
   /* Messages */
-   #chat-messages-area { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 12px; background: #111827; scroll-behavior: smooth; }
+    #chat-messages-area { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 12px; background: #111827; scroll-behavior: smooth; overscroll-behavior: contain; }
   #chat-messages-area::-webkit-scrollbar { width: 4px; }
   #chat-messages-area::-webkit-scrollbar-thumb { background: var(--chat-scrollbar, #d6d3d1); border-radius: 4px; }
 
@@ -198,13 +205,21 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    :global(#website-chat-root .chat-avatar-small) { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; font-weight: 600; }
    :global(#website-chat-root .chat-msg.user .chat-avatar-small) { background: #f97316; color: #fff; }
    :global(#website-chat-root .chat-msg.assistant .chat-avatar-small) { background: #fef3c7; color: #f97316; border: 1.5px solid #fed7aa; }
-   :global(#website-chat-root .chat-msg-body) { display: flex; flex-direction: column; gap: 3px; max-width: 84%; min-width: 0; }
-    :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: 84%; align-items: flex-end; text-align: right; }
+    :global(#website-chat-root .chat-msg-body) { display: flex; flex-direction: column; gap: 3px; width: fit-content; max-width: min(84%, 34rem); min-width: 0; }
+     :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: min(84%, 34rem); align-items: flex-end; text-align: right; }
    :global(#website-chat-root .chat-msg-role) { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8494ad; }
     :global(#website-chat-root .chat-msg.user .chat-msg-role) { align-self: flex-end; color: #fdba74; text-align: right; }
-   :global(#website-chat-root .chat-msg-bubble) { padding: 8px 10px; border-radius: 13px; font-size: 12px; line-height: 1.5; word-break: break-word; }
+    :global(#website-chat-root .chat-msg-bubble) { padding: 8px 10px; border-radius: 13px; font-size: 12px; line-height: 1.5; word-break: break-word; }
    :global(#website-chat-root .chat-msg.user .chat-msg-bubble) { background: #f97316; color: #fff; border-bottom-right-radius: 4px; }
-   :global(#website-chat-root .chat-msg.assistant .chat-msg-bubble) { background: #1b263b; color: #edf3fc; border: 1px solid #2b3a53; border-bottom-left-radius: 4px; }
+    :global(#website-chat-root .chat-msg.assistant .chat-msg-bubble) { background: #1b263b; color: #edf3fc; border: 1px solid #2b3a53; border-bottom-left-radius: 4px; }
+    @media (max-width: 640px) {
+      #chat-messages-area { padding: 14px 12px; }
+      :global(#website-chat-root .chat-msg-body) { max-width: calc(100% - 32px); }
+      :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: calc(100% - 32px); }
+      :global(#website-chat-root .chat-msg-bubble) { padding: 9px 11px; font-size: 12.5px; }
+      :global(#website-chat-root .chat-source-links) { max-width: 100%; }
+      #chat-input-area { padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+    }
 
   /* Sources */
    :global(#website-chat-root .chat-source-links) { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
