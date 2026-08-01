@@ -4,7 +4,8 @@ import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
-import { hasScannerAccess } from '../../lib/payos-db';
+import { getProduct, getScannerProduct, hasScannerAccess } from '../../lib/payos-db';
+import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
 
@@ -40,6 +41,12 @@ const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, defin
 const hasPaidAccess = definition.is_free === 0
   ? await hasScannerAccess(env.DB, currentUser.id, definition.id)
   : true;
+const scannerProductId = !hasPaidAccess
+  ? await getScannerProduct(env.DB, definition.id)
+  : null;
+const scannerProduct = scannerProductId
+  ? await getProduct(env.DB, scannerProductId)
+  : null;
 const quotaExhausted = usage.remaining === 0;
 const scannerUnavailable = !hasPaidAccess || quotaExhausted;
 const scannerNotice = !hasPaidAccess
@@ -141,6 +148,24 @@ const defaultScaleEn: Record<string, string> = {
           {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
         </div>
 
+        {!hasPaidAccess && (
+          <section class="scanner-unlock-card" aria-labelledby="scanner-unlock-title">
+            <div class="scanner-unlock-card__icon">
+              <span class="material-symbols-outlined">lock_open</span>
+            </div>
+            <div class="scanner-unlock-card__content">
+              <p class="scanner-unlock-card__eyebrow">Mở khóa Scanner</p>
+              <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
+              <p>{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
+              {scannerProduct ? (
+                <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} class="scanner-unlock-card__button" />
+              ) : (
+                <p class="scanner-unlock-card__unavailable">Scanner này chưa được gán sản phẩm thanh toán. Vui lòng liên hệ quản trị viên.</p>
+              )}
+            </div>
+          </section>
+        )}
+
         <!-- Stepper -->
         <div class="stepper">
           <div id="stepper-fill" class="stepper-fill"></div>
@@ -221,6 +246,36 @@ const defaultScaleEn: Record<string, string> = {
   .scanner-quota-notice--blocked { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.1); color: #fde68a; }
   .scanner-quota-notice .material-symbols-outlined { font-size: 1rem; }
   .scanner-quota-notice a { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; }
+  .scanner-unlock-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin: 0 0 1rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 1rem;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(30, 41, 59, 0.6));
+  }
+  .scanner-unlock-card__icon {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background: rgba(245, 158, 11, 0.16);
+    color: #fbbf24;
+  }
+  .scanner-unlock-card__content { min-width: 0; }
+  .scanner-unlock-card__eyebrow { margin: 0 0 0.25rem; color: #fbbf24; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .scanner-unlock-card h2 { margin: 0; color: var(--on-surface); font-size: 1rem; font-weight: 800; }
+  .scanner-unlock-card__content > p:not(.scanner-unlock-card__eyebrow):not(.scanner-unlock-card__unavailable) { margin: 0.4rem 0 1rem; color: var(--on-surface-variant); font-size: 0.85rem; line-height: 1.5; }
+  .scanner-unlock-card__unavailable { margin: 0.75rem 0 0; color: #fde68a; font-size: 0.8rem; }
+  @media (max-width: 480px) {
+    .scanner-unlock-card { gap: 0.75rem; padding: 1rem; }
+    .scanner-unlock-card__icon { width: 2.25rem; height: 2.25rem; }
+  }
   .lang-toggle {
     display: flex;
     justify-content: flex-end;

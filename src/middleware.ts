@@ -11,11 +11,29 @@ function getAuth() {
   return _cachedAuth;
 }
 
+function getAdminEmails() {
+  return (env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { locals, request, url } = context;
 
   locals.user = null;
   locals.session = null;
+
+  // Keep Better Auth's role in sync with the email allowlist used by this app.
+  // Its admin plugin authorizes user-management APIs from this persisted role.
+  const adminEmails = getAdminEmails();
+  if (adminEmails.length > 0) {
+    const placeholders = adminEmails.map(() => '?').join(', ');
+    await env.DB
+      .prepare(`UPDATE "user" SET "role" = 'admin' WHERE LOWER("email") IN (${placeholders}) AND "role" != 'admin'`)
+      .bind(...adminEmails)
+      .run();
+  }
 
   const auth = getAuth();
   const result = await auth.api.getSession({ headers: request.headers });
@@ -49,11 +67,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (isAdminPage || isAdminApi) {
     const isAuthorized =
       locals.user &&
-      (env.ADMIN_EMAILS ?? '')
-        .split(',')
-        .map((e: string) => e.trim().toLowerCase())
-        .filter(Boolean)
-        .includes(locals.user.email.toLowerCase());
+      adminEmails.includes(locals.user.email.toLowerCase());
 
     if (!isAuthorized) {
       if (isAdminApi) {

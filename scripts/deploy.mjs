@@ -75,6 +75,10 @@ for (const key of requiredSecrets) {
 }
 
 // 3. Deploy
+console.log('🗄️  Applying database migrations...');
+execSync('npx wrangler d1 migrations apply DB --remote', { stdio: 'inherit' });
+
+// 4. Deploy
 console.log('🚀 Deploying...');
 execSync('npx wrangler deploy --config dist/server/wrangler.json', { stdio: 'inherit' });
 

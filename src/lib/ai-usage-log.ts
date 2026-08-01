@@ -26,6 +26,8 @@ export interface UsageLog {
   output_tokens?: number;
   fallback_used?: boolean;
   retrieval_chunks?: number;
+  request_id?: string;
+  attempt_count?: number;
 }
 
 export async function logAiUsage(
@@ -34,8 +36,8 @@ export async function logAiUsage(
 ): Promise<void> {
   await db
     .prepare(`
-      INSERT INTO "ai_usage_log" ("provider_id","model_id","user_id","session_id","feature","success","error_message","latency_ms","input_tokens","output_tokens","fallback_used","retrieval_chunks")
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       INSERT INTO "ai_usage_log" ("provider_id","model_id","user_id","session_id","feature","success","error_message","latency_ms","input_tokens","output_tokens","fallback_used","retrieval_chunks","request_id","attempt_count")
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       log.provider_id,
@@ -50,6 +52,8 @@ export async function logAiUsage(
       log.output_tokens ?? null,
       log.fallback_used ? 1 : 0,
       log.retrieval_chunks ?? null,
+      log.request_id ?? null,
+      log.attempt_count ?? null,
     )
     .run();
 }
