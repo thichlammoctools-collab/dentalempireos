@@ -16,7 +16,7 @@ try {
 }
 
 try {
-  apps = await listApps(env.DB).then(a => a.filter(app => app.status === 'active'));
+  apps = await listApps(env.DB).then(a => a.filter(app => app.status === 'active' && app.slug !== 'ho-so-goc-re'));
 } catch {
   apps = [];
 }

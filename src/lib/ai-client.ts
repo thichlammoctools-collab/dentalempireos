@@ -68,17 +68,49 @@ function isRetryable(error: unknown): boolean {
   return true;
 }
 
+export interface CompletionResult {
+  content: string;
+  config: ModelConfig;
+  fallbackUsed: boolean;
+  attemptCount: number;
+}
+
 export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
-      } catch (err) {
-        lastError = err;
-        if (!isRetryable(err)) throw err;
-        if (i < maxRetries - 1) {
-          await sleep(500 * Math.pow(2, i) + Math.floor(Math.random() * 250));
+    } catch (err) {
+      lastError = err;
+      if (!isRetryable(err)) throw err;
+      if (i < maxRetries - 1) {
+        await sleep(500 * Math.pow(2, i) + Math.floor(Math.random() * 250));
       }
+    }
+  }
+  throw lastError;
+}
+
+export async function chatCompletionWithFallback(
+  configs: ModelConfig[],
+  messages: ChatMessage[],
+  systemPrompt?: string,
+): Promise<CompletionResult> {
+  if (!configs.length) throw new AiError('No AI provider is configured', 503, 'configuration');
+
+  let lastError: unknown;
+  for (let index = 0; index < configs.length; index++) {
+    const config = configs[index];
+    try {
+      return {
+        content: await chatCompletion(config, messages, systemPrompt),
+        config,
+        fallbackUsed: index > 0,
+        attemptCount: (index + 1) * 3,
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryable(error)) throw error;
     }
   }
   throw lastError;
@@ -304,6 +336,7 @@ async function* streamOpenAI(
   systemPrompt?: string,
   maxTokens?: number,
   gatewayId?: string,
+  timeoutMs?: number,
 ): AsyncGenerator<string> {
   const allMessages: ChatMessage[] = [];
   if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
@@ -316,7 +349,7 @@ async function* streamOpenAI(
   };
   if (maxTokens) body.max_tokens = maxTokens;
 
-  const resp = await fetch(`${baseUrl}/chat/completions`, {
+  const resp = await aiFetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -324,7 +357,7 @@ async function* streamOpenAI(
       ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
@@ -373,6 +406,8 @@ async function* streamAnthropic(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  gatewayId?: string,
+  timeoutMs?: number,
 ): AsyncGenerator<string> {
   const anthropicMessages = messages.map((m) => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -387,17 +422,17 @@ async function* streamAnthropic(
   };
   if (systemPrompt) body.system = systemPrompt;
 
-  const resp = await fetch(`${baseUrl}/v1/messages`, {
+  const resp = await aiFetch(`${baseUrl}/v1/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-beta': 'prompt-caching-2025-05-14',
-      ...cloudflareGatewayHeaders(baseUrl),
+      ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
@@ -450,6 +485,7 @@ async function* streamGemini(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  timeoutMs?: number,
 ): AsyncGenerator<string> {
   const contents = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -469,11 +505,11 @@ async function* streamGemini(
   let url = `${baseUrl}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`;
   if (baseUrl.includes('/v1beta')) url = `${baseUrl}/models/${model}:streamGenerateContent?key=${apiKey}`;
 
-  const resp = await fetch(url, {
+  const resp = await aiFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
@@ -536,30 +572,33 @@ export function chatCompletionStream(
   let iterator: AsyncGenerator<string> | null = null;
   let cancelled = false;
 
-  async function getIterator(): AsyncGenerator<string> {
+  function getIterator(): AsyncGenerator<string> {
+    assertCircuitClosed(config);
     if (isOpenAIUrl(baseUrl)) {
-      return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id);
+      return streamOpenAI(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
     } else if (isGeminiUrl(baseUrl)) {
-      return streamGemini(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+      return streamGemini(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.timeout_ms);
     } else {
-      return streamAnthropic(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+      return streamAnthropic(baseUrl, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
     }
   }
 
   return new ReadableStream({
     async pull(controller) {
       if (!iterator) {
-        iterator = await getIterator();
+        iterator = getIterator();
       }
       try {
         const { value, done } = await iterator.next();
         if (done || cancelled) {
+          recordCircuitResult(config, true);
           controller.close();
           return;
         }
         controller.enqueue(value);
         onChunk?.(value);
       } catch (err) {
+        recordCircuitResult(config, false);
         controller.error(err);
       }
     },

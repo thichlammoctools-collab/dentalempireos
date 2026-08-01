@@ -4,6 +4,35 @@
 const wrap = document.querySelector('[data-def-id]');
 const defId = wrap ? wrap.getAttribute('data-def-id') : '';
 
+const scannerModelSelect = document.getElementById('ai-model-override');
+if (scannerModelSelect) {
+  const selectedModel = scannerModelSelect.getAttribute('data-selected') || '';
+  fetch('/api/admin/ai-models', { method: 'POST' })
+    .then(function(response) { return response.ok ? response.json() : null; })
+    .then(function(payload) {
+      const models = payload?.models;
+      if (!Array.isArray(models)) return;
+      scannerModelSelect.innerHTML = '<option value="">— Model Scanner mặc định —</option>';
+      models.filter(function(model) { return model.category === 'chat'; }).forEach(function(model) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.provider + ' · ' + model.name;
+        option.selected = model.id === selectedModel;
+        scannerModelSelect.appendChild(option);
+      });
+      if (selectedModel && !models.some(function(model) { return model.id === selectedModel; })) {
+        const option = document.createElement('option');
+        option.value = selectedModel;
+        option.textContent = selectedModel + ' (đang dùng)';
+        option.selected = true;
+        scannerModelSelect.appendChild(option);
+      }
+    })
+    .catch(function() {
+      scannerModelSelect.innerHTML = '<option value="">— Model Scanner mặc định —</option>';
+    });
+}
+
 // ── Helpers ─────────────────────────────────────────────
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, function(c) {
@@ -1230,5 +1259,4 @@ if (scoringForm) {
       }
     }
   });
-}
 }

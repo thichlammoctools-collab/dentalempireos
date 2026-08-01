@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { getAiSettings } from './ai-settings-db';
 import type { ModelConfig } from './ai-client';
+import { getActiveModelsWithProvider } from './ai-provider-db';
 
 export type AiGatewayUsage = 'default' | 'scanner' | 'chat' | 'embedding';
 
@@ -45,7 +46,7 @@ export async function getAiGatewayConfig(
 
   const model = usage === 'embedding'
     ? settings.gateway_embedding_model
-    : (isCloudflareModelId(modelOverride) ? modelOverride : undefined)
+    : (modelOverride?.trim() || undefined)
       || (usage === 'chat' ? settings.gateway_chat_model : undefined)
       || settings.gateway_default_model;
   if (!model) return null;
@@ -58,4 +59,33 @@ export async function getAiGatewayConfig(
     model_id: model,
     max_tokens: settings.max_tokens,
   };
+}
+
+/** Return the configured primary followed by distinct active D1 fallbacks. */
+export async function getAiGatewayConfigs(
+  db: D1Database,
+  usage: AiGatewayUsage = 'default',
+  modelOverride?: string,
+): Promise<ModelConfig[]> {
+  const configs: ModelConfig[] = [];
+  const primary = await getAiGatewayConfig(db, usage, modelOverride);
+  if (primary) configs.push(primary);
+
+  try {
+    const active = await getActiveModelsWithProvider(db);
+    for (const { provider, models } of active.values()) {
+      const model = models[0];
+      if (!model || configs.some((config) => config.provider_id === String(provider.id) && config.model_id === model.model_id)) continue;
+      configs.push({
+        provider_id: String(provider.id),
+        base_url: provider.base_url,
+        api_key: provider.api_key,
+        model_id: model.model_id,
+        max_tokens: model.max_tokens ?? 4096,
+      });
+    }
+  } catch (error) {
+    console.warn('[ai-gateway] Unable to load fallback providers:', error);
+  }
+  return configs;
 }

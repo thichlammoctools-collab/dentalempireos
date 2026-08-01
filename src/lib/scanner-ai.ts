@@ -15,16 +15,16 @@ import {
   updateAiPlanStatus,
 } from './scanner-response-db';
 import { getSurveyDefinitionFull } from './survey-config-db';
-import { getAiGatewayConfig } from './ai-gateway';
+import { getAiGatewayConfig, getAiGatewayConfigs } from './ai-gateway';
 import { getAiSettings } from './ai-settings-db';
 import { getActiveModelsWithProvider } from './ai-provider-db';
-import { chatCompletion, chatCompletionStream, withRetry } from './ai-client';
+import { chatCompletionStream, chatCompletionWithFallback } from './ai-client';
 import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
 import { logAiUsage } from './ai-usage-log';
 import { buildWebsiteContext, searchWebsite } from './rag-website-search';
-import { claimScannerAiJob, finishScannerAiJob, reserveAiQuota, requestId } from './ai-operations';
+import { claimScannerAiJob, finishScannerAiJob, requestId } from './ai-operations';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -36,8 +36,11 @@ export interface ScannerAiConfig {
  * Prefer Cloudflare AI Gateway, while retaining configured providers and the
  * legacy setting as operational fallbacks during Gateway migration.
  */
-export async function getScannerAiConfig(db: D1Database): Promise<ScannerAiConfig | null> {
-  const gatewayConfig = await getAiGatewayConfig(db, 'scanner');
+export async function getScannerAiConfig(
+  db: D1Database,
+  modelOverride?: string | null,
+): Promise<ScannerAiConfig | null> {
+  const gatewayConfig = await getAiGatewayConfig(db, 'scanner', modelOverride || undefined);
   if (gatewayConfig) {
     return { config: gatewayConfig, maxTokens: gatewayConfig.max_tokens ?? 4096 };
   }
@@ -52,7 +55,7 @@ export async function getScannerAiConfig(db: D1Database): Promise<ScannerAiConfi
             provider_id: String(provider.id),
             base_url: provider.base_url,
             api_key: provider.api_key,
-            model_id: model.model_id,
+            model_id: modelOverride?.trim() || model.model_id,
             max_tokens: model.max_tokens ?? 4096,
           },
           maxTokens: model.max_tokens ?? 4096,
@@ -149,7 +152,7 @@ function buildMessages(
  */
 async function getBookContext(
   db: D1Database,
-  env: Env,
+  env: Cloudflare.Env,
   response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   scoringRules: ScoringRules | null,
@@ -203,7 +206,7 @@ function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
 
 export async function buildAnalysisStream(
   db: D1Database,
-  env: Env,
+  env: Cloudflare.Env,
   response: Awaited<ReturnType<typeof getScannerResponse>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
@@ -218,7 +221,7 @@ export async function buildAnalysisStream(
 
 export async function buildPlanStream(
   db: D1Database,
-  env: Env,
+  env: Cloudflare.Env,
   response: Awaited<ReturnType<typeof getScannerResponse>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
@@ -252,50 +255,48 @@ export async function buildPlanStream(
 
 // ─── Non-streaming (backward compat + background) ──────────────────────────────
 
-async function doAnalyze(
+async function doAnalyzeWithFallback(
   db: D1Database,
-  response: Awaited<ReturnType<typeof getScannerResponse>>,
+  response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): Promise<string> {
+): Promise<{ text: string; usedConfig: ModelConfig; fallbackUsed: boolean }> {
   const { systemPrompt, messages } = buildMessages(response, full, aiConfig, scoringRules);
-  const bookContext = await getBookContext(db, env, response, full, scoringRules);
-  return chatCompletion(modelConfig, messages, addBookContext(systemPrompt, bookContext, response.lang === 'en' ? 'en' : 'vi'));
+  const configs = await getAiGatewayConfigs(db, 'scanner', aiConfig.model_override ?? undefined);
+  const normalized: ModelConfig[] = configs.map((config) => ({ ...config, max_tokens: modelConfig.max_tokens }));
+  if (!normalized.length) normalized.push(modelConfig);
+  const completion = await chatCompletionWithFallback(normalized, messages, systemPrompt);
+  return { text: completion.content, usedConfig: completion.config, fallbackUsed: completion.fallbackUsed };
 }
 
-async function doPlan(
+async function doPlanWithFallback(
   db: D1Database,
-  response: Awaited<ReturnType<typeof getScannerResponse>>,
+  response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>,
   full: NonNullable<Awaited<ReturnType<typeof getSurveyDefinitionFull>>>,
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): Promise<string> {
+): Promise<{ text: string; usedConfig: ModelConfig; fallbackUsed: boolean }> {
   if (!response) throw new Error('No response');
-
   const lang = response.lang === 'en' ? 'en' : 'vi';
   const promptTemplate = lang === 'en'
     ? (aiConfig.plan_prompt_en ?? aiConfig.plan_prompt_vi ?? '')
     : (aiConfig.plan_prompt_vi ?? aiConfig.plan_prompt_en ?? '');
-
   if (!promptTemplate) throw new Error('No plan prompt configured');
 
-  const allQuestions = full.sections.flatMap((s) => s.questions);
-  const systemPrompt = withOperationalPlanFormat(
-    buildPrompt(promptTemplate, response, scoringRules, allQuestions),
-    lang,
+  const allQuestions = full.sections.flatMap((section) => section.questions);
+  const systemPrompt = withOperationalPlanFormat(buildPrompt(promptTemplate, response, scoringRules, allQuestions), lang);
+  const configs = await getAiGatewayConfigs(db, 'scanner', aiConfig.model_override ?? undefined);
+  const normalized: ModelConfig[] = configs.map((config) => ({ ...config, max_tokens: modelConfig.max_tokens }));
+  if (!normalized.length) normalized.push(modelConfig);
+  const completion = await chatCompletionWithFallback(
+    normalized,
+    [{ role: 'user', content: JSON.stringify(buildAiContext(response, allQuestions), null, 2) }],
+    systemPrompt,
   );
-  const userContext = buildAiContext(response, allQuestions);
-  const userMessage = JSON.stringify(userContext, null, 2);
-
-  const bookContext = await getBookContext(db, env, response, full, scoringRules);
-  return chatCompletion(
-    modelConfig,
-    [{ role: 'user', content: userMessage }],
-    addBookContext(systemPrompt, bookContext, lang),
-  );
+  return { text: completion.content, usedConfig: completion.config, fallbackUsed: completion.fallbackUsed };
 }
 
 // ─── Main entry points ─────────────────────────────────────────────────────────
@@ -303,20 +304,19 @@ async function doPlan(
 /**
  * Run AI analysis with retry (3 attempts, exponential backoff).
  */
-export async function runAiAnalysis(db: D1Database, responseId: number): Promise<void> {
+export async function runAiAnalysis(db: D1Database, responseId: number, userId?: string): Promise<void> {
   const request = requestId();
   const job = await claimScannerAiJob(db, responseId, 'analysis');
   if (!job.claimed) return;
   const response = await getScannerResponse(db, responseId);
-  if (!response) { console.error(`[scanner-ai] Response ${responseId} not found`); return; }
+  if (!response) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.error(`[scanner-ai] Response ${responseId} not found`); return; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
-  if (!full) { console.error(`[scanner-ai] Definition ${response.survey_id} not found`); return; }
-
-  const aiConfig = await getScannerAiConfig(db);
-  if (!aiConfig) { console.warn('[scanner-ai] AI not configured, skipping'); return; }
+  if (!full) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.error(`[scanner-ai] Definition ${response.survey_id} not found`); return; }
 
   const config = parseAiConfig(full.definition.ai_config);
+  const aiConfig = await getScannerAiConfig(db, config.model_override);
+  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.warn('[scanner-ai] AI not configured, skipping'); return; }
   const scoringRules = parseScoringRules(full.definition.scoring_rules);
 
   const modelConfig: ModelConfig = {
@@ -328,15 +328,13 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
     await updateAiAnalysisStatus(db, responseId, 'running');
 
     const analysisStartedAt = Date.now();
-    const analysis = await withRetry(
-      () => doAnalyze(db, response, full, config, scoringRules, modelConfig),
-      3,
-    );
+    const completion = await doAnalyzeWithFallback(db, response, full, config, scoringRules, modelConfig);
+    const analysis = completion.text;
 
     await updateAiAnalysis(db, responseId, analysis);
     await updateAiAnalysisStatus(db, responseId, 'done');
     await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'done');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, user_id: response.email ?? undefined, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
+    await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'analysis').catch((err) => console.error('[scanner-ai] email failed:', err)),
@@ -353,20 +351,19 @@ export async function runAiAnalysis(db: D1Database, responseId: number): Promise
 /**
  * Run AI plan generation with retry (3 attempts, exponential backoff).
  */
-export async function runPlanAnalysis(db: D1Database, responseId: number): Promise<void> {
+export async function runPlanAnalysis(db: D1Database, responseId: number, userId?: string): Promise<void> {
   const request = requestId();
   const job = await claimScannerAiJob(db, responseId, 'plan');
   if (!job.claimed) return;
   const response = await getScannerResponse(db, responseId);
-  if (!response) { console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return; }
+  if (!response) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
-  if (!full) { console.error(`[scanner-ai] Plan: Definition ${response.survey_id} not found`); return; }
-
-  const aiConfig = await getScannerAiConfig(db);
-  if (!aiConfig) { console.warn('[scanner-ai] Plan: AI not configured, skipping'); return; }
+  if (!full) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.error(`[scanner-ai] Plan: Definition ${response.survey_id} not found`); return; }
 
   const config = parseAiConfig(full.definition.ai_config);
+  const aiConfig = await getScannerAiConfig(db, config.model_override);
+  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.warn('[scanner-ai] Plan: AI not configured, skipping'); return; }
   const scoringRules = parseScoringRules(full.definition.scoring_rules);
 
   const modelConfig: ModelConfig = {
@@ -378,15 +375,13 @@ export async function runPlanAnalysis(db: D1Database, responseId: number): Promi
     await updateAiPlanStatus(db, responseId, 'running');
 
     const planStartedAt = Date.now();
-    const plan = await withRetry(
-      () => doPlan(db, response, full, config, scoringRules, modelConfig),
-      3,
-    );
+    const completion = await doPlanWithFallback(db, response, full, config, scoringRules, modelConfig);
+    const plan = completion.text;
 
     await updateAiPlan(db, responseId, plan);
     await updateAiPlanStatus(db, responseId, 'done');
     await finishScannerAiJob(db, responseId, 'plan', job.runId, 'done');
-    await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
+    await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),

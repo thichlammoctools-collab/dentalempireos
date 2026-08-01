@@ -17,6 +17,61 @@ const totalResources = resources.length;
 const publishedPercentage = totalChapters > 0 ? Math.round((publishedChapters / totalChapters) * 100) : 0;
 const draftPercentage = totalChapters > 0 ? Math.round((draftChapters / totalChapters) * 100) : 0;
 
+type CountRow = { count: number | null };
+type RevenueRow = { revenue: number | null };
+
+// Keep the dashboard available while a local/staging D1 database catches up with migrations.
+async function getCount(sql: string, ...bindings: unknown[]): Promise<number> {
+  try {
+    const row = await env.DB.prepare(sql).bind(...bindings).first<CountRow>();
+    return Number(row?.count ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+async function getRevenue(): Promise<number> {
+  try {
+    const row = await env.DB.prepare(`SELECT COALESCE(SUM("amount"), 0) AS revenue FROM "order" WHERE "status" = 'paid'`).first<RevenueRow>();
+    return Number(row?.revenue ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+const [
+  totalSections,
+  freeScanners,
+  premiumScanners,
+  aiTools,
+  activeUsers,
+  totalUsers,
+  paidOrders,
+  currentVisitors,
+  totalVisitors,
+  aiChats,
+  scannerUses,
+  pdfDownloads,
+  revenue,
+] = await Promise.all([
+  getCount(`SELECT COUNT(*) AS count FROM "section"`),
+  getCount(`SELECT COUNT(*) AS count FROM "survey_definition" WHERE "status" = 'active' AND "is_free" = 1`),
+  getCount(`SELECT COUNT(*) AS count FROM "survey_definition" WHERE "status" = 'active' AND "is_free" = 0`),
+  getCount(`SELECT COUNT(*) AS count FROM "ai_application" WHERE "status" = 'active'`),
+  getCount(`SELECT COUNT(DISTINCT "userId") AS count FROM "session" WHERE "expiresAt" > datetime('now')`),
+  getCount(`SELECT COUNT(*) AS count FROM "user"`),
+  getCount(`SELECT COUNT(*) AS count FROM "order" WHERE "status" = 'paid'`),
+  getCount(`SELECT COUNT(DISTINCT "userId") AS count FROM "session" WHERE "updatedAt" >= datetime('now', '-15 minutes') AND "expiresAt" > datetime('now')`),
+  getCount(`SELECT COUNT(DISTINCT "visitor_id") AS count FROM "blog_read_log"`),
+  getCount(`SELECT COUNT(*) AS count FROM "website_chat_session"`),
+  getCount(`SELECT COUNT(*) AS count FROM "scanner_history"`),
+  getCount(`SELECT COUNT(*) AS count FROM "scanner_response" WHERE "pdf_combined_key" IS NOT NULL OR "pdf_plan_key" IS NOT NULL OR "pdf_analysis_key" IS NOT NULL`),
+  getRevenue(),
+]);
+
+const formatNumber = (value: number) => value.toLocaleString('vi-VN');
+const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')} đ`;
+
 // Pipeline preview (latest signals from real data)
 const recentPublished = chapters.find((c) => c.status === 'published');
 const firstDraft = chapters.find((c) => c.status === 'draft');
@@ -41,8 +96,16 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
     </div>
   </section>
 
-  <!-- Stat cards -->
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <!-- Content and product overview -->
+  <section class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-2 px-1">
+      <div>
+        <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Nội dung & sản phẩm</p>
+        <h3 class="mt-1 text-xl font-bold text-white">Kho nội dung</h3>
+      </div>
+      <p class="text-xs text-on-surface-variant">Cập nhật từ dữ liệu hệ thống</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard
       icon="menu_book"
       label="Tổng số chương"
@@ -79,7 +142,71 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       accent="error"
       progress={(totalResources / 12) * 100}
     />
-  </div>
+    <StatCard
+      icon="format_list_bulleted"
+      label="Đề mục"
+      value={formatNumber(totalSections)}
+      trend="Trong các chương"
+      trendDir="flat"
+      accent="primary"
+      progress={Math.min(totalSections, 100)}
+    />
+    <StatCard
+      icon="document_scanner"
+      label="Scanner miễn phí"
+      value={formatNumber(freeScanners)}
+      trend="Free"
+      trendDir="flat"
+      accent="primary"
+      progress={freeScanners > 0 ? 100 : 0}
+    />
+    <StatCard
+      icon="workspace_premium"
+      label="Scanner premium"
+      value={formatNumber(premiumScanners)}
+      trend="Premium"
+      trendDir="flat"
+      accent="tertiary"
+      progress={premiumScanners > 0 ? 100 : 0}
+    />
+    <StatCard
+      icon="smart_toy"
+      label="AI Tools đang hoạt động"
+      value={formatNumber(aiTools)}
+      trend="Active"
+      trendDir="flat"
+      accent="primary"
+      progress={aiTools > 0 ? 100 : 0}
+    />
+    </div>
+  </section>
+
+  <!-- Commercial and audience health -->
+  <section class="flex flex-col gap-3">
+    <div class="px-1">
+      <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Kinh doanh & cộng đồng</p>
+      <h3 class="mt-1 text-xl font-bold text-white">Sức khỏe vận hành</h3>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard icon="group" label="User active" value={formatNumber(activeUsers)} trend={`/${formatNumber(totalUsers)} tổng user`} trendDir="flat" accent="primary" progress={totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0} />
+      <StatCard icon="shopping_bag" label="Đơn hàng đã thanh toán" value={formatNumber(paidOrders)} trend="Paid" trendDir="flat" accent="tertiary" progress={paidOrders > 0 ? 100 : 0} />
+      <StatCard icon="payments" label="Doanh thu" value={formatCurrency(revenue)} trend="Đơn đã thanh toán" trendDir="flat" accent="primary" progress={revenue > 0 ? 100 : 0} />
+      <StatCard icon="visibility" label="Truy cập hiện tại" value={formatNumber(currentVisitors)} trend={`${formatNumber(totalVisitors)} khách đã ghi nhận`} trendDir="flat" accent="error" progress={totalVisitors > 0 ? (currentVisitors / totalVisitors) * 100 : 0} />
+    </div>
+  </section>
+
+  <!-- Usage signals -->
+  <section class="flex flex-col gap-3">
+    <div class="px-1">
+      <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Mức sử dụng</p>
+      <h3 class="mt-1 text-xl font-bold text-white">Tín hiệu sản phẩm</h3>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatCard icon="forum" label="Lượt chat AI" value={formatNumber(aiChats)} trend="Phiên hội thoại" trendDir="flat" accent="primary" progress={aiChats > 0 ? 100 : 0} />
+      <StatCard icon="document_scanner" label="Lượt dùng Scanner" value={formatNumber(scannerUses)} trend="Lần hoàn tất" trendDir="flat" accent="tertiary" progress={scannerUses > 0 ? 100 : 0} />
+      <StatCard icon="picture_as_pdf" label="Lượt tải PDF" value={formatNumber(pdfDownloads)} trend="PDF Scanner" trendDir="flat" accent="error" progress={pdfDownloads > 0 ? 100 : 0} />
+    </div>
+  </section>
 
   <!-- Pipeline + Quick Actions -->
   <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">

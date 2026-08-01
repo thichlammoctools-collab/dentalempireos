@@ -58,6 +58,19 @@ export async function finishScannerAiJob(db: D1Database, responseId: number, job
   ).bind(status, responseId, jobType, runId).run();
 }
 
+export async function isScannerAiJobRunning(
+  db: D1Database,
+  responseId: number,
+  jobType: 'analysis' | 'plan',
+): Promise<boolean> {
+  const row = await db.prepare(
+    `SELECT 1 as running FROM "scanner_ai_job"
+     WHERE "response_id" = ? AND "job_type" = ? AND "status" = 'running'
+       AND "claimed_at" >= datetime('now', '-15 minutes')`,
+  ).bind(responseId, jobType).first<{ running: number }>();
+  return Boolean(row?.running);
+}
+
 export function requestId(): string {
   return crypto.randomUUID();
 }

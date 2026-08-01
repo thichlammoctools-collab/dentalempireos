@@ -7,9 +7,9 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { sseResponse } from '../../lib/sse';
-import { chatCompletion } from '../../lib/ai-client';
+import { chatCompletionWithFallback } from '../../lib/ai-client';
 import type { ChatMessage } from '../../lib/ai-client';
-import { getAiGatewayConfig } from '../../lib/ai-gateway';
+import { getAiGatewayConfigs } from '../../lib/ai-gateway';
 import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, buildSearchQueryWithHistory, summarizeHistory, type WebsiteChunk } from '../../lib/rag-website-search';
 import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
 import { generateFollowupSuggestions } from '../../lib/ai-followup';
@@ -108,13 +108,14 @@ export const POST: APIRoute = async (ctx) => {
   // Get conversation history from DB
   const history = sessionData.messages.slice(-8); // Last 8 messages for context
 
-  const modelCfg = await getAiGatewayConfig(env.DB, 'chat');
+  const modelConfigs = await getAiGatewayConfigs(env.DB, 'chat');
+  const modelCfg = modelConfigs[0];
   if (!modelCfg) {
     return new Response(JSON.stringify({ error: 'AI chưa được kích hoạt. Vui lòng liên hệ quản trị viên.' }), {
       status: 503, headers: { 'Content-Type': 'application/json' },
     });
   }
-  modelCfg.max_tokens = getChatMaxTokens(modelCfg.max_tokens);
+  for (const config of modelConfigs) config.max_tokens = getChatMaxTokens(config.max_tokens);
 
   const searchOpts: { contentType?: string } = {};
   if (body.page_type === 'book' && body.page_slug) {
@@ -141,16 +142,21 @@ export const POST: APIRoute = async (ctx) => {
   // Summarize history nếu quá dài, rồi thêm user message mới
   const summarizedHistory = summarizeHistory(history);
   const chatMessages: ChatMessage[] = [
-    ...summarizedHistory.map((message) => ({ role: message.role as ChatMessage['role'], content: message.content })),
+    ...summarizedHistory.map((message): ChatMessage => ({ role: message.role, content: message.content })),
     { role: 'user', content: body.message.trim() },
   ].slice(-9);
 
   let aiResponse = '';
   let aiError: string | null = null;
   let fallbackUsed = false;
+  let providerFallbackUsed = false;
+  let usedModelCfg = modelCfg;
   const aiStartedAt = Date.now();
   try {
-    aiResponse = await chatCompletion(modelCfg, chatMessages, systemPrompt);
+    const completion = await chatCompletionWithFallback(modelConfigs, chatMessages, systemPrompt);
+    aiResponse = completion.content;
+    usedModelCfg = completion.config;
+    providerFallbackUsed = completion.fallbackUsed;
   } catch (err) {
     aiError = String(err);
     console.error('[website-chat] AI error:', err);
@@ -165,8 +171,8 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   await logAiUsage(env.DB, {
-    provider_id: modelCfg.provider_id,
-    model_id: modelCfg.model_id,
+    provider_id: usedModelCfg.provider_id,
+    model_id: usedModelCfg.model_id,
     user_id: userId ?? undefined,
     session_id: sessionId,
     feature: 'website_chat',
@@ -175,7 +181,7 @@ export const POST: APIRoute = async (ctx) => {
     latency_ms: Date.now() - aiStartedAt,
     input_tokens: Math.ceil((systemPrompt.length + chatMessages.reduce((sum, message) => sum + message.content.length, 0)) / 4),
     output_tokens: Math.ceil(aiResponse.length / 4),
-    fallback_used: fallbackUsed,
+    fallback_used: fallbackUsed || providerFallbackUsed,
     retrieval_chunks: chunks.length,
     request_id: request,
   }).catch((err) => console.warn('[website-chat] usage log failed:', err));

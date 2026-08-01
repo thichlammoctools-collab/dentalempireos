@@ -179,7 +179,7 @@ const avatarColors = [
                 <div>
                   <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">AI Model</label>
                   {activeModels.length > 0 ? (
-                    <select name="model_override" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all">
+                    <select name="model_override" id="tool-model-select" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all">
                       <option value="">— Mặc định —</option>
                       {activeModels.map((m) => (
                         <option value={m.modelId} selected={modelOverride === m.modelId}>
@@ -190,7 +190,7 @@ const avatarColors = [
                   ) : (
                     <input type="text" name="model_override" value={modelOverride} placeholder="claude-sonnet-4-6" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all" />
                   )}
-                  <p class="text-[11px] text-on-surface-variant/40 mt-1.5">Để trống để dùng model mặc định</p>
+                   <p class="text-[11px] text-on-surface-variant/40 mt-1.5">Chọn model theo giá bán của công cụ. Để trống để dùng model mặc định.</p>
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Max tokens override</label>
@@ -367,6 +367,27 @@ const avatarColors = [
         submitConfig.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> Lưu cấu hình';
       }
     });
+
+    // Load the complete active model catalog so each AI Tool can use its own cost tier.
+    const toolModelSelect = document.getElementById('tool-model-select');
+    if (toolModelSelect) {
+      fetch('/api/admin/ai-models', { method: 'POST' })
+        .then((response) => response.ok ? response.json() : null)
+        .then((payload) => {
+          const models = payload?.models as Array<{ id: string; name: string; provider: string; category: string }> | undefined;
+          if (!models?.length) return;
+          const selected = toolModelSelect.value;
+          toolModelSelect.innerHTML = '<option value="">— Mặc định —</option>';
+          models.filter((model) => model.category === 'chat').forEach((model) => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = `${model.provider} · ${model.name}`;
+            option.selected = model.id === selected;
+            toolModelSelect.appendChild(option);
+          });
+        })
+        .catch(() => undefined);
+    }
 
     // ── Reset config ──
     document.getElementById('reset-config')?.addEventListener('click', async () => {
