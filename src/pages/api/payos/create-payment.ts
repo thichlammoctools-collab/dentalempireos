@@ -36,7 +36,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const payosResponse = await createPaymentLink(creds, {
       orderCode,
       amount: product.price,
-      description: `Thanh toan: ${product.name}`,
+      // PayOS limits payment descriptions; keep this ASCII reference short and unique.
+      description: `DEOS${orderCode}`,
       cancelUrl,
       returnUrl,
     });
