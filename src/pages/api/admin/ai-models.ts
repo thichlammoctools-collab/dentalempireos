@@ -1,18 +1,12 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { getAiSettings } from '../../../lib/ai-settings-db';
+import { hasMotapisApiKey } from '../../../lib/ai-gateway';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
     const settings = await getAiSettings(env.DB);
     const accountId = settings.gateway_account_id;
-
-    if (!accountId) {
-      return new Response(JSON.stringify({ error: 'Chưa cấu hình Cloudflare Account ID' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
 
     // Danh sách model phổ biến trên Cloudflare AI
     const models = [
@@ -37,7 +31,37 @@ export const POST: APIRoute = async ({ request }) => {
       { id: 'baai/bge-small-en-v1.5', name: 'BGE Small EN v1.5', provider: 'BAAI', category: 'embedding' },
     ];
 
-    return new Response(JSON.stringify({ models }), {
+    const motapisModels: typeof models = [];
+    if (hasMotapisApiKey()) {
+      try {
+        const response = await fetch('https://motapis.com/v1/models', {
+          headers: { Authorization: `Bearer ${env.MOTAPIS_API_KEY}` },
+        });
+        if (response.ok) {
+          const payload = await response.json() as { data?: Array<{ id?: string; name?: string }> };
+          for (const model of payload.data ?? []) {
+            if (!model.id) continue;
+            motapisModels.push({
+              id: model.id,
+              name: model.name || model.id,
+              provider: 'Motapis',
+              category: 'chat',
+            });
+          }
+        }
+      } catch {
+        // Cloudflare models remain available when Motapis cannot be reached.
+      }
+    }
+
+    if (!accountId) {
+      return new Response(JSON.stringify({ models: motapisModels, motapis_available: hasMotapisApiKey() }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ models: [...models, ...motapisModels], motapis_available: hasMotapisApiKey() }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
