@@ -40,8 +40,8 @@ const numberedSections = sections.map((section) => {
   const isRoot = depth <= 1;
   const indentPx = Math.max(0, depth - 1) * 12;
   const linkColorStyle = isRoot
-    ? 'color: var(--reader-chrome-text); opacity: 0.8;'
-    : 'color: var(--reader-chrome-text-muted); opacity: 0.55;';
+    ? 'color: var(--reader-chrome-text); opacity: 0.96;'
+    : 'color: var(--reader-chrome-text-muted); opacity: 0.88;';
   const linkStyle = `padding-left: ${8 + indentPx}px; ${linkColorStyle}`;
   const numStyle = 'min-width: 2em';
   const linkCls = isRoot
@@ -97,11 +97,11 @@ const numberedSections = sections.map((section) => {
 <style>
   /* Active section highlight */
   .section-nav-link.section-nav-active {
-    background: rgba(146, 204, 255, 0.1);
-    color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--reader-accent) 12%, transparent);
+    color: var(--reader-accent) !important;
   }
   .section-nav-link.section-nav-active .section-nav-num {
-    color: var(--color-primary);
+    color: var(--reader-accent);
   }
   .section-nav-link:not(.section-nav-active):hover {
     background: var(--reader-chrome-surface);

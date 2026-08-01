@@ -371,7 +371,7 @@ const currentUser = Astro.locals.user;
 
 
   <!-- Chapter Content -->
-  <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
+  <div class="prose prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
 
   {isPremiumChapter && !userHasAccess ? (
     <section id="book-paywall" class="relative -mt-8 mb-10 pt-14">

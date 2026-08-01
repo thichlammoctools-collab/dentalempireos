@@ -21,7 +21,7 @@ const tiers = [1, 2, 3];
   <!-- Hero -->
   <section class="py-16 bg-surface-container-low">
     <div class="px-6 max-w-[1200px] mx-auto text-center">
-      <h1 class="text-headline-lg text-white mb-4">Thư Viện Sách</h1>
+      <h1 class="text-headline-lg text-on-surface mb-4">Thư Viện Sách</h1>
       <p class="text-on-surface-variant max-w-2xl mx-auto">
         Đọc miễn phí toàn bộ nội dung Dental Empire OS. Lộ trình từ nền tảng đến hệ điều hành quản trị toàn diện.
       </p>
@@ -39,7 +39,7 @@ const tiers = [1, 2, 3];
           <div>
             <div class="flex items-center gap-3 mb-6">
               <Badge variant="accent">Tầng {tier}</Badge>
-              <h2 class="text-headline-md text-white">{label}</h2>
+              <h2 class="text-headline-md text-on-surface">{label}</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tierChapters.map((ch) => (
@@ -55,7 +55,7 @@ const tiers = [1, 2, 3];
                           <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
                         )}
                       </div>
-                      <h3 class="font-bold text-white group-hover:text-primary transition-colors">{ch.title}</h3>
+                      <h3 class="font-bold text-on-surface group-hover:text-primary transition-colors">{ch.title}</h3>
                       <p class="text-sm text-on-surface-variant mt-2 line-clamp-2">{ch.description}</p>
                     </div>
                     <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors mt-1">arrow_forward</span>

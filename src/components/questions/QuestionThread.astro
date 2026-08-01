@@ -53,7 +53,7 @@ function renderMd(text: string): string {
         <p class="text-[11px] text-on-surface-variant">{questionDate}</p>
       </div>
     </div>
-    <div class="prose prose-invert prose-sm max-w-none reader-content" set:html={renderMd(questionBody)} />
+    <div class="prose prose-sm max-w-none reader-content" set:html={renderMd(questionBody)} />
   </div>
 
   <!-- Replies -->
@@ -85,7 +85,7 @@ function renderMd(text: string): string {
               </p>
             </div>
           </div>
-          <div class="prose prose-invert prose-sm max-w-none reader-content" set:html={renderMd(reply.body)} />
+          <div class="prose prose-sm max-w-none reader-content" set:html={renderMd(reply.body)} />
         </div>
       ))}
     </div>

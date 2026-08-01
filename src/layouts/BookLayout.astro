@@ -319,9 +319,9 @@ const breadcrumbSchema = {
                   data-toc-toggle
                 >
                   <span class="material-symbols-outlined text-primary text-[18px] toc-group-icon transition-transform duration-200">folder_open</span>
-                  <span class="text-sm font-bold r-text-muted toc-group-label flex-1 truncate">{group.label}</span>
+                  <span class="text-sm font-bold r-text toc-group-label flex-1 truncate">{group.label}</span>
                   <span class="text-xs r-text-muted px-2 py-0.5 rounded toc-group-count" style="background: var(--reader-chrome-surface-high);">{group.chapters.length}</span>
-                  <span class="material-symbols-outlined text-[18px] text-on-surface-variant/60 toc-group-chevron transition-transform duration-200">expand_more</span>
+                  <span class="material-symbols-outlined text-[18px] r-text-muted toc-group-chevron transition-transform duration-200">expand_more</span>
                 </button>
 
                 <!-- Chapter list -->
@@ -1542,19 +1542,19 @@ function toggleToc() {
       transition: all 0.2s ease;
     }
     .toc-item-hover:hover {
-      background: rgba(146, 204, 255, 0.08) !important;
-      border-color: rgba(146, 204, 255, 0.4) !important;
-      color: var(--color-on-surface) !important;
+       background: color-mix(in srgb, var(--reader-accent) 10%, transparent) !important;
+       border-color: color-mix(in srgb, var(--reader-accent) 45%, transparent) !important;
+       color: var(--reader-chrome-text) !important;
       transform: translateX(4px);
-      box-shadow: 0 2px 8px rgba(146, 204, 255, 0.1);
+       box-shadow: 0 2px 8px color-mix(in srgb, var(--reader-accent) 15%, transparent);
     }
 
     /* Group header hover enhancement */
     .toc-group-header:hover {
-      background: rgba(146, 204, 255, 0.06);
+       background: color-mix(in srgb, var(--reader-accent) 8%, transparent);
     }
     .toc-group-header:hover .toc-group-label {
-      color: var(--color-on-surface);
+       color: var(--reader-chrome-text);
     }
 
     /* TOC group collapse */
@@ -1579,19 +1579,19 @@ function toggleToc() {
 
     /* TOC group header active tier highlight */
     .toc-group[data-current-tier="true"] .toc-group-header {
-      background: rgba(146, 204, 255, 0.06);
+       background: color-mix(in srgb, var(--reader-accent) 8%, transparent);
     }
     .toc-group[data-current-tier="true"] .toc-group-label {
-      color: var(--color-on-surface);
+       color: var(--reader-chrome-text);
     }
 
     /* Enhanced current chapter highlight */
     .toc-item-active {
-      background: rgba(146, 204, 255, 0.1) !important;
-      border-color: var(--color-primary) !important;
-      color: var(--color-primary) !important;
+       background: color-mix(in srgb, var(--reader-accent) 12%, transparent) !important;
+       border-color: var(--reader-accent) !important;
+       color: var(--reader-accent) !important;
       position: relative;
-      box-shadow: inset 0 0 0 1px rgba(146, 204, 255, 0.15), 0 0 12px rgba(146, 204, 255, 0.08);
+       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reader-accent) 20%, transparent), 0 0 12px color-mix(in srgb, var(--reader-accent) 10%, transparent);
     }
     .toc-item-active::before {
       content: '';
@@ -1601,12 +1601,12 @@ function toggleToc() {
       transform: translateY(-50%);
       width: 3px;
       height: 60%;
-      background: var(--color-primary);
+       background: var(--reader-accent);
       border-radius: 0 2px 2px 0;
-      box-shadow: 0 0 8px var(--color-primary);
+       box-shadow: 0 0 8px var(--reader-accent);
     }
     .toc-item-active .shrink-0 {
-      color: var(--color-primary);
+       color: var(--reader-accent);
     }
 
   </style>
