@@ -502,6 +502,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       var accumulatedText = '';
       var lastRender = 0;
       var lastMsgBubble = null;
+      var streamError = '';
 
       fetch('/api/website-chat', {
         method: 'POST',
@@ -525,10 +526,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
         function pump() {
           reader.read().then(function (result2) {
-            if (result2.done) {
-              // Final render
+              if (result2.done) {
+                // Final render
                 if (lastMsgBubble) {
-                  lastMsgBubble.innerHTML = parseMarkdown(accumulatedText);
+                  lastMsgBubble.innerHTML = parseMarkdown(streamError || accumulatedText || 'Mình chưa nhận được câu trả lời. Vui lòng thử lại.');
                 }
               if (currentSources.length) {
                 var body2 = messagesArea.lastElementChild.querySelector('.chat-msg-body');
@@ -589,10 +590,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
                     try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch (e) { /* ignore */ }
                   }
                 } else if (parsed.event === 'error') {
-                  throw new Error(parsed.message || 'Lỗi AI');
+                  streamError = '❌ **Lỗi:** ' + (parsed.message || 'Không thể tạo câu trả lời. Vui lòng thử lại.');
                 }
               } catch (e) {
-                if (e.message !== 'Lỗi AI') console.warn('[chat] SSE:', e);
+                console.warn('[chat] SSE:', e);
               }
             }
             pump();

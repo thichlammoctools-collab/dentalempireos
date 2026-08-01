@@ -53,13 +53,9 @@ if (!tree) {
 
 const { chapter: ch, sections } = tree;
 
-function hasPremiumSection(nodes: SectionNode[]): boolean {
-  return nodes.some((section) => section.is_free === 0 || hasPremiumSection(section.children));
-}
+const isPremiumChapter = ch.is_premium === 1;
 
-const hasPremiumSections = hasPremiumSection(sections);
-
-// ── Book paywall: section.is_free controls visibility; a product grants full access.
+// ── Book paywall: one product unlocks a whole chapter after its free preview.
 let bookProduct: Awaited<ReturnType<typeof getActiveBookProduct>> = null;
 let userHasAccess = false;
 
@@ -102,6 +98,10 @@ const modules = sections.map((s) => ({
   title: s.title,
   slug: s.slug,
 }));
+const freePreviewLastIndex = !ch.free_until_section_id
+  ? -1
+  : sections.findIndex((section) => section.id === ch.free_until_section_id);
+const hasFreePreview = freePreviewLastIndex >= 0;
 
 // ── Helpers (move outside handler for cache reuse) ─────────────────────────────────
 function flattenSections(
@@ -167,10 +167,9 @@ function renderSection(
   s: SectionNode,
   attachments: AttachmentItem[],
   sectionNumber = '',
-  hasChapterAccess = true,
+  accessible = true,
   previewState?: PreviewState,
 ): string {
-  const accessible = hasChapterAccess || s.is_free === 1;
   if (previewState?.exhausted) return '';
 
   const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
@@ -269,7 +268,7 @@ function renderSection(
 
   for (let ci = 0; ci < s.children.length; ci++) {
     const childNum = sectionNumber ? `${sectionNumber}.${ci + 1}` : `${ci + 1}`;
-    html += renderSection(s.children[ci], attachments, childNum, hasChapterAccess, previewState);
+    html += renderSection(s.children[ci], attachments, childNum, accessible, previewState);
   }
 
   return html;
@@ -277,7 +276,7 @@ function renderSection(
 
 // ── Cache lookup (chapter content rendering is the expensive part) ───────────────
 // Never share a rendered premium chapter between an entitled and a locked visitor.
-const readerCacheKey = `${slug}:${hasPremiumSections ? (userHasAccess ? 'unlocked' : 'locked') : 'public'}`;
+const readerCacheKey = `${slug}:${isPremiumChapter ? (userHasAccess ? 'unlocked' : 'locked') : 'public'}`;
 const cached = _chapterCache.get(readerCacheKey);
 let strippedContent: string;
 let attachments: AttachmentItem[];
@@ -287,9 +286,15 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
   attachments = cached.attachments;
 } else {
   const localAttachments: AttachmentItem[] = [];
-  const previewState = userHasAccess ? undefined : { exhausted: false };
+  const previewState = isPremiumChapter && !userHasAccess ? { exhausted: false } : undefined;
   const sectionsHtml = sections
-    .map((s, i) => renderSection(s, localAttachments, `${i + 1}`, userHasAccess && !!bookProduct, previewState))
+    .map((s, i) => renderSection(
+      s,
+      localAttachments,
+      `${i + 1}`,
+      !isPremiumChapter || userHasAccess || (hasFreePreview && i <= freePreviewLastIndex),
+      previewState,
+    ))
     .join('');
   strippedContent = sectionsHtml;
   attachments = localAttachments;
@@ -299,9 +304,15 @@ if (cached && Date.now() - cached.ts < _CHAPTER_TTL_MS) {
 // Trigger stale revalidation in background (non-blocking)
 if (cached && Date.now() - cached.ts >= _CHAPTER_TTL_MS) {
   const staleAttachments: AttachmentItem[] = [];
-  const previewState = userHasAccess ? undefined : { exhausted: false };
+  const previewState = isPremiumChapter && !userHasAccess ? { exhausted: false } : undefined;
   const freshSectionsHtml = sections
-    .map((s, i) => renderSection(s, staleAttachments, `${i + 1}`, userHasAccess && !!bookProduct, previewState))
+    .map((s, i) => renderSection(
+      s,
+      staleAttachments,
+      `${i + 1}`,
+      !isPremiumChapter || userHasAccess || (hasFreePreview && i <= freePreviewLastIndex),
+      previewState,
+    ))
     .join('');
   const freshHtml = freshSectionsHtml;
   _chapterCache.set(readerCacheKey, { html: freshHtml, attachments: staleAttachments, sectionNavItems: [], ts: Date.now(), ch });
@@ -346,6 +357,7 @@ const currentUser = Astro.locals.user;
   next={next}
   isLoggedIn={!!currentUser}
   currentUserId={currentUser?.id}
+  hasBookAccess={userHasAccess}
   chapterId={slug}
 >
   <!-- Mobile-optimized Book Header -->
@@ -361,7 +373,7 @@ const currentUser = Astro.locals.user;
   <!-- Chapter Content -->
   <div class="prose prose-invert prose-headings:text-white prose-p:text-on-surface-variant prose-a:text-primary prose-strong:text-white prose-li:text-on-surface-variant prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />
 
-  {hasPremiumSections && !userHasAccess ? (
+  {isPremiumChapter && !userHasAccess ? (
     <section id="book-paywall" class="relative -mt-8 mb-10 pt-14">
       <div class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-transparent via-surface/85 to-surface pointer-events-none"></div>
       <div class="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-surface-container to-surface-container-low p-6 sm:p-8 text-center shadow-xl">

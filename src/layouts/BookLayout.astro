@@ -65,6 +65,7 @@ interface Props {
   next?: ChapterNavItem | null;
   isLoggedIn?: boolean;
   currentUserId?: string | null;
+  hasBookAccess?: boolean;
   chapterId?: string;
 }
 
@@ -83,6 +84,7 @@ const {
   next = null,
   isLoggedIn = false,
   currentUserId = null,
+  hasBookAccess = false,
   chapterId = '',
 } = Astro.props;
 
@@ -339,7 +341,7 @@ const breadcrumbSchema = {
                       >
                         <span class="shrink-0 text-xs w-6">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                         <span class="truncate leading-relaxed">{ch.data.title}</span>
-                        {ch.data.has_premium && (
+                        {ch.data.has_premium && !hasBookAccess && (
                           <span class="material-symbols-outlined text-amber-400 text-[14px] shrink-0" title="Nội dung cao cấp">star</span>
                         )}
                       </a>

@@ -25,19 +25,29 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const existing = await getChapterTree(env.DB, id);
   if (!existing) return notFound('Chapter not found');
 
-  const { tier, chapter_no, title, description, order, status } = body as {
+  const { tier, chapter_no, title, description, order, status, is_premium, free_until_section_id } = body as {
     tier?: number;
     chapter_no?: number;
     title?: string;
     description?: string;
     order?: number;
     status?: string;
+    is_premium?: number;
+    free_until_section_id?: string | null;
   };
 
   // Resolve final values (fall back to existing)
   const newTier = tier ?? existing.chapter.tier;
   const newChapterNo = chapter_no ?? existing.chapter.chapter_no;
   const newOrder = order ?? existing.chapter.order;
+  const requestedPreviewSection = free_until_section_id === undefined
+    ? existing.chapter.free_until_section_id
+    : free_until_section_id;
+
+  if (requestedPreviewSection) {
+    const isRootSectionInChapter = existing.sections.some((section) => section.id === requestedPreviewSection);
+    if (!isRootSectionInChapter) return badRequest('free_until_section_id must be a root section in this chapter');
+  }
 
   await upsertChapter(env.DB, {
     id,
@@ -47,6 +57,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
     description: description ?? existing.chapter.description,
     order: newOrder,
     status: (['draft', 'published'].includes(status!) ? (status as 'draft' | 'published') : existing.chapter.status),
+    is_premium: is_premium === 1 ? 1 : is_premium === 0 ? 0 : existing.chapter.is_premium,
+    free_until_section_id: requestedPreviewSection,
   });
 
   // If chapter_no changed, re-sort all chapters in the same tier

@@ -9,9 +9,13 @@ export interface ChapterRow {
   description: string | null;
   order: number;
   status: 'draft' | 'published';
+  /** true when this chapter requires the book unlock product after its preview. */
+  is_premium?: number;
+  /** Last root-level section included in the free preview, or null for no preview. */
+  free_until_section_id?: string | null;
   createdAt: string;
   updatedAt: string;
-  /** true khi chương có ít nhất 1 section trả phí (is_free=0) */
+  /** true khi chương được cấu hình trả phí */
   has_premium?: boolean;
 }
 
@@ -73,11 +77,7 @@ export async function listChapters(db: D1Database): Promise<ChapterRow[]> {
 export async function listPublishedChapters(db: D1Database): Promise<ChapterRow[]> {
   const { results } = await db
     .prepare(`
-      SELECT c.*,
-        EXISTS (
-          SELECT 1 FROM "section" s
-          WHERE s."chapter_id" = c."id" AND s."is_free" = 0
-        ) AS "has_premium"
+       SELECT c.*, c."is_premium" AS "has_premium"
       FROM "chapter" c
       WHERE c."status" = 'published'
       ORDER BY c."tier", c."order"
@@ -94,21 +94,25 @@ export interface ChapterInput {
   description?: string | null;
   order: number;
   status?: 'draft' | 'published';
+  is_premium?: number;
+  free_until_section_id?: string | null;
 }
 
 export async function upsertChapter(db: D1Database, input: ChapterInput): Promise<void> {
   const ts = now();
   await db
     .prepare(
-      `INSERT INTO "chapter" ("id","tier","chapter_no","title","description","order","status","createdAt","updatedAt")
-       VALUES (?,?,?,?,?,?,?,?,?)
+      `INSERT INTO "chapter" ("id","tier","chapter_no","title","description","order","status","is_premium","free_until_section_id","createdAt","updatedAt")
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "tier"=excluded."tier",
          "chapter_no"=excluded."chapter_no",
          "title"=excluded."title",
          "description"=excluded."description",
-         "order"=excluded."order",
-         "status"=excluded."status",
+          "order"=excluded."order",
+          "status"=excluded."status",
+          "is_premium"=excluded."is_premium",
+          "free_until_section_id"=excluded."free_until_section_id",
          "updatedAt"=excluded."updatedAt"`,
     )
     .bind(
@@ -118,7 +122,9 @@ export async function upsertChapter(db: D1Database, input: ChapterInput): Promis
       input.title,
       input.description ?? null,
       input.order,
-      input.status ?? 'draft',
+        input.status ?? 'draft',
+        input.is_premium ?? 0,
+        input.free_until_section_id ?? null,
       ts,
       ts,
     )

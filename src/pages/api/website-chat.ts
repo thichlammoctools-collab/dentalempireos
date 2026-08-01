@@ -48,6 +48,25 @@ ${ragContext}
 - Khi thông tin có trong ngữ cảnh, nêu rõ đó là **Sách**, **Blog** hoặc **Tài nguyên** nếu phân loại này hữu ích.`;
 }
 
+function buildContextFallback(chunks: WebsiteChunk[]): string {
+  if (!chunks.length) {
+    return 'Mình chưa tìm thấy nội dung phù hợp trên Dental Empire OS cho câu hỏi này.';
+  }
+
+  const excerpts = chunks.slice(0, 2).map((chunk) => {
+    const text = chunk.text
+      .replace(/[#*_`~\[\]()>/|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const excerpt = text.length > 260
+      ? `${text.slice(0, 260).replace(/\s+\S*$/, '')}...`
+      : text;
+    return `- **${chunk.title}**: ${excerpt}`;
+  });
+
+  return `Mình đang gặp sự cố khi tổng hợp câu trả lời AI. Đây là các nội dung liên quan nhất từ sách để bạn tham khảo:\n${excerpts.join('\n')}`;
+}
+
 export const POST: APIRoute = async (ctx) => {
   let body: { message: string; session_id?: string; page_type?: string; page_slug?: string };
   try {
@@ -123,6 +142,13 @@ export const POST: APIRoute = async (ctx) => {
   } catch (err) {
     aiError = String(err);
     console.error('[website-chat] AI error:', err);
+  }
+
+  // Never return an empty assistant bubble. The retrieved book context remains
+  // useful even when the configured model is unavailable or returns whitespace.
+  if (aiError || !aiResponse.trim()) {
+    aiResponse = buildContextFallback(chunks);
+    aiError = null;
   }
 
   // Generate follow-up suggestions (chạy song song với streaming)
