@@ -15,6 +15,7 @@ import {
   parseScoringRules,
   parseScaleLabels,
 } from './survey-config-db';
+import { getScoreLevel } from './scoring-engine';
 import { BE_VIETNAM_PRO_REGULAR, BE_VIETNAM_PRO_BOLD } from './fonts/bvn-fonts';
 
 const NAVY = rgb(0.13, 0.27, 0.55);
@@ -249,6 +250,107 @@ function drawResponseDetails(ctx: PdfContext, response: ScannerResponseRow, ques
   }
 }
 
+function maturityMessage(score: number, lang: 'vi' | 'en'): string {
+  if (lang === 'en') {
+    if (score < 40) return 'Your clinic is in the early stage - this is a good time to illuminate and deepen.';
+    if (score < 70) return 'Your clinic is forming - keep deepening to grow strong.';
+    return 'Your clinic is maturing - keep the momentum and spread the value.';
+  }
+  if (score < 40) return 'Phòng khám đang ở giai đoạn đầu - đây là lúc tốt để soi chiếu và đi sâu.';
+  if (score < 70) return 'Phòng khám đang hình thành - tiếp tục đi sâu để lớn mạnh.';
+  return 'Phòng khám đang trưởng thành - giữ vững momentum và lan tỏa giá trị.';
+}
+
+function drawQuestionInsight(
+  ctx: PdfContext,
+  question: PdfQuestionRow,
+  value: number,
+  label: string,
+  color: ReturnType<typeof scoreColor>,
+) {
+  const questionText = ctx.lang === 'vi' ? question.label_vi : question.label_en || question.label_vi;
+  const lineHeight = 13;
+  const questionLines = wrapText(questionText, ctx.fontBold, 9.5, CONTENT_WIDTH - 155);
+  const needed = Math.max(46, questionLines.length * lineHeight + 34);
+  ensureSpace(ctx, needed);
+
+  questionLines.forEach((line, index) => {
+    ctx.page.drawText(line, { x: MARGIN_X, y: ctx.y - 10 - index * lineHeight, size: 9.5, font: ctx.fontBold, color: TEXT });
+  });
+
+  const badge = `${value}/5 - ${label}`;
+  const badgeWidth = Math.min(220, ctx.fontBold.widthOfTextAtSize(badge, 8.5) + 16);
+  ctx.page.drawRectangle({
+    x: PAGE_WIDTH - MARGIN_X - badgeWidth,
+    y: ctx.y - 16,
+    width: badgeWidth,
+    height: 18,
+    color,
+    opacity: 0.16,
+  });
+  ctx.page.drawText(badge, {
+    x: PAGE_WIDTH - MARGIN_X - badgeWidth + 8,
+    y: ctx.y - 11,
+    size: 8.5,
+    font: ctx.fontBold,
+    color,
+  });
+
+  const barY = ctx.y - questionLines.length * lineHeight - 12;
+  ctx.page.drawRectangle({ x: MARGIN_X, y: barY - 5, width: CONTENT_WIDTH, height: 5, color: LIGHT });
+  ctx.page.drawRectangle({ x: MARGIN_X, y: barY - 5, width: CONTENT_WIDTH * (value / 5), height: 5, color });
+  ctx.y = barY - 16;
+}
+
+function drawScoreDashboard(
+  ctx: PdfContext,
+  response: ScannerResponseRow,
+  rules: ScoringRules,
+  questions: PdfQuestionRow[],
+) {
+  const scores = parseScores(response.scores_json);
+  const total = scores.total ?? 0;
+  const totalLevel = getScoreLevel(total, rules, ctx.lang);
+  ensureSpace(ctx, 100);
+
+  ctx.page.drawText(ctx.lang === 'vi' ? 'ĐIỂM TỔNG HỢP' : 'OVERALL SCORE', {
+    x: MARGIN_X, y: ctx.y - 10, size: 9, font: ctx.fontBold, color: MUTED,
+  });
+  ctx.page.drawText(String(total), { x: MARGIN_X, y: ctx.y - 66, size: 46, font: ctx.fontBold, color: scoreColor(total, rules) });
+  ctx.page.drawText('/100', { x: MARGIN_X + 95, y: ctx.y - 52, size: 16, font: ctx.fontBold, color: TEXT });
+  ctx.page.drawText(totalLevel.label_vi, { x: MARGIN_X, y: ctx.y - 84, size: 10, font: ctx.fontBold, color: scoreColor(total, rules) });
+  ctx.y -= 102;
+  drawParagraph(ctx, maturityMessage(total, ctx.lang), { bold: true, size: 10, color: TEXT });
+  ctx.y -= 4;
+
+  for (const dimension of rules.dimensions) {
+    const label = ctx.lang === 'vi' ? dimension.name_vi : dimension.name_en ?? dimension.name_vi;
+    drawScoreBar(ctx, label ?? dimension.id, scores[dimension.id] ?? 0, rules);
+  }
+
+  const answers = parseResponses(response.responses_json);
+  const strengths: Array<{ question: PdfQuestionRow; value: number; label: string }> = [];
+  const needsWork: Array<{ question: PdfQuestionRow; value: number; label: string }> = [];
+  for (const question of questions) {
+    const value = answers[question.question_id];
+    if (question.type !== 'select' || typeof value !== 'number') continue;
+    const labels = parseScaleLabels(ctx.lang === 'vi' ? question.scale_labels_vi : question.scale_labels_en);
+    const item = { question, value, label: labels[String(value)] ?? String(value) };
+    if (value >= 4) strengths.push(item); else needsWork.push(item);
+  }
+
+  if (!strengths.length && !needsWork.length) return;
+  drawSectionTitle(ctx, ctx.lang === 'vi' ? 'ĐIỂM NÀY CÓ Ý NGHĨA GÌ?' : 'WHAT DOES THIS SCORE MEAN?');
+  if (strengths.length) {
+    drawParagraph(ctx, ctx.lang === 'vi' ? 'ĐIỂM MẠNH' : 'STRENGTHS', { bold: true, size: 10, color: SUCCESS });
+    for (const item of strengths) drawQuestionInsight(ctx, item.question, item.value, item.label, SUCCESS);
+  }
+  if (needsWork.length) {
+    drawParagraph(ctx, ctx.lang === 'vi' ? 'CẦN CẢI THIỆN' : 'NEEDS IMPROVEMENT', { bold: true, size: 10, color: WARN });
+    for (const item of needsWork) drawQuestionInsight(ctx, item.question, item.value, item.label, WARN);
+  }
+}
+
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   const paragraphs = text.split('\n');
@@ -435,13 +537,8 @@ export async function generateScannerPdf(
     lang,
   };
 
-  if (type === 'combined') {
-    drawSectionTitle(ctx, t.section1);
-    for (const dim of scoringRules.dimensions) {
-      const score = parseScores(response.scores_json)[dim.id] ?? 0;
-      const label = lang === 'vi' ? dim.name_vi : (dim.name_en ?? dim.name_vi);
-      drawScoreBar(ctx, label, score, scoringRules);
-    }
+  if (type === 'combined' || type === 'plan') {
+    drawScoreDashboard(ctx, response, scoringRules, questions ?? []);
     ctx.y -= 8;
   }
 
