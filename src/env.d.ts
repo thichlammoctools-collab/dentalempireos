@@ -12,6 +12,7 @@ declare namespace Cloudflare {
     ADMIN_EMAILS: string;
     CF_API_TOKEN: string;
     CF_AI_GATEWAY_TOKEN: string;
+    MOTAPIS_API_KEY: string;
     CF_ZONE_ID: string;
     PAYOS_CLIENT_ID: string;
     PAYOS_API_KEY: string;

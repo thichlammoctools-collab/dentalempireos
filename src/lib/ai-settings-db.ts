@@ -18,6 +18,9 @@ export interface AiSettingsRow {
   gateway_default_model: string | null;
   gateway_chat_model: string | null;
   gateway_embedding_model: string | null;
+  ai_provider: 'cloudflare' | 'motapis';
+  motapis_enabled: number;
+  motapis_model: string | null;
   updated_at: string;
 }
 
@@ -38,6 +41,9 @@ const AI_SETTINGS_DEFAULTS: AiSettingsRow = {
   gateway_default_model: null,
   gateway_chat_model: null,
   gateway_embedding_model: null,
+  ai_provider: 'cloudflare',
+  motapis_enabled: 0,
+  motapis_model: null,
   updated_at: '',
 };
 
@@ -71,6 +77,9 @@ export async function updateAiSettings(
     gateway_default_model?: string | null;
     gateway_chat_model?: string | null;
     gateway_embedding_model?: string | null;
+    ai_provider?: 'cloudflare' | 'motapis';
+    motapis_enabled?: number;
+    motapis_model?: string | null;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -82,7 +91,8 @@ export async function updateAiSettings(
          SET "base_url" = ?, "api_key" = ?, "model" = ?, "max_tokens" = ?, "is_active" = ?,
                "chat_provider_id" = ?, "chat_model_id" = ?, "embedding_provider_id" = ?, "embedding_model_id" = ?,
                "gateway_enabled" = ?, "gateway_account_id" = ?, "gateway_id" = ?, "gateway_default_model" = ?,
-               "gateway_chat_model" = ?, "gateway_embedding_model" = ?, "updated_at" = ?
+                "gateway_chat_model" = ?, "gateway_embedding_model" = ?, "updated_at" = ?,
+                "ai_provider" = ?, "motapis_enabled" = ?, "motapis_model" = ?
          WHERE "id" = 1`,
       )
       .bind(
@@ -102,6 +112,9 @@ export async function updateAiSettings(
         data.gateway_chat_model ?? current.gateway_chat_model,
         data.gateway_embedding_model ?? current.gateway_embedding_model,
         now,
+        data.ai_provider ?? current.ai_provider,
+        data.motapis_enabled ?? current.motapis_enabled,
+        data.motapis_model ?? current.motapis_model,
       )
       .run();
   } catch (error) {
@@ -112,5 +125,7 @@ export async function updateAiSettings(
 /** Check if AI analysis is enabled and configured */
 export async function isAiEnabled(db: D1Database): Promise<boolean> {
   const settings = await getAiSettings(db);
-  return settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
+  return settings.ai_provider === 'motapis'
+    ? settings.motapis_enabled === 1 && Boolean(settings.motapis_model)
+    : settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
 }

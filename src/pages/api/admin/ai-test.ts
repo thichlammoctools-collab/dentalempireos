@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ locals }) => {
 
   const config = await getAiGatewayConfig(env.DB);
   if (!config) {
-    return json({ error: 'Cloudflare AI Gateway chưa sẵn sàng. Kiểm tra Account ID, model và secret CF_AI_GATEWAY_TOKEN.' }, 503);
+    return json({ error: 'AI provider đang chọn chưa sẵn sàng. Kiểm tra cấu hình, model và Worker secret tương ứng.' }, 503);
   }
 
   try {

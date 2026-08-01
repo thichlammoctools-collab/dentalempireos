@@ -12,7 +12,9 @@ if (!Astro.locals.user) {
 let aiHasKey = false;
 try {
   const settings = await getAiSettings(env.DB);
-  aiHasKey = settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
+  aiHasKey = settings.ai_provider === 'motapis'
+    ? settings.motapis_enabled === 1 && Boolean(settings.motapis_model)
+    : settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
 } catch {
   aiHasKey = false;
 }

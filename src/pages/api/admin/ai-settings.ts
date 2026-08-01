@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import { getAiSettings, updateAiSettings } from '../../../lib/ai-settings-db';
-import { hasAiGatewayToken } from '../../../lib/ai-gateway';
+import { hasAiGatewayToken, hasMotapisApiKey } from '../../../lib/ai-gateway';
 
 export const prerender = false;
 
@@ -21,6 +21,10 @@ export const GET: APIRoute = async ({ locals }) => {
     gateway_chat_model: settings.gateway_chat_model ?? '',
     gateway_embedding_model: settings.gateway_embedding_model ?? '',
     gateway_token_set: hasAiGatewayToken(),
+    ai_provider: settings.ai_provider,
+    motapis_enabled: settings.motapis_enabled === 1,
+    motapis_model: settings.motapis_model ?? '',
+    motapis_api_key_set: hasMotapisApiKey(),
     updated_at: settings.updated_at,
   });
 };
@@ -40,6 +44,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
   if (typeof body.gateway_enabled === 'boolean') {
     updates.gateway_enabled = body.gateway_enabled ? 1 : 0;
+  }
+  if (body.ai_provider === 'cloudflare' || body.ai_provider === 'motapis') {
+    updates.ai_provider = body.ai_provider;
+  }
+  if (typeof body.motapis_enabled === 'boolean') {
+    updates.motapis_enabled = body.motapis_enabled ? 1 : 0;
+  }
+  if (typeof body.motapis_model === 'string') {
+    const model = body.motapis_model.trim();
+    if (model.length > 128 || (model && !/^[a-zA-Z0-9._:/-]+$/.test(model))) {
+      return badRequest('Motapis model ID chỉ gồm chữ, số, dấu chấm, gạch ngang, gạch dưới, dấu hai chấm hoặc dấu gạch chéo.');
+    }
+    updates.motapis_model = model || null;
   }
   if (typeof body.gateway_account_id === 'string') {
     const accountId = body.gateway_account_id.trim();
@@ -75,10 +92,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
        gateway_enabled: updated.gateway_enabled === 1,
        gateway_account_id: updated.gateway_account_id ?? '',
        gateway_id: updated.gateway_id,
-       gateway_default_model: updated.gateway_default_model ?? '',
-       gateway_chat_model: updated.gateway_chat_model ?? '',
-       gateway_embedding_model: updated.gateway_embedding_model ?? '',
-       gateway_token_set: hasAiGatewayToken(),
+        gateway_default_model: updated.gateway_default_model ?? '',
+        gateway_chat_model: updated.gateway_chat_model ?? '',
+        gateway_embedding_model: updated.gateway_embedding_model ?? '',
+        gateway_token_set: hasAiGatewayToken(),
+        ai_provider: updated.ai_provider,
+        motapis_enabled: updated.motapis_enabled === 1,
+        motapis_model: updated.motapis_model ?? '',
+        motapis_api_key_set: hasMotapisApiKey(),
       updated_at: updated.updated_at,
     },
   });

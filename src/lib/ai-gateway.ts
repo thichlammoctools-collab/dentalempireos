@@ -8,6 +8,10 @@ export function hasAiGatewayToken(): boolean {
   return Boolean(env.CF_AI_GATEWAY_TOKEN);
 }
 
+export function hasMotapisApiKey(): boolean {
+  return Boolean(env.MOTAPIS_API_KEY);
+}
+
 function isCloudflareModelId(model: string | undefined): model is string {
   return Boolean(model && /^(openai|anthropic|google|@cf)\//.test(model));
 }
@@ -18,6 +22,20 @@ export async function getAiGatewayConfig(
   modelOverride?: string,
 ): Promise<ModelConfig | null> {
   const settings = await getAiSettings(db);
+  // Embeddings remain on Cloudflare because the website knowledge base is
+  // configured around its embedding model catalog.
+  if (usage !== 'embedding' && settings.ai_provider === 'motapis') {
+    if (!settings.motapis_enabled || !settings.motapis_model || !hasMotapisApiKey()) {
+      return null;
+    }
+    return {
+      provider_id: 'motapis',
+      base_url: 'https://motapis.com/v1',
+      api_key: env.MOTAPIS_API_KEY,
+      model_id: modelOverride || settings.motapis_model,
+      max_tokens: settings.max_tokens,
+    };
+  }
   if (!settings.gateway_enabled || !settings.gateway_account_id || !hasAiGatewayToken()) {
     return null;
   }

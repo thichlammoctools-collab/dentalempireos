@@ -2,19 +2,49 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getAiSettings } from '../../lib/ai-settings-db';
-import { hasAiGatewayToken } from '../../lib/ai-gateway';
+import { hasAiGatewayToken, hasMotapisApiKey } from '../../lib/ai-gateway';
 
 export const prerender = false;
 
 const settings = await getAiSettings(env.DB);
 const gatewayReady = settings.gateway_enabled === 1 && Boolean(settings.gateway_account_id && settings.gateway_default_model);
 const gatewayTokenSet = hasAiGatewayToken();
+const motapisTokenSet = hasMotapisApiKey();
+const motapisReady = settings.motapis_enabled === 1 && Boolean(settings.motapis_model && motapisTokenSet);
 ---
 
 <AdminLayout title="Cài đặt AI | Admin">
   <div class="mb-6">
     <h2 class="text-3xl font-bold text-white mb-1">Cài đặt AI</h2>
-    <p class="text-on-surface-variant text-sm">Mọi luồng AI của website chạy qua Cloudflare AI Gateway. Token chỉ được lưu dưới dạng Worker secret.</p>
+    <p class="text-on-surface-variant text-sm">Chọn Cloudflare AI Gateway hoặc Motapis cho các luồng chat và ứng dụng AI. API key chỉ được lưu dưới dạng Worker secret.</p>
+  </div>
+
+  <div class="glass-card rounded-xl p-6 mb-6">
+    <div class="flex items-center gap-3 mb-2">
+      <span class="material-symbols-outlined text-primary text-2xl">hub</span>
+      <h3 class="text-lg font-bold text-white">AI Provider đang dùng</h3>
+      <span class={`text-xs ml-2 ${(settings.ai_provider === 'motapis' ? motapisReady : gatewayReady) ? 'text-emerald-300' : 'text-amber-300'}`}>{(settings.ai_provider === 'motapis' ? motapisReady : gatewayReady) ? 'Sẵn sàng' : 'Chưa hoàn tất cấu hình'}</span>
+    </div>
+    <p class="text-xs text-on-surface-variant/60 mb-5">Motapis dùng API OpenAI-compatible tại <code class="font-mono">https://motapis.com/v1</code>. Cloudflare vẫn được dùng cho embedding và kho tri thức.</p>
+    <form id="provider-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="ai-provider" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Provider cho chat và ứng dụng</label>
+        <select id="ai-provider" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="cloudflare" selected={settings.ai_provider === 'cloudflare'}>Cloudflare AI Gateway</option>
+          <option value="motapis" selected={settings.ai_provider === 'motapis'}>Motapis</option>
+        </select>
+      </div>
+      <div id="motapis-model-wrap">
+        <label for="motapis-model" class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Motapis model ID</label>
+        <input type="text" id="motapis-model" value={settings.motapis_model ?? ''} placeholder="claude-opus-4-8" class="w-full px-4 py-2.5 bg-surface-container border border-outline-variant/30 text-white text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      </div>
+      <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+        <label id="motapis-enabled-wrap" class="flex items-center gap-2 text-sm text-on-surface"><input type="checkbox" id="motapis-enabled" checked={settings.motapis_enabled === 1} class="accent-primary w-4 h-4" /> Kích hoạt Motapis</label>
+        <button type="submit" id="provider-save" class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">Lưu provider</button>
+        <span id="provider-msg" class="hidden text-sm"></span>
+      </div>
+    </form>
+    <p class={`mt-4 text-xs ${motapisTokenSet ? 'text-emerald-300' : 'text-amber-300/80'}`}>{motapisTokenSet ? 'Worker secret MOTAPIS_API_KEY đã được thiết lập.' : 'Thiết lập secret: npx wrangler secret put MOTAPIS_API_KEY. Không nhập API key vào trang này.'}</p>
   </div>
 
   <!-- ============================================================
@@ -142,6 +172,49 @@ const gatewayTokenSet = hasAiGatewayToken();
   function showToast(msg, type) {
     if ((window as any).showToast) (window as any).showToast(msg, type); else alert(msg);
   }
+
+  // ===================== Active AI provider =====================
+  const providerForm = document.getElementById('provider-form') as HTMLFormElement;
+  const aiProvider = document.getElementById('ai-provider') as HTMLSelectElement;
+  const motapisModel = document.getElementById('motapis-model') as HTMLInputElement;
+  const motapisEnabled = document.getElementById('motapis-enabled') as HTMLInputElement;
+  const providerSaveBtn = document.getElementById('provider-save') as HTMLButtonElement;
+  const providerMsg = document.getElementById('provider-msg') as HTMLElement;
+  const motapisModelWrap = document.getElementById('motapis-model-wrap') as HTMLElement;
+  const motapisEnabledWrap = document.getElementById('motapis-enabled-wrap') as HTMLElement;
+
+  function updateProviderFields() {
+    const showMotapis = aiProvider.value === 'motapis';
+    motapisModelWrap.classList.toggle('hidden', !showMotapis);
+    motapisEnabledWrap.classList.toggle('hidden', !showMotapis);
+  }
+  updateProviderFields();
+  aiProvider.addEventListener('change', updateProviderFields);
+  providerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    providerSaveBtn.disabled = true;
+    providerMsg.classList.add('hidden');
+    try {
+      const response = await fetch('/api/admin/ai-settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ai_provider: aiProvider.value,
+          motapis_enabled: motapisEnabled.checked,
+          motapis_model: motapisModel.value,
+        }),
+      });
+      const data = await response.json() as { error?: string };
+      providerMsg.textContent = response.ok ? 'Đã lưu AI provider.' : data.error || 'Không thể lưu provider.';
+      providerMsg.className = `text-sm ${response.ok ? 'text-emerald-400' : 'text-rose-400'}`;
+      if (response.ok) showToast('Đã lưu AI provider.', 'success');
+    } catch {
+      providerMsg.textContent = 'Không thể kết nối để lưu provider.';
+      providerMsg.className = 'text-sm text-rose-400';
+    } finally {
+      providerSaveBtn.disabled = false;
+      providerMsg.classList.remove('hidden');
+    }
+  });
 
   // ===================== Load AI Models =====================
   async function loadModels() {

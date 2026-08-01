@@ -28,13 +28,17 @@ export class AiError extends Error {
 
 function isOpenAIUrl(url: string): boolean {
   const u = url.toLowerCase();
-  return u.includes('openai') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together') || isCloudflareOpenAIEndpoint(u);
+  return u.includes('openai') || u.includes('motapis.com') || u.includes('v1/chat') || u.includes('zplay') || u.includes('openrouter') || u.includes('together') || isCloudflareOpenAIEndpoint(u);
 }
 
 function isCloudflareOpenAIEndpoint(url: string): boolean {
   const u = url.toLowerCase();
   return u.includes('api.cloudflare.com/client/v4/accounts/') && u.includes('/ai/v1')
     || u.includes('gateway.ai.cloudflare.com') && /\/openai\/?$/.test(u);
+}
+
+function isMotapisEndpoint(url: string): boolean {
+  return url.toLowerCase().includes('motapis.com');
 }
 
 function cloudflareGatewayHeaders(baseUrl: string, gatewayId?: string): Record<string, string> {
@@ -76,7 +80,7 @@ export async function chatCompletion(
   const baseUrl = config.base_url.replace(/\/+$/, '');
   // Cloudflare's OpenAI-compatible endpoints already include their required
   // API version segment, so stripping /v1 would produce an invalid URL.
-  const cleanBase = isCloudflareOpenAIEndpoint(baseUrl) ? baseUrl : baseUrl.replace(/\/v1$/, '');
+  const cleanBase = isCloudflareOpenAIEndpoint(baseUrl) || isMotapisEndpoint(baseUrl) ? baseUrl : baseUrl.replace(/\/v1$/, '');
   if (isOpenAIUrl(cleanBase)) {
     return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id);
   } else if (isGeminiUrl(cleanBase)) {
@@ -473,7 +477,7 @@ export function chatCompletionStream(
   onChunk?: (text: string) => void,
 ): ReadableStream<string> {
   const rawBaseUrl = config.base_url.replace(/\/+$/, '');
-  const baseUrl = isCloudflareOpenAIEndpoint(rawBaseUrl) ? rawBaseUrl : rawBaseUrl.replace(/\/v1$/, '');
+  const baseUrl = isCloudflareOpenAIEndpoint(rawBaseUrl) || isMotapisEndpoint(rawBaseUrl) ? rawBaseUrl : rawBaseUrl.replace(/\/v1$/, '');
 
   let iterator: AsyncGenerator<string> | null = null;
   let cancelled = false;

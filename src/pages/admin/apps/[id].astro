@@ -26,8 +26,9 @@ const maxTokensOverride = (config.max_tokens_override as number) ?? '';
 let activeModels: Array<{ providerName: string; modelId: string; modelName: string }> = [];
 try {
   const settings = await getAiSettings(env.DB);
-  if (settings.gateway_default_model) {
-    activeModels = [{ providerName: 'Cloudflare AI Gateway', modelId: settings.gateway_default_model, modelName: settings.gateway_default_model }];
+  const activeModel = settings.ai_provider === 'motapis' ? settings.motapis_model : settings.gateway_default_model;
+  if (activeModel) {
+    activeModels = [{ providerName: settings.ai_provider === 'motapis' ? 'Motapis' : 'Cloudflare AI Gateway', modelId: activeModel, modelName: activeModel }];
   }
 } catch {}
 
