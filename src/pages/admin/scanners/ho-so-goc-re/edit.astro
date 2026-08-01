@@ -1,5 +1,12 @@
 ---
-// Redirect to the main dedicated page which includes all editing capabilities
+import { env } from 'cloudflare:workers';
+import { getSurveyDefinitionBySlug } from '../../../../lib/survey-config-db';
+
 export const prerender = false;
-return Astro.redirect('/admin/scanners/ho-so-goc-re');
+
+const definition = await getSurveyDefinitionBySlug(env.DB, 'ho-so-goc-re');
+
+return Astro.redirect(
+  definition ? `/admin/scanners/${definition.id}` : '/admin/scanners',
+);
 ---

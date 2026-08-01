@@ -432,11 +432,21 @@ try {
         </>
       ) : (
         <!-- Not done: show button or loading -->
-        <div id="plan-action">
-          <div id="plan-loading" class="hidden">
-            <div id="plan-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
-            <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
-          </div>
+          <div id="plan-action">
+            <div id="plan-loading" class="hidden">
+              <div id="plan-status" class="text-center text-sm text-on-surface-variant mb-3">
+                {lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...'}
+              </div>
+              <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
+              <div class="text-center mt-3">
+                <p class="text-xs text-on-surface-variant mb-2">
+                  {lang === 'vi' ? 'Nếu quá trình dừng quá lâu, bạn có thể tạo lại kế hoạch.' : 'If this takes too long, you can generate the plan again.'}
+                </p>
+                <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-running-plan">
+                  {lang === 'vi' ? 'Tạo lại kế hoạch' : 'Generate again'}
+                </button>
+              </div>
+            </div>
           <div id="plan-cta">
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
               <span class="material-symbols-outlined text-base">auto_awesome</span>
@@ -1142,6 +1152,7 @@ try {
       if (attempts >= 60) {
         clearInterval(pollInterval!);
         pollInterval = null;
+        updatePlanUI('failed', false);
       }
     }, 4000);
   }
@@ -1316,6 +1327,7 @@ try {
   // ── Button bindings ─────────────────────────────────────────────
   document.getElementById('btn-run-plan')?.addEventListener('click', () => triggerAi('plan'));
   document.getElementById('btn-retry-plan')?.addEventListener('click', () => triggerAi('plan'));
+  document.getElementById('btn-retry-running-plan')?.addEventListener('click', () => triggerAi('plan'));
   document.getElementById('btn-run-analysis')?.addEventListener('click', () => triggerAi('analysis', false));
   document.getElementById('btn-retry-analysis')?.addEventListener('click', () => triggerAi('analysis', false));
   document.getElementById('btn-run-analysis-free')?.addEventListener('click', () => triggerAi('analysis', true));
@@ -1359,6 +1371,10 @@ try {
   if (planStatusInit === 'running') {
     document.getElementById('plan-cta')?.classList.add('hidden');
     document.getElementById('plan-loading')?.classList.remove('hidden');
+    const planStatus = document.getElementById('plan-status');
+    if (planStatus && !planStatus.textContent?.trim()) {
+      planStatus.textContent = lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...';
+    }
     pollForResult();
   } else if (planStatusInit === 'failed') {
     document.getElementById('plan-cta')?.classList.add('hidden');
