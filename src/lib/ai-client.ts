@@ -13,6 +13,7 @@ export interface ModelConfig {
   gateway_id?: string;
   model_id: string;
   max_tokens?: number;
+  timeout_ms?: number;
 }
 
 export class AiError extends Error {
@@ -53,8 +54,18 @@ function isGeminiUrl(url: string): boolean {
   return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
 }
 
+const DEFAULT_TIMEOUT_MS = 45_000;
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_COOLDOWN_MS = 60_000;
+const circuitState = new Map<string, { failures: number; openUntil: number }>();
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryable(error: unknown): boolean {
+  if (error instanceof AiError) return error.statusCode === 408 || error.statusCode === 409 || error.statusCode === 429 || error.statusCode >= 500;
+  return true;
 }
 
 export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -62,14 +73,48 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promis
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
-    } catch (err) {
-      lastError = err;
-      if (i < maxRetries - 1) {
-        await sleep(1000 * Math.pow(2, i));
+      } catch (err) {
+        lastError = err;
+        if (!isRetryable(err)) throw err;
+        if (i < maxRetries - 1) {
+          await sleep(500 * Math.pow(2, i) + Math.floor(Math.random() * 250));
       }
     }
   }
   throw lastError;
+}
+
+async function aiFetch(url: string, init: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new AiError(`AI request timed out after ${timeoutMs}ms`, 408, 'transport');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function assertCircuitClosed(config: ModelConfig): void {
+  const state = circuitState.get(config.provider_id);
+  if (state?.openUntil && state.openUntil > Date.now()) {
+    throw new AiError('AI provider is temporarily unavailable', 503, config.provider_id);
+  }
+}
+
+function recordCircuitResult(config: ModelConfig, success: boolean): void {
+  const prior = circuitState.get(config.provider_id) ?? { failures: 0, openUntil: 0 };
+  if (success) {
+    circuitState.delete(config.provider_id);
+    return;
+  }
+  const failures = prior.failures + 1;
+  circuitState.set(config.provider_id, {
+    failures,
+    openUntil: failures >= CIRCUIT_FAILURE_THRESHOLD ? Date.now() + CIRCUIT_COOLDOWN_MS : 0,
+  });
 }
 
 export async function chatCompletion(
@@ -77,16 +122,22 @@ export async function chatCompletion(
   messages: ChatMessage[],
   systemPrompt?: string,
 ): Promise<string> {
+  assertCircuitClosed(config);
   const baseUrl = config.base_url.replace(/\/+$/, '');
   // Cloudflare's OpenAI-compatible endpoints already include their required
   // API version segment, so stripping /v1 would produce an invalid URL.
   const cleanBase = isCloudflareOpenAIEndpoint(baseUrl) || isMotapisEndpoint(baseUrl) ? baseUrl : baseUrl.replace(/\/v1$/, '');
-  if (isOpenAIUrl(cleanBase)) {
-    return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id);
-  } else if (isGeminiUrl(cleanBase)) {
-    return chatGemini(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
-  } else {
-    return chatAnthropic(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens);
+  try {
+    const result = await withRetry(() => {
+      if (isOpenAIUrl(cleanBase)) return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
+      if (isGeminiUrl(cleanBase)) return chatGemini(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.timeout_ms);
+      return chatAnthropic(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
+    });
+    recordCircuitResult(config, true);
+    return result;
+  } catch (error) {
+    recordCircuitResult(config, false);
+    throw error;
   }
 }
 
@@ -98,6 +149,7 @@ async function chatOpenAI(
   systemPrompt?: string,
   maxTokens?: number,
   gatewayId?: string,
+  timeoutMs?: number,
 ): Promise<string> {
   const allMessages: ChatMessage[] = [];
   if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
@@ -106,7 +158,7 @@ async function chatOpenAI(
   const body: Record<string, unknown> = { model, messages: allMessages };
   if (maxTokens) body.max_tokens = maxTokens;
 
-  const resp = await fetch(`${baseUrl}/chat/completions`, {
+  const resp = await aiFetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -114,7 +166,7 @@ async function chatOpenAI(
       ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
@@ -135,6 +187,7 @@ async function chatAnthropic(
   systemPrompt?: string,
   maxTokens?: number,
   gatewayId?: string,
+  timeoutMs?: number,
 ): Promise<string> {
   // Preserve original role for assistant messages (fixes the role-mapping bug)
   const anthropicMessages = messages.map((m) => ({
@@ -149,7 +202,7 @@ async function chatAnthropic(
   };
   if (systemPrompt) body.system = systemPrompt;
 
-  const resp = await fetch(`${baseUrl}/v1/messages`, {
+  const resp = await aiFetch(`${baseUrl}/v1/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -158,7 +211,7 @@ async function chatAnthropic(
       ...cloudflareGatewayHeaders(baseUrl, gatewayId),
     },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
@@ -181,6 +234,7 @@ async function chatGemini(
   messages: ChatMessage[],
   systemPrompt?: string,
   maxTokens?: number,
+  timeoutMs?: number,
 ): Promise<string> {
   // Gemini uses /v1beta/models/{model}:generateContent
   // Supports system instruction via contents array structure
@@ -207,11 +261,11 @@ async function chatGemini(
   if (baseUrl.includes('/v1/models')) url = `${baseUrl.replace('/v1/models', '')}/v1beta/models/${model}:generateContent`;
   url += `?key=${apiKey}`;
 
-  const resp = await fetch(url, {
+  const resp = await aiFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 
   if (!resp.ok) {
     const err = await resp.text();
