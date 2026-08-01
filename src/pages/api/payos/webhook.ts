@@ -13,6 +13,11 @@ import {
 
 export const prerender = false;
 
+// PayOS can probe the configured URL with GET before delivering POST events.
+export const GET: APIRoute = async () => {
+  return new Response('PayOS webhook endpoint is ready', { status: 200 });
+};
+
 /**
  * POST /api/payos/webhook — receive payment notifications from PayOS.
  *
