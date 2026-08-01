@@ -40,7 +40,8 @@ const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, defin
 const hasPaidAccess = definition.is_free === 0
   ? await hasScannerAccess(env.DB, currentUser.id, definition.id)
   : true;
-const scannerUnavailable = !hasPaidAccess || usage.remaining === 0;
+const quotaExhausted = usage.remaining === 0;
+const scannerUnavailable = !hasPaidAccess || quotaExhausted;
 const scannerNotice = !hasPaidAccess
   ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
   : definition.is_free === 1
@@ -137,7 +138,7 @@ const defaultScaleEn: Record<string, string> = {
         <div class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']} role="status">
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <span>{scannerNotice}</span>
-          {scannerUnavailable && <a href="/account/scanner-history">Xem lịch sử</a>}
+          {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
         </div>
 
         <!-- Stepper -->

@@ -33,7 +33,7 @@
     if (!submitError) return;
     submitError.textContent = isFreeScanner
       ? 'Bạn đã dùng hết lượt cho Scanner miễn phí này. Xem lại kết quả trong Lịch sử Scanner.'
-      : 'Bạn chưa thể thực hiện Scanner này. Vui lòng kiểm tra quyền truy cập hoặc hạn mức tháng trong Lịch sử Scanner.';
+      : 'Bạn chưa thể thực hiện Scanner này. Vui lòng mở khóa Scanner hoặc kiểm tra hạn mức tháng trong Lịch sử Scanner.';
     submitError.classList.remove('hidden');
   }
 
