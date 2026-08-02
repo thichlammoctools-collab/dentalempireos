@@ -17,13 +17,22 @@ const result = await auth.api.listUsers({
 const users = result.users;
 const total = result.total;
 const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-const [bannedResult, newThisWeekResult] = await Promise.all([
-  env.DB.prepare('SELECT COUNT(*) AS count FROM "user" WHERE "banned" = 1').first<{ count: number }>(),
-  env.DB.prepare('SELECT COUNT(*) AS count FROM "user" WHERE "createdAt" >= ?').bind(weekStart).first<{ count: number }>(),
-]);
-const bannedCount = bannedResult?.count ?? 0;
+const weekStartTime = Date.parse(weekStart);
+// Keep the management page available when production has not yet applied an
+// optional auth-schema migration. The rendered page data provides safe values.
+let bannedCount = users.filter((user) => user.banned).length;
+let newThisWeek = users.filter((user) => new Date(user.createdAt).getTime() >= weekStartTime).length;
+try {
+  const [bannedResult, newThisWeekResult] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS count FROM "user" WHERE "banned" = 1').first<{ count: number }>(),
+    env.DB.prepare('SELECT COUNT(*) AS count FROM "user" WHERE "createdAt" >= ?').bind(weekStart).first<{ count: number }>(),
+  ]);
+  bannedCount = bannedResult?.count ?? bannedCount;
+  newThisWeek = newThisWeekResult?.count ?? newThisWeek;
+} catch (error) {
+  console.warn('[admin/auth/users] Unable to load aggregate user metrics', error);
+}
 const activeCount = Math.max(0, total - bannedCount);
-const newThisWeek = newThisWeekResult?.count ?? 0;
 ---
 
 <AdminLayout title="Người dùng | Dental Empire Admin" searchPlaceholder="Tìm email, tên người dùng...">
