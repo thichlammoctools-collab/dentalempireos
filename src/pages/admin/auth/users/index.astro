@@ -1,21 +1,40 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { createAuth } from '../../../../lib/auth';
 
 export const prerender = false;
 
-const auth = createAuth(env);
-
 const limit = 20;
-const result = await auth.api.listUsers({
-  headers: Astro.request.headers,
-  limit,
-  sortBy: 'createdAt',
-  sortDirection: 'desc',
-});
-const users = result.users;
-const total = result.total;
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean | number;
+  createdAt: string;
+  lastActiveAt: string | null;
+  banned: boolean | number | null;
+};
+
+let users: AdminUser[] = [];
+let total = 0;
+let usersLoadError = false;
+
+try {
+  const [countResult, usersResult] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS total FROM "user"').first<{ total: number }>(),
+    env.DB
+      .prepare(
+        'SELECT "id", "name", "email", "emailVerified", "createdAt", "lastActiveAt", "banned" FROM "user" ORDER BY "createdAt" DESC LIMIT ?',
+      )
+      .bind(limit)
+      .all<AdminUser>(),
+  ]);
+  total = countResult?.total ?? 0;
+  users = usersResult.results ?? [];
+} catch (error) {
+  usersLoadError = true;
+  console.error('[admin/auth/users] Failed to load user list', error);
+}
 const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 const weekStartTime = Date.parse(weekStart);
 // Keep the management page available when production has not yet applied an
@@ -63,6 +82,12 @@ const activeCount = Math.max(0, total - bannedCount);
     </div>
 
     <section class="overflow-hidden rounded-3xl border border-outline-variant/25 bg-surface-container-low">
+      {usersLoadError && (
+        <div class="flex items-start gap-3 border-b border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-600 dark:text-rose-300" role="alert">
+          <span class="material-symbols-outlined text-[20px]">error</span>
+          <div><p class="font-bold">Không thể tải danh sách người dùng</p><p class="mt-1 text-xs opacity-80">Kiểm tra kết nối cơ sở dữ liệu rồi tải lại trang.</p></div>
+        </div>
+      )}
       <div class="flex flex-col gap-4 border-b border-outline-variant/20 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
         <label class="relative block min-w-0 flex-1 xl:max-w-md">
           <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">search</span>
