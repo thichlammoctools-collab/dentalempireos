@@ -28,6 +28,7 @@
   var currentStep = -1;
   var answers = { lang: 'vi', survey_id: surveyData.id };
   var partEls = [];
+  var isSubmitting = false;
 
   function showUnavailableMessage() {
     if (!submitError) return;
@@ -360,7 +361,7 @@
   });
 
   function submit() {
-    if (!submitError) return;
+    if (!submitError || isSubmitting) return;
     submitError.classList.add('hidden');
     if (scannerUnavailable) {
       showUnavailableMessage();
@@ -386,7 +387,9 @@
 
     if (!validateSubmission()) return;
 
+    isSubmitting = true;
     if (btnSubmit) btnSubmit.disabled = true;
+    if (stickyNext) stickyNext.disabled = true;
     var original = btnSubmit ? btnSubmit.innerHTML : '';
     if (btnSubmit) btnSubmit.innerHTML = '<span>' + getTrans('submitting', 'Đang xử lý...', 'Processing...') + '</span>';
 
@@ -406,7 +409,12 @@
       return res.json().catch(function () {
         return { error: 'Máy chủ không trả về dữ liệu hợp lệ.' };
       }).then(function (data) {
-        if (!res.ok) throw new Error(data.error || data.message || 'Submit failed');
+        if (!res.ok) {
+          var error = new Error(data.error || data.message || 'Submit failed');
+          error.status = res.status;
+          error.quota = data.quota;
+          throw error;
+        }
         return data;
       });
     })
@@ -421,13 +429,23 @@
     })
     .catch(function (err) {
       if (submitError) {
-        submitError.textContent = err.message || 'Submit failed';
+        if (err.status === 429 && err.quota) {
+          var quota = err.quota;
+          submitError.textContent = isFreeScanner
+            ? 'Bạn đã dùng hết lượt Scanner miễn phí này (' + quota.used + '/' + quota.limit + '). Xem lại kết quả trong Lịch sử Scanner.'
+            : 'Bạn đã dùng hết hạn mức Scanner tháng này (' + quota.used + '/' + quota.limit + '). Xem lại kết quả trong Lịch sử Scanner.';
+          scannerUnavailable = true;
+        } else {
+          submitError.textContent = err.message || 'Submit failed';
+        }
         submitError.classList.remove('hidden');
       }
+      isSubmitting = false;
       if (btnSubmit) {
-        btnSubmit.disabled = false;
+        btnSubmit.disabled = scannerUnavailable;
         btnSubmit.innerHTML = original;
       }
+      if (stickyNext) stickyNext.disabled = scannerUnavailable;
     });
   }
 

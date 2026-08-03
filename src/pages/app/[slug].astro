@@ -825,7 +825,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
             setTimeout(type, speed);
           } else {
             textEl.removeAttribute('aria-hidden');
-            responseStatus.textContent = 'Đã nhận câu trả lời mới.';
+            responseStatus.textContent = text;
             resolve();
           }
         }
@@ -867,12 +867,14 @@ const promptVi = (config.prompt_vi as string) ?? '';
 
         if (!resp.ok) {
           const data = await resp.json().catch(() => ({}));
+          if (requestGeneration !== generation) return;
           const errorMessage = data.error || 'Không thể kết nối AI.';
           addMsg('ai', `<p><span style="color:#f87171">Lỗi: ${escapeHtml(errorMessage)}</span></p>`, []);
           conversationHistory.pop();
           responseStatus.textContent = `Không thể tạo câu trả lời: ${errorMessage}`;
         } else {
           const data = await resp.json();
+          if (requestGeneration !== generation) return;
           const reply = data.reply || '';
 
           // Extract options from [data]...[/data] blocks
