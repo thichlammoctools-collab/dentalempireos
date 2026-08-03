@@ -20,6 +20,7 @@ const getNavState = () => {
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
   if (currentPath.startsWith('/ai-tools')) return 'aitools';
+  if (currentPath.startsWith('/about')) return 'about';
   return '';
 };
 
@@ -197,10 +198,16 @@ const activeNav = getNavState();
       <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
 
-    <button id="mobile-nav-menu" type="button" aria-label="Mở menu" aria-controls="menu-drawer" aria-expanded="false" class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-on-surface-variant transition-all duration-200">
-      <span class="material-symbols-outlined text-2xl">menu</span>
-      <span class="text-[10px] font-medium">Menu</span>
-    </button>
+    <a
+      href="/about"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'about' ? 'text-primary' : 'text-on-surface-variant'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">info</span>
+      <span class="text-[10px] font-medium">About</span>
+    </a>
   </div>
 </nav>
 
