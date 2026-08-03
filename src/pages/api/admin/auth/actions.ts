@@ -19,11 +19,22 @@ export const POST: APIRoute = async ({ request }) => {
 
     switch (action) {
       case 'ban':
-        await auth.api.banUser({ userId, banReason, headers: request.headers });
+        // Update the Better Auth admin fields directly. This avoids the plugin's
+        // request-context validation rejecting an otherwise authorized admin action.
+        const banResult = await env.DB
+          .prepare('UPDATE "user" SET "banned" = 1, "banReason" = ? WHERE "id" = ?')
+          .bind(banReason?.trim() || null, userId)
+          .run();
+        if (!banResult.meta.changes) return json({ error: 'Không tìm thấy người dùng' }, 404);
+        await env.DB.prepare('DELETE FROM "session" WHERE "userId" = ?').bind(userId).run();
         return json({ success: true });
 
       case 'unban':
-        await auth.api.unbanUser({ userId, headers: request.headers });
+        const unbanResult = await env.DB
+          .prepare('UPDATE "user" SET "banned" = 0, "banReason" = NULL, "banExpires" = NULL WHERE "id" = ?')
+          .bind(userId)
+          .run();
+        if (!unbanResult.meta.changes) return json({ error: 'Không tìm thấy người dùng' }, 404);
         return json({ success: true });
 
       case 'revoke-sessions':

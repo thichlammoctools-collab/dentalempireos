@@ -1,13 +1,14 @@
 ---
 const navLinks = [
   { href: '/book', label: 'Đọc sách' },
-  { href: '/videos', label: 'Xem Video' },
-  { href: '/resources', label: 'Tài liệu' },
   { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
-  { href: '/blog', label: 'Blog' },
+  { href: '/#what-you-get', label: 'Nội dung' },
+  { href: '/#reviews', label: 'Đánh giá' },
+  { href: '/#faq', label: 'FAQ' },
 ];
 
 const currentPath = Astro.url.pathname;
+const currentHash = Astro.url.hash;
 ---
 
 <header class="fixed top-0 w-full z-50 bg-surface-container-lowest/80 glass-nav border-b border-outline-variant h-20">
@@ -18,11 +19,14 @@ const currentPath = Astro.url.pathname;
     </a>
 
     <!-- Desktop Nav -->
-    <nav class="hidden md:flex items-center gap-8" aria-label="Điều hướng chính">
+    <nav class="hidden lg:flex items-center gap-8" aria-label="Điều hướng chính">
       {navLinks.map((link) => {
-        const isActive = link.href === '/'
-          ? currentPath === '/'
-          : currentPath.startsWith(link.href);
+        const isAnchorLink = link.href.startsWith('/#');
+        const isActive = isAnchorLink
+          ? currentPath === '/' && currentHash === link.href.slice(1)
+          : link.href === '/'
+            ? currentPath === '/'
+            : currentPath.startsWith(link.href);
         return (
           <a
             href={link.href}
@@ -49,7 +53,7 @@ const currentPath = Astro.url.pathname;
     {!currentPath.startsWith('/resources') && (
       <a
         href="/search"
-        class="md:hidden flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
+        class="lg:hidden flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
       >
         <span class="material-symbols-outlined text-xl">search</span>
         <span class="truncate">Tìm kiếm...</span>
@@ -59,7 +63,7 @@ const currentPath = Astro.url.pathname;
     <!-- Mobile: courses icon -->
     <a
       href="/courses"
-      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+      class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
       aria-label="Khóa học"
     >
       <span class="material-symbols-outlined text-xl">play_circle</span>
@@ -69,13 +73,14 @@ const currentPath = Astro.url.pathname;
     <a
       id="mobile-profile-link"
       href="/account/profile"
-      class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hidden"
+      class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hidden"
     >
       <span class="material-symbols-outlined text-xl">account_circle</span>
     </a>
 
     <!-- Right side (desktop only) -->
-    <div class="hidden md:flex items-center gap-4">
+    <div class="hidden lg:flex items-center gap-4">
+      <a href="/#buy" class="px-4 py-2.5 btn-primary-metallic font-bold rounded-lg label-md whitespace-nowrap">Mua ngay</a>
       <button
         id="desktop-theme-toggle"
         type="button"

@@ -49,11 +49,11 @@ const activeNav = getNavState();
 
     <!-- Auth: Logged Out -->
     <div id="menu-auth-logged-out" class="px-4 pt-4 pb-2 space-y-2">
-      <a href="/signin" class="flex items-center gap-3 p-3 rounded-xl bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors">
+      <a href="/login" class="flex items-center gap-3 p-3 rounded-xl bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors">
         <span class="material-symbols-outlined text-sm">login</span>
         <span>Đăng nhập</span>
       </a>
-      <a href="/signup" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
+      <a href="/register" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors">
         <span class="material-symbols-outlined text-sm text-on-surface-variant">person_add</span>
         <span class="text-sm text-on-surface">Đăng ký</span>
       </a>
@@ -84,26 +84,25 @@ const activeNav = getNavState();
 
     <!-- Navigation -->
     <nav class="px-4 py-2 space-y-1">
-      <a href="/#courses" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined text-sm text-on-surface-variant">school</span>
-        <span class="text-sm text-on-surface">Khóa học</span>
+      <a href="/#what-you-get" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">menu_book</span>
+        <span class="text-sm text-on-surface">Nội dung sách</span>
       </a>
-      <a href="/#resources" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+      <a href="/resources" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-sm text-on-surface-variant">folder_special</span>
         <span class="text-sm text-on-surface">Tài nguyên</span>
-      </a>
-      <a href="/ai-tools" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined text-sm text-on-surface-variant">psychology</span>
-        <span class="text-sm text-on-surface">Công cụ AI</span>
-        <span class="ml-auto px-1.5 py-px bg-amber-500 text-[9px] font-bold text-black rounded-full leading-none">AI</span>
       </a>
       <a href="/#reviews" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-sm text-on-surface-variant">rate_review</span>
         <span class="text-sm text-on-surface">Đánh giá</span>
       </a>
-      <a href="/#about" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined text-sm text-on-surface-variant">info</span>
-        <span class="text-sm text-on-surface">Giới thiệu</span>
+      <a href="/#faq" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">help</span>
+        <span class="text-sm text-on-surface">Câu hỏi thường gặp</span>
+      </a>
+      <a href="/#buy" class="flex items-center gap-3 p-3 rounded-xl bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors">
+        <span class="material-symbols-outlined text-sm">shopping_bag</span>
+        <span class="text-sm">Mua ngay</span>
       </a>
     </nav>
 
@@ -197,6 +196,11 @@ const activeNav = getNavState();
       <span class="text-[10px] font-semibold">Công cụ</span>
       <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
+
+    <button id="mobile-nav-menu" type="button" aria-label="Mở menu" aria-controls="menu-drawer" aria-expanded="false" class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-on-surface-variant transition-all duration-200">
+      <span class="material-symbols-outlined text-2xl">menu</span>
+      <span class="text-[10px] font-medium">Menu</span>
+    </button>
   </div>
 </nav>
 
@@ -297,6 +301,7 @@ const activeNav = getNavState();
 
     function openMenu() {
       isMenuOpen = true;
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
       if (menuOverlay) menuOverlay.classList.add('opacity-100', 'pointer-events-auto');
       if (menuOverlay) menuOverlay.classList.remove('opacity-0', 'pointer-events-none');
       if (menuDrawer) menuDrawer.style.transform = 'translateX(0)';
@@ -308,6 +313,7 @@ const activeNav = getNavState();
 
     function closeMenu() {
       isMenuOpen = false;
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
       if (menuOverlay) menuOverlay.classList.remove('opacity-100', 'pointer-events-auto');
       if (menuOverlay) menuOverlay.classList.add('opacity-0', 'pointer-events-none');
       if (menuDrawer) menuDrawer.style.transform = 'translateX(100%)';

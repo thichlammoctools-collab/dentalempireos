@@ -155,7 +155,7 @@ const DEFAULTS: Omit<HomepageSettings, 'id' | 'updated_at'> = {
   founder_image_url: '',
   founder_link_text: 'Xem chi tiết hành trình',
   cta_heading: 'Sẵn sàng để bắt đầu hành trình nâng tầm?',
-  cta_subtext: 'Tham gia cộng đồng 10.000+ bác sĩ hoặc tải ngay bộ Toolkit quản trị miễn phí của chúng tôi.',
+  cta_subtext: 'Khám phá khung quản trị và xem trước nội dung sách trước khi quyết định.',
   cta_primary_text: 'Tham gia Community',
   cta_secondary_text: 'Tải miễn phí Toolkit',
   cta_primary_icon: 'groups',

@@ -63,6 +63,10 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
     {singleMethod ? (
       <dialog class="payment-method-dialog fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-0 text-on-surface shadow-2xl backdrop:bg-black/70">
         <div class="p-6">
+          <div class="flex items-start justify-between gap-4">
+            <h2 class="text-lg font-bold text-on-surface">Thanh toán</h2>
+            <button type="button" class="payment-dialog-close rounded-lg p-1 text-on-surface-variant hover:bg-surface-container-high" aria-label="Đóng"><span class="material-symbols-outlined">close</span></button>
+          </div>
           <p class="payment-dialog-error hidden mt-4 text-xs text-rose-300" role="alert"></p>
         </div>
       </dialog>
@@ -122,6 +126,12 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
       const error = dialog.querySelector('.payment-dialog-error') as HTMLElement;
       if (!productId || !method || isCreatingPayment) return;
 
+      const showError = (message: string) => {
+        if (!dialog.open) dialog.showModal();
+        error.textContent = message;
+        error.classList.remove('hidden');
+      };
+
       isCreatingPayment = true;
       button.disabled = true;
       error.classList.add('hidden');
@@ -133,8 +143,7 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
         });
         const data = await resp.json() as Record<string, unknown>;
         if (!resp.ok || data.error) {
-          error.textContent = (data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.';
-          error.classList.remove('hidden');
+          showError((data.error as string) || 'Lỗi tạo thanh toán. Vui lòng thử lại.');
           return;
         }
         if (method === 'manual' && data.orderId) {
@@ -143,8 +152,7 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
           window.location.href = data.checkoutUrl as string;
         }
       } catch {
-        error.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
-        error.classList.remove('hidden');
+        showError('Lỗi kết nối. Vui lòng thử lại.');
       } finally {
         isCreatingPayment = false;
         button.disabled = false;
@@ -152,6 +160,11 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
     }
 
     // Nếu chỉ có 1 phương thức, tự động submit khi bấm "Mua ngay"
+    dialog.querySelector('.payment-dialog-close')?.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
     if (singleMethod) {
       button.addEventListener('click', () => createPayment(singleMethod));
       return;
@@ -159,10 +172,6 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
 
     // Trường hợp nhiều phương thức — mở dialog
     button.addEventListener('click', () => dialog.showModal());
-    dialog.querySelector('.payment-dialog-close')?.addEventListener('click', () => dialog.close());
-    dialog.addEventListener('click', (event) => {
-      if (event.target === dialog) dialog.close();
-    });
 
     dialog.addEventListener('close', () => {
       dialog.querySelectorAll('.payment-option').forEach((option) => option.removeAttribute('disabled'));
