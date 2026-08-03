@@ -1,14 +1,11 @@
 ---
 const navLinks = [
-  { href: '/book', label: 'Đọc sách' },
-  { href: '/#what-you-get', label: 'Nội dung' },
-  { href: '/#reviews', label: 'Đánh giá' },
-  { href: '/#faq', label: 'FAQ' },
-];
-
-const standaloneLinks = [
-  { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
   { href: '/about', label: 'About' },
+  { href: '/blog', label: 'Tin Tức' },
+  { href: '/resources', label: 'Tài nguyên' },
+  { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
+  { href: '/#buy', label: 'Mua ngay' },
+  { href: '/book', label: 'Đọc sách' },
 ];
 
 const currentPath = Astro.url.pathname;
@@ -24,7 +21,7 @@ const currentHash = Astro.url.hash;
 
     <!-- Desktop Nav -->
     <nav class="hidden lg:flex items-center gap-8" aria-label="Điều hướng chính">
-      {navLinks.map((link) => {
+      {navLinks.slice(0, 4).map((link) => {
         const isAnchorLink = link.href.startsWith('/#');
         const isActive = isAnchorLink
           ? currentPath === '/' && currentHash === link.href.slice(1)
@@ -84,9 +81,8 @@ const currentHash = Astro.url.hash;
 
     <!-- Right side (desktop only) -->
     <div class="hidden lg:flex items-center gap-4">
-      <a href="/#buy" class="px-4 py-2.5 btn-primary-metallic font-bold rounded-lg label-md whitespace-nowrap">Mua ngay</a>
       <nav class="flex items-center gap-5" aria-label="Liên kết trang">
-        {standaloneLinks.map((link) => {
+        {navLinks.slice(4).map((link) => {
           const isActive = currentPath.startsWith(link.href);
           return (
             <a
@@ -94,17 +90,14 @@ const currentHash = Astro.url.hash;
               aria-current={isActive ? 'page' : undefined}
               class:list={[
                 'label-md font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap',
-                isActive
-                  ? 'text-primary border-b-2 border-primary pb-1'
-                  : 'text-on-surface-variant hover:text-primary',
+                link.label === 'Mua ngay'
+                  ? 'px-4 py-2.5 btn-primary-metallic font-bold rounded-lg'
+                  : isActive
+                    ? 'text-primary border-b-2 border-primary pb-1'
+                    : 'text-on-surface-variant hover:text-primary',
               ]}
             >
               {link.label}
-              {link.badge && (
-                <span class="px-1.5 py-0.5 bg-amber-500 text-[9px] font-bold text-black rounded-full leading-none">
-                  {link.badge}
-                </span>
-              )}
             </a>
           );
         })}
