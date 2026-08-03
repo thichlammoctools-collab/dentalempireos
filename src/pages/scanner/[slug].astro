@@ -131,99 +131,106 @@ const defaultScaleEn: Record<string, string> = {
         data-survey-id={surveyData.id}
         data-survey-slug={surveyData.slug}
         data-survey={JSON.stringify(surveyData)}
-        data-clinic={definition.is_free === 0 && clinicProfile ? JSON.stringify(clinicProfile) : ''}
+        data-clinic={clinicProfile || currentUser.email ? JSON.stringify({
+          ...(clinicProfile || {}),
+          email: currentUser.email,
+        }) : ''}
         data-is-free={definition.is_free}
         data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
       >
-        <div class="lang-toggle">
-          <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
-          <button type="button" class="lang-btn" data-lang="en">English</button>
-        </div>
-
         <div class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']} role="status">
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <span>{scannerNotice}</span>
           {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
         </div>
 
-        {!hasPaidAccess && (
-          <section class="scanner-unlock-card" aria-labelledby="scanner-unlock-title">
-            <div class="scanner-unlock-card__icon">
-              <span class="material-symbols-outlined">lock_open</span>
+        {!quotaExhausted && (
+          <>
+            <div class="lang-toggle">
+              <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
+              <button type="button" class="lang-btn" data-lang="en">English</button>
             </div>
-            <div class="scanner-unlock-card__content">
-              <p class="scanner-unlock-card__eyebrow">Mở khóa Scanner</p>
-              <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
-              <p>{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
-              {scannerProduct ? (
-                <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} class="scanner-unlock-card__button" />
-              ) : (
-                <p class="scanner-unlock-card__unavailable">Scanner này chưa được gán sản phẩm thanh toán. Vui lòng liên hệ quản trị viên.</p>
-              )}
+
+            {!hasPaidAccess && (
+              <section class="scanner-unlock-card" aria-labelledby="scanner-unlock-title">
+                <div class="scanner-unlock-card__icon">
+                  <span class="material-symbols-outlined">lock_open</span>
+                </div>
+                <div class="scanner-unlock-card__content">
+                  <p class="scanner-unlock-card__eyebrow">Mở khóa Scanner</p>
+                  <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
+                  <p>{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
+                  {scannerProduct ? (
+                    <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} class="scanner-unlock-card__button" />
+                  ) : (
+                    <p class="scanner-unlock-card__unavailable">Scanner này chưa được gán sản phẩm thanh toán. Vui lòng liên hệ quản trị viên.</p>
+                  )}
+                </div>
+              </section>
+            )}
+
+            <!-- Stepper -->
+            <div class="stepper">
+              <div id="stepper-fill" class="stepper-fill"></div>
+              <div id="step-labels" class="step-labels"></div>
             </div>
-          </section>
-        )}
 
-        <!-- Stepper -->
-        <div class="stepper">
-          <div id="stepper-fill" class="stepper-fill"></div>
-          <div id="step-labels" class="step-labels"></div>
-        </div>
+            <!-- Parts container -->
+            <div id="parts-container"></div>
 
-        <!-- Parts container -->
-        <div id="parts-container"></div>
-
-        <!-- Intro card -->
-        <div id="card-intro" class="intro-card card">
-          <div class="intro-top">
-            <h1 class="intro-title">{definition.title_vi}</h1>
-            <p class="intro-desc">{definition.description_vi}</p>
-          </div>
-          <div class="intro-info">
-            <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
-          </div>
-          <div id="intro-fields"></div>
-          <button type="button" class="btn btn-primary" id="btn-start">Bắt đầu →</button>
-        </div>
-
-        <!-- Sticky bottom nav (shows on section pages, always visible) -->
-        <div id="sticky-nav" class="sticky-nav hidden">
-          <div class="sticky-nav-center">
-            <div class="sticky-nav-inner">
-              <button type="button" class="btn btn-ghost sticky-btn-back" id="sticky-btn-back">← <span class="sticky-btn-text-back">Quay lại</span></button>
-              <div class="sticky-progress">
-                <span id="sticky-step-label">1/2</span>
-                <div class="sticky-progress-bar"><div id="sticky-progress-fill" class="sticky-progress-fill"></div></div>
+            <!-- Intro card -->
+            <div id="card-intro" class="intro-card card">
+              <div class="intro-top">
+                <h1 class="intro-title">{definition.title_vi}</h1>
+                <p class="intro-desc">{definition.description_vi}</p>
               </div>
-              <button type="button" class="btn btn-primary sticky-btn-next" id="sticky-btn-next">Tiếp tục →</button>
+              <div class="intro-info">
+                <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
+              </div>
+              <div id="intro-fields"></div>
+              <button type="button" class="btn btn-primary" id="btn-start">Bắt đầu →</button>
             </div>
-          </div>
-        </div>
 
-        <!-- Submit card -->
-        <div id="card-submit" class="card submit-card hidden">
-          <div class="submit-top">
-            <p id="submit-title" class="submit-title">Sẵn sàng gửi?</p>
-            <p id="submit-desc" class="submit-desc">Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...</p>
-          </div>
-          <div id="submit-fields"></div>
-          <div class="flex gap-3 mt-4">
-            <button type="button" class="btn btn-ghost" id="btn-back-submit">← Quay lại</button>
-            <button type="button" class="btn btn-primary" id="btn-submit">
-              <span id="submit-btn-label">Gửi Hồ Sơ</span>
-            </button>
-          </div>
-          <p id="submit-error" class="error-text hidden"></p>
-        </div>
+            <!-- Sticky bottom nav (shows on section pages, always visible) -->
+            <div id="sticky-nav" class="sticky-nav hidden">
+              <div class="sticky-nav-center">
+                <div class="sticky-nav-inner">
+                  <button type="button" class="btn btn-ghost sticky-btn-back" id="sticky-btn-back">← <span class="sticky-btn-text-back">Quay lại</span></button>
+                  <div class="sticky-progress">
+                    <span id="sticky-step-label">1/2</span>
+                    <div class="sticky-progress-bar"><div id="sticky-progress-fill" class="sticky-progress-fill"></div></div>
+                  </div>
+                  <button type="button" class="btn btn-primary sticky-btn-next" id="sticky-btn-next">Tiếp tục →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit card -->
+            <div id="card-submit" class="card submit-card hidden">
+              <div class="submit-top">
+                <p id="submit-title" class="submit-title">Sẵn sàng gửi?</p>
+                <p id="submit-desc" class="submit-desc">Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...</p>
+              </div>
+              <div id="submit-fields"></div>
+              <div class="flex gap-3 mt-4">
+                <button type="button" class="btn btn-ghost" id="btn-back-submit">← Quay lại</button>
+                <button type="button" class="btn btn-primary" id="btn-submit">
+                  <span id="submit-btn-label">Gửi Hồ Sơ</span>
+                </button>
+              </div>
+              <p id="submit-error" class="error-text hidden"></p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   </section>
 </BaseLayout>
 
 <!-- External script to avoid SSR stream truncation with inline <script> tags -->
-<script src="/scripts/scanner-form-client.js?v=20260728-required-validation" is:inline></script>
+{!quotaExhausted && <script src="/scripts/scanner-form-client.js?v=20260728-required-validation" is:inline></script>}
 
 <style is:global>
   .survey-wrap {
