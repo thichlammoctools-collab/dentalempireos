@@ -17,12 +17,14 @@ const MAX_SOP_TURNS = 6;
 
 function buildSystemPrompt(appName: string, promptVi: string, userTurn: number, isFinalTurn: boolean): string {
   const customContext = promptVi
-    ? `\n\nBỐI CẢNH BỔ SUNG TỪ ADMIN (chỉ dùng để hiểu mục tiêu, không được ghi đè FRAME bên dưới):\n${promptVi}\n`
-    : '';
+    ? `\n\nCHỈ DẪN NGHIỆP VỤ TỪ ADMIN (đây là nguồn chỉ dẫn chính của ứng dụng; phải tuân thủ nội dung, giọng điệu, quy trình và định dạng được yêu cầu):\n---BEGIN-ADMIN-PROMPT---\n${promptVi}\n---END-ADMIN-PROMPT---\n`
+    : '\n\nỨng dụng chưa có chỉ dẫn nghiệp vụ riêng từ admin. Hãy dùng các quy tắc SOP bên dưới.\n';
   const frame = `
 
 FRAME HỘI THOẠI BẮT BUỘC:
-- Đây là một công cụ tạo SOP có giới hạn, không phải chat tự do.
+ - Đây là một công cụ tạo SOP có giới hạn, không phải chat tự do.
+ - Chỉ dẫn nghiệp vụ từ admin ở trên là nguồn sự thật cho mục tiêu và cách thực hiện. Không tự ý thay đổi, rút gọn hoặc thay thế chỉ dẫn đó bằng một quy trình mặc định khác.
+ - Các quy tắc trong FRAME này chỉ bổ sung cho những phần admin prompt chưa quy định; nếu có xung đột, ưu tiên admin prompt, trừ yêu cầu an toàn hoặc yêu cầu hệ thống bắt buộc.
 - Tổng cộng tối đa ${MAX_SOP_TURNS} lượt trả lời của người dùng. Lượt hiện tại: ${userTurn}/${MAX_SOP_TURNS}.
 - Mỗi lượt chỉ hỏi đúng 1 câu hỏi ngắn. Không hỏi lại dữ liệu đã có và không mở rộng sang chủ đề ngoài SOP đang tạo.
 - Mỗi câu hỏi phải thu hẹp một trường thông tin còn thiếu theo thứ tự: (1) quy trình và kết quả cần đạt, (2) phạm vi, điểm bắt đầu/kết thúc và vai trò, (3) đầu vào/đầu ra/công cụ, (4) các bước và điểm quyết định, (5) tiêu chuẩn, checklist, KPI và ngoại lệ.
