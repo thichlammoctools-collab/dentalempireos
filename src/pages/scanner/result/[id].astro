@@ -441,7 +441,7 @@ try {
               <div id="plan-status" class="text-center text-sm text-on-surface-variant mb-3">
                 {lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...'}
               </div>
-              <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
+               <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
               <div class="text-center mt-3">
                 <p class="text-xs text-on-surface-variant mb-2">
                   {lang === 'vi' ? 'Nếu quá trình dừng quá lâu, bạn có thể tạo lại kế hoạch.' : 'If this takes too long, you can generate the plan again.'}
@@ -495,7 +495,7 @@ try {
           <div id="analysis-action">
             <div id="analysis-loading" class="hidden">
               <div id="analysis-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
-              <pre id="analysis-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
+               <pre id="analysis-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
             </div>
             <div id="analysis-cta" class="text-center">
               <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis">
@@ -518,7 +518,7 @@ try {
           <div id="analysis-free-action" class="text-center">
             <div id="analysis-free-loading" class="hidden">
               <div id="analysis-free-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
-              <pre id="analysis-free-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surfaceVariant max-h-96 overflow-y-auto"></pre>
+               <pre id="analysis-free-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
             </div>
             <div id="analysis-free-cta">
               <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis-free">
@@ -599,8 +599,8 @@ try {
     gap: 1.5rem;
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.55));
-    border: 1px solid var(--outline-variant);
+     background: linear-gradient(135deg, var(--color-surface-container-high), var(--color-surface-container));
+     border: 1px solid var(--color-outline-variant);
     border-radius: 1rem;
     flex-wrap: wrap;
   }
@@ -611,31 +611,31 @@ try {
     width: 3.75rem;
     height: 3.75rem;
     flex: none;
-    color: #fbbf24;
-    background: rgba(245, 158, 11, 0.12);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+     color: var(--color-warning);
+     background: color-mix(in srgb, var(--color-warning-container) 75%, transparent);
+     border: 1px solid color-mix(in srgb, var(--color-warning) 40%, var(--color-outline-variant));
     border-radius: 0.875rem;
     overflow: hidden;
   }
   .clinic-mark .material-symbols-outlined { font-size: 1.75rem; }
-  .clinic-mark img { width: 100%; height: 100%; object-fit: contain; background: white; }
+   .clinic-mark img { width: 100%; height: 100%; object-fit: contain; background: var(--color-surface-bright); }
   .report-identity-copy { min-width: 0; }
-  .report-kicker { color: #fbbf24; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; margin: 0 0 0.35rem; text-transform: uppercase; }
+   .report-kicker { color: var(--color-warning); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; margin: 0 0 0.35rem; text-transform: uppercase; }
   .result-title {
     font-size: clamp(1.45rem, 3vw, 2rem);
     font-weight: 800;
     line-height: 1.15;
     margin: 0;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
   }
-  .report-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.65rem; color: var(--on-surface-variant); font-size: 0.8rem; }
+   .report-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.65rem; color: var(--color-on-surface-variant); font-size: 0.8rem; }
   .report-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
-  .report-meta .material-symbols-outlined { font-size: 0.95rem; color: #94a3b8; }
+   .report-meta .material-symbols-outlined { font-size: 0.95rem; color: var(--color-on-surface-variant); }
   .report-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
   .card {
-    background: var(--surface);
-    border: 1px solid var(--outline-variant);
+     background: var(--color-surface);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 1rem;
     padding: 1.75rem;
     margin-bottom: 1.25rem;
@@ -655,16 +655,16 @@ try {
     gap: 0.5rem;
     margin: -0.25rem 0 1.5rem;
     padding: 0.65rem 0.75rem;
-    color: var(--on-surface-variant);
-    background: rgba(59, 130, 246, 0.07);
-    border: 1px solid rgba(59, 130, 246, 0.18);
+     color: var(--color-on-surface-variant);
+     background: color-mix(in srgb, var(--color-primary-container) 42%, transparent);
+     border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-outline-variant));
     border-radius: 0.625rem;
     font-size: 0.78rem;
     line-height: 1.4;
   }
-  .report-context .material-symbols-outlined { color: #60a5fa; font-size: 1.05rem; }
-  .report-context a { margin-left: auto; color: #93c5fd; font-weight: 700; text-decoration: none; white-space: nowrap; }
-  .report-context a:hover { color: #dbeafe; }
+   .report-context .material-symbols-outlined { color: var(--color-primary); font-size: 1.05rem; }
+   .report-context a { margin-left: auto; color: var(--color-primary); font-weight: 700; text-decoration: none; white-space: nowrap; }
+   .report-context a:hover { color: var(--color-on-primary-container); }
   .score-total {
     display: flex;
     align-items: baseline;
@@ -678,13 +678,13 @@ try {
   }
   .score-suffix {
     font-size: 1.25rem;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-weight: 500;
   }
   .score-summary {
     flex: 1;
     min-width: 280px;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     line-height: 1.6;
     font-size: 0.95rem;
     max-width: 480px;
@@ -701,12 +701,12 @@ try {
     margin-bottom: 0.4rem;
     font-size: 0.9rem;
   }
-  .bar-name { font-weight: 600; color: var(--on-surface); }
+   .bar-name { font-weight: 600; color: var(--color-on-surface); }
   .bar-value { font-weight: 700; }
-  .bar-level { font-weight: 400; color: var(--on-surface-variant); font-size: 0.85rem; }
+   .bar-level { font-weight: 400; color: var(--color-on-surface-variant); font-size: 0.85rem; }
   .bar-track {
     height: 10px;
-    background: rgba(255, 255, 255, 0.05);
+     background: var(--color-surface-container-highest);
     border-radius: 999px;
     overflow: hidden;
   }
@@ -720,12 +720,12 @@ try {
   .analysis-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin: 0.25rem 0 0;
   }
 
   .prose-content {
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     line-height: 1.75;
   }
   .prose-content :global(h1),
@@ -736,9 +736,9 @@ try {
     font-weight: 700;
     line-height: 1.3;
   }
-  .prose-content :global(h1) { font-size: 1.5rem; color: var(--on-surface); }
-  .prose-content :global(h2) { font-size: 1.25rem; color: var(--on-surface); }
-  .prose-content :global(h3) { font-size: 1.05rem; color: var(--on-surface); }
+   .prose-content :global(h1) { font-size: 1.5rem; color: var(--color-on-surface); }
+   .prose-content :global(h2) { font-size: 1.25rem; color: var(--color-on-surface); }
+   .prose-content :global(h3) { font-size: 1.05rem; color: var(--color-on-surface); }
   .prose-content :global(p) { margin: 0 0 1rem; }
   .prose-content :global(ul),
   .prose-content :global(ol) {
@@ -746,24 +746,24 @@ try {
     padding-left: 1.5rem;
   }
   .prose-content :global(li) { margin-bottom: 0.4rem; }
-  .prose-content :global(strong) { color: #f59e0b; }
-  .prose-content :global(em) { color: var(--on-surface-variant); font-style: italic; }
+   .prose-content :global(strong) { color: var(--color-warning); }
+   .prose-content :global(em) { color: var(--color-on-surface-variant); font-style: italic; }
   .prose-content :global(blockquote) {
-    border-left: 3px solid #f59e0b;
+     border-left: 3px solid var(--color-warning);
     padding: 0.25rem 0 0.25rem 1rem;
     margin: 1rem 0;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-style: italic;
   }
   .prose-content :global(code) {
-    background: rgba(255, 255, 255, 0.06);
+     background: var(--color-surface-container-high);
     padding: 0.1rem 0.35rem;
     border-radius: 0.25rem;
     font-size: 0.9em;
   }
   .prose-content :global(hr) {
     border: 0;
-    border-top: 1px solid var(--outline-variant);
+     border-top: 1px solid var(--color-outline-variant);
     margin: 2rem 0;
   }
 
@@ -771,9 +771,9 @@ try {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: #fbbf24;
-    background: rgba(245, 158, 11, 0.08);
-    border: 1px solid rgba(245, 158, 11, 0.2);
+     color: var(--color-warning);
+     background: color-mix(in srgb, var(--color-warning-container) 72%, transparent);
+     border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-outline-variant));
     border-radius: 0.625rem;
     font-size: 0.8rem;
     font-weight: 600;
@@ -784,11 +784,11 @@ try {
   .plan-document-meta .material-symbols-outlined { font-size: 1.125rem; flex: none; }
   .plan-content :global(h2) {
     align-items: center;
-    background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.02));
-    border: 1px solid rgba(245, 158, 11, 0.24);
-    border-left: 4px solid #f59e0b;
+     background: linear-gradient(90deg, color-mix(in srgb, var(--color-warning-container) 72%, transparent), transparent);
+     border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-outline-variant));
+     border-left: 4px solid var(--color-warning);
     border-radius: 0 0.625rem 0.625rem 0;
-    color: #f8fafc;
+     color: var(--color-on-surface);
     display: flex;
     font-size: 1.1rem;
     margin: 2rem 0 0.875rem;
@@ -797,34 +797,34 @@ try {
   }
   .plan-content :global(h2:first-child) { margin-top: 0; }
   .plan-content :global(h3) {
-    border-bottom: 1px solid var(--outline-variant);
-    color: #fbbf24;
+     border-bottom: 1px solid var(--color-outline-variant);
+     color: var(--color-warning);
     font-size: 0.95rem;
     margin: 1.25rem 0 0;
     padding: 0 0 0.5rem;
   }
   .plan-content :global(p:has(> strong:first-child)) {
-    background: var(--surface-container);
-    border: 1px solid var(--outline-variant);
+     background: var(--color-surface-container);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.75rem;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
     line-height: 1.7;
     margin: 0 0 0.875rem;
     padding: 1rem 1.125rem;
   }
-  .plan-content :global(p:has(> strong:first-child) > strong:first-child) { color: #fbbf24; }
-  .plan-content :global(p:has(> strong:first-child) > strong ~ strong) { color: #4ade80; }
+   .plan-content :global(p:has(> strong:first-child) > strong:first-child) { color: var(--color-warning); }
+   .plan-content :global(p:has(> strong:first-child) > strong ~ strong) { color: var(--color-success); }
   .plan-content :global(ul:has(> li > strong)) {
-    background: var(--surface-container);
-    border: 1px solid var(--outline-variant);
+     background: var(--color-surface-container);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.75rem;
     list-style: none;
     margin: 0 0 0.875rem;
     padding: 0.75rem 1rem;
   }
-  .plan-content :global(ul:has(> li > strong) li) { border-bottom: 1px solid var(--outline-variant); margin: 0; padding: 0.55rem 0; }
+   .plan-content :global(ul:has(> li > strong) li) { border-bottom: 1px solid var(--color-outline-variant); margin: 0; padding: 0.55rem 0; }
   .plan-content :global(ul:has(> li > strong) li:last-child) { border-bottom: 0; }
-  .plan-content :global(ul:has(> li > strong) strong) { color: #fbbf24; }
+   .plan-content :global(ul:has(> li > strong) strong) { color: var(--color-warning); }
 
   .paywall-overlay {
     display: flex;
@@ -832,18 +832,18 @@ try {
     align-items: center;
     padding: 2.5rem 1rem;
     text-align: center;
-    border-top: 1px solid var(--outline-variant);
+     border-top: 1px solid var(--color-outline-variant);
     margin-top: 1rem;
   }
   .paywall-icon { margin-bottom: 1rem; }
   .paywall-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin: 0 0 0.5rem;
   }
   .paywall-desc {
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-size: 0.9rem;
     line-height: 1.55;
     max-width: 480px;
@@ -858,11 +858,11 @@ try {
   .paywall-amount {
     font-size: 2rem;
     font-weight: 800;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
   }
   .paywall-currency {
     font-size: 1rem;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-weight: 500;
   }
   .paywall-btn {
@@ -870,7 +870,7 @@ try {
     font-size: 1rem;
   }
   .paywall-note {
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-size: 0.75rem;
     margin-top: 0.75rem;
     opacity: 0.7;
@@ -891,7 +891,7 @@ try {
   .cross-sell-title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin: 0 0 1rem;
   }
   .cross-sell-grid {
@@ -904,14 +904,14 @@ try {
     align-items: center;
     gap: 0.75rem;
     padding: 0.85rem 1rem;
-    background: var(--surface-container);
-    border: 1px solid var(--outline-variant);
+     background: var(--color-surface-container);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.6rem;
     text-decoration: none;
     transition: all 0.2s;
   }
   .cross-sell-item:hover {
-    border-color: var(--primary);
+     border-color: var(--color-primary);
     transform: translateY(-1px);
   }
 
@@ -925,7 +925,7 @@ try {
   .insight-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin: 0;
   }
   .insight-section { margin-bottom: 1.25rem; }
@@ -944,7 +944,7 @@ try {
   .insight-section-label.warning { color: #f59e0b; }
   .insight-items { display: flex; flex-direction: column; gap: 0.6rem; }
   .insight-item {
-    background: var(--surface-container);
+     background: var(--color-surface-container);
     border-radius: 0.6rem;
     padding: 0.75rem 1rem;
   }
@@ -959,7 +959,7 @@ try {
   .insight-question {
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     flex: 1;
     min-width: 0;
   }
@@ -971,11 +971,11 @@ try {
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .success-badge { background: rgba(34,197,94,0.15); color: #22c55e; }
-  .warning-badge { background: rgba(245,158,11,0.15); color: #f59e0b; }
+   .success-badge { background: color-mix(in srgb, var(--color-success-container) 78%, transparent); color: var(--color-success); }
+   .warning-badge { background: color-mix(in srgb, var(--color-warning-container) 78%, transparent); color: var(--color-warning); }
   .insight-bar-track {
     height: 6px;
-    background: rgba(255,255,255,0.05);
+     background: var(--color-surface-container-highest);
     border-radius: 999px;
     overflow: hidden;
   }
@@ -989,15 +989,15 @@ try {
   .reading-list { display: flex; flex-direction: column; gap: 0.75rem; }
   .reading-item {
     display: block;
-    background: var(--surface-container);
-    border: 1px solid var(--outline-variant);
+     background: var(--color-surface-container);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.75rem;
     padding: 1rem 1.25rem;
     text-decoration: none;
     transition: all 0.2s;
   }
   .reading-item:hover {
-    border-color: var(--primary);
+     border-color: var(--color-primary);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
@@ -1005,21 +1005,21 @@ try {
   .reading-tag {
     font-size: 0.75rem;
     font-weight: 800;
-    background: rgba(245,158,11,0.15);
-    color: #f59e0b;
+     background: color-mix(in srgb, var(--color-warning-container) 78%, transparent);
+     color: var(--color-warning);
     padding: 0.2rem 0.5rem;
     border-radius: 0.3rem;
-    border: 1px solid rgba(245,158,11,0.3);
+     border: 1px solid color-mix(in srgb, var(--color-warning) 40%, var(--color-outline-variant));
   }
   .reading-title {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin: 0;
   }
   .reading-excerpt {
     font-size: 0.85rem;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     line-height: 1.6;
     margin: 0 0 0.6rem;
     display: -webkit-box;
@@ -1034,7 +1034,7 @@ try {
     gap: 0.25rem;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--primary);
+     color: var(--color-primary);
   }
 
   .btn {
@@ -1051,24 +1051,24 @@ try {
     gap: 0.4rem;
   }
   .btn-amber {
-    background: linear-gradient(135deg, #f59e0b, #f97316);
-    color: white;
+     background: var(--color-tertiary-container);
+     color: var(--color-on-tertiary-container);
     width: 100%;
     justify-content: center;
   }
   .btn-amber:hover { opacity: 0.9; transform: translateY(-1px); }
   .btn-amber:active { transform: scale(0.98); }
   .btn-primary {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    color: white;
+     background: var(--color-primary);
+     color: var(--color-on-primary);
   }
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
   .btn-ghost {
     background: transparent;
-    color: var(--on-surface-variant);
-    border: 1px solid var(--outline-variant);
+     color: var(--color-on-surface-variant);
+     border: 1px solid var(--color-outline-variant);
   }
-  .btn-ghost:hover { color: var(--on-surface); }
+   .btn-ghost:hover { color: var(--color-on-surface); }
 
   .plan-tools {
     display: flex;
@@ -1099,8 +1099,8 @@ try {
     .plan-tool-button { flex: 1; justify-content: center; }
   }
   .ai-stream-preview {
-    background: var(--color-surface-container-lowest, #1a1a1a);
-    border: 1px solid var(--color-outline-variant, #333);
+     background: var(--color-surface-container-lowest);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
     padding: 1rem;
     font-family: var(--font-mono, monospace);

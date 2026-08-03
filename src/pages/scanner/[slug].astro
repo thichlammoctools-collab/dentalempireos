@@ -237,13 +237,13 @@ const defaultScaleEn: Record<string, string> = {
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.75rem 0.9rem;
-    border: 1px solid rgba(34, 197, 94, 0.25);
+    border: 1px solid color-mix(in srgb, var(--color-success) 35%, var(--color-outline-variant));
     border-radius: 0.75rem;
-    background: rgba(34, 197, 94, 0.08);
-    color: #bbf7d0;
+    background: color-mix(in srgb, var(--color-success-container) 72%, transparent);
+    color: var(--color-success);
     font-size: 0.8rem;
   }
-  .scanner-quota-notice--blocked { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.1); color: #fde68a; }
+  .scanner-quota-notice--blocked { border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant)); background: color-mix(in srgb, var(--color-warning-container) 76%, transparent); color: var(--color-warning); }
   .scanner-quota-notice .material-symbols-outlined { font-size: 1rem; }
   .scanner-quota-notice a { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; }
   .scanner-unlock-card {
@@ -252,9 +252,9 @@ const defaultScaleEn: Record<string, string> = {
     gap: 1rem;
     margin: 0 0 1rem;
     padding: 1.25rem;
-    border: 1px solid rgba(245, 158, 11, 0.35);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant));
     border-radius: 1rem;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(30, 41, 59, 0.6));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-warning-container) 82%, var(--color-surface)), var(--color-surface-container));
   }
   .scanner-unlock-card__icon {
     display: flex;
@@ -264,14 +264,14 @@ const defaultScaleEn: Record<string, string> = {
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 0.75rem;
-    background: rgba(245, 158, 11, 0.16);
-    color: #fbbf24;
+    background: color-mix(in srgb, var(--color-warning-container) 78%, transparent);
+    color: var(--color-warning);
   }
   .scanner-unlock-card__content { min-width: 0; }
-  .scanner-unlock-card__eyebrow { margin: 0 0 0.25rem; color: #fbbf24; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-  .scanner-unlock-card h2 { margin: 0; color: var(--on-surface); font-size: 1rem; font-weight: 800; }
-  .scanner-unlock-card__content > p:not(.scanner-unlock-card__eyebrow):not(.scanner-unlock-card__unavailable) { margin: 0.4rem 0 1rem; color: var(--on-surface-variant); font-size: 0.85rem; line-height: 1.5; }
-  .scanner-unlock-card__unavailable { margin: 0.75rem 0 0; color: #fde68a; font-size: 0.8rem; }
+  .scanner-unlock-card__eyebrow { margin: 0 0 0.25rem; color: var(--color-warning); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .scanner-unlock-card h2 { margin: 0; color: var(--color-on-surface); font-size: 1rem; font-weight: 800; }
+  .scanner-unlock-card__content > p:not(.scanner-unlock-card__eyebrow):not(.scanner-unlock-card__unavailable) { margin: 0.4rem 0 1rem; color: var(--color-on-surface-variant); font-size: 0.85rem; line-height: 1.5; }
+  .scanner-unlock-card__unavailable { margin: 0.75rem 0 0; color: var(--color-warning); font-size: 0.8rem; }
   @media (max-width: 480px) {
     .scanner-unlock-card { gap: 0.75rem; padding: 1rem; }
     .scanner-unlock-card__icon { width: 2.25rem; height: 2.25rem; }
@@ -285,22 +285,22 @@ const defaultScaleEn: Record<string, string> = {
   .lang-toggle .lang-btn {
     padding: 0.35rem 0.85rem;
     border-radius: 2rem;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--color-outline-variant);
     background: transparent;
-    color: var(--on-surface-variant);
+    color: var(--color-on-surface-variant);
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
   }
   .lang-toggle .lang-btn.active {
     background: rgba(245,158,11,0.15);
-    color: #f59e0b;
-    border-color: rgba(245,158,11,0.3);
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant));
   }
   .stepper {
     position: relative;
     height: 3px;
-    background: rgba(255,255,255,0.08);
+    background: var(--color-surface-container-highest);
     border-radius: 2px;
     margin-bottom: 1rem;
     overflow: visible;
@@ -317,7 +317,7 @@ const defaultScaleEn: Record<string, string> = {
     justify-content: space-between;
     margin-top: 0.5rem;
     font-size: 0.7rem;
-    color: var(--on-surface-variant);
+    color: var(--color-on-surface-variant);
   }
   .step-labels span {
     transition: color 0.2s;
@@ -327,8 +327,8 @@ const defaultScaleEn: Record<string, string> = {
     font-weight: 600;
   }
   .card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--color-surface);
+    border: 1px solid var(--color-outline-variant);
     border-radius: 1rem;
     padding: 1.5rem;
     margin-bottom: 1rem;
@@ -345,7 +345,7 @@ const defaultScaleEn: Record<string, string> = {
     margin-bottom: 0.75rem;
   }
   .intro-card .intro-desc {
-    color: var(--on-surface-variant);
+    color: var(--color-on-surface-variant);
     font-size: 0.95rem;
     line-height: 1.6;
   }
@@ -355,7 +355,7 @@ const defaultScaleEn: Record<string, string> = {
     align-items: flex-start;
     gap: 0.65rem;
     padding: 0.85rem 1rem;
-    color: var(--on-surface-variant);
+    color: var(--color-on-surface-variant);
     background: rgba(59, 130, 246, 0.08);
     border: 1px solid rgba(59, 130, 246, 0.22);
     border-radius: 0.75rem;
@@ -364,14 +364,14 @@ const defaultScaleEn: Record<string, string> = {
   }
   .premium-profile-summary .material-symbols-outlined { color: #60a5fa; font-size: 1.2rem; }
   .premium-profile-summary div { flex: 1; }
-  .premium-profile-summary strong { color: var(--on-surface); }
+   .premium-profile-summary strong { color: var(--color-on-surface); }
   .premium-profile-summary p { margin: 0.15rem 0 0; }
-  .premium-profile-summary .premium-profile-note { margin-top: 0.45rem; color: var(--on-surface-variant); }
-  .premium-profile-summary a { color: #93c5fd; font-weight: 700; text-decoration: none; white-space: nowrap; }
+   .premium-profile-summary .premium-profile-note { margin-top: 0.45rem; color: var(--color-on-surface-variant); }
+   .premium-profile-summary a { color: var(--color-primary); font-weight: 700; text-decoration: none; white-space: nowrap; }
   .intro-info-title {
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 0.75rem;
@@ -381,29 +381,29 @@ const defaultScaleEn: Record<string, string> = {
   .form-label {
     font-size: 0.8rem;
     font-weight: 500;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
   }
   .form-label .req { color: #ef4444; }
   .form-input {
     width: 100%;
     padding: 0.6rem 0.75rem;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.12);
+     background: var(--color-surface-container-lowest);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     font-size: 0.875rem;
     outline: none;
     transition: border-color 0.2s;
   }
   .form-input:focus { border-color: #f59e0b; }
-  .form-input::placeholder { color: rgba(255,255,255,0.25); }
+   .form-input::placeholder { color: var(--color-outline); }
   .form-textarea {
     width: 100%;
     padding: 0.6rem 0.75rem;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.12);
+     background: var(--color-surface-container-lowest);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     font-size: 0.875rem;
     outline: none;
     min-height: 100px;
@@ -411,7 +411,7 @@ const defaultScaleEn: Record<string, string> = {
     transition: border-color 0.2s;
   }
   .form-textarea:focus { border-color: #f59e0b; }
-  .form-textarea::placeholder { color: rgba(255,255,255,0.25); }
+   .form-textarea::placeholder { color: var(--color-outline); }
   .save-profile-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
   .btn {
     display: inline-flex;
@@ -435,10 +435,10 @@ const defaultScaleEn: Record<string, string> = {
   .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .btn-ghost {
     background: transparent;
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--on-surface-variant);
+     border: 1px solid var(--color-outline-variant);
+     color: var(--color-on-surface-variant);
   }
-  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+   .btn-ghost:hover { background: var(--color-surface-container); }
   .part-header { margin-bottom: 1.25rem; }
   .part-ref {
     font-size: 0.75rem;
@@ -453,10 +453,10 @@ const defaultScaleEn: Record<string, string> = {
   .part-title {
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin-bottom: 0.3rem;
   }
-  .part-subtitle { font-size: 0.8rem; color: var(--on-surface-variant); line-height: 1.5; }
+   .part-subtitle { font-size: 0.8rem; color: var(--color-on-surface-variant); line-height: 1.5; }
   .question { margin-bottom: 1.25rem; }
   .question.anchor { border-left: 3px solid #f59e0b; padding-left: 1rem; }
   .anchor-badge {
@@ -469,7 +469,7 @@ const defaultScaleEn: Record<string, string> = {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin-bottom: 0.6rem;
     line-height: 1.5;
   }
@@ -481,8 +481,8 @@ const defaultScaleEn: Record<string, string> = {
     align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 0.85rem;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1);
+     background: var(--color-surface-container-low);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
     transition: all 0.15s;
   }
@@ -493,11 +493,11 @@ const defaultScaleEn: Record<string, string> = {
   .scale-num {
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     min-width: 1.5rem;
   }
   .scale-option input:checked + .scale-pill .scale-num { color: #f59e0b; }
-  .scale-text { font-size: 0.8rem; color: var(--on-surface); }
+   .scale-text { font-size: 0.8rem; color: var(--color-on-surface); }
   .scale-option input:checked + .scale-pill .scale-text { color: #f59e0b; }
   .radio-group { display: flex; flex-direction: column; gap: 0.4rem; }
   .radio-option { display: block; cursor: pointer; }
@@ -505,11 +505,11 @@ const defaultScaleEn: Record<string, string> = {
   .radio-option .radio-label {
     display: block;
     padding: 0.6rem 0.85rem;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1);
+     background: var(--color-surface-container-low);
+     border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
     font-size: 0.85rem;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     transition: all 0.15s;
   }
   .radio-option input:checked + .radio-label {
@@ -525,10 +525,10 @@ const defaultScaleEn: Record<string, string> = {
     z-index: 110;
     padding: 0.75rem 0;
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: rgba(10,10,20,0.95);
+     background: color-mix(in srgb, var(--color-surface-container-lowest) 95%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(255,255,255,0.08);
+     border-top: 1px solid var(--color-outline-variant);
     box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
   }
   .sticky-nav.hidden { display: none !important; }
@@ -562,14 +562,14 @@ const defaultScaleEn: Record<string, string> = {
   }
   #sticky-step-label {
     font-size: 0.65rem;
-    color: var(--on-surface-variant);
+     color: var(--color-on-surface-variant);
     font-weight: 500;
     white-space: nowrap;
   }
   .sticky-progress-bar {
     width: 100%;
     height: 3px;
-    background: rgba(255,255,255,0.08);
+     background: var(--color-surface-container-highest);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -587,11 +587,11 @@ const defaultScaleEn: Record<string, string> = {
     margin-top: 1.5rem;
     padding-top: 1rem;
     padding-bottom: 0.5rem;
-    border-top: 1px solid rgba(255,255,255,0.06);
+     border-top: 1px solid var(--color-outline-variant);
     position: sticky;
     bottom: 0;
     z-index: 10;
-    background: rgba(20,20,35,0.95);
+     background: color-mix(in srgb, var(--color-surface) 95%, transparent);
   }
   .part-card {
     padding-bottom: 0.5rem;
@@ -600,10 +600,10 @@ const defaultScaleEn: Record<string, string> = {
   .submit-title {
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--on-surface);
+     color: var(--color-on-surface);
     margin-bottom: 0.4rem;
   }
-  .submit-desc { font-size: 0.8rem; color: var(--on-surface-variant); }
+   .submit-desc { font-size: 0.8rem; color: var(--color-on-surface-variant); }
   .error-text { color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; }
   .hidden { display: none !important; }
   @media (max-width: 640px) {

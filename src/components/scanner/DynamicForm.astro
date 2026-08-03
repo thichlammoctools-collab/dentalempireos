@@ -201,7 +201,7 @@ const defaultScaleEn: Record<string, string> = {
         <div class="form-col" style="grid-column:1/-1">
           <label class="save-profile-row">
             <input type="checkbox" id="save-profile-check" checked style="accent-color:var(--primary);width:16px;height:16px;" />
-            <span class="form-label" style="margin:0;font-weight:400;color:var(--on-surface-variant);cursor:pointer;">
+            <span class="form-label" style="margin:0;font-weight:400;color:var(--color-on-surface-variant);cursor:pointer;">
               ${currentLang === 'vi' ? 'Lưu thông tin này cho lần sau' : 'Save this info for next time'}
             </span>
           </label>
@@ -545,10 +545,10 @@ const defaultScaleEn: Record<string, string> = {
     banner.id = 'restore-banner';
     banner.innerHTML = `
       <div style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); border-radius:0.5rem; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-        <span style="color:var(--on-surface); font-size:0.85rem;">
+         <span style="color:var(--color-on-surface); font-size:0.85rem;">
           ${currentLang === 'vi' ? '📋 Bạn có bản nháp chưa hoàn thành.' : '📋 You have an unfinished draft.'}
         </span>
-        <button type="button" id="clear-draft-btn" style="background:transparent; border:1px solid var(--outline-variant); color:var(--on-surface-variant); border-radius:0.375rem; padding:0.3rem 0.75rem; font-size:0.8rem; cursor:pointer; white-space:nowrap;">
+         <button type="button" id="clear-draft-btn" style="background:transparent; border:1px solid var(--color-outline-variant); color:var(--color-on-surface-variant); border-radius:0.375rem; padding:0.3rem 0.75rem; font-size:0.8rem; cursor:pointer; white-space:nowrap;">
           ${currentLang === 'vi' ? 'Xoá & bắt đầu lại' : 'Clear & start over'}
         </button>
       </div>
