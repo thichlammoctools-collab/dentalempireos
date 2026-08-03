@@ -367,12 +367,21 @@
       return;
     }
 
+    // Collect ALL form inputs (including hidden intro fields)
     document.querySelectorAll('input, textarea').forEach(function (el) {
       var input = el;
       if (input.name && (input.type === 'text' || input.type === 'email' || input.type === 'number' || input.tagName === 'TEXTAREA')) {
         if (input.value) answers[input.name] = input.value;
       }
     });
+
+    // Also collect intro lead fields explicitly (may be in hidden intro card)
+    var leadFields = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
+    leadFields.forEach(function (k) {
+      var el = document.querySelector('[name="' + k + '"]');
+      if (el && el.value) answers[k] = el.value;
+    });
+
     answers.lang = currentLang;
 
     if (!validateSubmission()) return;
@@ -385,10 +394,13 @@
     var saveCheckEl = document.getElementById('save-profile-check');
     if (saveCheckEl) saveChecked = saveCheckEl.checked;
 
+    var payload = Object.assign({}, answers, { save_profile: saveChecked });
+    console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
+
     fetch('/api/scanner/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({}, answers, { save_profile: saveChecked })),
+      body: JSON.stringify(payload),
     })
     .then(function (res) {
       return res.json().catch(function () {

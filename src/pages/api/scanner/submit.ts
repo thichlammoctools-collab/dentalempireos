@@ -43,6 +43,9 @@ export const POST: APIRoute = async (ctx) => {
   const body = (await ctx.request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return badRequest('Invalid JSON body');
 
+  console.log('[scanner/submit] body keys:', Object.keys(body));
+  console.log('[scanner/submit] clinic_name:', body.clinic_name, typeof body.clinic_name);
+
   const surveyId = asString(body.survey_id);
   if (!surveyId) return badRequest('survey_id is required');
 
@@ -65,6 +68,7 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.', requiresPayment: true }, 402);
   }
   const usage = await getScannerUsage(env.DB, session.user.id, surveyId, def.is_free === 1);
+  console.log('[scanner/submit] usage:', usage);
   if (usage.remaining <= 0) {
     return json({
       error: def.is_free === 1
@@ -110,6 +114,7 @@ export const POST: APIRoute = async (ctx) => {
   // Validate required answers
   const requiredCheck = validateRequiredAnswers(responsesMap, allQuestions);
   if (!requiredCheck.ok) {
+    console.log('[scanner/submit] missing required answers:', requiredCheck.missing);
     return badRequest(`Missing required answers: ${requiredCheck.missing.join(', ')}`);
   }
 
