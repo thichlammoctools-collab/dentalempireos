@@ -179,6 +179,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
       max-width: 720px;
       margin: 0 auto;
       padding: 24px 16px;
+      scroll-margin-top: 80px;
     }
     .sop-panel.visible { display: block; }
     .sop-toolbar {
@@ -745,28 +746,32 @@ const promptVi = (config.prompt_vi as string) ?? '';
       const wrap = document.createElement('div');
       wrap.className = 'msg-wrap' + (role === 'user' ? ' user' : '');
       if (role === 'ai') {
-        let optsHtml = '';
-        if (options && options.length) {
-          optsHtml = '<div class="sug-wrap">' +
-            options.map(o => `<button type="button" class="sug-opt" data-val="${escapeAttr(o)}">${escapeHtml(o)}</button>`).join('') +
-            '</div>';
-        }
         // Text goes into .msg-text, options go outside so streaming doesn't wipe them
         wrap.innerHTML = `
           <div class="msg-avatar ai-avatar">
             <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
           </div>
           <div class="msg-bubble ai-bubble">
-            <div class="msg-text">${html}</div>${optsHtml}
+            <div class="msg-text">${html}</div>
           </div>`;
 
-        wrap.querySelectorAll('.sug-opt').forEach(btn => {
-          btn.addEventListener('click', () => {
-            userInput.value = btn.dataset.val;
-            autoResize(userInput);
-            sendMessage();
+        if (options && options.length) {
+          const suggestions = document.createElement('div');
+          suggestions.className = 'sug-wrap';
+          options.forEach(option => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'sug-opt';
+            button.textContent = option;
+            button.addEventListener('click', () => {
+              userInput.value = option;
+              autoResize(userInput);
+              sendMessage();
+            });
+            suggestions.appendChild(button);
           });
-        });
+          wrap.querySelector('.ai-bubble').appendChild(suggestions);
+        }
       } else {
         wrap.innerHTML = `
           <div class="msg-avatar user-avatar">
@@ -779,12 +784,28 @@ const promptVi = (config.prompt_vi as string) ?? '';
       return wrap;
     }
 
-    function escapeAttr(s) {
-      return escapeHtml(String(s)).replace(/`/g, '&#96;');
-    }
-
     function scrollMessageIntoView(element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    let streamingScrollFrame = null;
+
+    function isNearPageBottom() {
+      const distanceFromBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      return distanceFromBottom <= 160;
+    }
+
+    function scheduleStreamingScroll(element) {
+      if (!isNearPageBottom() || streamingScrollFrame !== null) return;
+      streamingScrollFrame = requestAnimationFrame(() => {
+        streamingScrollFrame = null;
+        if (!isNearPageBottom()) return;
+        element.scrollIntoView({
+          // Instant scrolling avoids per-character motion and honors reduced-motion users.
+          behavior: 'auto',
+          block: 'end',
+        });
+      });
     }
 
     function addTyping() {
@@ -820,7 +841,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
           if (i < text.length) {
             const partial = text.substring(0, i + 1);
             textEl.innerHTML = renderMarkdown(partial);
-            scrollMessageIntoView(msgWrap);
+            scheduleStreamingScroll(msgWrap);
             i++;
             setTimeout(type, speed);
           } else {

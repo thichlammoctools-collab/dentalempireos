@@ -550,8 +550,8 @@ const breadcrumbSchema = {
 
         <!-- Điểm nổi bật -->
         {tocItems.length > 2 && (
-          <details class="group rounded-2xl border border-outline-variant bg-white dark:bg-surface-container-low [&::-webkit-details-marker]:hidden" open>
-            <summary class="flex items-center gap-2.5 px-4 py-3.5 cursor-pointer select-none list-none">
+          <details class="group rounded-2xl border border-gray-300 dark:border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden [&::-webkit-details-marker]:hidden" open>
+            <summary class="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none list-none">
               <div class="w-7 h-7 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/>
@@ -564,7 +564,7 @@ const breadcrumbSchema = {
               <span class="material-symbols-outlined text-[18px] text-gray-400 dark:text-on-surface-variant/40 transition-transform group-open:rotate-180">expand_more</span>
             </summary>
             <div class="border-t border-gray-100 dark:border-outline-variant"></div>
-            <ol class="toc-list ol-reset px-4 py-3 space-y-2" style="counter-reset: toc-counter">
+            <ol class="toc-list ol-reset px-4 py-2.5 space-y-2" style="counter-reset: toc-counter">
               {tocItems.map((item) => (
                 <li class={`toc-list-item ${item.level === 3 ? 'toc-list-h3' : ''}`}>
                   <a
@@ -574,7 +574,7 @@ const breadcrumbSchema = {
                     data-level={item.level}
                   >
                     <span class="toc-badge w-5 h-5 rounded-full bg-[#B45309] dark:bg-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover/toc:scale-110"></span>
-                    <span class="text-xs text-gray-700 dark:text-on-surface-variant group-hover/toc:text-[#B45309] dark:group-hover/toc:text-primary transition-colors leading-snug">{item.text}</span>
+                    <span class="text-xs text-gray-700 dark:text-on-surface-variant group-hover/toc:text-[#B45309] dark:group-hover/toc:text-primary transition-colors leading-[1.35]">{item.text}</span>
                   </a>
                 </li>
               ))}
@@ -584,8 +584,8 @@ const breadcrumbSchema = {
 
         <!-- Bài viết xem nhiều nhất -->
         {popular.length > 0 && (
-          <div class="rounded-2xl border border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden">
-            <div class="flex items-center gap-2.5 px-4 py-3.5">
+          <div class="rounded-2xl border border-gray-300 dark:border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden">
+            <div class="flex items-center gap-2.5 px-4 py-3">
               <div class="w-7 h-7 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="white"/>
@@ -594,7 +594,7 @@ const breadcrumbSchema = {
               <p class="text-sm font-bold text-gray-900 dark:text-white leading-none">Bài viết xem nhiều nhất</p>
             </div>
             <div class="border-t border-gray-100 dark:border-outline-variant"></div>
-            <ol class="divide-y divide-gray-50 dark:divide-outline-variant">
+            <ol class="divide-y divide-gray-100 dark:divide-outline-variant">
               {popular.slice(0, 5).map((p, i) => (
                 <li>
                   <a href={`/blog/${p.slug}`} class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group/pop">
