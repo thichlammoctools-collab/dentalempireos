@@ -82,7 +82,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
 
     .chat-area {
       width: min(100% - 32px, 768px); min-height: 100%; margin: 0 auto;
-      padding: 28px 0 calc(164px + env(safe-area-inset-bottom));
+      padding: 28px 0 calc(188px + env(safe-area-inset-bottom));
     }
     .msg-wrap {
       display: flex; align-items: flex-start; gap: 10px; width: 100%; margin-bottom: 20px;
@@ -130,6 +130,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
       padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
       border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(17, 18, 20, 0.88); backdrop-filter: blur(18px);
     }
+    .input-area[hidden] { display: none; }
     .input-inner { width: min(100%, 768px); margin: 0 auto; }
     .input-row {
       display: flex; align-items: flex-end; gap: 8px; padding: 7px 7px 7px 14px;
@@ -161,7 +162,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
     @media (max-width: 640px) {
       .header-inner, .chat-area { width: min(100% - 24px, 768px); }
       .header-inner { min-height: 60px; }
-      .chat-area { padding-top: 20px; padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+      .chat-area { padding-top: 20px; padding-bottom: calc(184px + env(safe-area-inset-bottom)); }
       .msg-wrap { gap: 8px; margin-bottom: 16px; }
       .msg-avatar { width: 30px; height: 30px; }
       .msg-bubble { max-width: calc(100% - 38px); padding: 13px 14px; }
@@ -634,7 +635,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
   <div id="sop-print-root"></div>
 
   <!-- Input area -->
-  <div class="input-area">
+  <div class="input-area" id="input-area">
     <div class="input-inner">
       <div class="input-row">
         <label class="sr-only" for="user-input">Câu trả lời của bạn</label>
@@ -669,6 +670,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
     const sopPrintRoot = document.getElementById('sop-print-root');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
+    const inputArea = document.getElementById('input-area');
     const resetBtn = document.getElementById('reset-btn');
     const headerResetBtn = document.getElementById('header-reset-btn');
     const newChatBtn = document.getElementById('new-chat-btn');
@@ -678,6 +680,8 @@ const promptVi = (config.prompt_vi as string) ?? '';
     let conversationHistory = [];
     let isLoading = false;
     let fullSopText = '';
+    let generation = 0;
+    let activeRequest = null;
 
     function escapeHtml(text) {
       const d = document.createElement('div');
@@ -686,19 +690,55 @@ const promptVi = (config.prompt_vi as string) ?? '';
     }
 
     function renderMarkdown(text) {
-      return escapeHtml(text)
+      const inline = (value) => escapeHtml(value)
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
+        .replace(/`(.*?)`/g, '<code>$1</code>');
+
+      const lines = text.split('\n');
+      const blocks = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+
+        if (!line.trim()) { i++; continue; }
+        if (/^###\s+/.test(line)) { blocks.push(`<h3>${inline(line.replace(/^###\s+/, ''))}</h3>`); i++; continue; }
+        if (/^##\s+/.test(line)) { blocks.push(`<h2>${inline(line.replace(/^##\s+/, ''))}</h2>`); i++; continue; }
+        if (/^#\s+/.test(line)) { blocks.push(`<h1>${inline(line.replace(/^#\s+/, ''))}</h1>`); i++; continue; }
+
+        if (/^\d+\.\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+            items.push(`<li>${inline(lines[i].replace(/^\d+\.\s+/, ''))}</li>`);
+            i++;
+          }
+          blocks.push(`<ol>${items.join('')}</ol>`);
+          continue;
+        }
+
+        if (/^[-*]\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+            items.push(`<li>${inline(lines[i].replace(/^[-*]\s+/, ''))}</li>`);
+            i++;
+          }
+          blocks.push(`<ul>${items.join('')}</ul>`);
+          continue;
+        }
+
+        const paragraph = [];
+        while (i < lines.length && lines[i].trim()
+          && !/^#+\s+/.test(lines[i])
+          && !/^\d+\.\s+/.test(lines[i])
+          && !/^[-*]\s+/.test(lines[i])) {
+          paragraph.push(lines[i].trim());
+          i++;
+        }
+        blocks.push(`<p>${inline(paragraph.join('\n')).replace(/\n/g, '<br>')}</p>`);
+      }
+
+      return blocks.join('');
     }
 
     function addMsg(role, html, options) {
@@ -735,12 +775,16 @@ const promptVi = (config.prompt_vi as string) ?? '';
           <div class="msg-bubble user-bubble"><div class="msg-text">${html}</div></div>`;
       }
       chatView.appendChild(wrap);
-      chatView.scrollTop = chatView.scrollHeight;
+      scrollMessageIntoView(wrap);
       return wrap;
     }
 
     function escapeAttr(s) {
-      return String(s).replace(/"/g, '&quot;');
+      return escapeHtml(String(s)).replace(/`/g, '&#96;');
+    }
+
+    function scrollMessageIntoView(element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
 
     function addTyping() {
@@ -757,14 +801,14 @@ const promptVi = (config.prompt_vi as string) ?? '';
           <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
         </div>`;
       chatView.appendChild(wrap);
-      chatView.scrollTop = chatView.scrollHeight;
+      scrollMessageIntoView(wrap);
     }
 
     function removeTyping() {
       document.getElementById('typing')?.remove();
     }
 
-    async function streamText(msgWrap, text, speed = 15) {
+    async function streamText(msgWrap, text, requestGeneration, speed = 15) {
       return new Promise((resolve) => {
         const textEl = msgWrap.querySelector('.msg-text');
         if (!textEl) { resolve(); return; }
@@ -772,10 +816,11 @@ const promptVi = (config.prompt_vi as string) ?? '';
         let i = 0;
         textEl.innerHTML = '';
         function type() {
+          if (requestGeneration !== generation) { resolve(); return; }
           if (i < text.length) {
             const partial = text.substring(0, i + 1);
             textEl.innerHTML = renderMarkdown(partial);
-            chatView.scrollTop = chatView.scrollHeight;
+            scrollMessageIntoView(msgWrap);
             i++;
             setTimeout(type, speed);
           } else {
@@ -791,12 +836,17 @@ const promptVi = (config.prompt_vi as string) ?? '';
     async function sendMessage() {
       const text = userInput.value.trim();
       if (!text || isLoading) return;
+      const requestGeneration = ++generation;
+      const controller = new AbortController();
+      activeRequest?.abort();
+      activeRequest = controller;
 
       userInput.value = '';
       autoResize(userInput);
       addMsg('user', escapeHtml(text), []);
       conversationHistory.push({ role: 'user', content: text });
       setLoading(true);
+      responseStatus.textContent = 'Đang tạo câu trả lời.';
 
       addTyping();
 
@@ -804,6 +854,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
         const resp = await fetch(`/api/app/${appId}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             messages: conversationHistory,
             prompt_vi: promptVi,
@@ -811,12 +862,15 @@ const promptVi = (config.prompt_vi as string) ?? '';
           }),
         });
 
+        if (requestGeneration !== generation) return;
         removeTyping();
 
         if (!resp.ok) {
-          const data = await resp.json();
-          addMsg('ai', `<span style="color:#f87171">Lỗi: ${data.error || 'Không thể kết nối AI.'}</span>`, []);
+          const data = await resp.json().catch(() => ({}));
+          const errorMessage = data.error || 'Không thể kết nối AI.';
+          addMsg('ai', `<p><span style="color:#f87171">Lỗi: ${escapeHtml(errorMessage)}</span></p>`, []);
           conversationHistory.pop();
+          responseStatus.textContent = `Không thể tạo câu trả lời: ${errorMessage}`;
         } else {
           const data = await resp.json();
           const reply = data.reply || '';
@@ -830,14 +884,15 @@ const promptVi = (config.prompt_vi as string) ?? '';
             const jsonStr = reply.slice(dataStart + 6, dataEnd).trim();
             try {
               const parsed = JSON.parse(jsonStr);
-              options = Array.isArray(parsed.options) ? parsed.options : [];
+            options = Array.isArray(parsed.options) ? parsed.options.filter(option => typeof option === 'string') : [];
             } catch {}
             cleanReply = reply.slice(0, dataStart).trim();
           }
 
           // Stream the reply
           const msgWrap = addMsg('ai', '', options);
-          await streamText(msgWrap, cleanReply);
+          await streamText(msgWrap, cleanReply, requestGeneration);
+          if (requestGeneration !== generation) return;
 
           conversationHistory.push({ role: 'assistant', content: reply });
 
@@ -847,12 +902,17 @@ const promptVi = (config.prompt_vi as string) ?? '';
           }
         }
       } catch (err) {
+        if (err.name === 'AbortError' || requestGeneration !== generation) return;
         removeTyping();
-        addMsg('ai', '<span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span>', []);
+        addMsg('ai', '<p><span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span></p>', []);
         conversationHistory.pop();
+        responseStatus.textContent = 'Không thể tạo câu trả lời do lỗi kết nối.';
       } finally {
-        setLoading(false);
-        userInput.focus();
+        if (requestGeneration === generation) {
+          activeRequest = null;
+          setLoading(false);
+          userInput.focus();
+        }
       }
     }
 
@@ -1155,29 +1215,41 @@ const promptVi = (config.prompt_vi as string) ?? '';
     function showSopResult(markdownText) {
       // Hide chat, show SOP
       chatView.style.display = 'none';
+      inputArea.hidden = true;
       sopView.classList.add('visible');
 
       // Render on-screen preview (simplified)
       const html = parseMarkdownToHtml(markdownText);
-      const title = extractTitle(markdownText);
+      const previewHtml = /<h1\b/i.test(html)
+        ? html
+        : `<h1>${escapeHtml(extractTitle(markdownText))}</h1>${html}`;
       sopContent.innerHTML = `
-        <h1>${title}</h1>
-        ${html}
+        ${previewHtml}
         <div class="sop-footer">Tạo bởi Dental Empire OS · ${new Date().toLocaleDateString('vi-VN')}</div>
       `;
 
       // Build print template
       sopPrintRoot.innerHTML = buildPrintDocument(markdownText);
+      responseStatus.textContent = 'SOP đã hoàn tất và sẵn sàng để xem hoặc in.';
+      sopView.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function resetChat() {
       if (!confirm('Bắt đầu lại SOP? Mọi thông tin sẽ bị xóa.')) return;
+      generation++;
+      activeRequest?.abort();
+      activeRequest = null;
+      removeTyping();
+      setLoading(false);
       conversationHistory = [];
       fullSopText = '';
       sopView.classList.remove('visible');
       sopContent.innerHTML = '';
       sopPrintRoot.innerHTML = '';
       chatView.style.display = '';
+      inputArea.hidden = false;
+      userInput.value = '';
+      autoResize(userInput);
       responseStatus.textContent = 'Cuộc trò chuyện đã được đặt lại.';
       chatView.innerHTML = `
         <div class="msg-wrap">
