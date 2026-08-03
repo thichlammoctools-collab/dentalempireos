@@ -1,0 +1,79 @@
+---
+const frameworks = [
+  {
+    label: 'SKY',
+    description: 'Trục đạo đức',
+    icon: 'cloud',
+    href: '/book/tier-3/24-to-be-sky#sky-la-gi',
+    className: 'framework-node-sky',
+  },
+  {
+    label: 'S.T.A.R.S',
+    description: 'Bản đồ năng lực',
+    icon: 'star',
+    href: '/book/tier-3/25-s-t-a-r-s',
+    className: 'framework-node-stars',
+  },
+  {
+    label: 'R.O.A.D.M.A.P',
+    description: 'Con đường hệ thống',
+    icon: 'route',
+    href: '/book/tier-3/26-r-o-a-d-m-a-p',
+    className: 'framework-node-roadmap',
+  },
+  {
+    label: 'ONE LIGHT',
+    description: 'Tâm gỗ đạo đức',
+    icon: 'light_mode',
+    href: '/book/tier-3/26-r-o-a-d-m-a-p#one-light-tam-go-dao-duc',
+    className: 'framework-node-light',
+  },
+  {
+    label: 'Nha khoa · Răng Hàm Mặt',
+    description: 'Nền tảng chuyên môn',
+    icon: 'dentistry',
+    href: '/book',
+    className: 'framework-node-dental',
+  },
+] as const;
+---
+
+<aside class="framework-visual" aria-label="Bản đồ khung tư duy Dental Empire OS">
+  <div class="framework-visual__ambient" aria-hidden="true">
+    <span class="framework-orbit framework-orbit--one"></span>
+    <span class="framework-orbit framework-orbit--two"></span>
+    <span class="framework-constellation framework-constellation--one"></span>
+    <span class="framework-constellation framework-constellation--two"></span>
+    <span class="framework-path"></span>
+  </div>
+
+  <div class="relative z-10 flex items-center justify-between gap-4">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Bản đồ hệ điều hành</p>
+      <h2 class="mt-2 text-xl font-black text-on-surface">Một trục giá trị, một đường phát triển.</h2>
+    </div>
+    <span class="framework-core-icon material-symbols-outlined" aria-hidden="true">hub</span>
+  </div>
+
+  <div class="framework-core relative z-10" aria-hidden="true">
+    <span class="material-symbols-outlined">flare</span>
+    <span class="framework-core__pulse"></span>
+  </div>
+
+  <nav class="framework-map relative z-10" aria-label="Khám phá các khung tư duy">
+    {frameworks.map((framework) => (
+      <a class:list={['framework-node', framework.className]} href={framework.href}>
+        <span class="framework-node__icon material-symbols-outlined" aria-hidden="true">{framework.icon}</span>
+        <span class="min-w-0">
+          <span class="framework-node__label">{framework.label}</span>
+          <span class="framework-node__description">{framework.description}</span>
+        </span>
+        <span class="material-symbols-outlined framework-node__arrow" aria-hidden="true">arrow_outward</span>
+      </a>
+    ))}
+  </nav>
+
+  <p class="relative z-10 mt-6 border-t border-outline-variant/55 pt-5 text-sm leading-relaxed text-on-surface-variant">
+    Từ nền tảng Răng Hàm Mặt đến hệ thống tăng trưởng có chuẩn mực, mọi quyết định đều cần chung một điểm định hướng.
+  </p>
+</aside>

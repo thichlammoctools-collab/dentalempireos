@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PaymentButton from '../components/PaymentButton.astro';
+import FrameworkVisual from '../components/home/FrameworkVisual.astro';
 import { env } from 'cloudflare:workers';
 import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
 import {
@@ -44,9 +45,9 @@ const paymentCopy = payosPaymentAvailable && manualPaymentAvailable
       : 'Thanh toán hiện chưa được cấu hình. Bạn vẫn có thể xem trước nội dung sách.';
 
 const tiers = [
-  { number: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, stats: tier1Stats },
-  { number: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, stats: tier2Stats },
-  { number: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, stats: tier3Stats },
+  { number: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, icon: homepage.tier1_icon, stats: tier1Stats },
+  { number: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, icon: homepage.tier2_icon, stats: tier2Stats },
+  { number: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, icon: homepage.tier3_icon, stats: tier3Stats },
 ];
 
 const testimonials = [
@@ -93,9 +94,11 @@ const faqs = [
   title="Dental Empire OS | Hệ điều hành quản trị phòng khám nha khoa"
   description="Khung tư duy quản trị giúp phòng khám nha khoa chẩn đoán, chuẩn hóa và nhân bản vận hành."
 >
-  <section class="relative overflow-hidden bg-surface-container-lowest">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_82%_20%,rgba(56,189,248,0.16),transparent_32%),radial-gradient(circle_at_12%_84%,rgba(245,158,11,0.12),transparent_28%)]"></div>
-    <div class="relative mx-auto grid max-w-[1200px] gap-12 px-6 py-20 lg:grid-cols-[1.25fr_0.75fr] lg:py-28">
+  <section class="homepage-hero relative overflow-hidden bg-surface-container-lowest">
+    <div class="homepage-hero__grid" aria-hidden="true"></div>
+    <div class="homepage-hero__glow homepage-hero__glow--cyan" aria-hidden="true"></div>
+    <div class="homepage-hero__glow homepage-hero__glow--amber" aria-hidden="true"></div>
+    <div class="relative mx-auto grid max-w-[1200px] gap-12 px-6 py-20 lg:grid-cols-[1.1fr_0.9fr] lg:py-28">
       <div class="max-w-3xl">
         <p class="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2 text-sm font-bold tracking-wide text-primary">
           <span class="material-symbols-outlined text-lg">hub</span>
@@ -125,14 +128,17 @@ const faqs = [
         <p class="mt-4 max-w-xl text-sm leading-relaxed text-on-surface-variant">{paymentCopy}</p>
       </div>
 
-      <aside class="self-center rounded-[2rem] border border-primary/30 bg-surface-container p-7 shadow-2xl shadow-primary/10">
-        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Vận hành không phụ thuộc</p>
-        <ol class="mt-7 space-y-6">
-          <li class="flex gap-4"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-black text-on-primary">01</span><div><h2 class="font-bold text-on-surface">Nhìn được hệ thống</h2><p class="mt-1 text-sm text-on-surface-variant">Tách triệu chứng hằng ngày khỏi nguyên nhân gốc.</p></div></li>
-          <li class="flex gap-4"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/50 text-sm font-black text-primary">02</span><div><h2 class="font-bold text-on-surface">Thiết kế cách chạy</h2><p class="mt-1 text-sm text-on-surface-variant">Biến kinh nghiệm cá nhân thành tiêu chuẩn dùng chung.</p></div></li>
-          <li class="flex gap-4"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/50 text-sm font-black text-primary">03</span><div><h2 class="font-bold text-on-surface">Để đội ngũ tự vận hành</h2><p class="mt-1 text-sm text-on-surface-variant">Theo dõi bằng số liệu thay vì có mặt ở mọi việc.</p></div></li>
-        </ol>
-      </aside>
+      <div class="self-center space-y-5">
+        <FrameworkVisual />
+        <aside class="hero-steps rounded-3xl border border-outline-variant/70 bg-surface-container-lowest/80 p-5">
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Vận hành không phụ thuộc</p>
+          <ol class="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <li class="hero-step"><span class="hero-step__number">01</span><div><h2 class="font-bold text-on-surface">Nhìn được hệ thống</h2><p class="mt-1 text-sm text-on-surface-variant">Tách triệu chứng khỏi nguyên nhân gốc.</p></div></li>
+            <li class="hero-step"><span class="hero-step__number">02</span><div><h2 class="font-bold text-on-surface">Thiết kế cách chạy</h2><p class="mt-1 text-sm text-on-surface-variant">Biến kinh nghiệm thành tiêu chuẩn chung.</p></div></li>
+            <li class="hero-step"><span class="hero-step__number">03</span><div><h2 class="font-bold text-on-surface">Để đội ngũ tự vận hành</h2><p class="mt-1 text-sm text-on-surface-variant">Theo dõi bằng số liệu, không chỉ sự có mặt.</p></div></li>
+          </ol>
+        </aside>
+      </div>
     </div>
   </section>
 
@@ -149,13 +155,13 @@ const faqs = [
     </div>
   </section>
 
-  <section id="roadmap" class="scroll-mt-24 py-20">
+  <section id="roadmap" class="roadmap-section scroll-mt-24 py-20">
     <div class="mx-auto max-w-[1200px] px-6">
       <div class="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Lộ trình thay đổi</p><h2 class="mt-3 text-3xl font-black text-on-surface sm:text-4xl">Chẩn đoán trước, chuẩn hóa sau, rồi mới nhân bản.</h2></div><a href="/scanner/total-os-diagnostic" class="inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Làm Total OS Diagnostic <span class="material-symbols-outlined">arrow_forward</span></a></div>
-      <div class="mt-10 grid gap-5 lg:grid-cols-3">
-        <article class="rounded-3xl bg-surface-container p-7"><p class="text-sm font-black text-primary">01. Diagnosis</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chẩn đoán</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Đo mức độ phụ thuộc, tìm các điểm đứt trong luồng bệnh nhân, đội ngũ và tài chính.</p></article>
-        <article class="rounded-3xl bg-surface-container p-7"><p class="text-sm font-black text-primary">02. Standardize</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chuẩn hóa</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Xác định tiêu chuẩn, vai trò, chỉ số và nhịp họp để công việc không cần nhắc lại bằng miệng.</p></article>
-        <article class="rounded-3xl bg-surface-container p-7"><p class="text-sm font-black text-primary">03. Replicate</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Nhân bản</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Dùng hệ thống đã kiểm chứng để đào tạo người mới, mở rộng dịch vụ hoặc phát triển cơ sở tiếp theo.</p></article>
+      <div class="roadmap-line mt-10 grid gap-5 lg:grid-cols-3">
+        <article class="roadmap-card"><div class="roadmap-card__icon"><span class="material-symbols-outlined">troubleshoot</span></div><p class="mt-6 text-sm font-black text-primary">01. Diagnosis</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chẩn đoán</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Đo mức độ phụ thuộc, tìm các điểm đứt trong luồng bệnh nhân, đội ngũ và tài chính.</p></article>
+        <article class="roadmap-card"><div class="roadmap-card__icon"><span class="material-symbols-outlined">account_tree</span></div><p class="mt-6 text-sm font-black text-primary">02. Standardize</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chuẩn hóa</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Xác định tiêu chuẩn, vai trò, chỉ số và nhịp họp để công việc không cần nhắc lại bằng miệng.</p></article>
+        <article class="roadmap-card"><div class="roadmap-card__icon"><span class="material-symbols-outlined">network_node</span></div><p class="mt-6 text-sm font-black text-primary">03. Replicate</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Nhân bản</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Dùng hệ thống đã kiểm chứng để đào tạo người mới, mở rộng dịch vụ hoặc phát triển cơ sở tiếp theo.</p></article>
       </div>
     </div>
   </section>
@@ -164,10 +170,10 @@ const faqs = [
     <div class="mx-auto max-w-[1200px] px-6">
       <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Khung ba tầng</p>
       <h2 class="mt-3 max-w-3xl text-3xl font-black text-on-surface sm:text-4xl">Một lộ trình đọc để xây nền, nâng cấp và điều hành.</h2>
-      <div class="mt-10 grid gap-5 lg:grid-cols-3">
+      <div class="tier-grid mt-10 grid gap-5 lg:grid-cols-3">
         {tiers.map((tier) => (
-          <article class="rounded-3xl border border-outline-variant/70 bg-surface-container-lowest p-7">
-            <p class="text-sm font-black text-primary">TẦNG {tier.number}</p>
+          <article class="tier-card">
+            <div class="flex items-start justify-between gap-4"><p class="text-sm font-black text-primary">TẦNG {tier.number}</p><span class="tier-card__icon material-symbols-outlined" aria-hidden="true">{tier.icon}</span></div>
             <h3 class="mt-3 text-2xl font-bold text-on-surface">{tier.name}</h3>
             <p class="mt-3 min-h-12 leading-relaxed text-on-surface-variant">{tier.subtitle}</p>
             <dl class="mt-6 flex gap-6 border-t border-outline-variant/60 pt-5 text-sm"><div><dt class="text-on-surface-variant">Chương đã xuất bản</dt><dd class="mt-1 text-2xl font-black text-primary">{tier.stats.chapterCount}</dd></div><div><dt class="text-on-surface-variant">Đề mục</dt><dd class="mt-1 text-2xl font-black text-primary">{tier.stats.sectionCount}</dd></div></dl>
