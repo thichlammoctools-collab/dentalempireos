@@ -142,7 +142,15 @@ const defaultScaleEn: Record<string, string> = {
       >
         <div class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']} role="status">
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
-          <span>{scannerNotice}</span>
+          <div class="scanner-quota-notice__content">
+            <strong>{scannerNotice}</strong>
+            {(!hasPaidAccess && scannerProduct) && (
+              <span class="scanner-quota-notice__hint">Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này.</span>
+            )}
+            {(!hasPaidAccess && !scannerProduct) && (
+              <span class="scanner-quota-notice__hint">Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa.</span>
+            )}
+          </div>
           {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
         </div>
 
@@ -162,6 +170,13 @@ const defaultScaleEn: Record<string, string> = {
                   <p class="scanner-unlock-card__eyebrow">Mở khóa Scanner</p>
                   <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
                   <p>{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
+                  {scannerProduct && (
+                    <ol class="scanner-unlock-card__steps">
+                      <li>Nhấn <strong>Mua ngay</strong> bên dưới.</li>
+                      <li>Chọn thanh toán tự động hoặc chuyển khoản QR.</li>
+                      <li>Sau khi kích hoạt, quay lại trang này để bắt đầu.</li>
+                    </ol>
+                  )}
                   {scannerProduct ? (
                     <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} class="scanner-unlock-card__button" />
                   ) : (
@@ -240,7 +255,7 @@ const defaultScaleEn: Record<string, string> = {
   }
   .scanner-quota-notice {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.75rem 0.9rem;
@@ -251,8 +266,11 @@ const defaultScaleEn: Record<string, string> = {
     font-size: 0.8rem;
   }
   .scanner-quota-notice--blocked { border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant)); background: color-mix(in srgb, var(--color-warning-container) 76%, transparent); color: var(--color-warning); }
-  .scanner-quota-notice .material-symbols-outlined { font-size: 1rem; }
-  .scanner-quota-notice a { margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; }
+  .scanner-quota-notice .material-symbols-outlined { flex: 0 0 auto; margin-top: 0.1rem; font-size: 1rem; }
+  .scanner-quota-notice__content { display: grid; gap: 0.2rem; min-width: 0; }
+  .scanner-quota-notice__content strong { font-weight: 700; }
+  .scanner-quota-notice__hint { color: var(--color-on-surface-variant); line-height: 1.45; }
+  .scanner-quota-notice a { flex: 0 0 auto; align-self: center; margin-left: auto; color: inherit; font-weight: 700; text-decoration: underline; }
   .scanner-unlock-card {
     display: flex;
     align-items: flex-start;
@@ -278,10 +296,15 @@ const defaultScaleEn: Record<string, string> = {
   .scanner-unlock-card__eyebrow { margin: 0 0 0.25rem; color: var(--color-warning); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
   .scanner-unlock-card h2 { margin: 0; color: var(--color-on-surface); font-size: 1rem; font-weight: 800; }
   .scanner-unlock-card__content > p:not(.scanner-unlock-card__eyebrow):not(.scanner-unlock-card__unavailable) { margin: 0.4rem 0 1rem; color: var(--color-on-surface-variant); font-size: 0.85rem; line-height: 1.5; }
+  .scanner-unlock-card__steps { display: grid; gap: 0.4rem; margin: 0 0 1rem; padding-left: 1.25rem; color: var(--color-on-surface-variant); font-size: 0.8rem; line-height: 1.45; }
+  .scanner-unlock-card__steps strong { color: var(--color-on-surface); }
   .scanner-unlock-card__unavailable { margin: 0.75rem 0 0; color: var(--color-warning); font-size: 0.8rem; }
   @media (max-width: 480px) {
     .scanner-unlock-card { gap: 0.75rem; padding: 1rem; }
     .scanner-unlock-card__icon { width: 2.25rem; height: 2.25rem; }
+    .scanner-quota-notice { flex-wrap: wrap; }
+    .scanner-quota-notice__content { flex: 1 1 14rem; }
+    .scanner-quota-notice a { width: 100%; margin-left: 1.5rem; }
   }
   .lang-toggle {
     display: flex;
