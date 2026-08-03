@@ -16,6 +16,17 @@ export interface HistoryWithSurvey extends ScannerHistoryRow {
   scanner_slug: string | null;
 }
 
+export interface PurchasedPaidScanner {
+  scanner_id: string;
+  scanner_title_vi: string;
+  scanner_slug: string;
+  product_name: string;
+  purchased_at: string;
+  expires_at: string | null;
+  used: number;
+  limit: number;
+}
+
 export async function addToHistory(
   db: D1Database,
   input: {
@@ -59,6 +70,42 @@ export async function getUserHistory(
     )
     .bind(userId, limit)
     .all<HistoryWithSurvey>();
+  return results ?? [];
+}
+
+/** List paid scanners the user can currently access, with this month's quota usage. */
+export async function getPurchasedPaidScanners(
+  db: D1Database,
+  userId: string,
+): Promise<PurchasedPaidScanner[]> {
+  const now = new Date().toISOString();
+  const month = now.slice(0, 7);
+  const { results } = await db
+    .prepare(
+      `SELECT d."id" AS "scanner_id",
+              d."title_vi" AS "scanner_title_vi",
+              d."slug" AS "scanner_slug",
+              GROUP_CONCAT(DISTINCT p."name") AS "product_name",
+              MAX(COALESCE(o."paid_at", a."granted_at")) AS "purchased_at",
+              CASE WHEN SUM(CASE WHEN a."expires_at" IS NULL THEN 1 ELSE 0 END) > 0
+                THEN NULL ELSE MAX(a."expires_at") END AS "expires_at",
+              COUNT(DISTINCT h."id") AS "used",
+              3 AS "limit"
+       FROM "access" a
+       INNER JOIN "product" p ON p."id" = a."product_id"
+       INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
+       INNER JOIN "survey_definition" d ON d."id" = ps."scanner_id" AND d."is_free" = 0
+       LEFT JOIN "order" o ON o."id" = a."order_id"
+       LEFT JOIN "scanner_history" h ON h."user_id" = a."user_id"
+         AND h."survey_id" = d."id"
+         AND substr(h."created_at", 1, 7) = ?
+       WHERE a."user_id" = ? AND a."is_active" = 1
+         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+       GROUP BY d."id", d."title_vi", d."slug"
+       ORDER BY "purchased_at" DESC, d."title_vi" ASC`,
+    )
+    .bind(month, userId, now)
+    .all<PurchasedPaidScanner>();
   return results ?? [];
 }
 

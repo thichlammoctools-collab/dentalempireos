@@ -190,7 +190,7 @@ const defaultScaleEn: Record<string, string> = {
                 <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
               </div>
               <div id="intro-fields"></div>
-              <button type="button" class="btn btn-primary" id="btn-start">Bắt đầu →</button>
+              <button type="button" class="btn btn-primary intro-start-btn" id="btn-start">Bắt đầu →</button>
             </div>
 
             <!-- Sticky bottom nav (shows on section pages, always visible) -->
@@ -381,8 +381,9 @@ const defaultScaleEn: Record<string, string> = {
      color: var(--color-on-surface-variant);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 0.75rem;
-  }
+     margin-bottom: 0.75rem;
+   }
+   .intro-start-btn { margin-top: 1.25rem; }
   .form-row { margin-bottom: 0.875rem; }
   .form-col { display: flex; flex-direction: column; gap: 0.3rem; }
   .form-label {

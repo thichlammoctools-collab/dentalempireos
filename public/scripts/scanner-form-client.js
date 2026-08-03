@@ -239,6 +239,20 @@
     return false;
   }
 
+  function syncClinicProfileAnswers() {
+    if (!clinicProfile) return;
+    var profileValues = {
+      owner_name: clinicProfile.name,
+      clinic_name: clinicProfile.clinic_name,
+      clinic_address: clinicProfile.clinic_address,
+      email: clinicProfile.email,
+    };
+    Object.keys(profileValues).forEach(function (key) {
+      var value = profileValues[key];
+      if (value != null && String(value).trim() !== '') answers[key] = String(value).trim();
+    });
+  }
+
   function validateSubmission() {
     for (var i = 0; i < surveyData.sections.length; i++) {
       if (!validateSection(i)) {
@@ -261,6 +275,7 @@
     if (currentStep >= 0 && step > currentStep && !validateSection(currentStep)) return;
 
     if (currentStep === -1 && step >= 0) {
+      syncClinicProfileAnswers();
       var lead = surveyData.lead_fields || {};
       var fields = Object.keys(lead);
       for (var i = 0; i < fields.length; i++) {
@@ -268,7 +283,8 @@
         var cfg = lead[fieldName];
         if (cfg && cfg.required) {
           var el = document.querySelector('[name="' + fieldName + '"]');
-          if (!el || !el.value || !el.value.trim()) {
+          var value = el && el.value ? el.value : answers[fieldName];
+          if (!value || !String(value).trim()) {
             alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
             return;
           }
@@ -463,6 +479,7 @@
 
   // Init
   var hasDraft = loadDraft();
+  syncClinicProfileAnswers();
   buildIntroFields();
   buildParts();
   buildStepLabels();

@@ -7,7 +7,6 @@ import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
 import { sanitizeRichHtml } from '../../lib/sanitize';
-import WebsiteChatWidget from '../../components/chat/WebsiteChatWidget.astro';
 
 export const prerender = false;
 
@@ -231,6 +230,8 @@ const breadcrumbSchema = {
 ---
 
 <BaseLayout
+  chatPageType="blog"
+  chatPageSlug={post?.slug ?? slug}
   title={`${post.title} | Blog Dental Empire`}
   description={post.description}
   ogImage={ogImage}
@@ -552,7 +553,7 @@ const breadcrumbSchema = {
         <!-- Điểm nổi bật -->
         {tocItems.length > 2 && (
           <details class="group rounded-2xl border border-gray-300 dark:border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden [&::-webkit-details-marker]:hidden" open>
-            <summary class="flex items-center gap-2.5 px-4 py-4 cursor-pointer select-none list-none">
+            <summary class="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none list-none">
               <div class="w-7 h-7 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/>
@@ -565,7 +566,7 @@ const breadcrumbSchema = {
               <span class="material-symbols-outlined text-[18px] text-gray-400 dark:text-on-surface-variant/40 transition-transform group-open:rotate-180">expand_more</span>
             </summary>
             <div class="border-t border-gray-100 dark:border-outline-variant"></div>
-            <ol class="toc-list ol-reset !px-4 pt-3 pb-5 space-y-2" style="counter-reset: toc-counter">
+            <ol class="toc-list ol-reset !px-4 py-3 space-y-2" style="counter-reset: toc-counter">
               {tocItems.map((item) => (
                 <li class={`toc-list-item ${item.level === 3 ? 'toc-list-h3' : ''}`}>
                   <a
@@ -621,8 +622,6 @@ const breadcrumbSchema = {
     <BlogSectionNav items={tocItems} postTitle={post.title} />
   )}
 
-  <!-- AI Chat Widget -->
-  <WebsiteChatWidget pageType="blog" pageSlug={post.slug} />
 </BaseLayout>
 
 <script>

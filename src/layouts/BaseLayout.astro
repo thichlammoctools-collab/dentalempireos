@@ -4,6 +4,7 @@ import Footer from '../components/layout/Footer.astro';
 import MobileBottomNav from '../components/mobile/MobileBottomNav.astro';
 import PwaInstallPrompt from '../components/mobile/PwaInstallPrompt.astro';
 import StructuredData from '../components/seo/StructuredData.astro';
+import WebsiteChatWidget from '../components/chat/WebsiteChatWidget.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
   isReading?: boolean;
   currentSlug?: string;
   groupedChapters?: any[];
+  chatPageType?: 'book' | 'blog' | 'resource' | 'home';
+  chatPageSlug?: string;
   // SEO controls
   noindex?: boolean;
   ogType?: 'website' | 'article' | 'book' | 'profile';
@@ -29,6 +32,8 @@ const {
   isReading = false,
   currentSlug = '',
   groupedChapters = [],
+  chatPageType = 'home',
+  chatPageSlug = '',
   noindex = false,
   ogType = 'website',
   keywords = 'quản trị nha khoa, dental clinic management, bác sĩ nha khoa, vận hành phòng khám, Dental Empire OS',
@@ -194,6 +199,8 @@ const sameAs = [
 
     <!-- PWA Install Prompt -->
     <PwaInstallPrompt />
+
+    {isReading ? null : <WebsiteChatWidget pageType={chatPageType} pageSlug={chatPageSlug} />}
 
     <script>
       import { initializeTheme } from '../scripts/theme';
