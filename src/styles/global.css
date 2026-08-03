@@ -1144,7 +1144,7 @@ h4.section-heading {
   counter-reset: toc-counter;
 }
 
-.toc-list-item { counter-increment: toc-counter; }
+.toc-list-item:not(.toc-list-h3) { counter-increment: toc-counter; }
 
 .toc-list-item.toc-list-h3 {
   padding-left: 1.25rem;

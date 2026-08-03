@@ -102,12 +102,13 @@ QUY TẮC QUAN TRỌNG:
 1. Trả về DUY NHẤT một JSON object hợp lệ — KHÔNG có markdown fence, KHÔNG có giải thích
 2. prompt_vi phải viết bằng tiếng Việt, chuyên nghiệp, chi tiết (200-600 từ)
 3. prompt_vi phải hướng dẫn AI behavior cụ thể cho sản phẩm này
-4. Với survey: tạo scanner_definition ĐẦY ĐỦ với sections + questions + scoring_rules
-5. question_id phải viết thường, không dấu, có gạch dưới, tối đa 40 ký tự
-6. scoring_rules: mỗi dimension phải có question_ids phù hợp với questions trong sections
-7. scale_labels_vi cho select: {"1":"...","2":"...","3":"...","4":"...","5":"..."} theo ngữ cảnh
-8. Không bịa thông tin nhạy cảm
-9. Sáng tạo nhưng bám sát câu trả lời của admin
+4. Nếu sản phẩm tạo SOP qua hội thoại, prompt_vi chỉ mô tả phạm vi nghiệp vụ và chuẩn đầu ra; không được tự đặt số lượt chat hoặc hướng dẫn mâu thuẫn với frame SOP cố định của hệ thống
+5. Với survey: tạo scanner_definition ĐẦY ĐỦ với sections + questions + scoring_rules
+6. question_id phải viết thường, không dấu, có gạch dưới, tối đa 40 ký tự
+7. scoring_rules: mỗi dimension phải có question_ids phù hợp với questions trong sections
+8. scale_labels_vi cho select: {"1":"...","2":"...","3":"...","4":"...","5":"..."} theo ngữ cảnh
+9. Không bịa thông tin nhạy cảm
+10. Sáng tạo nhưng bám sát câu trả lời của admin
 
 ---
 

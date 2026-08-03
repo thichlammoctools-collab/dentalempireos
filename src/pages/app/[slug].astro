@@ -154,6 +154,8 @@ const promptVi = (config.prompt_vi as string) ?? '';
     .send-btn:disabled { cursor: not-allowed; opacity: 0.42; }
     .input-hint { display: flex; justify-content: space-between; gap: 12px; padding: 7px 2px 0; }
     .input-hint span, .reset-link { color: #858a94; font-size: 11px; line-height: 1.4; }
+    .turn-counter { color: #a5b4fc !important; font-weight: 600; }
+    .turn-counter.is-final { color: #fbbf24 !important; }
     .reset-link { padding: 0; text-decoration: underline; text-underline-offset: 2px; }
     .reset-link:hover { color: #d7d9df; }
     @media (prefers-reduced-motion: reduce) {
@@ -609,9 +611,8 @@ const promptVi = (config.prompt_vi as string) ?? '';
         <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
       </div>
       <div class="msg-bubble ai-bubble">
-        Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> cho phòng khám nha khoa.<br><br>
-        Chúng ta sẽ đi qua từng bước một cách từ từ. Bạn sẵn sàng chưa?<br><br>
-        <strong>Câu hỏi đầu tiên:</strong> Phòng khám của bạn hiện có bao nhiêu nha sĩ và nhân viên?
+         Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> trong tối đa 6 lượt trả lời.<br><br>
+         Mỗi lượt chỉ tập trung vào một nhóm thông tin. <strong>Quy trình bạn muốn chuẩn hóa là gì và kết quả cuối cùng cần đạt là gì?</strong>
       </div>
     </div>
   </div>
@@ -652,6 +653,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
       </div>
       <div class="input-hint">
         <span>Enter gửi · Shift+Enter xuống dòng</span>
+        <span id="turn-counter" class="turn-counter" aria-live="polite">Lượt 0/6</span>
         <button class="reset-link" id="reset-btn" type="button">Bắt đầu lại</button>
       </div>
     </div>
@@ -659,10 +661,11 @@ const promptVi = (config.prompt_vi as string) ?? '';
   <div id="response-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script
-    define:vars={{
-      appId: app.id,
-      appName: app.name,
-      promptVi,
+      define:vars={{
+        appId: app.id,
+        appName: app.name,
+        promptVi,
+        maxTurns: 6,
     }}
   >
     const chatView = document.getElementById('chat-view');
@@ -683,6 +686,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
     let fullSopText = '';
     let generation = 0;
     let activeRequest = null;
+    let userTurn = 0;
 
     function escapeHtml(text) {
       const d = document.createElement('div');
@@ -856,7 +860,7 @@ const promptVi = (config.prompt_vi as string) ?? '';
 
     async function sendMessage() {
       const text = userInput.value.trim();
-      if (!text || isLoading) return;
+      if (!text || isLoading || userTurn >= maxTurns) return;
       const requestGeneration = ++generation;
       const controller = new AbortController();
       activeRequest?.abort();
@@ -866,6 +870,8 @@ const promptVi = (config.prompt_vi as string) ?? '';
       autoResize(userInput);
       addMsg('user', escapeHtml(text), []);
       conversationHistory.push({ role: 'user', content: text });
+      userTurn++;
+      updateTurnCounter();
       setLoading(true);
       responseStatus.textContent = 'Đang tạo câu trả lời.';
 
@@ -889,9 +895,11 @@ const promptVi = (config.prompt_vi as string) ?? '';
         if (!resp.ok) {
           const data = await resp.json().catch(() => ({}));
           if (requestGeneration !== generation) return;
-          const errorMessage = data.error || 'Không thể kết nối AI.';
+           const errorMessage = data.error || 'Không thể kết nối AI.';
           addMsg('ai', `<p><span style="color:#f87171">Lỗi: ${escapeHtml(errorMessage)}</span></p>`, []);
-          conversationHistory.pop();
+           conversationHistory.pop();
+           userTurn = Math.max(0, userTurn - 1);
+           updateTurnCounter();
           responseStatus.textContent = `Không thể tạo câu trả lời: ${errorMessage}`;
         } else {
           const data = await resp.json();
@@ -929,6 +937,8 @@ const promptVi = (config.prompt_vi as string) ?? '';
         removeTyping();
         addMsg('ai', '<p><span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span></p>', []);
         conversationHistory.pop();
+        userTurn = Math.max(0, userTurn - 1);
+        updateTurnCounter();
         responseStatus.textContent = 'Không thể tạo câu trả lời do lỗi kết nối.';
       } finally {
         if (requestGeneration === generation) {
@@ -1263,8 +1273,9 @@ const promptVi = (config.prompt_vi as string) ?? '';
       activeRequest?.abort();
       activeRequest = null;
       removeTyping();
-      setLoading(false);
       conversationHistory = [];
+      userTurn = 0;
+      setLoading(false);
       fullSopText = '';
       sopView.classList.remove('visible');
       sopContent.innerHTML = '';
@@ -1280,12 +1291,24 @@ const promptVi = (config.prompt_vi as string) ?? '';
             <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
           </div>
           <div class="msg-bubble ai-bubble">
-            Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> cho phòng khám nha khoa.<br><br>
-            Chúng ta sẽ đi qua từng bước một cách từ từ. Bạn sẵn sàng chưa?<br><br>
-            <strong>Câu hỏi đầu tiên:</strong> Phòng khám của bạn hiện có bao nhiêu nha sĩ và nhân viên?
+             Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> trong tối đa 6 lượt trả lời.<br><br>
+             Mỗi lượt chỉ tập trung vào một nhóm thông tin. <strong>Quy trình bạn muốn chuẩn hóa là gì và kết quả cuối cùng cần đạt là gì?</strong>
           </div>
-        </div>`;
+      </div>`;
+      updateTurnCounter();
       userInput.focus();
+    }
+
+    function updateTurnCounter() {
+      const counter = document.getElementById('turn-counter');
+      if (!counter) return;
+      counter.textContent = `Lượt ${userTurn}/${maxTurns}`;
+      counter.classList.toggle('is-final', userTurn >= maxTurns - 1);
+      if (userTurn >= maxTurns) {
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+        userInput.placeholder = 'Đang hoàn tất SOP...';
+      }
     }
 
     function autoResize(el) {
@@ -1295,9 +1318,14 @@ const promptVi = (config.prompt_vi as string) ?? '';
 
     function setLoading(state) {
       isLoading = state;
-      sendBtn.disabled = state;
-      userInput.disabled = state;
-      userInput.placeholder = state ? 'Đang suy nghĩ...' : 'Nhập câu trả lời...';
+      const isTurnLimitReached = userTurn >= maxTurns;
+      sendBtn.disabled = state || isTurnLimitReached;
+      userInput.disabled = state || isTurnLimitReached;
+      userInput.placeholder = state
+        ? 'Đang suy nghĩ...'
+        : isTurnLimitReached
+          ? 'SOP đã hoàn tất'
+          : 'Nhập câu trả lời...';
     }
 
     // Events
