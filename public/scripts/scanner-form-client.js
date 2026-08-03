@@ -275,18 +275,21 @@
     if (currentStep >= 0 && step > currentStep && !validateSection(currentStep)) return;
 
     if (currentStep === -1 && step >= 0) {
-      syncClinicProfileAnswers();
+      // Premium scanners use the verified profile in the submission API, not lead inputs.
+      if (!isFreeScanner) syncClinicProfileAnswers();
       var lead = surveyData.lead_fields || {};
       var fields = Object.keys(lead);
-      for (var i = 0; i < fields.length; i++) {
-        var fieldName = fields[i];
-        var cfg = lead[fieldName];
-        if (cfg && cfg.required) {
-          var el = document.querySelector('[name="' + fieldName + '"]');
-          var value = el && el.value ? el.value : answers[fieldName];
-          if (!value || !String(value).trim()) {
-            alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
-            return;
+      if (isFreeScanner) {
+        for (var i = 0; i < fields.length; i++) {
+          var fieldName = fields[i];
+          var cfg = lead[fieldName];
+          if (cfg && cfg.required) {
+            var el = document.querySelector('[name="' + fieldName + '"]');
+            var value = el && el.value ? el.value : answers[fieldName];
+            if (!value || !String(value).trim()) {
+              alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
+              return;
+            }
           }
         }
       }
