@@ -48,6 +48,9 @@ const selfServeProduct = serviceProducts.find(({ programs }) => programs.include
 const guidedProducts = serviceProducts
   .filter(({ programs }) => programs.includes('guided_3m') || programs.includes('guided_6m'))
   .map(({ product }) => product);
+const fullImplementationProduct = serviceProducts.find(
+  ({ programs }) => programs.includes('full_implementation'),
+)?.product;
 
 const consultationHref = (interest: 'guided' | 'implementation') =>
   `#dang-ky-tu-van?service_interest=${interest}`;
@@ -130,7 +133,7 @@ const formatDuration = (duration: number | null) =>
         <h3 class="mt-5 text-2xl font-black text-on-surface">Tự triển khai</h3>
         <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Dành cho người đã sẵn sàng dành thời gian học, tự ra quyết định và tự triển khai theo lộ trình.</p>
         <ul class="mt-6 space-y-3 text-sm text-on-surface-variant">
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Truy cập thư viện tri thức và công cụ trong gói.</li>
+          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Truy cập toàn bộ sách, AI Tools, Scanner, khóa học, blog và tài nguyên Premium.</li>
           <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Tự dùng scanner để xác định điểm cần ưu tiên.</li>
           <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Tự chịu trách nhiệm cho tiến độ triển khai.</li>
         </ul>
@@ -158,7 +161,7 @@ const formatDuration = (duration: number | null) =>
         <h3 class="mt-5 text-2xl font-black text-on-surface">Đồng hành tư vấn</h3>
         <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Dành cho phòng khám cần người cùng chẩn đoán, ưu tiên vấn đề và giữ nhịp thực hiện trong quá trình thay đổi.</p>
         <ul class="mt-6 space-y-3 text-sm text-on-surface-variant">
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Buổi tư vấn theo thực trạng và mục tiêu riêng.</li>
+          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Toàn bộ nền tảng tri thức, công cụ và tài nguyên Premium trong thời hạn gói.</li>
           <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Phản biện kế hoạch, thứ tự ưu tiên và chỉ số theo dõi.</li>
           <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Đồng hành tháo gỡ vướng mắc khi đội ngũ triển khai.</li>
         </ul>
@@ -195,9 +198,19 @@ const formatDuration = (duration: number | null) =>
           <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-violet-600 dark:text-violet-300">check_circle</span>Hỗ trợ đào tạo, thử nghiệm và điều chỉnh theo thực tế.</li>
         </ul>
         <div class="mt-7 border-t border-outline-variant/25 pt-5">
-          <p class="text-sm leading-relaxed text-on-surface-variant">Phạm vi, nhân sự tham gia và chi phí được xác định sau buổi trao đổi thực trạng.</p>
-          <a href={consultationHref('implementation')} class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-on-surface px-5 py-3 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[18px]">calendar_month</span>Đăng ký tư vấn dự án</a>
-        </div>
+           <p class="text-sm leading-relaxed text-on-surface-variant">Phạm vi, nhân sự tham gia và chi phí được xác định sau buổi trao đổi thực trạng.</p>
+            <a href={consultationHref('implementation')} class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-on-surface px-5 py-3 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[18px]">calendar_month</span>Đăng ký tư vấn dự án</a>
+            {fullImplementationProduct && fullImplementationProduct.price > 0 && (
+              <div class="mt-4 rounded-2xl border border-violet-500/25 bg-surface-container-lowest/70 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">Hoặc chọn gói giá cố định</p>
+                <p class="text-sm font-bold text-on-surface">{fullImplementationProduct.name}</p>
+                <p class="mt-1 text-xl font-black text-on-surface">{fullImplementationProduct.price.toLocaleString('vi-VN')}₫</p>
+               <p class="mt-1 text-xs text-on-surface-variant">{formatDuration(fullImplementationProduct.duration_days)}</p>
+               {fullImplementationProduct.description && <p class="mt-2 text-xs leading-relaxed text-on-surface-variant">{fullImplementationProduct.description}</p>}
+               <PaymentButton productId={fullImplementationProduct.id} productName={fullImplementationProduct.name} price={fullImplementationProduct.price} class="mt-4 w-full" />
+             </div>
+           )}
+         </div>
       </article>
     </div>
   </section>
@@ -208,7 +221,7 @@ const formatDuration = (duration: number | null) =>
         <div>
           <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Nền tảng chung</p>
           <h2 class="mt-2 text-3xl font-black text-on-surface">Một hệ sinh thái để học, đo lường và làm</h2>
-          <p class="mt-4 leading-relaxed text-on-surface-variant">Các gói sử dụng hệ sinh thái Dental Empire OS để đưa kiến thức đến gần công việc thực tế hơn. Phạm vi truy cập cụ thể được xác nhận theo từng sản phẩm hoặc dự án.</p>
+          <p class="mt-4 leading-relaxed text-on-surface-variant">Các gói tự triển khai và đồng hành bao gồm toàn bộ hệ sinh thái Dental Empire OS để đưa kiến thức đến gần công việc thực tế hơn. Phạm vi của dự án triển khai trọn gói được xác định trong buổi tư vấn.</p>
           <a href="/ai-tools" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">Khám phá AI Tools và Scanner <span class="material-symbols-outlined text-[18px]">arrow_forward</span></a>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">

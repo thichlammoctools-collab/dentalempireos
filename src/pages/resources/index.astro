@@ -9,7 +9,8 @@ export const prerender = false;
 
 const db = env.DB;
 
-const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10));
+const requestedPage = Number.parseInt(Astro.url.searchParams.get('page') ?? '1', 10);
+const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
 const perPage = 12;
 const category = Astro.url.searchParams.get('cat') ?? '';
 const search = Astro.url.searchParams.get('q') ?? '';
@@ -19,7 +20,7 @@ const [resources, total] = await Promise.all([
   countResources(db, { search: search || undefined, category: category || undefined }),
 ]);
 
-const paginated = resources.slice(0, perPage);
+const paginated = resources.slice((page - 1) * perPage, page * perPage);
 const totalPages = Math.ceil(total / perPage);
 const user = Astro.locals.user;
 const accessByResourceId = new Map(
@@ -77,6 +78,7 @@ function getTierColor(tier: string) {
 
 function resourceUrl(fileUrl: string): string {
   if (!fileUrl) return '#';
+  if (fileUrl.startsWith('/media/')) return fileUrl;
   if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
   return `/media/${fileUrl}`;
 }

@@ -15,7 +15,7 @@ export async function GET(context: APIContext) {
     site: context.site?.toString() ?? 'https://dentalempireos.com',
     trailingSlash: true,
     customData: `<language>vi</language>`,
-    items: posts.map((post) => {
+    items: posts.filter((post) => post.access_tier === 'free').map((post) => {
       const html = sanitizeRichHtml(marked.parse(post.content_md ?? '') as string);
       return {
         title: post.title,

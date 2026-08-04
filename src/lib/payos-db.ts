@@ -433,16 +433,17 @@ export async function setProductScanners(
   productId: string,
   scannerIds: string[],
 ): Promise<void> {
-  await db.prepare('DELETE FROM "product_scanner" WHERE "product_id" = ?').bind(productId).run();
-  for (const sid of scannerIds) {
-    await db
-      .prepare(
-        `INSERT INTO "product_scanner" ("product_id", "scanner_id", "assigned_at")
-         VALUES (?, ?, datetime('now'))`,
-      )
-      .bind(productId, sid)
-      .run();
-  }
+  await db.batch([
+    db.prepare('DELETE FROM "product_scanner" WHERE "product_id" = ?').bind(productId),
+    ...scannerIds.map((scannerId) =>
+      db
+        .prepare(
+          `INSERT INTO "product_scanner" ("product_id", "scanner_id", "assigned_at")
+           VALUES (?, ?, datetime('now'))`,
+        )
+        .bind(productId, scannerId),
+    ),
+  ]);
 }
 
 export async function getAllProductScanners(

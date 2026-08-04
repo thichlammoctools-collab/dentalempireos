@@ -11,7 +11,8 @@ import DonateWidget from '../../components/book/DonateWidget.astro';
 
 import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
 import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
-import { getActiveBookProduct, hasAccess } from '../../lib/payos-db';
+import { getActiveBookProduct } from '../../lib/payos-db';
+import { canAccessBook } from '../../lib/entitlement-check';
 import PaymentButton from '../../components/PaymentButton.astro';
 
 // Configure marked ONCE at module level (persists across requests within the same isolate)
@@ -55,20 +56,23 @@ const { chapter: ch, sections } = tree;
 
 const isPremiumChapter = ch.is_premium === 1;
 
-// ── Book paywall: one product unlocks a whole chapter after its free preview.
+// ── Book paywall: entitlements unlock premium chapters; book_unlock remains compatible.
 let bookProduct: Awaited<ReturnType<typeof getActiveBookProduct>> = null;
 let userHasAccess = false;
+const currentUser = Astro.locals.user;
+
+try {
+  if (currentUser) {
+    userHasAccess = await canAccessBook(db, currentUser.id, ch.id);
+  }
+} catch {
+  // Gracefully degrade if entitlement tables are unavailable.
+}
 
 try {
   bookProduct = await getActiveBookProduct(db);
-  if (bookProduct) {
-    const currentUser = Astro.locals.user;
-    if (currentUser) {
-      userHasAccess = await hasAccess(db, currentUser.id, bookProduct.id);
-    }
-  }
 } catch {
-  // Gracefully degrade if product table doesn't have book_unlock type yet
+  // The legacy product remains optional while entitlement products are in use.
 }
 
 // The reader response varies by the viewer's entitlement. Never let an unlocked
@@ -339,7 +343,6 @@ try {
   reviews = [];
   reviewStats = { avgRating: 0, totalReviews: 0 };
 }
-const currentUser = Astro.locals.user;
 ---
 
 <BookLayout

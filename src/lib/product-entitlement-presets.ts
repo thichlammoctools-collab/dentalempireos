@@ -16,10 +16,37 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
   implementation_full: [{ content_type: 'service', content_id: 'implementation_full' }],
   team_training: [{ content_type: 'service', content_id: 'team_training' }],
   clinic_audit: [{ content_type: 'service', content_id: 'clinic_audit' }],
-  self_serve: [{ content_type: 'service', content_id: 'self_serve' }],
-  guided_3m: [{ content_type: 'service', content_id: 'guided_3m' }],
-  guided_6m: [{ content_type: 'service', content_id: 'guided_6m' }],
-  full_implementation: [{ content_type: 'service', content_id: 'full_implementation' }],
+  self_serve: [
+    { content_type: 'book', content_id: '*' },
+    { content_type: 'service', content_id: 'self_serve' },
+  ],
+  guided_3m: [
+    { content_type: 'book', content_id: '*' },
+    { content_type: 'ai_app', content_id: '*' },
+    { content_type: 'scanner', content_id: '*' },
+    { content_type: 'course', content_id: '*' },
+    { content_type: 'blog', content_id: '*' },
+    { content_type: 'resource', content_id: '*' },
+    { content_type: 'service', content_id: 'guided_3m' },
+  ],
+  guided_6m: [
+    { content_type: 'book', content_id: '*' },
+    { content_type: 'ai_app', content_id: '*' },
+    { content_type: 'scanner', content_id: '*' },
+    { content_type: 'course', content_id: '*' },
+    { content_type: 'blog', content_id: '*' },
+    { content_type: 'resource', content_id: '*' },
+    { content_type: 'service', content_id: 'guided_6m' },
+  ],
+  full_implementation: [
+    { content_type: 'book', content_id: '*' },
+    { content_type: 'ai_app', content_id: '*' },
+    { content_type: 'scanner', content_id: '*' },
+    { content_type: 'course', content_id: '*' },
+    { content_type: 'blog', content_id: '*' },
+    { content_type: 'resource', content_id: '*' },
+    { content_type: 'service', content_id: 'full_implementation' },
+  ],
 } as const satisfies Record<string, readonly ProductEntitlementInput[]>;
 
 export const PRODUCT_ENTITLEMENT_PRESET_LABELS = {
@@ -34,10 +61,10 @@ export const PRODUCT_ENTITLEMENT_PRESET_LABELS = {
   implementation_full: 'Triển khai toàn diện',
   team_training: 'Đào tạo đội ngũ',
   clinic_audit: 'Audit phòng khám',
-  self_serve: 'Tự triển khai',
-  guided_3m: 'Đồng hành 3 tháng',
-  guided_6m: 'Đồng hành 6 tháng',
-  full_implementation: 'Triển khai toàn diện',
+  self_serve: 'Gói tự triển khai',
+  guided_3m: 'Gói đồng hành 3 tháng',
+  guided_6m: 'Gói đồng hành 6 tháng',
+  full_implementation: 'Gói triển khai toàn diện',
 } as const satisfies Record<keyof typeof PRODUCT_ENTITLEMENT_PRESETS, string>;
 
 export const CUSTOM_ENTITLEMENT_PRESET = 'custom';

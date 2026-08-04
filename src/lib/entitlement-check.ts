@@ -2,7 +2,7 @@ import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
 import { hasActiveEntitlementForContent } from './entitlement-db';
-import { getActiveProducts, hasAccess, hasScannerAccess } from './payos-db';
+import { getActiveBookProduct, getActiveProducts, hasAccess, hasScannerAccess } from './payos-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
 
@@ -29,7 +29,16 @@ export async function canAccessBook(
 
   if (!chapter) return false;
   if (chapter.is_premium !== 1) return true;
-  return hasPaidAccess(db, userId, 'book', chapterId);
+  if (!userId) return false;
+
+  const [hasEntitlement, legacyBookProduct] = await Promise.all([
+    hasPaidAccess(db, userId, 'book', chapterId).catch(() => false),
+    getActiveBookProduct(db).catch(() => null),
+  ]);
+  if (hasEntitlement) return true;
+
+  // Keep existing book_unlock purchases valid while products transition to entitlements.
+  return !!legacyBookProduct && hasAccess(db, userId, legacyBookProduct.id);
 }
 
 export async function canAccessAiApp(

@@ -5,6 +5,7 @@ import { listPosts } from '../lib/blog-db';
 import { listResources } from '../lib/resource-db';
 import { listPublishedChapters } from '../lib/book-db';
 import { getTierLabel } from '../lib/collection-helpers';
+import { canAccessResource } from '../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -31,6 +32,14 @@ if (q.trim()) {
 }
 
 const totalResults = blogPosts.length + resources.length + chapters.length;
+const resourceAccessById = new Map(
+  await Promise.all(
+    resources.map(async (resource) => [
+      resource.id,
+      await canAccessResource(db, Astro.locals.user?.id, resource.id),
+    ] as const),
+  ),
+);
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
@@ -141,7 +150,10 @@ function formatDate(iso: string | null): string {
           {resources.map((res) => {
             function resourceUrl(fileUrl: string): string {
               if (!fileUrl) return '#';
-              if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
+              if (fileUrl.startsWith('/media/')) return fileUrl;
+              if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+                return resourceAccessById.get(res.id) ? fileUrl : '/resources';
+              }
               return `/media/${fileUrl}`;
             }
             return (
