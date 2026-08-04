@@ -474,6 +474,22 @@
     document.querySelectorAll('.lang-btn').forEach(function (b) {
       b.classList.toggle('active', b.dataset['lang'] === lang);
     });
+    var quotaNotice = document.querySelector('.scanner-quota-notice');
+    var noticeTitle = document.querySelector('.scanner-quota-notice__title');
+    if (quotaNotice && noticeTitle) {
+      noticeTitle.textContent = lang === 'en' ? quotaNotice.dataset.noticeEn : quotaNotice.dataset.noticeVi;
+    }
+    document.querySelectorAll('[data-vi][data-en]').forEach(function (el) {
+      if (el.classList.contains('scanner-quota-notice__title')) return;
+      if (el.tagName === 'LI') {
+        var parts = (lang === 'en' ? el.dataset.en : el.dataset.vi).split('|');
+        if (parts.length === 3) {
+          el.innerHTML = parts[0] + ' <strong>' + parts[1] + '</strong>' + parts[2];
+          return;
+        }
+      }
+      el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.vi;
+    });
     buildIntroFields();
     buildParts();
     buildStepLabels();

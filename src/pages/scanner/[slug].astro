@@ -140,15 +140,20 @@ const defaultScaleEn: Record<string, string> = {
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
       >
-        <div class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']} role="status">
+        <div
+          class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
+          role="status"
+          data-notice-vi={scannerNotice}
+          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : definition.is_free === 1 ? `Free Scanner: ${usage.remaining}/1 attempt remaining.` : `Paid Scanner: ${usage.remaining}/3 attempts remaining this month.`}
+        >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">
-            <strong>{scannerNotice}</strong>
+            <strong class="scanner-quota-notice__title">{scannerNotice}</strong>
             {(!hasPaidAccess && scannerProduct) && (
-              <span class="scanner-quota-notice__hint">Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này.</span>
+              <span class="scanner-quota-notice__hint" data-vi="Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này." data-en="To unlock it: scroll down to “Unlock Scanner”, click <b>Buy now</b>, complete payment, then return to this page.">Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này.</span>
             )}
             {(!hasPaidAccess && !scannerProduct) && (
-              <span class="scanner-quota-notice__hint">Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa.</span>
+              <span class="scanner-quota-notice__hint" data-vi="Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa." data-en="This Scanner has no payment product assigned. Please contact an administrator to request access.">Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa.</span>
             )}
           </div>
           {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
@@ -167,14 +172,14 @@ const defaultScaleEn: Record<string, string> = {
                   <span class="material-symbols-outlined">lock_open</span>
                 </div>
                 <div class="scanner-unlock-card__content">
-                  <p class="scanner-unlock-card__eyebrow">Mở khóa Scanner</p>
+                  <p class="scanner-unlock-card__eyebrow" data-vi="Mở khóa Scanner" data-en="Unlock Scanner">Mở khóa Scanner</p>
                   <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
-                  <p>{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
+                  <p data-vi={scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'} data-en="Purchase access to start the assessment and receive analysis tailored to your clinic.">{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
                   {scannerProduct && (
-                    <ol class="scanner-unlock-card__steps">
-                      <li>Nhấn <strong>Mua ngay</strong> bên dưới.</li>
-                      <li>Chọn thanh toán tự động hoặc chuyển khoản QR.</li>
-                      <li>Sau khi kích hoạt, quay lại trang này để bắt đầu.</li>
+                    <ol class="scanner-unlock-card__steps" data-vi="Nhấn|Mua ngay|bên dưới.;Chọn thanh toán tự động hoặc chuyển khoản QR.;Sau khi kích hoạt, quay lại trang này để bắt đầu." data-en="Click|Buy now|below.;Choose automatic payment or QR bank transfer.;After activation, return to this page to get started.">
+                      <li data-vi="Nhấn|Mua ngay| bên dưới." data-en="Click|Buy now| below.">Nhấn <strong>Mua ngay</strong> bên dưới.</li>
+                      <li data-vi="Chọn thanh toán tự động hoặc chuyển khoản QR." data-en="Choose automatic payment or QR bank transfer.">Chọn thanh toán tự động hoặc chuyển khoản QR.</li>
+                      <li data-vi="Sau khi kích hoạt, quay lại trang này để bắt đầu." data-en="After activation, return to this page to get started.">Sau khi kích hoạt, quay lại trang này để bắt đầu.</li>
                     </ol>
                   )}
                   {scannerProduct ? (

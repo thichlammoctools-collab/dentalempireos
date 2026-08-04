@@ -242,15 +242,25 @@ export async function listAllSurveyDefinitionIds(db: D1Database): Promise<Set<st
 
 export async function listSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus; limit?: number; offset?: number } = {},
+  opts: { status?: SurveyStatus; is_free?: number; survey_type?: SurveyType; limit?: number; offset?: number } = {},
 ): Promise<SurveyDefinitionRow[]> {
   let sql = 'SELECT * FROM "survey_definition"';
   const params: unknown[] = [];
+  const conditions: string[] = [];
 
   if (opts.status) {
-    sql += ' WHERE "status" = ?';
+    conditions.push('"status" = ?');
     params.push(opts.status);
   }
+  if (opts.is_free !== undefined) {
+    conditions.push('"is_free" = ?');
+    params.push(opts.is_free);
+  }
+  if (opts.survey_type) {
+    conditions.push('"survey_type" = ?');
+    params.push(opts.survey_type);
+  }
+  if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
   sql += ' ORDER BY "order_index" ASC, "created_at" DESC';
 
@@ -272,15 +282,25 @@ export async function listSurveyDefinitions(
 
 export async function countSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus } = {},
+  opts: { status?: SurveyStatus; is_free?: number; survey_type?: SurveyType } = {},
 ): Promise<number> {
   let sql = 'SELECT COUNT(*) AS total FROM "survey_definition"';
   const params: unknown[] = [];
+  const conditions: string[] = [];
 
   if (opts.status) {
-    sql += ' WHERE "status" = ?';
+    conditions.push('"status" = ?');
     params.push(opts.status);
   }
+  if (opts.is_free !== undefined) {
+    conditions.push('"is_free" = ?');
+    params.push(opts.is_free);
+  }
+  if (opts.survey_type) {
+    conditions.push('"survey_type" = ?');
+    params.push(opts.survey_type);
+  }
+  if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
   const stmt = db.prepare(sql);
   const row = params.length > 0
