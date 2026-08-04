@@ -46,22 +46,42 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
   tool:      { bg: 'bg-amber-50 dark:bg-amber-500/10',  border: 'border-amber-200 dark:border-amber-500/30',  text: 'text-amber-700 dark:text-amber-300' },
   generator: { bg: 'bg-pink-50 dark:bg-pink-500/10',   border: 'border-pink-200 dark:border-pink-500/30',   text: 'text-pink-700 dark:text-pink-300' },
 };
+
+const scannerGroups = [
+  { title: 'Scanner miễn phí', description: 'Khảo sát nhanh để nhìn ra một vấn đề cụ thể và nhận định hướng cải thiện ban đầu.', items: scanners.filter((scanner) => scanner.is_free === 1), free: true },
+  { title: 'Scanner chuyên sâu', description: 'Phân tích AI chuyên sâu, dành cho những vấn đề cần kế hoạch hành động và góc nhìn hệ thống.', items: scanners.filter((scanner) => scanner.is_free !== 1), free: false },
+];
+
+const appGroups = [
+  { title: 'AI Tools miễn phí', description: 'Công cụ hỗ trợ bạn bắt đầu, phác thảo và kiểm tra công việc nhanh hơn.', items: apps.filter((app) => app.is_free === 1), free: true },
+  { title: 'AI Tools chuyên sâu', description: 'Công cụ có trả phí hoặc cần mở khóa để tạo ra đầu ra chuyên biệt hơn.', items: apps.filter((app) => app.is_free !== 1), free: false },
+];
 ---
 
 <BaseLayout
   title="Công cụ AI — Dental Empire OS"
-  description="Tổng hợp các công cụ AI: máy quét tự chẩn đoán, scanner, ebook generator và nhiều hơn nữa. Giúp bạn đánh giá và phát triển phòng khám nha khoa."
+  description="Scanner và AI Tools cho phòng khám nha khoa: xác định điểm nghẽn, nhận phân tích AI và tạo kế hoạch hành động cụ thể. Xem rõ công cụ miễn phí và công cụ chuyên sâu có trả phí."
 >
   <section class="relative overflow-hidden">
     <!-- Ambient background -->
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute inset-0 opacity-[0.03] dark:opacity-[0.03]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(0,100,151,0.08) 35px, rgba(0,100,151,0.08) 70px);"></div>
-      <div class="absolute top-0 inset-x-0 h-[500px]" style="background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,100,151,0.06), transparent);"></div>
+    <div class="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <div class="ai-tools-grid absolute inset-0"></div>
+      <div class="absolute top-0 inset-x-0 h-[560px]" style="background: radial-gradient(ellipse 70% 55% at 50% -8%, rgba(0,139,210,0.16), transparent 68%);"></div>
+      <div class="ai-tools-circuit ai-tools-circuit--left"></div>
+      <div class="ai-tools-circuit ai-tools-circuit--right"></div>
+      <svg class="ai-tools-tooth ai-tools-tooth--left" viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43 19c18-11 56-11 74 0 18 11 26 35 18 57-6 16-14 25-17 46l-8 42c-2 11-17 11-19 1l-8-34c-1-5-5-8-10-8s-9 3-10 8l-8 34c-2 10-17 10-19-1l-8-42c-3-21-11-30-17-46-8-22 0-46 18-57Z" />
+        <path d="M43 60c20 11 54 11 74 0M73 28v30M57 38l16 20 16-20" />
+      </svg>
+      <svg class="ai-tools-tooth ai-tools-tooth--right" viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43 19c18-11 56-11 74 0 18 11 26 35 18 57-6 16-14 25-17 46l-8 42c-2 11-17 11-19 1l-8-34c-1-5-5-8-10-8s-9 3-10 8l-8 34c-2 10-17 10-19-1l-8-42c-3-21-11-30-17-46-8-22 0-46 18-57Z" />
+        <path d="M43 60c20 11 54 11 74 0M73 28v30M57 38l16 20 16-20" />
+      </svg>
     </div>
 
     <div class="relative max-w-5xl mx-auto px-4 pt-16 pb-20">
       <!-- Hero -->
-      <header class="text-center mb-16">
+      <header class="text-center mb-10">
         <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold mb-6">
           <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
           Công cụ AI
@@ -72,9 +92,29 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
           <br />của bạn
         </h1>
         <p class="text-on-surface-variant text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-          Tổng hợp các công cụ AI giúp bạn tự đánh giá, phân tích và phát triển phòng khám nha khoa — dựa trên framework Dental Empire OS.
+          Xác định điểm nghẽn, nhận phân tích rõ ràng và biết việc cần làm tiếp theo cho phòng khám của bạn.
         </p>
       </header>
+
+      <!-- This concise overview is intentionally suitable for OG screenshots. -->
+      <section class="mb-16 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/10 via-surface-container to-amber-500/5 p-6 md:p-8">
+        <div class="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
+          <div class="max-w-2xl">
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Dental Empire OS · AI Workspace</p>
+            <h2 class="mt-2 text-2xl font-black text-on-surface md:text-3xl">Từ “đang rối ở đâu?” đến hành động rõ ràng.</h2>
+            <p class="mt-3 leading-relaxed text-on-surface-variant">Scanner giúp bạn đo lường thực trạng. AI Tools giúp biến dữ liệu, ý tưởng và kiến thức thành nội dung hoặc quyết định có thể triển khai.</p>
+          </div>
+          <div class="grid shrink-0 grid-cols-3 gap-2 text-center text-xs">
+            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">fact_check</span><b class="mt-1 block text-on-surface">Đánh giá</b><span class="text-on-surface-variant">điểm nghẽn</span></div>
+            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">psychology</span><b class="mt-1 block text-on-surface">Phân tích</b><span class="text-on-surface-variant">cùng AI</span></div>
+            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">route</span><b class="mt-1 block text-on-surface">Hành động</b><span class="text-on-surface-variant">có ưu tiên</span></div>
+          </div>
+        </div>
+        <div class="mt-6 flex flex-wrap gap-3 text-sm">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 font-semibold text-emerald-700 dark:text-emerald-300"><span class="material-symbols-outlined text-[16px]">check_circle</span> Miễn phí: bắt đầu quét và nhận định hướng</span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 font-semibold text-amber-700 dark:text-amber-300"><span class="material-symbols-outlined text-[16px]">lock</span> Chuyên sâu: cần mua hoặc mở khóa để dùng</span>
+        </div>
+      </section>
 
       <!-- Scanner Cards -->
       {scanners.length > 0 && (
@@ -89,8 +129,15 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {scanners.map((s) => {
+          <div class="space-y-10">
+            {scannerGroups.map((group) => group.items.length > 0 && (
+              <section>
+                <div class="mb-4 flex items-start gap-3">
+                  <span class={`material-symbols-outlined mt-0.5 ${group.free ? 'text-emerald-500' : 'text-amber-500'}`}>{group.free ? 'check_circle' : 'lock'}</span>
+                  <div><h3 class="font-bold text-on-surface">{group.title}</h3><p class="mt-0.5 text-sm text-on-surface-variant">{group.description}</p></div>
+                </div>
+                <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {group.items.map((s) => {
               const color = getScannerColor(s);
               return (
                 <a
@@ -119,9 +166,11 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
                   <h3 class="text-lg font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">
                     {s.title_vi}
                   </h3>
-                  <p class="text-sm text-on-surface-variant leading-relaxed flex-1 line-clamp-3">
-                    {s.description_vi ?? 'Đánh giá toàn diện giúp bạn hiểu rõ thực trạng và tiềm năng phát triển của phòng khám.'}
-                  </p>
+                    <p class="text-sm text-on-surface-variant leading-relaxed flex-1 line-clamp-3">
+                      {s.description_vi ?? 'Đánh giá toàn diện giúp bạn hiểu rõ thực trạng và tiềm năng phát triển của phòng khám.'}
+                    </p>
+
+                    <p class="mt-3 text-xs font-semibold text-primary">Kết quả: điểm đánh giá, điểm cần ưu tiên và gợi ý hành động.</p>
 
                   <div class="flex items-center justify-between mt-5 pt-4 border-t border-outline-variant/10">
                     <div class="flex items-center gap-2 text-xs text-on-surface-variant/60">
@@ -133,6 +182,9 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
                 </a>
               );
             })}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       )}
@@ -150,35 +202,44 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {apps.map((app) => {
+          <div class="space-y-10">
+            {appGroups.map((group) => group.items.length > 0 && (
+              <section>
+                <div class="mb-4 flex items-start gap-3">
+                  <span class={`material-symbols-outlined mt-0.5 ${group.free ? 'text-emerald-500' : 'text-amber-500'}`}>{group.free ? 'check_circle' : 'lock'}</span>
+                  <div><h3 class="font-bold text-on-surface">{group.title}</h3><p class="mt-0.5 text-sm text-on-surface-variant">{group.description}</p></div>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {group.items.map((app) => {
               const color = appTypeColors[app.type] ?? { bg: 'bg-gray-50 dark:bg-gray-500/10', border: 'border-gray-200 dark:border-gray-500/30', text: 'text-gray-700 dark:text-gray-300' };
               return (
                 <a
                   href={`/app/${app.slug}`}
                   class="group glass-card rounded-2xl p-5 border border-outline-variant/15 hover:border-primary/40 transition-all duration-300 hover:-translate-y-0.5 flex flex-col"
                 >
-                  <div class="flex items-center gap-3 mb-3">
+                   <div class="flex items-center gap-3 mb-3">
                     <div class={`w-10 h-10 rounded-xl ${color.bg} border ${color.border} flex items-center justify-center group-hover:scale-105 transition-transform`}>
                       <span class={`material-symbols-outlined ${color.text} text-[20px]`}>
                         {app.type === 'survey' ? 'quiz' : app.type === 'ebook_ai' ? 'menu_book' : app.type === 'course_ai' ? 'school' : app.type === 'tool' ? 'build' : 'auto_awesome'}
                       </span>
                     </div>
-                    <div class="flex-1 min-w-0">
-                      <span class={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${color.bg} ${color.border} ${color.text}`}>
-                        {appTypeLabels[app.type] ?? app.type}
-                      </span>
+                     <div class="flex flex-1 flex-wrap items-center gap-1.5 min-w-0">
+                       <span class={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${color.bg} ${color.border} ${color.text}`}>
+                         {appTypeLabels[app.type] ?? app.type}
+                       </span>
+                       <span class={`text-[11px] font-bold ${app.is_free === 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{app.is_free === 1 ? 'Miễn phí' : 'Cần mở khóa'}</span>
                     </div>
                   </div>
 
                   <h3 class="text-sm font-bold text-on-surface mb-1.5 group-hover:text-primary transition-colors truncate">
                     {app.name}
                   </h3>
-                  {app.description && (
+                   {app.description && (
                     <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2 flex-1">
                       {app.description}
                     </p>
-                  )}
+                   )}
+                   <p class="mt-3 text-xs font-semibold text-primary">Kết quả: đầu ra AI để bạn tiếp tục chỉnh sửa hoặc triển khai.</p>
 
                   <div class="flex items-center justify-end mt-3">
                     <span class="material-symbols-outlined text-primary text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
@@ -186,6 +247,9 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
                 </a>
               );
             })}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       )}
@@ -213,3 +277,77 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  .ai-tools-grid {
+    background-image:
+      linear-gradient(rgba(27, 124, 178, 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(27, 124, 178, 0.09) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, black, transparent 62%);
+  }
+
+  .ai-tools-circuit {
+    position: absolute;
+    width: 34rem;
+    height: 16rem;
+    border: 1px solid rgba(43, 154, 216, 0.28);
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+
+  .ai-tools-circuit::before,
+  .ai-tools-circuit::after {
+    content: '';
+    position: absolute;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 999px;
+    background: rgb(59, 170, 233);
+    box-shadow: 0 0 16px rgba(59, 170, 233, 0.9);
+  }
+
+  .ai-tools-circuit--left {
+    top: 6rem;
+    left: -20rem;
+    transform: rotate(-22deg);
+  }
+
+  .ai-tools-circuit--left::before { right: 4rem; top: 1.1rem; }
+  .ai-tools-circuit--left::after { right: 0.5rem; bottom: 3rem; }
+
+  .ai-tools-circuit--right {
+    top: 2rem;
+    right: -21rem;
+    transform: rotate(24deg);
+  }
+
+  .ai-tools-circuit--right::before { left: 4rem; top: 1.1rem; }
+  .ai-tools-circuit--right::after { left: 0.5rem; bottom: 3rem; }
+
+  .ai-tools-tooth {
+    position: absolute;
+    width: 11rem;
+    stroke: rgba(26, 145, 207, 0.25);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 18px rgba(42, 154, 216, 0.15));
+  }
+
+  .ai-tools-tooth--left { top: 12rem; left: 4%; transform: rotate(-14deg); }
+  .ai-tools-tooth--right { top: 4rem; right: 5%; transform: rotate(18deg); }
+
+  :global(.dark) .ai-tools-grid {
+    background-image:
+      linear-gradient(rgba(123, 205, 255, 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(123, 205, 255, 0.09) 1px, transparent 1px);
+  }
+
+  :global(.dark) .ai-tools-tooth { stroke: rgba(123, 205, 255, 0.3); }
+
+  @media (max-width: 767px) {
+    .ai-tools-tooth { width: 8rem; opacity: 0.6; }
+    .ai-tools-tooth--left { left: -3rem; top: 15rem; }
+    .ai-tools-tooth--right { right: -3rem; top: 2rem; }
+    .ai-tools-circuit { width: 24rem; }
+  }
+</style>
