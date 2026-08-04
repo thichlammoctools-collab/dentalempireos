@@ -71,7 +71,7 @@ function formatDate(iso: string | null): string {
           />
           <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-[22px]">search</span>
           {q && (
-            <a href="/search" class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
+            <a href="/search/" class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
               <span class="material-symbols-outlined text-[22px]">close</span>
             </a>
           )}
@@ -148,17 +148,18 @@ function formatDate(iso: string | null): string {
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {resources.map((res) => {
-            function resourceUrl(fileUrl: string): string {
-              if (!fileUrl) return '#';
-              if (fileUrl.startsWith('/media/')) return fileUrl;
-              if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-                return resourceAccessById.get(res.id) ? fileUrl : '/resources';
-              }
-              return `/media/${fileUrl}`;
-            }
+            const resourceUrl = (fileUrl: string, hasAccess: boolean): string => {
+               if (res.tier === 'premium' && !hasAccess) return '/resources';
+               if (!fileUrl) return '#';
+               if (fileUrl.startsWith('/media/')) return fileUrl;
+               if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+                 return fileUrl;
+               }
+               return `/media/${fileUrl}`;
+            };
             return (
             <a
-              href={resourceUrl(res.file_url)}
+              href={resourceUrl(res.file_url, resourceAccessById.get(res.id) ?? false)}
               class="glass-card rounded-2xl p-5 flex items-start gap-4 hover:-translate-y-0.5 transition-all group"
             >
               <span class="material-symbols-outlined text-3xl text-primary shrink-0 mt-0.5">

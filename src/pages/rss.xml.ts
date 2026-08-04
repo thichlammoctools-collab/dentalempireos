@@ -8,6 +8,7 @@ import { sanitizeRichHtml } from '../lib/sanitize';
 export async function GET(context: APIContext) {
   const db = env.DB;
   const { posts } = await listPosts(db, { limit: 50, sort: 'recent' });
+  const freePosts = posts.filter((post) => post.access_tier === 'free');
 
   return rss({
     title: 'Dental Empire Blog',
@@ -15,7 +16,7 @@ export async function GET(context: APIContext) {
     site: context.site?.toString() ?? 'https://dentalempireos.com',
     trailingSlash: true,
     customData: `<language>vi</language>`,
-    items: posts.filter((post) => post.access_tier === 'free').map((post) => {
+    items: freePosts.map((post) => {
       const html = sanitizeRichHtml(marked.parse(post.content_md ?? '') as string);
       return {
         title: post.title,

@@ -1,4 +1,8 @@
 -- Migration 0069: Store public consultation leads separately from commerce data.
+
+-- Keep constraint checks deferred for this migration.
+PRAGMA defer_foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS "consultation_request" (
   "id" TEXT PRIMARY KEY,
   "name" TEXT NOT NULL,
@@ -19,3 +23,4 @@ CREATE INDEX IF NOT EXISTS "idx_consultation_request_status_created"
 
 CREATE INDEX IF NOT EXISTS "idx_consultation_request_ip_created"
   ON "consultation_request" ("ip_hash", "created_at" DESC);
+PRAGMA defer_foreign_keys = OFF;

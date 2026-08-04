@@ -1,7 +1,7 @@
 -- Migration 0067: Normalize product-to-content entitlements.
 -- Keep existing product data and relationships while allowing service programs.
 
-PRAGMA foreign_keys = OFF;
+PRAGMA defer_foreign_keys = ON;
 
 CREATE TABLE "product_v4" (
   "id" text NOT NULL PRIMARY KEY,
@@ -83,4 +83,4 @@ FROM "product"
 WHERE "type" = 'document_unlock'
   AND "reference_id" IS NOT NULL AND "reference_id" <> '';
 
-PRAGMA foreign_keys = ON;
+PRAGMA defer_foreign_keys = OFF;
