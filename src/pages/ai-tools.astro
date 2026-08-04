@@ -170,6 +170,7 @@ const appGroups = [
             {group.items.map((s) => {
               const color = getScannerColor(s);
               const product = getScannerProduct(s);
+              const isFree = isScannerFree(s);
               return (
                 <a
                   href={`/scanner/${s.slug}`}
