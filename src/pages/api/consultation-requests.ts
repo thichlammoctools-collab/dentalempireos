@@ -51,6 +51,19 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const payload = body as Record<string, unknown>;
+    const allowedFields = new Set([
+      'name',
+      'phone',
+      'email',
+      'clinic_name',
+      'team_size',
+      'service_interest',
+      'message',
+      'website',
+    ]);
+    if (Object.keys(payload).some((key) => !allowedFields.has(key))) {
+      throw new Error('Dữ liệu gửi lên không hợp lệ.');
+    }
     // Honeypot field. Reply successfully to avoid helping automated submissions adapt.
     if (typeof payload.website === 'string' && payload.website.trim()) {
       return json({ ok: true });

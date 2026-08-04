@@ -49,18 +49,8 @@ const guidedProducts = serviceProducts
   .filter(({ programs }) => programs.includes('guided_3m') || programs.includes('guided_6m'))
   .map(({ product }) => product);
 
-const contactHref = (subject: string, body: string) =>
-  `mailto:contact@dentalempireos.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-const guidedConsultationHref = contactHref(
-  'Đăng ký tư vấn gói Đồng hành triển khai',
-  'Chào Dental Empire OS,\n\nTôi muốn đăng ký buổi tư vấn về gói Đồng hành triển khai.\n\nTên phòng khám:\nQuy mô nhân sự:\nVấn đề ưu tiên hiện tại:\nSố điện thoại liên hệ:',
-);
-
-const implementationConsultationHref = contactHref(
-  'Đăng ký tư vấn gói Triển khai trọn gói',
-  'Chào Dental Empire OS,\n\nTôi muốn trao đổi về gói Triển khai trọn gói cho phòng khám.\n\nTên phòng khám:\nQuy mô nhân sự:\nMục tiêu triển khai:\nKhung thời gian mong muốn:\nSố điện thoại liên hệ:',
-);
+const consultationHref = (interest: 'guided' | 'implementation') =>
+  `#dang-ky-tu-van?service_interest=${interest}`;
 
 const foundationBenefits = [
   { icon: 'menu_book', title: 'Sách hệ thống', description: 'Khung tư duy và quy trình quản trị phòng khám theo từng tầng vận hành.' },
@@ -184,10 +174,10 @@ const formatDuration = (duration: number | null) =>
                   <PaymentButton productId={product.id} productName={product.name} price={product.price} class="mt-4 w-full" />
                 </div>
               ))}
-              <a href={guidedConsultationHref} class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 px-5 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10"><span class="material-symbols-outlined text-[18px]">mail</span>Trao đổi trước khi mua</a>
+              <a href={consultationHref('guided')} class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 px-5 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10"><span class="material-symbols-outlined text-[18px]">mail</span>Trao đổi trước khi mua</a>
             </div>
           ) : (
-            <a href={guidedConsultationHref} class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition-colors hover:brightness-110"><span class="material-symbols-outlined text-[18px]">mail</span>Đăng ký buổi tư vấn</a>
+            <a href={consultationHref('guided')} class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition-colors hover:brightness-110"><span class="material-symbols-outlined text-[18px]">mail</span>Đăng ký buổi tư vấn</a>
           )}
         </div>
       </article>
@@ -206,7 +196,7 @@ const formatDuration = (duration: number | null) =>
         </ul>
         <div class="mt-7 border-t border-outline-variant/25 pt-5">
           <p class="text-sm leading-relaxed text-on-surface-variant">Phạm vi, nhân sự tham gia và chi phí được xác định sau buổi trao đổi thực trạng.</p>
-          <a href={implementationConsultationHref} class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-on-surface px-5 py-3 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[18px]">calendar_month</span>Đăng ký tư vấn dự án</a>
+          <a href={consultationHref('implementation')} class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-on-surface px-5 py-3 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[18px]">calendar_month</span>Đăng ký tư vấn dự án</a>
         </div>
       </article>
     </div>
@@ -274,6 +264,22 @@ const formatDuration = (duration: number | null) =>
 <script>
   const form = document.querySelector<HTMLFormElement>('#consultation-form');
   const status = document.querySelector<HTMLElement>('#consultation-status');
+  const interest = form?.elements.namedItem('service_interest');
+  const selectedInterest = new URLSearchParams(window.location.search).get('service_interest');
+  if (
+    interest instanceof HTMLSelectElement
+    && (selectedInterest === 'guided' || selectedInterest === 'implementation' || selectedInterest === 'general')
+  ) {
+    interest.value = selectedInterest;
+  }
+
+  document.querySelectorAll<HTMLAnchorElement>('a[href^="#dang-ky-tu-van?"]').forEach((link) => {
+    link.addEventListener('click', () => {
+      const selected = new URL(link.href).searchParams.get('service_interest');
+      if (interest instanceof HTMLSelectElement && selected) interest.value = selected;
+    });
+  });
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
