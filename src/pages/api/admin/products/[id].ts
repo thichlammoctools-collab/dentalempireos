@@ -5,7 +5,6 @@ import { getProduct, upsertProduct, deleteProduct } from '../../../../lib/payos-
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
   isEntitlementPreset,
-  isServiceEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
 } from '../../../../lib/product-entitlement-presets';
@@ -22,7 +21,7 @@ const PRODUCT_TYPES = new Set([
   'service_program',
 ]);
 
-function parseEntitlementUpdate(body: Record<string, unknown>, productType: string) {
+function parseEntitlementUpdate(body: Record<string, unknown>) {
   const hasPreset = Object.prototype.hasOwnProperty.call(body, 'entitlement_preset');
   const hasEntitlements = Object.prototype.hasOwnProperty.call(body, 'entitlements');
   if (!hasPreset && !hasEntitlements) return { present: false as const };
@@ -30,9 +29,6 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
   const preset = body.entitlement_preset;
   if (hasPreset && !isEntitlementPreset(preset)) return { error: 'entitlement_preset is invalid' };
   const resolvedPreset = hasPreset ? preset as Parameters<typeof isEntitlementPreset>[0] : undefined;
-  if (resolvedPreset && isServiceEntitlementPreset(resolvedPreset) && productType !== 'service_program') {
-    return { error: 'service entitlement presets require a service_program product' };
-  }
   const parsedEntitlements = hasEntitlements ? parseEntitlements(body.entitlements) : undefined;
   if (parsedEntitlements === null) return { error: 'entitlements must be an array of valid entitlement rows' };
 
@@ -41,12 +37,6 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
     parsedEntitlements,
   );
   if (!resolvedEntitlements) return { error: 'custom requires entitlements; preset entitlements are defined by the server' };
-  if (
-    productType !== 'service_program'
-    && resolvedEntitlements.some((entitlement) => entitlement.content_type === 'service')
-  ) {
-    return { error: 'service entitlements require a service_program product' };
-  }
   return { present: true as const, entitlements: resolvedEntitlements };
 }
 
@@ -93,7 +83,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     updates.app_id = body.app_id?.trim() || null;
   }
 
-  const entitlementUpdate = parseEntitlementUpdate(body, existing.type);
+  const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
   }
@@ -163,7 +153,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
       .first<{ id: string }>();
     if (activeBookProduct) return badRequest('Chỉ được phép có một gói mở khóa sách đang bán');
   }
-  const entitlementUpdate = parseEntitlementUpdate(body, resolvedType);
+  const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
   }
