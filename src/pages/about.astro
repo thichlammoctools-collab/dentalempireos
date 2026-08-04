@@ -39,7 +39,7 @@ const tierLetters: Record<number, string> = {
           <span class="status-dot"></span>
           <span class="text-xs font-bold tracking-[0.2em] uppercase text-brand-cyan">{s.about_hero_badge}</span>
         </div>
-        <h1 class="text-headline-xl md:text-[64px] leading-tight text-white mb-6">
+        <h1 class="about-hero-title text-headline-xl md:text-[64px] leading-tight mb-6">
           {s.about_hero_line1}<br />
           <span class="text-gradient-cyan">{s.about_hero_gradient}</span>
         </h1>
@@ -210,7 +210,15 @@ const tierLetters: Record<number, string> = {
 <style>
   .about-hero {
     isolation: isolate;
+    background: var(--color-surface-container-lowest);
+  }
+
+  :global(.dark) .about-hero {
     background: #080f1a;
+  }
+
+  .about-hero-title {
+    color: var(--color-on-surface);
   }
 
   .about-hero-grid {
@@ -261,6 +269,14 @@ const tierLetters: Record<number, string> = {
     background: linear-gradient(90deg, transparent, rgba(102, 215, 255, 0.55), transparent);
     box-shadow: 0 0 18px rgba(102, 215, 255, 0.5);
     animation: about-scan 7s ease-in-out infinite;
+  }
+
+  :root:not(.dark) .about-hero-grid {
+    opacity: 0.28;
+  }
+
+  :root:not(.dark) .about-hero-glow {
+    background: radial-gradient(circle, rgba(34, 177, 235, 0.13), transparent 68%);
   }
 
   @keyframes about-grid-drift { to { background-position: 46px 46px; } }
