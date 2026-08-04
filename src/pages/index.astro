@@ -51,9 +51,9 @@ const tiers = [
 ];
 
 const testimonials = [
-  { quote: homepage.testimonial1_quote, name: homepage.testimonial1_name, role: homepage.testimonial1_role },
-  { quote: homepage.testimonial2_quote, name: homepage.testimonial2_name, role: homepage.testimonial2_role },
-  { quote: homepage.testimonial3_quote, name: homepage.testimonial3_name, role: homepage.testimonial3_role },
+  { quote: homepage.testimonial1_quote, name: homepage.testimonial1_name, role: homepage.testimonial1_role, avatar: homepage.testimonial1_avatar },
+  { quote: homepage.testimonial2_quote, name: homepage.testimonial2_name, role: homepage.testimonial2_role, avatar: homepage.testimonial2_avatar },
+  { quote: homepage.testimonial3_quote, name: homepage.testimonial3_name, role: homepage.testimonial3_role, avatar: homepage.testimonial3_avatar },
 ];
 
 const faqs = [
@@ -102,10 +102,10 @@ const faqs = [
       <div class="max-w-3xl">
         <p class="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2 text-sm font-bold tracking-wide text-primary">
           <span class="material-symbols-outlined text-lg">hub</span>
-          Khung tư duy quản trị phòng khám
+          {homepage.badge_text}
         </p>
-        <h1 class="max-w-3xl text-4xl font-black leading-tight text-on-surface sm:text-5xl lg:text-6xl">Đừng để phòng khám chỉ chạy được khi bạn có mặt.</h1>
-        <p class="mt-6 max-w-2xl text-lg leading-relaxed text-on-surface-variant">Dental Empire OS giúp bạn nhìn phòng khám như một hệ thống: rõ điểm nghẽn, rõ tiêu chuẩn và rõ cách đội ngũ cùng vận hành.</p>
+        <h1 class="max-w-3xl text-4xl font-black leading-tight text-on-surface sm:text-5xl lg:text-6xl">{homepage.hero_title_line1}<br class="hidden sm:block" />{homepage.hero_title_line2}</h1>
+        <p class="mt-6 max-w-2xl text-lg leading-relaxed text-on-surface-variant">{homepage.hero_description}</p>
         <ul class="mt-8 grid gap-3 sm:grid-cols-3" aria-label="Lợi ích chính">
           <li class="rounded-2xl border border-outline-variant/70 bg-surface-container/80 p-4 text-sm font-semibold text-on-surface">Chẩn đoán đúng điểm nghẽn trước khi sửa quy trình.</li>
           <li class="rounded-2xl border border-outline-variant/70 bg-surface-container/80 p-4 text-sm font-semibold text-on-surface">Chuẩn hóa cách đội ngũ ra quyết định mỗi ngày.</li>
@@ -116,16 +116,16 @@ const faqs = [
             <PaymentButton productId={activeBookProduct.id} productName={activeBookProduct.name} price={activeBookProduct.price} class="text-base" />
           ) : (
             <a href="/book" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
-              Xem sách
+              {homepage.hero_cta_primary}
               <span class="material-symbols-outlined text-lg">arrow_forward</span>
             </a>
           )}
           <a href="/book" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">
-            Xem trước nội dung
+            {homepage.hero_cta_secondary}
             <span class="material-symbols-outlined text-lg">menu_book</span>
           </a>
         </div>
-        <p class="mt-4 max-w-xl text-sm leading-relaxed text-on-surface-variant">{paymentCopy}</p>
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-on-surface-variant">{homepage.hero_stats_text}</p>
       </div>
 
       <div class="self-center space-y-5">
@@ -168,8 +168,8 @@ const faqs = [
 
   <section id="what-you-get" class="scroll-mt-24 bg-surface-container-low py-20">
     <div class="mx-auto max-w-[1200px] px-6">
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Khung ba tầng</p>
-      <h2 class="mt-3 max-w-3xl text-3xl font-black text-on-surface sm:text-4xl">Một lộ trình đọc để xây nền, nâng cấp và điều hành.</h2>
+      <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">{homepage.tier_section_heading}</p>
+      <h2 class="mt-3 max-w-3xl text-3xl font-black text-on-surface sm:text-4xl">{homepage.tier_section_subheading}</h2>
       <div class="tier-grid mt-10 grid gap-5 lg:grid-cols-3">
         {tiers.map((tier) => (
           <article class="tier-card">
@@ -202,17 +202,37 @@ const faqs = [
     <div class="mx-auto max-w-[1200px] px-6">
       <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">{homepage.testimonial_section_heading}</p>
       <h2 class="mt-3 max-w-3xl text-3xl font-black text-on-surface sm:text-4xl">{homepage.testimonial_section_subheading}</h2>
-      <div class="mt-10 grid gap-5 lg:grid-cols-3">
+      <div class=”mt-10 grid gap-5 lg:grid-cols-3”>
         {testimonials.map((testimonial) => (
-          <figure class="flex flex-col rounded-3xl border border-outline-variant/70 bg-surface-container-lowest p-7">
-            <blockquote class="flex-1 text-lg leading-relaxed text-on-surface">“{testimonial.quote}”</blockquote>
-            <figcaption class="mt-7 border-t border-outline-variant/60 pt-5"><p class="font-bold text-on-surface">{testimonial.name}</p><p class="mt-1 text-sm text-on-surface-variant">{testimonial.role}</p></figcaption>
+          <figure class=”flex flex-col rounded-3xl border border-outline-variant/70 bg-surface-container-lowest p-7”>
+            <blockquote class=”flex-1 text-lg leading-relaxed text-on-surface”>”{testimonial.quote}”</blockquote>
+            <figcaption class=”mt-7 border-t border-outline-variant/60 pt-5 flex items-center gap-3”>
+              {testimonial.avatar ? (
+                <img src={testimonial.avatar} alt={testimonial.name} class=”w-10 h-10 rounded-full object-cover border border-outline-variant/50” loading=”lazy” />
+              ) : (
+                <div class=”w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0”>
+                  <span class=”material-symbols-outlined text-primary text-xl”>person</span>
+                </div>
+              )}
+              <div>
+                <p class=”font-bold text-on-surface”>{testimonial.name}</p>
+                <p class=”mt-0.5 text-sm text-on-surface-variant”>{testimonial.role}</p>
+              </div>
+            </figcaption>
           </figure>
         ))}
       </div>
       <article class="mt-10 grid gap-7 rounded-3xl border border-primary/30 bg-surface-container p-8 md:grid-cols-[auto_1fr] md:items-start">
-        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary"><span class="material-symbols-outlined text-4xl">person</span></div>
-        <div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">{homepage.founder_badge}</p><h3 class="mt-2 text-2xl font-black text-on-surface">{homepage.founder_heading}</h3><p class="mt-3 max-w-3xl leading-relaxed text-on-surface-variant">{homepage.founder_bio}</p><p class="mt-5 font-bold text-on-surface">{homepage.founder_name} <span class="font-normal text-on-surface-variant">· {homepage.founder_title}</span></p><div class="mt-5 flex flex-wrap gap-6 text-sm"><p><strong class="text-primary">{homepage.founder_stat1_value}</strong> <span class="text-on-surface-variant">{homepage.founder_stat1_label}</span></p><p><strong class="text-primary">{homepage.founder_stat2_value}</strong> <span class="text-on-surface-variant">{homepage.founder_stat2_label}</span></p></div></div>
+        {homepage.founder_image_url ? (
+          <img src={homepage.founder_image_url} alt={homepage.founder_name} class="w-20 h-20 rounded-2xl object-cover border border-outline-variant/30" loading="lazy" />
+        ) : (
+          <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary"><span class="material-symbols-outlined text-4xl">person</span></div>
+        )}
+        <div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">{homepage.founder_badge}</p><h3 class="mt-2 text-2xl font-black text-on-surface">{homepage.founder_heading}</h3><p class="mt-3 max-w-3xl leading-relaxed text-on-surface-variant">{homepage.founder_bio}</p><p class="mt-5 font-bold text-on-surface">{homepage.founder_name} <span class="font-normal text-on-surface-variant">· {homepage.founder_title}</span></p><div class="mt-5 flex flex-wrap gap-6 text-sm"><p><strong class="text-primary">{homepage.founder_stat1_value}</strong> <span class="text-on-surface-variant">{homepage.founder_stat1_label}</span></p><p><strong class="text-primary">{homepage.founder_stat2_value}</strong> <span class="text-on-surface-variant">{homepage.founder_stat2_label}</span></p></div>
+          {homepage.founder_link_text && (
+            <a href="/about" class="mt-4 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">{homepage.founder_link_text} <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
+          )}
+        </div>
       </article>
     </div>
   </section>
@@ -241,9 +261,15 @@ const faqs = [
         {canPurchaseBook && activeBookProduct ? (
           <PaymentButton productId={activeBookProduct.id} productName={activeBookProduct.name} price={activeBookProduct.price} class="text-base" />
         ) : (
-          <a href="/book" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">Xem sách <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
+          <a href={homepage.cta_primary_link || '/book'} class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
+            {homepage.cta_primary_text}
+            <span class="material-symbols-outlined text-lg">{homepage.cta_primary_icon || 'arrow_forward'}</span>
+          </a>
         )}
-        <a href="/book" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">Xem trước nội dung <span class="material-symbols-outlined text-lg">menu_book</span></a>
+        <a href={homepage.cta_secondary_link || '/book'} class="inline-flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">
+          {homepage.cta_secondary_text}
+          <span class="material-symbols-outlined text-lg">{homepage.cta_secondary_icon || 'menu_book'}</span>
+        </a>
       </div>
       <p class="mt-4 text-sm text-on-surface-variant">{paymentCopy}</p>
     </div>

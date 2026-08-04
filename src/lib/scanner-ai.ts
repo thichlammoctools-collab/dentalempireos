@@ -202,6 +202,27 @@ function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
   return `${prompt}${format}`;
 }
 
+/**
+ * Older and admin-created scanners may only define an analysis prompt. Keep
+ * their 30-day plan available while a migration backfills dedicated prompts.
+ */
+function getPlanPrompt(aiConfig: AiConfig, lang: 'vi' | 'en'): string {
+  const planPrompt = lang === 'en'
+    ? (aiConfig.plan_prompt_en ?? aiConfig.plan_prompt_vi ?? '')
+    : (aiConfig.plan_prompt_vi ?? aiConfig.plan_prompt_en ?? '');
+  if (planPrompt.trim()) return planPrompt;
+
+  const analysisPrompt = lang === 'en'
+    ? (aiConfig.prompt_en ?? aiConfig.prompt_vi ?? '')
+    : (aiConfig.prompt_vi ?? aiConfig.prompt_en ?? '');
+  if (!analysisPrompt.trim()) throw new Error(`No AI prompt configured for language '${lang}'`);
+
+  const planInstruction = lang === 'vi'
+    ? '\n\n# NHIỆM VỤ BỔ SUNG: KẾ HOẠCH 30 NGÀY\nTừ dữ liệu khảo sát, lập kế hoạch hành động 30 ngày theo 4 tuần. Mỗi tuần gồm 2-3 hành động cụ thể, ưu tiên điểm yếu và bắt đầu tuần 1 bằng việc nhỏ nhất có thể thực hiện ngay.'
+    : '\n\n# ADDITIONAL TASK: 30-DAY PLAN\nFrom the survey data, create a 30-day action plan across 4 weeks. Include 2-3 concrete actions per week, prioritize weak areas, and begin week 1 with the smallest action that can be completed immediately.';
+  return `${analysisPrompt}${planInstruction}`;
+}
+
 // ─── Streaming exports ─────────────────────────────────────────────────────────
 
 export async function buildAnalysisStream(
@@ -231,11 +252,7 @@ export async function buildPlanStream(
   if (!response) throw new Error('No response');
 
   const lang = response.lang === 'en' ? 'en' : 'vi';
-  const promptTemplate = lang === 'en'
-    ? (aiConfig.plan_prompt_en ?? aiConfig.plan_prompt_vi ?? '')
-    : (aiConfig.plan_prompt_vi ?? aiConfig.plan_prompt_en ?? '');
-
-  if (!promptTemplate) throw new Error('No plan prompt configured');
+  const promptTemplate = getPlanPrompt(aiConfig, lang);
 
   const allQuestions = full.sections.flatMap((s) => s.questions);
   const systemPrompt = withOperationalPlanFormat(
@@ -281,10 +298,7 @@ async function doPlanWithFallback(
 ): Promise<{ text: string; usedConfig: ModelConfig; fallbackUsed: boolean }> {
   if (!response) throw new Error('No response');
   const lang = response.lang === 'en' ? 'en' : 'vi';
-  const promptTemplate = lang === 'en'
-    ? (aiConfig.plan_prompt_en ?? aiConfig.plan_prompt_vi ?? '')
-    : (aiConfig.plan_prompt_vi ?? aiConfig.plan_prompt_en ?? '');
-  if (!promptTemplate) throw new Error('No plan prompt configured');
+  const promptTemplate = getPlanPrompt(aiConfig, lang);
 
   const allQuestions = full.sections.flatMap((section) => section.questions);
   const systemPrompt = withOperationalPlanFormat(buildPrompt(promptTemplate, response, scoringRules, allQuestions), lang);
