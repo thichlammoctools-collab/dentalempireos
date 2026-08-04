@@ -43,7 +43,7 @@ export async function canAccessAiApp(
   if (!userId) return false;
 
   const [hasAllAccess, hasContentAccess, products] = await Promise.all([
-    hasActiveEntitlementForContent(db, userId, 'ai_app', 'ai_tools_all'),
+    hasActiveEntitlementForContent(db, userId, 'ai_app', '*'),
     hasActiveEntitlementForContent(db, userId, 'ai_app', appId),
     getActiveProducts(db),
   ]);
@@ -66,7 +66,7 @@ export async function canAccessScanner(
   if (!userId) return false;
 
   const [hasAllAccess, hasContentAccess, hasLegacyAccess] = await Promise.all([
-    hasActiveEntitlementForContent(db, userId, 'scanner', 'scanners_all'),
+    hasActiveEntitlementForContent(db, userId, 'scanner', '*'),
     hasActiveEntitlementForContent(db, userId, 'scanner', scannerId),
     hasScannerAccess(db, userId, scannerId),
   ]);

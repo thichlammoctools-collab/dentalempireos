@@ -5,7 +5,6 @@ import { listProducts, upsertProduct } from '../../../../lib/payos-db';
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
   isEntitlementPreset,
-  isServiceEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
 } from '../../../../lib/product-entitlement-presets';
@@ -64,13 +63,6 @@ export const POST: APIRoute = async ({ request }) => {
   if (is_active !== undefined && is_active !== 0 && is_active !== 1) return badRequest('is_active must be 0 or 1');
   if (entitlement_preset !== undefined && !isEntitlementPreset(entitlement_preset)) {
     return badRequest('entitlement_preset is invalid');
-  }
-  if (
-    entitlement_preset !== undefined
-    && isServiceEntitlementPreset(entitlement_preset)
-    && type !== 'service_program'
-  ) {
-    return badRequest('service entitlement presets require a service_program product');
   }
   const parsedEntitlements = entitlements === undefined ? undefined : parseEntitlements(entitlements);
   if (parsedEntitlements === null) return badRequest('entitlements must be an array of valid entitlement rows');
