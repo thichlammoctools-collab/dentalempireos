@@ -56,6 +56,13 @@ export const adminNav: AdminNavSection[] = [
     ],
   },
   {
+    key: 'operations',
+    label: 'VẬN HÀNH',
+    items: [
+      { href: '/admin/consultation-requests', label: 'Lead tư vấn', icon: 'contact_page', match: '/admin/consultation-requests' },
+    ],
+  },
+  {
     key: 'ai',
     label: 'AI & CẤU HÌNH',
     items: [

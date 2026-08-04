@@ -247,12 +247,52 @@ const formatDuration = (duration: number | null) =>
     </div>
   </section>
 
-  <section class="border-t border-outline-variant/20 bg-gradient-to-br from-primary/10 via-surface to-amber-500/5">
-    <div class="mx-auto max-w-4xl px-4 py-20 text-center md:py-24">
+  <section id="dang-ky-tu-van" class="scroll-mt-20 border-t border-outline-variant/20 bg-gradient-to-br from-primary/10 via-surface to-amber-500/5">
+    <div class="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:py-24 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+      <div>
       <h2 class="text-3xl font-black text-on-surface md:text-4xl">Chưa chắc nên bắt đầu từ đâu?</h2>
-      <p class="mx-auto mt-4 max-w-2xl leading-relaxed text-on-surface-variant">Gửi bối cảnh hiện tại của phòng khám. Buổi trao đổi sẽ giúp xác định mức độ đồng hành phù hợp trước khi bạn đầu tư thời gian hoặc ngân sách.</p>
-      <a href={guidedConsultationHref} class="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[19px]">mail</span>Liên hệ tư vấn qua email</a>
-      <p class="mt-3 text-xs text-on-surface-variant">Email sẽ được soạn sẵn đến contact@dentalempireos.com.</p>
+      <p class="mt-4 leading-relaxed text-on-surface-variant">Gửi bối cảnh hiện tại của phòng khám. Buổi trao đổi sẽ giúp xác định mức độ đồng hành phù hợp trước khi bạn đầu tư thời gian hoặc ngân sách.</p>
+      <div class="mt-7 flex items-center gap-3 text-sm text-on-surface-variant"><span class="material-symbols-outlined text-primary">schedule</span>Phản hồi trong giờ làm việc, không cần đăng nhập.</div>
+      </div>
+      <form id="consultation-form" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 text-left shadow-lg shadow-primary/5 md:p-7">
+        <div class="grid gap-5 sm:grid-cols-2">
+          <label class="block text-sm font-semibold text-on-surface">Họ và tên <span class="text-error" aria-hidden="true">*</span><input required name="name" maxlength="100" autocomplete="name" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
+          <label class="block text-sm font-semibold text-on-surface">Số điện thoại <span class="text-error" aria-hidden="true">*</span><input required name="phone" maxlength="24" autocomplete="tel" inputmode="tel" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
+          <label class="block text-sm font-semibold text-on-surface">Email <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input type="email" name="email" maxlength="254" autocomplete="email" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
+          <label class="block text-sm font-semibold text-on-surface">Tên phòng khám <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input name="clinic_name" maxlength="160" autocomplete="organization" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
+          <label class="block text-sm font-semibold text-on-surface">Quy mô nhân sự <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input name="team_size" maxlength="80" placeholder="Ví dụ: 10-20 người" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
+          <label class="block text-sm font-semibold text-on-surface">Nhu cầu chính <span class="text-error" aria-hidden="true">*</span><select required name="service_interest" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="guided">Đồng hành tư vấn</option><option value="implementation">Triển khai trọn gói</option><option value="general">Chưa xác định</option></select></label>
+          <label class="block text-sm font-semibold text-on-surface sm:col-span-2">Bạn muốn được tư vấn điều gì? <span class="text-error" aria-hidden="true">*</span><textarea required name="message" minlength="10" maxlength="2000" rows="4" class="mt-2 w-full resize-y rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea></label>
+        </div>
+        <label class="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+        <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60"><span class="material-symbols-outlined text-[19px]">send</span>Gửi yêu cầu tư vấn</button><p id="consultation-status" class="text-sm text-on-surface-variant" role="status" aria-live="polite"></p></div>
+      </form>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#consultation-form');
+  const status = document.querySelector<HTMLElement>('#consultation-status');
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!button || !status) return;
+    button.disabled = true;
+    status.textContent = 'Đang gửi thông tin...';
+    status.className = 'text-sm text-on-surface-variant';
+    try {
+      const response = await fetch('/api/consultation-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+      const data = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(data?.error ?? 'Không thể gửi yêu cầu.');
+      form.reset();
+      status.textContent = 'Đã nhận yêu cầu. Chúng tôi sẽ liên hệ lại sớm.';
+      status.className = 'text-sm text-emerald-600 dark:text-emerald-400';
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : 'Không thể gửi yêu cầu. Vui lòng thử lại.';
+      status.className = 'text-sm text-error';
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>

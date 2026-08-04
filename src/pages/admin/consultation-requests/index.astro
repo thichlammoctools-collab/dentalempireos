@@ -1,0 +1,62 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listConsultationRequests, consultationStatusValues, type ConsultationStatus } from '../../../lib/consultation-request-db';
+
+export const prerender = false;
+
+const selectedStatus = Astro.url.searchParams.get('status');
+const statusFilter = selectedStatus && consultationStatusValues.includes(selectedStatus as ConsultationStatus)
+  ? selectedStatus as ConsultationStatus
+  : undefined;
+const requests = await listConsultationRequests(env.DB, statusFilter);
+
+const statusLabels: Record<ConsultationStatus, string> = {
+  new: 'Mới',
+  contacted: 'Đã liên hệ',
+  qualified: 'Đủ điều kiện',
+  closed: 'Đã đóng',
+};
+const interestLabels = { guided: 'Đồng hành tư vấn', implementation: 'Triển khai trọn gói', general: 'Chưa xác định' };
+const statusClasses: Record<ConsultationStatus, string> = {
+  new: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  contacted: 'bg-primary/15 text-primary',
+  qualified: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  closed: 'bg-on-surface-variant/15 text-on-surface-variant',
+};
+---
+
+<AdminLayout title="Lead tư vấn | Admin">
+  <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div><p class="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Vận hành</p><h2 class="mt-2 text-3xl font-bold text-white">Lead tư vấn</h2><p class="mt-1 text-sm text-on-surface-variant">{requests.length} yêu cầu{statusFilter ? ` với trạng thái ${statusLabels[statusFilter]}` : ''}</p></div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/admin/consultation-requests" class:list={['rounded-lg px-3 py-2 text-xs font-bold', !statusFilter ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>Tất cả</a>
+      {consultationStatusValues.map((status) => <a href={`/admin/consultation-requests?status=${status}`} class:list={['rounded-lg px-3 py-2 text-xs font-bold', statusFilter === status ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>{statusLabels[status]}</a>)}
+    </div>
+  </div>
+
+  <div class="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest">
+    {requests.length === 0 ? <div class="p-12 text-center text-on-surface-variant">Chưa có yêu cầu tư vấn nào.</div> : <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-sm"><thead><tr class="border-b border-outline-variant/20 text-left text-on-surface-variant"><th class="px-4 py-3">Người liên hệ</th><th class="px-4 py-3">Nhu cầu</th><th class="px-4 py-3">Bối cảnh</th><th class="px-4 py-3">Ngày nhận</th><th class="px-4 py-3">Trạng thái</th></tr></thead><tbody>
+      {requests.map((request) => <tr class="border-b border-outline-variant/10 align-top hover:bg-surface-container-high/50"><td class="px-4 py-4"><p class="font-bold text-white">{request.name}</p><a class="mt-1 block text-primary hover:underline" href={`tel:${request.phone}`}>{request.phone}</a>{request.email && <a class="block text-xs text-on-surface-variant hover:text-primary" href={`mailto:${request.email}`}>{request.email}</a>}{request.clinic_name && <p class="mt-2 text-xs text-on-surface-variant">{request.clinic_name}{request.team_size ? ` · ${request.team_size}` : ''}</p>}</td><td class="px-4 py-4 text-on-surface-variant">{interestLabels[request.service_interest]}</td><td class="max-w-sm whitespace-pre-wrap px-4 py-4 leading-relaxed text-on-surface-variant">{request.message}</td><td class="whitespace-nowrap px-4 py-4 text-xs text-on-surface-variant">{new Date(request.created_at).toLocaleString('vi-VN')}</td><td class="px-4 py-4"><select data-request-id={request.id} data-previous={request.status} class={`consultation-status rounded-lg border-0 px-3 py-2 text-xs font-bold outline-none ${statusClasses[request.status]}`} aria-label={`Trạng thái của ${request.name}`}>{consultationStatusValues.map((status) => <option value={status} selected={request.status === status}>{statusLabels[status]}</option>)}</select></td></tr>)}
+    </tbody></table></div>}
+  </div>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLSelectElement>('.consultation-status').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const previous = select.dataset.previous ?? select.value;
+      select.disabled = true;
+      try {
+        const response = await fetch(`/api/admin/consultation-requests/${select.dataset.requestId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ status: select.value }) });
+        if (!response.ok) throw new Error();
+        select.dataset.previous = select.value;
+      } catch {
+        select.value = previous;
+        alert('Không thể cập nhật trạng thái. Vui lòng thử lại.');
+      } finally {
+        select.disabled = false;
+      }
+    });
+  });
+</script>
