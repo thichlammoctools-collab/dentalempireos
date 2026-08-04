@@ -21,7 +21,7 @@ export const GET: APIRoute = async ({ params, request }) => {
                   p."name" AS "product_name"
            FROM "access" a
            JOIN "product" p ON p."id" = a."product_id"
-           WHERE a."user_id" = ? AND a."is_active" = 1
+           WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
            ORDER BY a."granted_at" DESC`,
         )
         .bind(id)

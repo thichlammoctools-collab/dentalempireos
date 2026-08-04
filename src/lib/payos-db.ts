@@ -323,9 +323,11 @@ export async function hasAccess(
 
   const row = await db
     .prepare(
-      `SELECT 1 FROM "access"
-       WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1
-         AND ("expires_at" IS NULL OR "expires_at" > ?)
+      `SELECT 1 FROM "access" a
+       INNER JOIN "product" p ON p."id" = a."product_id"
+       WHERE a."user_id" = ? AND a."product_id" = ? AND a."is_active" = 1
+          AND p."is_active" = 1
+          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        LIMIT 1`,
     )
     .bind(userId, productId, now)
@@ -387,8 +389,10 @@ export async function hasScannerAccess(
     .prepare(
       `SELECT 1
        FROM "access" a
+       INNER JOIN "product" p ON p."id" = a."product_id"
        INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
        WHERE a."user_id" = ? AND ps."scanner_id" = ? AND a."is_active" = 1
+         AND p."is_active" = 1
          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        LIMIT 1`,
     )
@@ -483,8 +487,10 @@ export async function getScannerPriceMapping(
 export async function listUserAccess(db: D1Database, userId: string): Promise<Access[]> {
   const { results } = await db
     .prepare(
-      `SELECT * FROM "access" WHERE "user_id" = ? AND "is_active" = 1
-       ORDER BY "granted_at" DESC`,
+      `SELECT a.* FROM "access" a
+       INNER JOIN "product" p ON p."id" = a."product_id"
+       WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
+       ORDER BY a."granted_at" DESC`,
     )
     .bind(userId)
     .all<Access>();

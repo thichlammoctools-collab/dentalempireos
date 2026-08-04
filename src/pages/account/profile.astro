@@ -38,7 +38,7 @@ const { results: purchases } = await env.DB
      FROM "access" a
      JOIN "product" p ON a."product_id" = p."id"
      JOIN "order"   o ON a."order_id"   = o."id"
-     WHERE a."user_id" = ? AND a."is_active" = 1
+     WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
        AND (a."expires_at" IS NULL OR a."expires_at" > ?)
      ORDER BY a."granted_at" DESC`
   )
