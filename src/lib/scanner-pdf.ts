@@ -422,18 +422,20 @@ export async function generateScannerPdf(
   const cover = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   drawPageBackground(cover);
 
+  // Keep clinic logos on a white header so they remain legible regardless of
+  // their original colors; reserve navy for the report title only.
   cover.drawRectangle({
-    x: 0, y: PAGE_HEIGHT - 200, width: PAGE_WIDTH, height: 200,
+    x: 0, y: PAGE_HEIGHT - 230, width: PAGE_WIDTH, height: 160,
     color: NAVY,
   });
   cover.drawRectangle({
-    x: 0, y: PAGE_HEIGHT - 205, width: PAGE_WIDTH, height: 5,
+    x: 0, y: PAGE_HEIGHT - 235, width: PAGE_WIDTH, height: 5,
     color: AMBER,
   });
 
   cover.drawText('DENTAL EMPIRE OS', {
-    x: 50, y: PAGE_HEIGHT - 70, size: 11,
-    font: fontBold, color: AMBER,
+    x: 50, y: PAGE_HEIGHT - 43, size: 11,
+    font: fontBold, color: NAVY,
   });
 
   if (identity?.logo) {
@@ -441,10 +443,10 @@ export async function generateScannerPdf(
       const logo = identity.logoType === 'image/png'
         ? await doc.embedPng(identity.logo)
         : await doc.embedJpg(identity.logo);
-      const scale = Math.min(90 / logo.width, 54 / logo.height, 1);
+      const scale = Math.min(90 / logo.width, 40 / logo.height, 1);
       cover.drawImage(logo, {
         x: PAGE_WIDTH - 50 - logo.width * scale,
-        y: PAGE_HEIGHT - 102,
+        y: PAGE_HEIGHT - 55,
         width: logo.width * scale,
         height: logo.height * scale,
       });
@@ -459,14 +461,14 @@ export async function generateScannerPdf(
       ? t.section3.replace(/^III\.\s*/, '')
       : (lang === 'vi' ? definitionRow.title_vi : (definitionRow.title_en || definitionRow.title_vi));
   cover.drawText(reportTitle, {
-    x: 50, y: PAGE_HEIGHT - 130, size: 28,
+    x: 50, y: PAGE_HEIGHT - 145, size: 28,
     font: fontBold, color: rgb(1, 1, 1),
   });
 
   cover.drawText(type === 'combined'
     ? (lang === 'vi' ? 'Báo cáo phân tích hệ thống quản trị' : 'Clinic management analysis report')
     : (lang === 'vi' ? 'Tài liệu hành động dành cho phòng khám' : 'Clinic action document'), {
-    x: 50, y: PAGE_HEIGHT - 155, size: 12,
+    x: 50, y: PAGE_HEIGHT - 170, size: 12,
     font, color: rgb(0.85, 0.85, 0.9),
   });
 
