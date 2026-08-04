@@ -128,14 +128,14 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         </div>
         <div>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Quyền đọc</label>
-          <select name="is_premium" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
+          <select id="chapter-access" name="is_premium" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
             <option value="0" selected={ch.is_premium !== 1}>Miễn phí toàn chương</option>
             <option value="1" selected={ch.is_premium === 1}>Trả phí theo chương</option>
           </select>
         </div>
-        <div>
+        <div id="free-preview-field" class={ch.is_premium === 1 ? '' : 'hidden'}>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Đọc miễn phí đến đề mục</label>
-          <select name="free_until_section_id" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
+          <select id="free-until-section" name="free_until_section_id" class="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-lg text-white text-sm focus:ring-1 focus:ring-primary focus:outline-none">
             <option value="" selected={!ch.free_until_section_id}>Không có phần đọc thử</option>
             {tree.sections.map((section, index) => (
               <option value={section.id} selected={ch.free_until_section_id === section.id}>{index + 1}. {section.title}</option>
@@ -503,6 +503,17 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       try { localStorage.setItem(META_KEY, metaCollapsed ? '1' : '0'); } catch { /* ignore */ }
     });
 
+    const accessSelect = document.getElementById('chapter-access') as HTMLSelectElement | null;
+    const previewField = document.getElementById('free-preview-field');
+    const previewSelect = document.getElementById('free-until-section') as HTMLSelectElement | null;
+    function syncFreePreviewField() {
+      const isPremium = accessSelect?.value === '1';
+      previewField?.classList.toggle('hidden', !isPremium);
+      if (!isPremium && previewSelect) previewSelect.value = '';
+    }
+    accessSelect?.addEventListener('change', syncFreePreviewField);
+    syncFreePreviewField();
+
     chapterForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(chapterForm);
@@ -515,7 +526,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           description: fd.get('description'),
           status: fd.get('status'),
           is_premium: Number(fd.get('is_premium')),
-          free_until_section_id: fd.get('free_until_section_id') || null,
+          free_until_section_id: fd.get('is_premium') === '1' ? (fd.get('free_until_section_id') || null) : null,
         }),
       });
       if (res.ok) {

@@ -40,7 +40,9 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const newTier = tier ?? existing.chapter.tier;
   const newChapterNo = chapter_no ?? existing.chapter.chapter_no;
   const newOrder = order ?? existing.chapter.order;
-  const requestedPreviewSection = free_until_section_id === undefined
+  const requestedPreviewSection = is_premium === 0
+    ? null
+    : free_until_section_id === undefined
     ? existing.chapter.free_until_section_id
     : free_until_section_id;
 
