@@ -20,7 +20,7 @@ import {
 import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
-import { hasScannerAccess } from '../../../lib/payos-db';
+import { getScannerProduct, hasScannerAccess } from '../../../lib/payos-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -63,37 +63,38 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  const paidAccess = def.is_free === 0 && await hasScannerAccess(env.DB, session.user.id, surveyId);
-  if (def.is_free === 0 && !paidAccess) {
+  const isPaidScanner = !!await getScannerProduct(env.DB, surveyId);
+  const paidAccess = isPaidScanner && await hasScannerAccess(env.DB, session.user.id, surveyId);
+  if (isPaidScanner && !paidAccess) {
     return json({ error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.', requiresPayment: true }, 402);
   }
-  const usage = await getScannerUsage(env.DB, session.user.id, surveyId, def.is_free === 1);
+  const usage = await getScannerUsage(env.DB, session.user.id, surveyId, !isPaidScanner);
   console.log('[scanner/submit] usage:', usage);
   if (usage.remaining <= 0) {
     return json({
-      error: def.is_free === 1
+      error: !isPaidScanner
         ? 'Scanner miễn phí này chỉ được thực hiện 1 lần.'
         : 'Scanner trả phí được thực hiện tối đa 3 lần trong tháng.',
       quota: usage,
     }, 429);
   }
 
-  // Free scanners collect a per-response contact snapshot. Premium scanners
+  // Unmapped scanners collect a per-response contact snapshot. Paid scanners
   // use the account's clinic profile so reports stay consistent and verified.
   // Premium AI analysis is gated on the result page, not before scoring.
-  const profile = def.is_free === 0
+  const profile = isPaidScanner
     ? await getClinicProfile(env.DB, session.user.id)
     : null;
-  const clinicName = def.is_free === 0
+  const clinicName = isPaidScanner
     ? profile?.clinic_name ?? null
     : asString(body.clinic_name);
   if (!clinicName) {
-    return badRequest(def.is_free === 0
+    return badRequest(isPaidScanner
       ? 'Vui lòng hoàn thiện Hồ sơ phòng khám trước khi làm scanner premium.'
       : 'clinic_name is required');
   }
 
-  const email = def.is_free === 0 ? session.user.email : asString(body.email);
+  const email = isPaidScanner ? session.user.email : asString(body.email);
   if (email && !email.includes('@')) return badRequest('Invalid email');
 
   // Load all questions for this survey (across all sections)
@@ -125,9 +126,9 @@ export const POST: APIRoute = async (ctx) => {
   const { id } = await createScannerResponse(env.DB, {
     survey_id: surveyId,
     lang,
-    owner_name: def.is_free === 0 ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
+    owner_name: isPaidScanner ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
     clinic_name: clinicName,
-    clinic_address: def.is_free === 0 ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
+    clinic_address: isPaidScanner ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
     email,
     years_in_operation: asInt(body.years_in_operation),
     staff_count: asInt(body.staff_count),
@@ -148,7 +149,7 @@ export const POST: APIRoute = async (ctx) => {
   }, lang);
 
   // Upsert clinic profile if user wants to save — non-critical
-  const saveProfile = def.is_free === 1 && body.save_profile === true;
+  const saveProfile = !isPaidScanner && body.save_profile === true;
   if (saveProfile) {
     upsertClinicProfile(env.DB, {
       id: session.user.id,

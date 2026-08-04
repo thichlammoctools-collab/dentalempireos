@@ -635,7 +635,6 @@ if (infoForm) {
       slug: String(fd.get('slug') || '').trim(),
       status: String(fd.get('status') || 'draft'),
       survey_type: String(fd.get('survey_type') || 'full'),
-      is_free: fd.get('is_free') === '1' ? 1 : 0,
       description_vi: String(fd.get('description_vi') || '').trim() || null,
       description_en: String(fd.get('description_en') || '').trim() || null,
       chapter_refs: chapterRefs,

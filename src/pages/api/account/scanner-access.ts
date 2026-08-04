@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ locals }) => {
         id: s.id,
         slug: s.slug,
         title: s.title_vi,
-        is_free: s.is_free === 1,
+        is_free: !productId,
         has_access,
         price,
         product_id: productId,

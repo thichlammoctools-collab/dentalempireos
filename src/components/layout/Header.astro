@@ -70,6 +70,21 @@ const currentHash = Astro.url.hash;
       <span class="material-symbols-outlined text-xl">play_circle</span>
     </a>
 
+    <!-- Mobile: homepage theme toggle -->
+    {currentPath === '/' && (
+      <button
+        id="mobile-home-theme-toggle"
+        type="button"
+        role="switch"
+        aria-checked="false"
+        class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+        title="Đổi giao diện sáng/tối"
+        aria-label="Đổi giao diện sáng/tối"
+      >
+        <span id="mobile-home-theme-icon" class="material-symbols-outlined text-xl">light_mode</span>
+      </button>
+    )}
+
     <!-- Mobile: profile icon (top-right, only when logged in) -->
     <a
       id="mobile-profile-link"
@@ -183,11 +198,24 @@ const currentHash = Astro.url.hash;
 
   const desktopThemeToggle = document.getElementById('desktop-theme-toggle');
   const desktopThemeIcon = document.getElementById('desktop-theme-icon');
+  const mobileHomeThemeToggle = document.getElementById('mobile-home-theme-toggle');
+  const mobileHomeThemeIcon = document.getElementById('mobile-home-theme-icon');
   const syncDesktopTheme = () => updateThemeToggle(desktopThemeToggle, null, desktopThemeIcon);
+  const syncMobileHomeTheme = () => updateThemeToggle(mobileHomeThemeToggle, null, mobileHomeThemeIcon);
   desktopThemeToggle?.addEventListener('click', () => {
     toggleTheme();
     syncDesktopTheme();
+    syncMobileHomeTheme();
+  });
+  mobileHomeThemeToggle?.addEventListener('click', () => {
+    toggleTheme();
+    syncDesktopTheme();
+    syncMobileHomeTheme();
   });
   syncDesktopTheme();
-  onThemeChange(syncDesktopTheme);
+  syncMobileHomeTheme();
+  onThemeChange(() => {
+    syncDesktopTheme();
+    syncMobileHomeTheme();
+  });
 </script>

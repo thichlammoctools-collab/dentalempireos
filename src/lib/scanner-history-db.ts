@@ -94,7 +94,7 @@ export async function getPurchasedPaidScanners(
        FROM "access" a
        INNER JOIN "product" p ON p."id" = a."product_id"
        INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
-       INNER JOIN "survey_definition" d ON d."id" = ps."scanner_id" AND d."is_free" = 0
+        INNER JOIN "survey_definition" d ON d."id" = ps."scanner_id"
        LEFT JOIN "order" o ON o."id" = a."order_id"
        LEFT JOIN "scanner_history" h ON h."user_id" = a."user_id"
          AND h."survey_id" = d."id"

@@ -147,39 +147,15 @@ try {
     )
     .bind(definition.id)
     .first<{ id: string; name: string; price: number }>();
-  // Try: ai_application → product (for scanners with AI app)
-  const app = !linkedProduct && await env.DB
-    .prepare('SELECT id FROM "ai_application" WHERE "slug" = ? OR "id" = ?')
-    .bind(definition.slug, `survey-${definition.id}`)
-    .first<{ id: string }>();
-  if (app && !linkedProduct) {
-    linkedProduct = await env.DB
-      .prepare('SELECT id, name, price FROM "product" WHERE "app_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
-      .bind(app.id)
-      .first<{ id: string; name: string; price: number }>();
-  }
-  // Try: product.reference_id = survey id (for scanners without AI app)
-  if (!linkedProduct) {
-    linkedProduct = await env.DB
-      .prepare('SELECT id, name, price FROM "product" WHERE "reference_id" = ? AND "is_active" = 1 ORDER BY "price" DESC LIMIT 1')
-      .bind(definition.id)
-      .first<{ id: string; name: string; price: number }>();
-  }
-  // Try: scanner pack — always grant access
-  if (!linkedProduct) {
-    const packProduct = await env.DB
-      .prepare('SELECT id, name, price FROM "product" WHERE "id" = \'prod-scanner-pack\' AND "is_active" = 1 LIMIT 1')
-      .first<{ id: string; name: string; price: number }>();
-    if (packProduct) linkedProduct = packProduct;
-  }
 } catch {
   // ignore
 }
 
 const productId = linkedProduct?.id ?? `survey-${definition.id}`;
+const isPaidScanner = !!linkedProduct;
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
-  : linkedProduct === null && definition.is_free === 1 ? '0' : '199.000';
+  : '0';
 
 const surveyTitle = lang === 'vi' ? definition.title_vi : (definition.title_en || definition.title_vi);
 const clinicProfile = await getClinicProfile(env.DB, currentUser.id);
@@ -218,7 +194,7 @@ try {
   description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-response-id={id} data-scanner-id={definition.id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={definition.is_free} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
+  <section class="result-wrap" data-response-id={id} data-scanner-id={definition.id} data-product-id={productId} data-lang={lang} data-survey-slug={definition.slug} data-is-free={isPaidScanner ? 0 : 1} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
     <!-- Header -->
     <header class="report-hero">
       <div class="report-identity">
@@ -264,10 +240,10 @@ try {
     <div class="card score-card">
       <div class="report-context">
         <span class="material-symbols-outlined">verified</span>
-        <span>{definition.is_free === 1
+        <span>{!isPaidScanner
           ? (lang === 'vi' ? 'Thông tin do bạn cung cấp trong lượt khảo sát này.' : 'Details supplied for this survey response.')
           : (lang === 'vi' ? 'Thông tin được đồng bộ từ Hồ sơ phòng khám.' : 'Details synchronized from your clinic profile.')}</span>
-        {definition.is_free === 0 && <a href="/account/clinic">{lang === 'vi' ? 'Cập nhật hồ sơ' : 'Update profile'}</a>}
+        {isPaidScanner && <a href="/account/clinic">{lang === 'vi' ? 'Cập nhật hồ sơ' : 'Update profile'}</a>}
       </div>
       <div class="score-header">
         <div>
@@ -467,7 +443,7 @@ try {
       )}
     </div>
 
-    <!-- AI Analysis — LOCKED behind paywall (unless is_free=1) -->
+    <!-- AI Analysis — unlocked automatically when this scanner has no active product. -->
     <div class="card analysis-card" id="analysis-section">
       <div class="analysis-header">
         <div>
@@ -514,7 +490,7 @@ try {
       </div>
 
       <div id="analysis-locked">
-        {definition.is_free === 1 ? (
+        {!isPaidScanner ? (
           <div id="analysis-free-action" class="text-center">
             <div id="analysis-free-loading" class="hidden">
               <div id="analysis-free-status" class="text-center text-sm text-on-surface-variant mb-3"></div>

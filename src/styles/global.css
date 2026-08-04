@@ -1685,18 +1685,18 @@ h2[id], h3[id], h4[id] {
 /* Attachment summary cards */
 /* Attachment list */
 .att-list-section {
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--reader-border);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: rgba(255,255,255,0.025);
+  background: color-mix(in srgb, var(--reader-chrome-surface) 55%, transparent);
 }
 .att-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--reader-border);
+  background: color-mix(in srgb, var(--reader-chrome-surface-high) 55%, transparent);
 }
 .att-list-label {
   display: flex;
@@ -1706,7 +1706,7 @@ h2[id], h3[id], h4[id] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: rgba(255,255,255,0.45);
+  color: var(--reader-chrome-text-muted);
 }
 .att-list-counts {
   display: flex;
@@ -1733,7 +1733,7 @@ h2[id], h3[id], h4[id] {
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--reader-border);
   text-decoration: none;
   transition: background-color 0.15s ease;
 }
@@ -1742,7 +1742,7 @@ h2[id], h3[id], h4[id] {
 .att-list-num {
   font-size: 0.65rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.2);
+  color: color-mix(in srgb, var(--reader-chrome-text-muted) 60%, transparent);
   min-width: 1rem;
   text-align: center;
 }
@@ -1767,14 +1767,14 @@ h2[id], h3[id], h4[id] {
 .att-list-title {
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.85);
+  color: var(--reader-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .att-list-meta {
   font-size: 0.65rem;
-  color: rgba(255,255,255,0.35);
+  color: var(--reader-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1793,7 +1793,7 @@ h2[id], h3[id], h4[id] {
 .att-badge--doc, .att-badge--docx { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
 .att-badge--xls, .att-badge--xlsx { background: rgba(74,222,128,0.12); color: rgba(74,222,128,0.8); }
 .att-badge--ppt, .att-badge--pptx { background: rgba(251,191,36,0.12); color: rgba(251,191,36,0.8); }
-.att-badge--file { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); }
+.att-badge--file { background: color-mix(in srgb, var(--reader-chrome-text-muted) 12%, transparent); color: var(--reader-chrome-text-muted); }
 .att-list-action {
   display: flex;
   align-items: center;

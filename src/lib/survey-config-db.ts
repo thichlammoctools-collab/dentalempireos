@@ -242,7 +242,7 @@ export async function listAllSurveyDefinitionIds(db: D1Database): Promise<Set<st
 
 export async function listSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus; is_free?: number; survey_type?: SurveyType; limit?: number; offset?: number } = {},
+  opts: { status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType; limit?: number; offset?: number } = {},
 ): Promise<SurveyDefinitionRow[]> {
   let sql = 'SELECT * FROM "survey_definition"';
   const params: unknown[] = [];
@@ -255,6 +255,14 @@ export async function listSurveyDefinitions(
   if (opts.is_free !== undefined) {
     conditions.push('"is_free" = ?');
     params.push(opts.is_free);
+  }
+  if (opts.has_active_product !== undefined) {
+    conditions.push(`${opts.has_active_product ? '' : 'NOT '}EXISTS (
+      SELECT 1
+      FROM "product_scanner" ps
+      INNER JOIN "product" p ON p.id = ps."product_id"
+      WHERE ps."scanner_id" = "survey_definition".id AND p."is_active" = 1
+    )`);
   }
   if (opts.survey_type) {
     conditions.push('"survey_type" = ?');
@@ -282,7 +290,7 @@ export async function listSurveyDefinitions(
 
 export async function countSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus; is_free?: number; survey_type?: SurveyType } = {},
+  opts: { status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType } = {},
 ): Promise<number> {
   let sql = 'SELECT COUNT(*) AS total FROM "survey_definition"';
   const params: unknown[] = [];
@@ -295,6 +303,14 @@ export async function countSurveyDefinitions(
   if (opts.is_free !== undefined) {
     conditions.push('"is_free" = ?');
     params.push(opts.is_free);
+  }
+  if (opts.has_active_product !== undefined) {
+    conditions.push(`${opts.has_active_product ? '' : 'NOT '}EXISTS (
+      SELECT 1
+      FROM "product_scanner" ps
+      INNER JOIN "product" p ON p.id = ps."product_id"
+      WHERE ps."scanner_id" = "survey_definition".id AND p."is_active" = 1
+    )`);
   }
   if (opts.survey_type) {
     conditions.push('"survey_type" = ?');

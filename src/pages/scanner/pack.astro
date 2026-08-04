@@ -4,12 +4,16 @@ import { env } from 'cloudflare:workers';
 
 export const prerender = false;
 
-let scanners: Array<{ id: string; slug: string; title_vi: string; chapter_refs: string | null; is_free: number }> = [];
+let scanners: Array<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }> = [];
+let scannerProductIds = new Set<string>();
 try {
-  const { results } = await env.DB
-    .prepare('SELECT id, slug, title_vi, chapter_refs, is_free FROM "survey_definition" WHERE status = \'active\' ORDER BY order_index ASC')
-    .all<{ id: string; slug: string; title_vi: string; chapter_refs: string | null; is_free: number }>();
+  const [surveyResult, productResult] = await Promise.all([
+    env.DB.prepare('SELECT id, slug, title_vi, chapter_refs FROM "survey_definition" WHERE status = \'active\' ORDER BY order_index ASC').all<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }>(),
+    env.DB.prepare('SELECT ps."scanner_id" FROM "product_scanner" ps INNER JOIN "product" p ON p."id" = ps."product_id" WHERE p."is_active" = 1').all<{ scanner_id: string }>(),
+  ]);
+  const results = surveyResult.results;
   scanners = results ?? [];
+  scannerProductIds = new Set((productResult.results ?? []).map((row) => row.scanner_id));
 } catch {
   scanners = [];
 }
@@ -89,7 +93,7 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
             >
               <div class="flex items-start justify-between gap-2 mb-1">
                 <span class={`material-symbols-outlined ${c.text} text-xl`}>{icon}</span>
-                {s.is_free === 1 && (
+                {!scannerProductIds.has(s.id) && (
                   <span class="text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5 shrink-0">Miễn phí</span>
                 )}
               </div>

@@ -37,13 +37,10 @@ if (full.definition.status !== 'active') {
 
 const { definition, sections } = full;
 
-const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, definition.is_free === 1);
-const hasPaidAccess = definition.is_free === 0
-  ? await hasScannerAccess(env.DB, currentUser.id, definition.id)
-  : true;
-const scannerProductId = !hasPaidAccess
-  ? await getScannerProduct(env.DB, definition.id)
-  : null;
+const scannerProductId = await getScannerProduct(env.DB, definition.id);
+const isPaidScanner = !!scannerProductId;
+const hasPaidAccess = !isPaidScanner || await hasScannerAccess(env.DB, currentUser.id, definition.id);
+const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
 const scannerProduct = scannerProductId
   ? await getProduct(env.DB, scannerProductId)
   : null;
@@ -51,7 +48,7 @@ const quotaExhausted = usage.remaining === 0;
 const scannerUnavailable = !hasPaidAccess || quotaExhausted;
 const scannerNotice = !hasPaidAccess
   ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
-  : definition.is_free === 1
+  : !isPaidScanner
   ? `Scanner miễn phí: bạn còn ${usage.remaining}/1 lượt.`
   : `Scanner trả phí: bạn còn ${usage.remaining}/3 lượt trong tháng này.`;
 
@@ -65,7 +62,7 @@ try {
 const surveyData = {
   id: definition.id,
   slug: definition.slug,
-  is_free: definition.is_free,
+  is_free: isPaidScanner ? 0 : 1,
   title_vi: definition.title_vi,
   title_en: definition.title_en || definition.title_vi,
   description_vi: definition.description_vi || '',
@@ -135,7 +132,7 @@ const defaultScaleEn: Record<string, string> = {
           ...(clinicProfile || {}),
           email: currentUser.email,
         }) : ''}
-        data-is-free={definition.is_free}
+        data-is-free={isPaidScanner ? 0 : 1}
         data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
@@ -144,7 +141,7 @@ const defaultScaleEn: Record<string, string> = {
           class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
           role="status"
           data-notice-vi={scannerNotice}
-          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : definition.is_free === 1 ? `Free Scanner: ${usage.remaining}/1 attempt remaining.` : `Paid Scanner: ${usage.remaining}/3 attempts remaining this month.`}
+          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/1 attempt remaining.` : `Paid Scanner: ${usage.remaining}/3 attempts remaining this month.`}
         >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">

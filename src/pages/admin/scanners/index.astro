@@ -15,14 +15,14 @@ const PAGE_SIZE = 10;
 const statusFilter = Astro.url.searchParams.get('status') as 'active' | 'draft' | 'archived' | null;
 const typeFilter = Astro.url.searchParams.get('type') as 'mini' | 'full' | 'checklist' | null;
 const accessFilter = Astro.url.searchParams.get('access');
-const isFreeFilter = accessFilter === 'free' ? 1 : accessFilter === 'paid' ? 0 : undefined;
+const hasActiveProductFilter = accessFilter === 'free' ? false : accessFilter === 'paid' ? true : undefined;
 const requestedPage = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10));
 const page = requestedPage;
 const offset = (page - 1) * PAGE_SIZE;
 const filters = {
   ...(statusFilter ? { status: statusFilter } : {}),
   ...(typeFilter ? { survey_type: typeFilter } : {}),
-  ...(isFreeFilter !== undefined ? { is_free: isFreeFilter } : {}),
+  ...(hasActiveProductFilter !== undefined ? { has_active_product: hasActiveProductFilter } : {}),
 };
 const filterParams = new URLSearchParams();
 if (statusFilter) filterParams.set('status', statusFilter);
@@ -190,11 +190,11 @@ const avatarColors = [
       </select>
     </div>
     <div>
-      <label for="scanner-access-filter" class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Theo cấu hình Scanner</label>
+      <label for="scanner-access-filter" class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Theo sản phẩm đang bán</label>
       <select id="scanner-access-filter" name="access" class="rounded-lg border border-outline-variant/30 bg-surface px-3 py-2 text-xs text-on-surface focus:border-primary focus:outline-none">
         <option value="">Tất cả</option>
-        <option value="free" selected={accessFilter === 'free'}>Miễn phí</option>
-        <option value="paid" selected={accessFilter === 'paid'}>AI trả phí</option>
+        <option value="free" selected={accessFilter === 'free'}>Chưa gán sản phẩm</option>
+        <option value="paid" selected={accessFilter === 'paid'}>Đã gán sản phẩm</option>
       </select>
     </div>
     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary transition-opacity hover:opacity-90"><span class="material-symbols-outlined text-[15px]">filter_alt</span>Lọc</button>

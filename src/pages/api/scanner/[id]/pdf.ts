@@ -10,7 +10,7 @@ import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
-import { hasScannerAccess } from '../../../../lib/payos-db';
+import { getScannerProduct, hasScannerAccess } from '../../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -40,12 +40,7 @@ export const GET: APIRoute = async ({ params, request }) => {
   }
 
   // Access check: if scanner is paid, user must have access
-  const definition = await env.DB
-    .prepare('SELECT id, slug, is_free FROM "survey_definition" WHERE id = ?')
-    .bind(response.survey_id)
-    .first<{ id: string; slug: string; is_free: number }>();
-
-  if (definition?.is_free === 0 && type !== 'plan' && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
+  if (await getScannerProduct(env.DB, response.survey_id) && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
     return new Response('Payment required', { status: 402 });
   }
 
