@@ -3,14 +3,25 @@ import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import {
   getProduct,
-  createOrder,
   getPayosSettings,
   getPayosEnv,
   getRecentPendingOrder,
+  reservePayosOrder,
+  attachPayosPaymentLink,
+  cancelPayosReservation,
+  isUniqueConstraintError,
 } from '../../../lib/payos-db';
-import { createPaymentLink } from '../../../lib/payos';
+import { cancelPaymentLink, createPaymentLink } from '../../../lib/payos';
 
 export const prerender = false;
+
+const MAX_RESERVATION_ATTEMPTS = 5;
+
+function createCryptographicOrderCode(): number {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return (value[0] % 900_000_000) + 100_000_000;
+}
 
 // POST /api/payos/create-payment — create a payment link for a product
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -40,9 +51,35 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  // Unique order_code — PayOS requires integer, use timestamp modulo
-  const orderCode = Date.now() % 1_000_000_000;
-  const orderId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  let orderCode = 0;
+  let orderId = '';
+  let reserved = false;
+
+  for (let attempt = 0; attempt < MAX_RESERVATION_ATTEMPTS; attempt += 1) {
+    orderCode = createCryptographicOrderCode();
+    orderId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+
+    try {
+      await reservePayosOrder(env.DB, {
+        id: orderId,
+        user_id: locals.user.id,
+        product_id: product.id,
+        order_code: orderCode,
+        amount: product.price,
+      });
+      reserved = true;
+      break;
+    } catch (err) {
+      if (!isUniqueConstraintError(err) || attempt === MAX_RESERVATION_ATTEMPTS - 1) {
+        console.error('PayOS order reservation error:', err);
+        return json({ error: 'Lỗi tạo đơn thanh toán. Vui lòng thử lại.' }, 500);
+      }
+    }
+  }
+
+  if (!reserved) {
+    return json({ error: 'Lỗi tạo đơn thanh toán. Vui lòng thử lại.' }, 500);
+  }
 
   const baseUrl = env.BETTER_AUTH_URL || 'https://dentalempireos.com';
   const cancelUrl = `${baseUrl}/payment/cancel?order=${orderId}`;
@@ -58,15 +95,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       returnUrl,
     });
 
-    await createOrder(env.DB, {
-      id: orderId,
-      user_id: locals.user.id,
-      product_id: product.id,
-      order_code: orderCode,
-      amount: product.price,
-      checkout_url: payosResponse.data.checkoutUrl,
-      payment_link_id: payosResponse.data.paymentLinkId,
-    });
+    try {
+      await attachPayosPaymentLink(env.DB, {
+        order_id: orderId,
+        checkout_url: payosResponse.data.checkoutUrl,
+        payment_link_id: payosResponse.data.paymentLinkId,
+      });
+    } catch (err) {
+      console.error('PayOS payment-link attach error:', err);
+      try {
+        await cancelPaymentLink(creds, payosResponse.data.paymentLinkId);
+      } catch (cancelErr) {
+        console.error('PayOS remote payment-link cancellation error:', cancelErr);
+      }
+      await cancelPayosReservation(env.DB, orderId).catch((cancelErr) => {
+        console.error('PayOS reservation cancellation error:', cancelErr);
+      });
+      return json({ error: 'Lỗi tạo thanh toán. Vui lòng thử lại.' }, 500);
+    }
 
     return json({
       checkoutUrl: payosResponse.data.checkoutUrl,
@@ -76,6 +122,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   } catch (err) {
     console.error('PayOS create payment error:', err);
+    await cancelPayosReservation(env.DB, orderId).catch((cancelErr) => {
+      console.error('PayOS reservation cancellation error:', cancelErr);
+    });
     return json({ error: 'Lỗi tạo thanh toán. Vui lòng thử lại.' }, 500);
   }
 };

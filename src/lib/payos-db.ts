@@ -181,6 +181,64 @@ export async function createOrder(
   return getOrder(db, input.id) as Promise<Order>;
 }
 
+/** Reserve an order code before creating its corresponding remote PayOS link. */
+export async function reservePayosOrder(
+  db: D1Database,
+  input: {
+    id: string;
+    user_id: string;
+    product_id: string;
+    order_code: number;
+    amount: number;
+  },
+): Promise<Order> {
+  const ts = now();
+  await db
+    .prepare(
+      `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at")
+       VALUES (?,?,?,?,?,'pending',NULL,NULL,?)`,
+    )
+    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts)
+    .run();
+  return getOrder(db, input.id) as Promise<Order>;
+}
+
+/** Attach the remote payment link only to its still-pending local reservation. */
+export async function attachPayosPaymentLink(
+  db: D1Database,
+  input: { order_id: string; payment_link_id: string; checkout_url: string },
+): Promise<void> {
+  const result = await db
+    .prepare(
+      `UPDATE "order"
+       SET "payment_link_id" = ?, "checkout_url" = ?
+       WHERE "id" = ? AND "status" = 'pending' AND "payment_link_id" IS NULL`,
+    )
+    .bind(input.payment_link_id, input.checkout_url, input.order_id)
+    .run();
+
+  if (result.meta.changes !== 1) {
+    throw new Error(`Unable to attach PayOS payment link to reserved order ${input.order_id}`);
+  }
+}
+
+/** Cancel a local reservation after its remote payment-link workflow fails. */
+export async function cancelPayosReservation(db: D1Database, orderId: string): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE "order" SET "status" = 'cancelled'
+       WHERE "id" = ? AND "status" = 'pending'`,
+    )
+    .bind(orderId)
+    .run();
+}
+
+/** D1 surfaces SQLite unique violations as errors without a stable typed error API. */
+export function isUniqueConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:SQLITE_CONSTRAINT_UNIQUE|UNIQUE constraint failed|constraint failed.*unique)/i.test(message);
+}
+
 export async function getOrder(db: D1Database, id: string): Promise<Order | null> {
   return db.prepare('SELECT * FROM "order" WHERE "id" = ?').bind(id).first<Order>();
 }
