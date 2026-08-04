@@ -7,15 +7,17 @@ export const prerender = false;
 
 interface BookMediaAccess {
   is_free: number;
+  is_premium: number;
   product_id: string | null;
 }
 
 async function canAccessBookMedia(key: string, userId?: string): Promise<boolean> {
   const block = await env.DB
     .prepare(
-      `SELECT s."is_free", p."id" AS product_id
+      `SELECT s."is_free", c."is_premium", p."id" AS product_id
        FROM "block" b
        JOIN "section" s ON s."id" = b."section_id"
+       JOIN "chapter" c ON c."id" = s."chapter_id"
        LEFT JOIN "product" p
          ON p."type" = 'book_unlock'
         AND p."is_active" = 1
@@ -25,8 +27,10 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .bind(key)
     .first<BookMediaAccess>();
 
+  // Whole free chapters must not inherit legacy per-section restrictions. Those
+  // restrictions only apply when the chapter itself is configured as premium.
   // Files not attached to a book block remain public to preserve existing media behavior.
-  if (!block || block.is_free === 1) return true;
+  if (!block || block.is_premium !== 1 || block.is_free === 1) return true;
   return !!userId && !!block.product_id && hasAccess(env.DB, userId, block.product_id);
 }
 
