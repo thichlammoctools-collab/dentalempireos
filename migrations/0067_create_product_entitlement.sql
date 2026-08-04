@@ -29,14 +29,10 @@ DROP TABLE "product";
 ALTER TABLE "product_v4" RENAME TO "product";
 
 CREATE INDEX IF NOT EXISTS "idx_product_type" ON "product" ("type");
-CREATE INDEX IF NOT EXISTS "idx_product_type_new" ON "product" ("type");
-CREATE INDEX IF NOT EXISTS "idx_product_type_v3" ON "product" ("type");
 CREATE INDEX IF NOT EXISTS "idx_product_app_id" ON "product" ("app_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_active_book_unlock"
   ON "product" ("type")
   WHERE "type" = 'book_unlock' AND "is_active" = 1;
-
-PRAGMA foreign_keys = ON;
 
 ALTER TABLE "course" ADD COLUMN "access_tier" text NOT NULL DEFAULT 'free'
   CHECK("access_tier" IN ('free','premium'));
@@ -59,8 +55,6 @@ CREATE TABLE IF NOT EXISTS "product_entitlement" (
 
 CREATE INDEX IF NOT EXISTS "idx_product_entitlement_content"
   ON "product_entitlement" ("content_type", "content_id");
-CREATE INDEX IF NOT EXISTS "idx_product_entitlement_product"
-  ON "product_entitlement" ("product_id");
 
 -- Existing products retain their previous content relationships.
 INSERT OR IGNORE INTO "product_entitlement" ("product_id","content_type","content_id")
@@ -88,3 +82,5 @@ SELECT "id", 'resource', "reference_id"
 FROM "product"
 WHERE "type" = 'document_unlock'
   AND "reference_id" IS NOT NULL AND "reference_id" <> '';
+
+PRAGMA foreign_keys = ON;

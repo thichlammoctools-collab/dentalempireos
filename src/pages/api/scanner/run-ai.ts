@@ -11,7 +11,7 @@ import { runAiAnalysis, runPlanAnalysis } from '../../../lib/scanner-ai';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
 import { getScannerResponse } from '../../../lib/scanner-response-db';
-import { getScannerProduct, hasScannerAccess } from '../../../lib/payos-db';
+import { canAccessScanner } from '../../../lib/entitlement-check';
 import { getUserByEmail } from '../../../lib/user-db';
 import { isScannerAiJobRunning, reserveAiQuota } from '../../../lib/ai-operations';
 
@@ -51,10 +51,8 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: 'Không có quyền với kết quả này' }, 403);
   }
 
-  const scannerProduct = await getScannerProduct(env.DB, response.survey_id);
-
-  if (scannerProduct && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
-    return json({ error: 'Bạn cần mở khóa scanner này để chạy phân tích AI.' }, 402);
+  if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
+     return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);
   }
 
   const jobTypes: Array<'analysis' | 'plan'> = type === 'all' ? ['analysis', 'plan'] : [type];

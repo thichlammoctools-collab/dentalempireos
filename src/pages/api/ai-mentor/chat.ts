@@ -12,7 +12,8 @@ import type { ModelConfig, ChatMessage } from '../../../lib/ai-client';
 import { getAiGatewayConfig } from '../../../lib/ai-gateway';
 import { searchChunks, buildRagContext, type RagChunk } from '../../../lib/rag-search';
 import { createAuth } from '../../../lib/auth';
-import { getApp } from '../../../lib/app-db';
+import { getAppBySlug } from '../../../lib/app-db';
+import { canAccessAiApp } from '../../../lib/entitlement-check';
 import { reserveAiQuota, requestId } from '../../../lib/ai-operations';
 import { logAiUsage } from '../../../lib/ai-usage-log';
 
@@ -137,15 +138,19 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   const userId = authSession.user.id;
+  const appSlug = body.app_slug ?? 'ai-mentor';
+  const app = await getAppBySlug(env.DB, appSlug);
+  if (!app || app.status !== 'active') {
+    return new Response(JSON.stringify({ error: 'AI Mentor chưa được kích hoạt.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!(await canAccessAiApp(env.DB, userId, app.id))) {
+     return new Response(JSON.stringify({ error: 'Ứng dụng AI này yêu cầu nâng cấp gói để sử dụng.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const request = requestId();
   const quota = await reserveAiQuota(env.DB, userId, 'mentor_chat');
   if (!quota.allowed) {
     return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn AI Mentor trong giờ này.', quota }), { status: 429, headers: { 'Content-Type': 'application/json' } });
-  }
-  const appSlug = body.app_slug ?? 'ai-mentor';
-  const app = await getApp(env.DB, appSlug);
-  if (!app || app.status !== 'active') {
-    return new Response(JSON.stringify({ error: 'AI Mentor chưa được kích hoạt.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   const modelCfg = await getAiModel(env.DB);

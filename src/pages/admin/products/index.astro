@@ -2,12 +2,20 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listProducts, getAllProductScanners, getScannerProductMapping } from '../../../lib/payos-db';
+import { listProductEntitlements } from '../../../lib/entitlement-db';
+import {
+  PRODUCT_ENTITLEMENT_PRESETS,
+  PRODUCT_ENTITLEMENT_PRESET_LABELS,
+} from '../../../lib/product-entitlement-presets';
 import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 
 export const prerender = false;
 
 const db = env.DB;
 const products = await listProducts(db);
+const productEntitlementMap = Object.fromEntries(await Promise.all(
+  products.map(async (product) => [product.id, await listProductEntitlements(db, product.id)]),
+));
 
 const mappings = await getAllProductScanners(db);
 const scannerProductMap = await getScannerProductMapping(db);
@@ -21,7 +29,42 @@ const typeLabels: Record<string, string> = {
   event_ticket: 'Vé sự kiện',
   survey_unlock: 'Mở khóa khảo sát AI',
   book_unlock: 'Mở khóa toàn bộ sách',
+  service_program: 'Gói dịch vụ',
 };
+
+const entitlementTypeLabels: Record<string, string> = {
+  book: 'Sách',
+  ai_app: 'AI app',
+  scanner: 'Scanner',
+  course: 'Khóa học',
+  blog: 'Blog',
+  resource: 'Tài liệu',
+  service: 'Dịch vụ',
+};
+
+const entitlementPresets = {
+  custom: [],
+  ...PRODUCT_ENTITLEMENT_PRESETS,
+} as const;
+
+const entitlementIdLabels: Record<string, string> = {
+  '*': 'Tất cả',
+  consulting_guided: 'Tư vấn đồng hành',
+  consulting_full: 'Tư vấn chuyên sâu',
+  implementation_full: 'Triển khai toàn diện',
+  team_training: 'Đào tạo đội ngũ',
+  clinic_audit: 'Audit phòng khám',
+  self_serve: 'Tự triển khai',
+  guided_3m: 'Đồng hành 3 tháng',
+  guided_6m: 'Đồng hành 6 tháng',
+  full_implementation: 'Triển khai toàn diện',
+};
+
+function getEntitlementLabel(entitlement: { content_type: string; content_id: string }): string {
+  const typeLabel = entitlementTypeLabels[entitlement.content_type] ?? entitlement.content_type;
+  const idLabel = entitlementIdLabels[entitlement.content_id] ?? entitlement.content_id;
+  return `${typeLabel}: ${idLabel}`;
+}
 
 const scannerMap = Object.fromEntries(scanners.map((s) => [s.id, s.title_vi]));
 
@@ -88,6 +131,7 @@ const newId = nanoid();
               <option value="event_ticket">Vé sự kiện</option>
               <option value="survey_unlock">Mở khóa khảo sát AI</option>
               <option value="book_unlock">Mở khóa toàn bộ sách</option>
+              <option value="service_program">Gói dịch vụ</option>
             </select>
           </div>
           <div>
@@ -104,6 +148,33 @@ const newId = nanoid();
             <!-- populated by JS -->
           </div>
           <p class="text-xs text-on-surface-variant/75 mt-1">Mỗi scanner chỉ gắn được với 1 sản phẩm đang bán.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Quyền lợi</label>
+          <select name="entitlement_preset" id="entitlement-preset"
+            class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 focus:outline-none"
+          >
+            <option value="custom">Tùy chỉnh</option>
+            <option value="book_full">{PRODUCT_ENTITLEMENT_PRESET_LABELS.book_full}</option>
+            <option value="ai_tools_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.ai_tools_all}</option>
+            <option value="scanners_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.scanners_all}</option>
+            <option value="courses_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.courses_all}</option>
+            <option value="blog_premium">{PRODUCT_ENTITLEMENT_PRESET_LABELS.blog_premium}</option>
+            <option value="resources_premium">{PRODUCT_ENTITLEMENT_PRESET_LABELS.resources_premium}</option>
+            <option value="consulting_guided" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.consulting_guided}</option>
+            <option value="consulting_full" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.consulting_full}</option>
+            <option value="implementation_full" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.implementation_full}</option>
+            <option value="team_training" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.team_training}</option>
+            <option value="clinic_audit" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.clinic_audit}</option>
+            <option value="self_serve" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.self_serve}</option>
+            <option value="guided_3m" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.guided_3m}</option>
+            <option value="guided_6m" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.guided_6m}</option>
+            <option value="full_implementation" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.full_implementation}</option>
+          </select>
+          <div id="entitlement-rows" class="flex flex-col gap-2 mt-3"></div>
+          <button type="button" id="add-entitlement" class="mt-2 text-xs font-semibold text-primary hover:underline">
+            + Thêm quyền lợi
+          </button>
         </div>
         <div>
           <label class="block text-sm font-semibold text-on-surface-variant mb-2">Mô tả</label>
@@ -155,6 +226,7 @@ const newId = nanoid();
             <th class="text-left px-4 py-3 font-semibold">Tên</th>
             <th class="text-left px-4 py-3 font-semibold">Loại</th>
             <th class="text-left px-4 py-3 font-semibold">Scanners</th>
+            <th class="text-left px-4 py-3 font-semibold">Quyền lợi</th>
             <th class="text-right px-4 py-3 font-semibold">Giá</th>
             <th class="text-center px-4 py-3 font-semibold">Thời hạn</th>
             <th class="text-center px-4 py-3 font-semibold">Trạng thái</th>
@@ -164,7 +236,7 @@ const newId = nanoid();
         <tbody>
           {products.length === 0 ? (
             <tr>
-              <td colspan="7" class="px-4 py-8 text-center text-on-surface-variant">
+              <td colspan="8" class="px-4 py-8 text-center text-on-surface-variant">
                 Chưa có sản phẩm nào. Nhấn "Tạo sản phẩm mới" để bắt đầu.
               </td>
             </tr>
@@ -189,6 +261,19 @@ const newId = nanoid();
                   <span class="text-on-surface-variant/55">—</span>
                 )}
               </td>
+              <td class="px-4 py-3 text-on-surface-variant text-xs">
+                {productEntitlementMap[p.id]?.length ? (
+                  <div class="flex flex-wrap gap-1">
+                    {productEntitlementMap[p.id].map((entitlement) => (
+                      <span class="px-1.5 py-0.5 bg-secondary-container/50 text-on-secondary-container rounded-md text-xs font-medium">
+                        {getEntitlementLabel(entitlement)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span class="text-on-surface-variant/55">—</span>
+                )}
+              </td>
               <td class="px-4 py-4 text-right text-on-surface font-medium">{p.price.toLocaleString('vi-VN')}₫</td>
               <td class="px-4 py-3 text-center text-on-surface-variant">
                 {p.duration_days ? `${p.duration_days} ngày` : '∞'}
@@ -209,6 +294,7 @@ const newId = nanoid();
                   data-duration_days={p.duration_days ?? ''}
                   data-reference_id={p.reference_id ?? ''}
                   data-scanners={JSON.stringify(productScannerMap[p.id] ?? [])}
+                  data-entitlements={JSON.stringify(productEntitlementMap[p.id] ?? [])}
                   data-is_active={p.is_active}
                 >
                   Sửa
@@ -228,7 +314,7 @@ const newId = nanoid();
     </div>
   </div>
 
-  <script define:vars={{ typeLabels }}>
+  <script define:vars={{ typeLabels, entitlementPresets }}>
     const modal = document.getElementById('new-product-modal');
     const closeBtn = document.getElementById('modal-close');
     const newBtn = document.getElementById('btn-new-product');
@@ -239,10 +325,22 @@ const newId = nanoid();
     const scannerField = document.getElementById('scanner-field');
     const referenceIdField = document.getElementById('reference-id-field');
     const scannerList = document.getElementById('scanner-list');
+    const entitlementPreset = document.getElementById('entitlement-preset');
+    const entitlementRows = document.getElementById('entitlement-rows');
+    const addEntitlementBtn = document.getElementById('add-entitlement');
     const typeSelect = form?.querySelector('[name="type"]');
 
     let editingId = null;
     let allScanners = [];
+    const entitlementTypes = [
+      ['book', 'Sách'],
+      ['ai_app', 'AI app'],
+      ['scanner', 'Scanner'],
+      ['course', 'Khóa học'],
+      ['blog', 'Blog'],
+      ['resource', 'Tài liệu'],
+      ['service', 'Dịch vụ'],
+    ];
 
     async function loadScanners() {
       const resp = await fetch('/api/admin/products/scanners');
@@ -275,7 +373,102 @@ const newId = nanoid();
     function openModal() {
       modal?.classList.remove('hidden');
       toggleProductFields();
+      updateEntitlementPresetOptions();
     }
+
+    function updateEntitlementPresetOptions() {
+      const isService = typeSelect?.value === 'service_program';
+      entitlementPreset?.querySelectorAll('[data-service-preset]').forEach((option) => {
+        option.hidden = !isService;
+      });
+      if (!isService && entitlementPreset?.selectedOptions[0]?.hasAttribute('data-service-preset')) {
+        entitlementPreset.value = 'custom';
+      }
+    }
+
+    function setPresetValue(value) {
+      if (entitlementPreset) entitlementPreset.value = value;
+    }
+
+    function markEntitlementsCustom() {
+      setPresetValue('custom');
+    }
+
+    function addEntitlementRow(entitlement = { content_type: 'book', content_id: '' }) {
+      if (!entitlementRows) return;
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
+
+      const typeInput = document.createElement('select');
+      typeInput.className = 'entitlement-type flex-1 min-w-0 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
+      for (const [value, label] of entitlementTypes) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        option.selected = value === entitlement.content_type;
+        typeInput.appendChild(option);
+      }
+
+      const idInput = document.createElement('input');
+      idInput.type = 'text';
+      idInput.value = entitlement.content_id || '';
+      idInput.placeholder = 'ID hoặc *';
+      idInput.className = 'entitlement-id flex-1 min-w-0 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface placeholder:text-on-surface-variant/70 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-entitlement shrink-0 p-2 rounded-lg text-rose-400 hover:bg-rose-400/10';
+      removeBtn.title = 'Xóa quyền lợi';
+      removeBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">delete</span>';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        markEntitlementsCustom();
+      });
+      typeInput.addEventListener('change', markEntitlementsCustom);
+      idInput.addEventListener('input', markEntitlementsCustom);
+
+      row.append(typeInput, idInput, removeBtn);
+      entitlementRows.appendChild(row);
+    }
+
+    function renderEntitlementRows(entitlements) {
+      if (!entitlementRows) return;
+      entitlementRows.innerHTML = '';
+      for (const entitlement of entitlements) addEntitlementRow(entitlement);
+    }
+
+    function readEntitlements() {
+      return Array.from(entitlementRows?.querySelectorAll('.flex.items-center') ?? [])
+        .map((row) => ({
+          content_type: row.querySelector('.entitlement-type')?.value,
+          content_id: row.querySelector('.entitlement-id')?.value.trim(),
+        }))
+        .filter((entitlement) => entitlement.content_type && entitlement.content_id);
+    }
+
+    function inferEntitlementPreset(entitlements) {
+      const normalized = entitlements
+        .map((entitlement) => `${entitlement.content_type}:${entitlement.content_id}`)
+        .sort()
+        .join('|');
+      for (const [preset, presetEntitlements] of Object.entries(entitlementPresets)) {
+        const presetValue = presetEntitlements
+          .map((entitlement) => `${entitlement.content_type}:${entitlement.content_id}`)
+          .sort()
+          .join('|');
+        if (normalized === presetValue) return preset;
+      }
+      return 'custom';
+    }
+
+    entitlementPreset?.addEventListener('change', () => {
+      const selected = entitlementPreset.value;
+      if (selected !== 'custom') renderEntitlementRows(entitlementPresets[selected] || []);
+    });
+    addEntitlementBtn?.addEventListener('click', () => {
+      markEntitlementsCustom();
+      addEntitlementRow();
+    });
 
     async function toggleProductFields(selectedScannerIds = []) {
       if (typeSelect && scannerField) {
@@ -293,11 +486,17 @@ const newId = nanoid();
         }
       }
     }
-    typeSelect?.addEventListener('change', () => toggleProductFields());
+    typeSelect?.addEventListener('change', () => {
+      toggleProductFields();
+      updateEntitlementPresetOptions();
+    });
 
     function closeModal() {
       modal?.classList.add('hidden');
       form?.reset();
+      renderEntitlementRows([]);
+      setPresetValue('custom');
+      updateEntitlementPresetOptions();
       editingId = null;
       modalTitle.textContent = 'Tạo sản phẩm mới';
       submitBtn.textContent = 'Tạo sản phẩm';
@@ -328,6 +527,12 @@ const newId = nanoid();
         if (durInput) durInput.value = b.dataset.duration_days || '';
         if (refInput) refInput.value = b.dataset.reference_id || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
+
+        let entitlements = [];
+        try { entitlements = JSON.parse(b.dataset.entitlements || '[]'); } catch {}
+        renderEntitlementRows(entitlements);
+        setPresetValue(inferEntitlementPreset(entitlements));
+        updateEntitlementPresetOptions();
 
         if (typeInput?.value === 'survey_unlock') {
           if (allScanners.length === 0) await loadScanners();
@@ -369,14 +574,17 @@ const newId = nanoid();
       errorEl?.classList.add('hidden');
 
       const data = new FormData(form);
+      const entitlementPreset = data.get('entitlement_preset') || 'custom';
       const body = {
         name: data.get('name'),
         type: data.get('type'),
         price: parseInt(String(data.get('price')), 10),
-        description: data.get('description') || null,
+        description: String(data.get('description') ?? ''),
         duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
         reference_id: data.get('type') === 'book_unlock' ? null : data.get('reference_id') || null,
         is_active: data.get('is_active') === 'on' ? 1 : 0,
+        entitlement_preset: entitlementPreset,
+        ...(entitlementPreset === 'custom' ? { entitlements: readEntitlements() } : {}),
       };
 
       submitBtn.disabled = true;

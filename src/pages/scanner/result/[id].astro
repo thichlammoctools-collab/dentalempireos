@@ -18,6 +18,7 @@ import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 import { getClinicProfile } from '../../../lib/clinic-profile-db';
+import { canAccessScanner } from '../../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -58,6 +59,10 @@ if (!full) {
 }
 
 const { definition } = full;
+if (!(await canAccessScanner(env.DB, currentUser.id, definition.id))) {
+  return Astro.redirect('/dich-vu');
+}
+
 const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
 const scoringRules = parseScoringRules(definition.scoring_rules);
 const aiConfig = parseAiConfig(definition.ai_config);
@@ -152,7 +157,7 @@ try {
 }
 
 const productId = linkedProduct?.id ?? `survey-${definition.id}`;
-const isPaidScanner = !!linkedProduct;
+const isPaidScanner = definition.is_free !== 1;
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
   : '0';

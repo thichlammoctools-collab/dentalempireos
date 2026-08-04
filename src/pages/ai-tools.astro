@@ -42,12 +42,12 @@ const appProductMap = new Map(
     .map((product) => [product.app_id as string, product]),
 );
 
-const isScannerPaid = (scanner: SurveyDefinition) => scannerProductMap.has(scanner.id);
+const isScannerFree = (scanner: SurveyDefinition) => scanner.is_free === 1;
 const getScannerProduct = (scanner: SurveyDefinition) => {
   const productId = scannerProductMap.get(scanner.id);
   return activeProducts.find((product) => product.id === productId) ?? null;
 };
-const isAppPaid = (app: App) => appProductMap.has(app.id);
+const isAppFree = (app: App) => app.is_free === 1;
 
 const typeColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
   mini:       { bg: 'bg-blue-50 dark:bg-blue-500/10',   border: 'border-blue-200 dark:border-blue-500/30',   text: 'text-blue-700 dark:text-blue-300',   icon: 'flash_on' },
@@ -76,13 +76,13 @@ const appTypeColors: Record<string, { bg: string; border: string; text: string }
 };
 
 const scannerGroups = [
-  { title: 'Scanner miễn phí', description: 'Khảo sát nhanh để nhìn ra một vấn đề cụ thể và nhận định hướng cải thiện ban đầu.', items: scanners.filter((scanner) => !isScannerPaid(scanner)), free: true },
-  { title: 'Scanner chuyên sâu', description: 'Phân tích AI chuyên sâu, dành cho những vấn đề cần kế hoạch hành động và góc nhìn hệ thống.', items: scanners.filter(isScannerPaid), free: false },
+  { title: 'Scanner miễn phí', description: 'Khảo sát nhanh để nhìn ra một vấn đề cụ thể và nhận định hướng cải thiện ban đầu.', items: scanners.filter(isScannerFree), free: true },
+  { title: 'Scanner chuyên sâu', description: 'Phân tích AI chuyên sâu, dành cho những vấn đề cần kế hoạch hành động và góc nhìn hệ thống.', items: scanners.filter((scanner) => !isScannerFree(scanner)), free: false },
 ];
 
 const appGroups = [
-  { title: 'AI Tools miễn phí', description: 'Công cụ hỗ trợ bạn bắt đầu, phác thảo và kiểm tra công việc nhanh hơn.', items: apps.filter((app) => !isAppPaid(app)), free: true },
-  { title: 'AI Tools chuyên sâu', description: 'Công cụ có trả phí hoặc cần mở khóa để tạo ra đầu ra chuyên biệt hơn.', items: apps.filter(isAppPaid), free: false },
+  { title: 'AI Tools miễn phí', description: 'Công cụ hỗ trợ bạn bắt đầu, phác thảo và kiểm tra công việc nhanh hơn.', items: apps.filter(isAppFree), free: true },
+  { title: 'AI Tools chuyên sâu', description: 'Công cụ có trả phí hoặc cần mở khóa để tạo ra đầu ra chuyên biệt hơn.', items: apps.filter((app) => !isAppFree(app)), free: false },
 ];
 ---
 
@@ -183,13 +183,15 @@ const appGroups = [
                       <span class={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border ${color.bg} ${color.border} ${color.text}`}>
                         {s.survey_type}
                       </span>
-                      {!product ? (
+                      {isFree ? (
                         <span class="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
                           <span class="material-symbols-outlined text-[12px]">verified</span>
                           Miễn phí
                         </span>
-                      ) : (
+                      ) : product ? (
                         <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">{product.price.toLocaleString('vi-VN')}₫</span>
+                      ) : (
+                        <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">Chuyên sâu</span>
                       )}
                     </div>
                   </div>
@@ -244,6 +246,7 @@ const appGroups = [
             {group.items.map((app) => {
               const color = appTypeColors[app.type] ?? { bg: 'bg-gray-50 dark:bg-gray-500/10', border: 'border-gray-200 dark:border-gray-500/30', text: 'text-gray-700 dark:text-gray-300' };
               const product = appProductMap.get(app.id);
+              const isFree = isAppFree(app);
               return (
                 <a
                   href={`/app/${app.slug}`}
@@ -259,7 +262,7 @@ const appGroups = [
                        <span class={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${color.bg} ${color.border} ${color.text}`}>
                          {appTypeLabels[app.type] ?? app.type}
                        </span>
-                        <span class={`text-[11px] font-bold ${product ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{product ? `${product.price.toLocaleString('vi-VN')}₫` : 'Miễn phí'}</span>
+                        <span class={`text-[11px] font-bold ${isFree ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{isFree ? 'Miễn phí' : product ? `${product.price.toLocaleString('vi-VN')}₫` : 'Chuyên sâu'}</span>
                     </div>
                   </div>
 

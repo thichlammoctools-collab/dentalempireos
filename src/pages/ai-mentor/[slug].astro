@@ -1,14 +1,18 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
-import { getApp } from '../../lib/app-db';
+import { getAppBySlug } from '../../lib/app-db';
+import { canAccessAiApp } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
 const slug = Astro.params.slug ?? '';
-const app = await getApp(env.DB, slug);
+const app = await getAppBySlug(env.DB, slug);
 if (!app || app.status !== 'active') {
   return new Response('AI Mentor không tìm thấy hoặc chưa được kích hoạt.', { status: 404 });
+}
+if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
+  return Astro.redirect('/dich-vu');
 }
 
 const title = app.name;

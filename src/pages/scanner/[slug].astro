@@ -4,7 +4,8 @@ import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
-import { getProduct, getScannerProduct, hasScannerAccess } from '../../lib/payos-db';
+import { getProduct, getScannerProduct } from '../../lib/payos-db';
+import { canAccessScanner } from '../../lib/entitlement-check';
 import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
@@ -37,9 +38,10 @@ if (full.definition.status !== 'active') {
 
 const { definition, sections } = full;
 
+const hasPaidAccess = await canAccessScanner(env.DB, currentUser.id, definition.id);
+
 const scannerProductId = await getScannerProduct(env.DB, definition.id);
-const isPaidScanner = !!scannerProductId;
-const hasPaidAccess = !isPaidScanner || await hasScannerAccess(env.DB, currentUser.id, definition.id);
+const isPaidScanner = definition.is_free !== 1;
 const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
 const scannerProduct = scannerProductId
   ? await getProduct(env.DB, scannerProductId)
@@ -62,7 +64,7 @@ try {
 const surveyData = {
   id: definition.id,
   slug: definition.slug,
-  is_free: isPaidScanner ? 0 : 1,
+  is_free: definition.is_free,
   title_vi: definition.title_vi,
   title_en: definition.title_en || definition.title_vi,
   description_vi: definition.description_vi || '',

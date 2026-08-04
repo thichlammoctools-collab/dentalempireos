@@ -1,6 +1,7 @@
 ---
 import { env } from 'cloudflare:workers';
 import { getAppBySlug, parseAppConfig } from '../../lib/app-db';
+import { canAccessAiApp } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -17,6 +18,9 @@ const app = await getAppBySlug(env.DB, slug);
 
 if (!app) return new Response('Không tìm thấy ứng dụng', { status: 404 });
 if (app.status !== 'active') return new Response('Ứng dụng chưa kích hoạt', { status: 404 });
+if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
+  return Astro.redirect('/dich-vu');
+}
 
 const config = parseAppConfig(app.config_json);
 const promptVi = (config.prompt_vi as string) ?? '';

@@ -20,7 +20,7 @@ import {
 import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
-import { getScannerProduct, hasScannerAccess } from '../../../lib/payos-db';
+import { canAccessScanner } from '../../../lib/entitlement-check';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -63,11 +63,16 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  const isPaidScanner = !!await getScannerProduct(env.DB, surveyId);
-  const paidAccess = isPaidScanner && await hasScannerAccess(env.DB, session.user.id, surveyId);
-  if (isPaidScanner && !paidAccess) {
-    return json({ error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.', requiresPayment: true }, 402);
+  const hasAccess = await canAccessScanner(env.DB, session.user.id, surveyId);
+  if (!hasAccess) {
+    return json({
+      error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.',
+      requiresPayment: true,
+      upgradeUrl: '/dich-vu',
+      upgrade_url: '/dich-vu',
+    }, 402);
   }
+  const isPaidScanner = def.is_free !== 1;
   const usage = await getScannerUsage(env.DB, session.user.id, surveyId, !isPaidScanner);
   console.log('[scanner/submit] usage:', usage);
   if (usage.remaining <= 0) {

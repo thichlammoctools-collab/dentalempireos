@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json } from '../../lib/api-helpers';
 import { hasAccess } from '../../lib/payos-db';
+import { canAccessResource } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -34,6 +35,24 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
   return !!userId && !!block.product_id && hasAccess(env.DB, userId, block.product_id);
 }
 
+async function canAccessResourceMedia(key: string, userId?: string): Promise<boolean> {
+  const resource = await env.DB
+    .prepare('SELECT "id" FROM "resource" WHERE "file_url" = ? OR "file_url" = ? LIMIT 1')
+    .bind(key, `/media/${key}`)
+    .first<{ id: string }>();
+
+  // A media key that is not assigned to a resource retains its existing access behavior.
+  return !resource || canAccessResource(env.DB, userId, resource.id);
+}
+
+async function canAccessMedia(key: string, userId?: string): Promise<boolean> {
+  const [hasBookAccess, hasResourceAccess] = await Promise.all([
+    canAccessBookMedia(key, userId),
+    canAccessResourceMedia(key, userId),
+  ]);
+  return hasBookAccess && hasResourceAccess;
+}
+
 // GET /media/[...key] — serve file from R2 with caching
 export const HEAD: APIRoute = async ({ params, locals }) => {
   const key = params.key;
@@ -41,7 +60,7 @@ export const HEAD: APIRoute = async ({ params, locals }) => {
     return new Response(null, { status: 400 });
   }
 
-  if (!(await canAccessBookMedia(key, locals.user?.id))) {
+  if (!(await canAccessMedia(key, locals.user?.id))) {
     return new Response(null, { status: locals.user ? 403 : 401 });
   }
 
@@ -63,7 +82,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return json({ error: 'Missing key' }, 400);
   }
 
-  if (!(await canAccessBookMedia(key, locals.user?.id))) {
+  if (!(await canAccessMedia(key, locals.user?.id))) {
     return json({ error: locals.user ? 'Bạn chưa có quyền truy cập tệp này' : 'Vui lòng đăng nhập để truy cập tệp này' }, locals.user ? 403 : 401);
   }
 

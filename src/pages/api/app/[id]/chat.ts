@@ -5,6 +5,8 @@ import { getApp, parseAppConfig } from '../../../../lib/app-db';
 import { getAiGatewayConfig } from '../../../../lib/ai-gateway';
 import { chatCompletion } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
+import { createAuth } from '../../../../lib/auth';
+import { canAccessAiApp } from '../../../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -85,9 +87,16 @@ export const POST: APIRoute = async ({ request, params }) => {
   const appId = params.id;
   if (!appId) return badRequest('Missing app ID');
 
+  const auth = createAuth(env);
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Unauthorized' }, 401);
+
   const app = await getApp(env.DB, appId);
   if (!app) return json({ error: 'Ứng dụng không tồn tại' }, 404);
   if (app.status !== 'active') return json({ error: 'Ứng dụng chưa được kích hoạt' }, 403);
+  if (!(await canAccessAiApp(env.DB, session.user.id, app.id))) {
+     return json({ error: 'Ứng dụng AI này yêu cầu nâng cấp gói để sử dụng.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);
+  }
 
   const body = (await request.json().catch(() => null)) as {
     messages?: Message[];

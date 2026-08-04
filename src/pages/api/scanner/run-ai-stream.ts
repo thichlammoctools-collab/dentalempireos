@@ -17,7 +17,7 @@ import { getScannerAiConfig, buildAnalysisStream, buildPlanStream } from '../../
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 import { createAuth } from '../../../lib/auth';
-import { getScannerProduct, hasScannerAccess } from '../../../lib/payos-db';
+import { canAccessScanner } from '../../../lib/entitlement-check';
 import { claimScannerAiJob, finishScannerAiJob, isScannerAiJobRunning, reserveAiQuota } from '../../../lib/ai-operations';
 
 export const prerender = false;
@@ -66,8 +66,8 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({ error: 'Survey definition not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   }
 
-  if (await getScannerProduct(env.DB, response.survey_id) && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
-    return new Response(JSON.stringify({ error: 'Bạn cần mở khóa scanner này để chạy phân tích AI.' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
+     return new Response(JSON.stringify({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
 
   const types: Array<'analysis' | 'plan'> = type === 'all' ? ['analysis', 'plan'] : [type as 'analysis' | 'plan'];

@@ -4,6 +4,7 @@ import VideoPlayer from '../../components/courses/VideoPlayer.astro';
 import VideoList from '../../components/courses/VideoList.astro';
 import { env } from 'cloudflare:workers';
 import { getCourse, getCourseVideos } from '../../lib/course-db';
+import { canAccessCourse } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -21,6 +22,9 @@ if (!course || !course.is_published) {
 
 const isActivated = (user as any)?.is_active === 1;
 const isLoggedIn = !!user;
+const hasCourseAccess = course.access_tier === 'free'
+  ? true
+  : await canAccessCourse(db, user?.id, courseId);
 const videos = await getCourseVideos(db, courseId, { publishedOnly: true });
 const firstVideo = videos[0];
 ---
@@ -44,6 +48,18 @@ const firstVideo = videos[0];
         <span class="material-symbols-outlined text-5xl text-tertiary mb-4 block">hourglass_empty</span>
         <h2 class="text-2xl font-bold text-white mb-3">Tài khoản chưa được kích hoạt</h2>
         <p class="text-on-surface-variant">Tài khoản của bạn đang chờ kích hoạt.</p>
+      </div>
+    </div>
+  ) : !hasCourseAccess ? (
+    <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+      <div class="glass-card rounded-2xl p-10 max-w-lg mx-auto">
+        <span class="material-symbols-outlined text-5xl text-amber-400 mb-4 block">workspace_premium</span>
+        <h2 class="text-2xl font-bold text-white mb-3">Khóa học Premium</h2>
+        <p class="text-on-surface-variant">Nâng cấp gói dịch vụ để truy cập đầy đủ khóa học này.</p>
+        <a href="/dich-vu" class="inline-flex items-center gap-2 bg-amber-500 text-black px-6 py-3 rounded-xl font-bold mt-6 hover:bg-amber-400 transition-colors">
+          <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+          Xem gói dịch vụ
+        </a>
       </div>
     </div>
   ) : (

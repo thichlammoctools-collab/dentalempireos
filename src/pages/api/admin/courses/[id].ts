@@ -49,10 +49,17 @@ export const PUT: APIRoute = async ({ params, request }) => {
       thumbnail_url?: string | null;
       sort_order?: number;
       is_published?: number;
+      access_tier?: 'free' | 'premium';
     };
 
     if (!body.title) {
       return new Response(JSON.stringify({ error: 'Thiếu title' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (body.access_tier && !['free', 'premium'].includes(body.access_tier)) {
+      return new Response(JSON.stringify({ error: 'access_tier không hợp lệ' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -65,6 +72,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
       thumbnail_url: body.thumbnail_url ?? null,
       sort_order: body.sort_order ?? 0,
       is_published: body.is_published ?? 0,
+      access_tier: body.access_tier,
     });
 
     return new Response(JSON.stringify({ success: true, course }), {

@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
+import { listProductEntitlements } from '../../lib/entitlement-db';
 import { listUserAccess } from '../../lib/payos-db';
 
 export const prerender = false;
@@ -24,9 +25,22 @@ const accessDetails = await Promise.all(
     const isExpiring = a.expires_at
       ? new Date(a.expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
       : false;
-    return { ...a, product: prod, isExpiring };
+    const entitlements = prod
+      ? await listProductEntitlements(env.DB, prod.id)
+      : [];
+    return { ...a, product: prod, entitlements, isExpiring };
   }),
 );
+
+const entitlementTypeLabels: Record<string, string> = {
+  book: 'Sách',
+  ai_app: 'Công cụ AI',
+  scanner: 'Scanner',
+  course: 'Khóa học',
+  blog: 'Blog',
+  resource: 'Tài liệu',
+  service: 'Dịch vụ',
+};
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -83,7 +97,7 @@ const totalSpent = accessDetails.reduce(
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="material-symbols-outlined text-primary text-xl">
-                        {a.product?.type === 'survey_unlock' ? 'analytics' : 'inventory_2'}
+                        {a.product?.type === 'survey_unlock' ? 'analytics' : a.product?.type === 'service_program' ? 'support_agent' : 'inventory_2'}
                       </span>
                        <h3 class="text-on-surface font-bold truncate">{a.product?.name ?? a.product_id}</h3>
                     </div>
@@ -102,6 +116,15 @@ const totalSpent = accessDetails.reduce(
                       <span class="inline-block mt-2 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">
                         Sắp hết hạn
                       </span>
+                    )}
+                    {a.entitlements.length > 0 && (
+                      <div class="mt-3 flex flex-wrap gap-1.5">
+                        {a.entitlements.map((entitlement) => (
+                          <span class="rounded-md bg-secondary-container/50 px-2 py-1 text-[10px] font-semibold text-on-secondary-container">
+                            {entitlementTypeLabels[entitlement.content_type] ?? entitlement.content_type}: {entitlement.content_id === '*' ? 'Toàn bộ' : entitlement.content_id}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div class="text-right shrink-0">

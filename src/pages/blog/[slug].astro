@@ -7,6 +7,7 @@ import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
 import { sanitizeRichHtml } from '../../lib/sanitize';
+import { canAccessBlogPost } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -38,12 +39,18 @@ if (!post) {
   return new Response('Không tìm thấy bài viết', { status: 404 });
 }
 
+const canReadPost = post.access_tier === 'free'
+  ? true
+  : await canAccessBlogPost(db, Astro.locals.user?.id, post.id);
+
 let blocks: BlogBlock[] = [];
-try {
-  blocks = await getBlocksByPostId(db, post.id);
-} catch {
-  // blog_block table may not exist yet — gracefully degrade
-  blocks = [];
+if (canReadPost) {
+  try {
+    blocks = await getBlocksByPostId(db, post.id);
+  } catch {
+    // blog_block table may not exist yet — gracefully degrade
+    blocks = [];
+  }
 }
 
 // Thêm id vào heading để TOC links hoạt động
@@ -84,7 +91,7 @@ if (post.scanner_id) {
   } catch { /* table may not exist yet */ }
 }
 
-const htmlContent = marked(post.content_md);
+const htmlContent = canReadPost ? marked(post.content_md) : '';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
@@ -98,7 +105,7 @@ const tocItems = (() => {
   // Build source from sanitized rich blocks
   const source = blocks.length > 0
     ? blocks.map(b => b.type === 'rich' ? b.content : '').join('\n')
-    : post.content_md ?? '';
+    : canReadPost ? post.content_md ?? '' : '';
 
   // Extract from HTML headings: captures existing id="" attribute and text content
   // Handles: <h2 id="foo">Text</h2> AND <h2>Text</h2> (no id)
@@ -125,7 +132,7 @@ const tocItems = (() => {
   }
 
   // Fallback: markdown headings
-  if (items.length === 0 && post.content_md) {
+  if (items.length === 0 && canReadPost && post.content_md) {
     const mdHeadingRegex = /^(#{2,3})\s+(.+)$/gm;
     while ((match = mdHeadingRegex.exec(post.content_md)) !== null) {
       const text = match[2].replace(/[*_`&amp;]/g, s => s === '&amp;' ? '&' : s).trim();
@@ -343,7 +350,7 @@ const breadcrumbSchema = {
       <!-- Content -->
       <article>
         <div class="reader-content" id="article-content">
-          {blocks.length > 0 ? (
+          {canReadPost && blocks.length > 0 ? (
             <div class="blocks-render flex flex-col gap-6" id="blocks-container" data-post-id={post.id}>
               {blocks.map((block: BlogBlock) => {
                 if (block.type === 'text') {
@@ -383,8 +390,18 @@ const breadcrumbSchema = {
                 return null;
               })}
             </div>
-          ) : (
+          ) : canReadPost ? (
             <div set:html={htmlContent}></div>
+          ) : (
+            <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 sm:p-8 text-center">
+              <span class="material-symbols-outlined text-4xl text-amber-400 mb-3">workspace_premium</span>
+              <h2 class="text-xl font-bold text-white">Nội dung Premium</h2>
+              <p class="text-on-surface-variant mt-2">{post.description}</p>
+              <a href="/dich-vu" class="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors">
+                Xem gói dịch vụ
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </a>
+            </div>
           )}
         </div>
       </article>

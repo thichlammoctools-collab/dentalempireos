@@ -30,10 +30,17 @@ export const PUT: APIRoute = async ({ params, request }) => {
       is_recommended?: number | boolean;
       chapter_id?: string | null;
       scanner_id?: string | null;
+      access_tier?: 'free' | 'premium';
     };
 
     if (!body.title || !body.slug) {
       return new Response(JSON.stringify({ error: 'Thiếu title hoặc slug' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (body.access_tier && !['free', 'premium'].includes(body.access_tier)) {
+      return new Response(JSON.stringify({ error: 'access_tier không hợp lệ' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -55,6 +62,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
       is_recommended: body.is_recommended != null ? Boolean(body.is_recommended) : undefined,
       chapter_id: body.chapter_id ?? undefined,
       scanner_id: body.scanner_id ?? undefined,
+      access_tier: body.access_tier,
     });
 
     return new Response(JSON.stringify({ success: true, id, slug: body.slug }), {

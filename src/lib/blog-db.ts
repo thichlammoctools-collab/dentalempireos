@@ -507,9 +507,9 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       publishedAt,
       input.chapter_id ?? null,
       input.scanner_id ?? null,
+      ts,
+      ts,
       accessTier,
-      ts,
-      ts,
       readTime,
     )
     .run();

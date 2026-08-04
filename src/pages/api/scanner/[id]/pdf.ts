@@ -10,7 +10,7 @@ import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
-import { getScannerProduct, hasScannerAccess } from '../../../../lib/payos-db';
+import { canAccessScanner } from '../../../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -39,9 +39,8 @@ export const GET: APIRoute = async ({ params, request }) => {
     return json({ error: 'Hoàn tất kế hoạch và bản soi chiếu AI để xuất báo cáo tổng hợp.' }, 409);
   }
 
-  // Access check: if scanner is paid, user must have access
-  if (await getScannerProduct(env.DB, response.survey_id) && !await hasScannerAccess(env.DB, session.user.id, response.survey_id)) {
-    return new Response('Payment required', { status: 402 });
+  if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
+     return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);
   }
 
   const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
@@ -69,7 +68,7 @@ export const GET: APIRoute = async ({ params, request }) => {
       logoType,
       phone: clinicProfile?.phone,
     }, type);
-    const filename = `scanner-${definition?.slug ?? id}-${type}-${id}.pdf`;
+    const filename = `scanner-${response.survey_id}-${type}-${id}.pdf`;
     const key = `scanner-reports/${session.user.id}/${id}/${type}.pdf`;
     await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
     await setScannerPdfKey(env.DB, id, type, key);

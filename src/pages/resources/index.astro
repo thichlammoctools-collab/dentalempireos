@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
+import { canAccessResource } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -20,6 +21,15 @@ const [resources, total] = await Promise.all([
 
 const paginated = resources.slice(0, perPage);
 const totalPages = Math.ceil(total / perPage);
+const user = Astro.locals.user;
+const accessByResourceId = new Map(
+  await Promise.all(
+    paginated.map(async (resource) => [
+      resource.id,
+      resource.tier !== 'premium' || await canAccessResource(db, user?.id, resource.id),
+    ] as const),
+  ),
+);
 
 const categories = [
   { value: '', label: 'Tất cả', count: total },
@@ -201,7 +211,15 @@ function resourceUrl(fileUrl: string): string {
 
                   <!-- Download -->
                   <div class="px-5 pt-4 pb-5 mt-auto">
-                    {res.file_url ? (
+                    {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
+                      <a
+                        href="/dich-vu"
+                        class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black transition-all active:scale-95"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">workspace_premium</span>
+                        Nâng cấp để tải
+                      </a>
+                    ) : res.file_url ? (
                       <a
                         href={resourceUrl(res.file_url)}
                         target="_blank"
