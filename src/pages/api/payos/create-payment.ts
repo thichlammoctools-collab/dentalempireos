@@ -20,7 +20,7 @@ const MAX_RESERVATION_ATTEMPTS = 5;
 function createCryptographicOrderCode(): number {
   const value = new Uint32Array(1);
   crypto.getRandomValues(value);
-  return (value[0] % 900_000_000) + 100_000_000;
+  return (value[0] % 2_147_483_647) + 1;
 }
 
 // POST /api/payos/create-payment — create a payment link for a product

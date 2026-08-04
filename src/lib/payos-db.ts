@@ -227,7 +227,7 @@ export async function cancelPayosReservation(db: D1Database, orderId: string): P
   await db
     .prepare(
       `UPDATE "order" SET "status" = 'cancelled'
-       WHERE "id" = ? AND "status" = 'pending'`,
+       WHERE "id" = ? AND "status" = 'pending' AND "payment_link_id" IS NULL`,
     )
     .bind(orderId)
     .run();
@@ -236,7 +236,7 @@ export async function cancelPayosReservation(db: D1Database, orderId: string): P
 /** D1 surfaces SQLite unique violations as errors without a stable typed error API. */
 export function isUniqueConstraintError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /(?:SQLITE_CONSTRAINT_UNIQUE|UNIQUE constraint failed|constraint failed.*unique)/i.test(message);
+  return /UNIQUE/i.test(message) && /order_code/i.test(message);
 }
 
 export async function getOrder(db: D1Database, id: string): Promise<Order | null> {
