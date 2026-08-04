@@ -21,6 +21,7 @@ export interface BlogPost {
   updated_at: string;
   chapter_id: string | null;
   scanner_id: string | null;
+  access_tier: 'free' | 'premium';
 }
 
 export interface BlogCategory {
@@ -73,6 +74,7 @@ export interface BlogPostInput {
   published_at?: string | null;
   chapter_id?: string | null;
   scanner_id?: string | null;
+  access_tier?: 'free' | 'premium';
 }
 
 export interface BlogCategoryInput {
@@ -447,6 +449,8 @@ export async function getRelatedPosts(
 
 export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<void> {
   const ts = now();
+  const existing = await getPostById(db, input.id);
+  const accessTier = input.access_tier ?? existing?.access_tier ?? 'free';
   const readTime = input.content_md
     ? Math.max(1, Math.ceil(wordCount(input.content_md) / 200))
     : 3;
@@ -461,9 +465,10 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       `INSERT INTO "blog_post" (
          "id","title","slug","description","content_md","cover_url","cover_alt",
          "category_id","author_name","status","is_featured","is_pinned","is_recommended",
-         "read_time_minutes","published_at","chapter_id","scanner_id","created_at","updated_at"
+         "read_time_minutes","published_at","chapter_id","scanner_id","created_at","updated_at",
+         "access_tier"
        )
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "title"=excluded."title",
          "slug"=excluded."slug",
@@ -479,8 +484,9 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
          "is_recommended"=excluded."is_recommended",
          "read_time_minutes"=?,
          "published_at"=COALESCE("blog_post"."published_at", excluded."published_at"),
-         "chapter_id"=excluded."chapter_id",
-         "scanner_id"=excluded."scanner_id",
+          "chapter_id"=excluded."chapter_id",
+          "scanner_id"=excluded."scanner_id",
+         "access_tier"=excluded."access_tier",
          "updated_at"=excluded."updated_at"`,
     )
     .bind(
@@ -501,6 +507,7 @@ export async function upsertPost(db: D1Database, input: BlogPostInput): Promise<
       publishedAt,
       input.chapter_id ?? null,
       input.scanner_id ?? null,
+      accessTier,
       ts,
       ts,
       readTime,

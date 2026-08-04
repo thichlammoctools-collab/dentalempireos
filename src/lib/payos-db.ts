@@ -6,7 +6,7 @@
 export interface Product {
   id: string;
   name: string;
-  type: 'course_unlock' | 'document_unlock' | 'booking' | 'event_ticket' | 'survey_unlock' | 'book_unlock';
+  type: 'course_unlock' | 'document_unlock' | 'booking' | 'event_ticket' | 'survey_unlock' | 'book_unlock' | 'service_program';
   price: number;
   description: string | null;
   duration_days: number | null;

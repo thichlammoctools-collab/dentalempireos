@@ -9,6 +9,7 @@ export interface Course {
   thumbnail_url: string | null;
   sort_order: number;
   is_published: number;
+  access_tier: 'free' | 'premium';
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +38,7 @@ export interface CourseInput {
   thumbnail_url?: string | null;
   sort_order?: number;
   is_published?: number;
+  access_tier?: 'free' | 'premium';
 }
 
 export interface CourseVideoInput {
@@ -96,17 +98,20 @@ export async function upsertCourse(
 ): Promise<Course> {
   const id = input.id ?? nanoid();
   const timestamp = now();
+  const existing = input.id ? await getCourse(db, id) : null;
+  const accessTier = input.access_tier ?? existing?.access_tier ?? 'free';
 
   await db
     .prepare(`
-      INSERT INTO "course" ("id", "title", "description", "thumbnail_url", "sort_order", "is_published", "created_at", "updated_at")
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO "course" ("id", "title", "description", "thumbnail_url", "sort_order", "is_published", "access_tier", "created_at", "updated_at")
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT("id") DO UPDATE SET
         "title" = excluded."title",
         "description" = excluded."description",
         "thumbnail_url" = excluded."thumbnail_url",
         "sort_order" = excluded."sort_order",
         "is_published" = excluded."is_published",
+        "access_tier" = excluded."access_tier",
         "updated_at" = excluded."updated_at"
     `)
     .bind(
@@ -116,7 +121,8 @@ export async function upsertCourse(
       input.thumbnail_url ?? null,
       input.sort_order ?? 0,
       input.is_published ?? 0,
-      input.id ? (await getCourse(db, id))?.created_at ?? timestamp : timestamp,
+      accessTier,
+      existing?.created_at ?? timestamp,
       timestamp,
     )
     .run();
