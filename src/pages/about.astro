@@ -23,12 +23,16 @@ const tierLetters: Record<number, string> = {
 <BaseLayout
   title="Về Chúng Tôi | Dental Empire OS"
   description="Sứ mệnh chuyên nghiệp hóa ngành nha. Dental Empire OS tái định nghĩa cách phòng khám vận hành qua sự kết hợp giữa y đức truyền thống và công nghệ tự động hóa."
+  ogImage="/images/about-og.png"
+  ogImageAlt="Dental Empire OS — Hệ điều hành vận hành phòng khám nha khoa"
 >
   <!-- Hero Section -->
-  <section class="relative px-6 py-20 overflow-hidden min-h-[70vh] flex flex-col justify-center">
-    <div class="absolute top-0 right-0 w-1/2 h-full opacity-30 pointer-events-none">
-      <div class="absolute inset-0 bg-gradient-to-l from-brand-cyan/20 to-transparent"></div>
-    </div>
+  <section class="about-hero relative px-6 py-20 overflow-hidden min-h-[70vh] flex flex-col justify-center">
+    <div class="about-hero-grid absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+    <div class="about-hero-glow absolute -right-32 top-1/2 -translate-y-1/2 w-[38rem] h-[38rem] rounded-full pointer-events-none" aria-hidden="true"></div>
+    <div class="about-hero-circuit about-hero-circuit--one absolute pointer-events-none" aria-hidden="true"></div>
+    <div class="about-hero-circuit about-hero-circuit--two absolute pointer-events-none" aria-hidden="true"></div>
+    <div class="about-hero-scan absolute inset-x-0 top-0 pointer-events-none" aria-hidden="true"></div>
     <div class="max-w-[1200px] mx-auto w-full">
       <div class="max-w-4xl relative z-10">
         <div class="flex items-center gap-2 mb-4">
@@ -202,3 +206,73 @@ const tierLetters: Record<number, string> = {
   </section>
 
 </BaseLayout>
+
+<style>
+  .about-hero {
+    isolation: isolate;
+    background: #080f1a;
+  }
+
+  .about-hero-grid {
+    opacity: 0.5;
+    background-image:
+      linear-gradient(rgba(91, 197, 246, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91, 197, 246, 0.1) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: linear-gradient(to right, black, transparent 78%);
+    animation: about-grid-drift 18s linear infinite;
+  }
+
+  .about-hero-glow {
+    background: radial-gradient(circle, rgba(34, 177, 235, 0.22), transparent 68%);
+    filter: blur(12px);
+  }
+
+  .about-hero-circuit {
+    width: 34rem;
+    height: 16rem;
+    border: 1px solid rgba(91, 197, 246, 0.28);
+    border-radius: 50%;
+    box-shadow: 0 0 80px rgba(34, 177, 235, 0.08);
+    opacity: 0.75;
+  }
+
+  .about-hero-circuit::before,
+  .about-hero-circuit::after {
+    content: '';
+    position: absolute;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #66d7ff;
+    box-shadow: 0 0 18px rgba(102, 215, 255, 0.95);
+    animation: about-node-pulse 2.8s ease-in-out infinite;
+  }
+
+  .about-hero-circuit--one { right: -18rem; top: 5rem; transform: rotate(22deg); }
+  .about-hero-circuit--one::before { left: 5rem; top: 1rem; }
+  .about-hero-circuit--one::after { left: 1rem; bottom: 2.5rem; }
+  .about-hero-circuit--two { right: -22rem; bottom: 2rem; transform: rotate(-18deg); }
+  .about-hero-circuit--two::before { right: 5rem; top: 1rem; animation-delay: 0.8s; }
+  .about-hero-circuit--two::after { right: 1rem; bottom: 2.5rem; animation-delay: 1.4s; }
+
+  .about-hero-scan {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(102, 215, 255, 0.55), transparent);
+    box-shadow: 0 0 18px rgba(102, 215, 255, 0.5);
+    animation: about-scan 7s ease-in-out infinite;
+  }
+
+  @keyframes about-grid-drift { to { background-position: 46px 46px; } }
+  @keyframes about-node-pulse { 50% { opacity: 0.45; transform: scale(0.65); } }
+  @keyframes about-scan { 0%, 100% { transform: translateY(0); opacity: 0; } 20%, 70% { opacity: 1; } 85% { transform: translateY(70vh); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .about-hero-grid, .about-hero-circuit::before, .about-hero-circuit::after, .about-hero-scan { animation: none; }
+  }
+
+  @media (max-width: 767px) {
+    .about-hero-grid { background-size: 32px 32px; mask-image: linear-gradient(to right, black, transparent 100%); }
+    .about-hero-circuit { width: 24rem; }
+  }
+</style>

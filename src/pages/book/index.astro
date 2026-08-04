@@ -16,7 +16,12 @@ const userHasAccess = Astro.locals.user && bookProduct
 const tiers = [1, 2, 3];
 ---
 
-<BaseLayout title="Thư Viện Sách - Dental Empire OS" description="Đọc miễn phí toàn bộ nội dung Dental Empire OS — 6 tầng quản trị nha khoa toàn diện.">
+<BaseLayout
+  title="Thư Viện Sách - Dental Empire OS"
+  description="Đọc miễn phí toàn bộ nội dung Dental Empire OS — 6 tầng quản trị nha khoa toàn diện."
+  ogImage="/images/book-og.svg"
+  ogImageAlt="Thư viện sách quản trị nha khoa - Dental Empire OS"
+>
 
   <!-- Hero -->
   <section class="py-16 bg-surface-container-low">
