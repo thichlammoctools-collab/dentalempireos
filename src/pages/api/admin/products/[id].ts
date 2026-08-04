@@ -4,10 +4,13 @@ import { json, badRequest, notFound } from '../../../../lib/api-helpers';
 import { getProduct, upsertProduct, deleteProduct } from '../../../../lib/payos-db';
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
+  getDefaultProductEntitlements,
+  hasSameEntitlements,
   isEntitlementPreset,
   isServiceEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
+  type EntitlementPreset,
 } from '../../../../lib/product-entitlement-presets';
 
 export const prerender = false;
@@ -29,7 +32,9 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
 
   const preset = body.entitlement_preset;
   if (hasPreset && !isEntitlementPreset(preset)) return { error: 'entitlement_preset is invalid' };
-  const resolvedPreset = hasPreset ? preset as Parameters<typeof isEntitlementPreset>[0] : undefined;
+  const resolvedPreset: EntitlementPreset | undefined = hasPreset
+    ? preset as EntitlementPreset
+    : undefined;
   if (resolvedPreset && isServiceEntitlementPreset(resolvedPreset) && productType !== 'service_program') {
     return { error: 'service entitlement presets require a service_program product' };
   }
@@ -40,7 +45,7 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
     resolvedPreset,
     parsedEntitlements,
   );
-  if (!resolvedEntitlements) return { error: 'custom requires entitlements; preset entitlements are defined by the server' };
+  if (!resolvedEntitlements) return { error: 'preset entitlements are defined by the server' };
   if (
     productType !== 'service_program'
     && resolvedEntitlements.some((entitlement) => entitlement.content_type === 'service')
@@ -73,7 +78,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON');
 
-  const updates: Partial<{ price: number; is_active: number; name: string; description: string; app_id: string | null }> = {};
+  const updates: Partial<{ price: number; is_active: number; name: string; description: string; reference_id: string | null; app_id: string | null }> = {};
   if (body.price !== undefined) {
     if (typeof body.price !== 'number' || !Number.isFinite(body.price) || body.price < 0) return badRequest('price must be >= 0');
     updates.price = body.price;
@@ -87,6 +92,13 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   if (body.description !== undefined) {
     if (typeof body.description !== 'string') return badRequest('description must be a string');
     updates.description = body.description.trim();
+  }
+  if (body.reference_id !== undefined) {
+    if (typeof body.reference_id !== 'string' && body.reference_id !== null) return badRequest('reference_id must be a string or null');
+    updates.reference_id = existing.type === 'book_unlock' ? null : body.reference_id?.trim() || null;
+    if ((existing.type === 'course_unlock' || existing.type === 'document_unlock') && !updates.reference_id) {
+      return badRequest('reference_id is required for this product type');
+    }
   }
   if (body.app_id !== undefined) {
     if (typeof body.app_id !== 'string' && body.app_id !== null) return badRequest('app_id must be a string or null');
@@ -108,14 +120,44 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       price: updates.price ?? existing.price,
       description: updates.description ?? existing.description ?? undefined,
       duration_days: existing.duration_days,
-      reference_id: existing.reference_id,
+      reference_id: updates.reference_id !== undefined ? updates.reference_id : existing.reference_id,
       app_id: updates.app_id !== undefined ? updates.app_id : existing.app_id,
       is_active: updates.is_active ?? existing.is_active,
     });
   }
+  const productReferenceId = updates.reference_id !== undefined
+    ? updates.reference_id
+    : existing.reference_id;
+  const productAppId = updates.app_id !== undefined ? updates.app_id : existing.app_id;
+  const existingEntitlements = await listProductEntitlements(env.DB, id);
+  const previousDefaults = getDefaultProductEntitlements(
+    existing.type,
+    existing.reference_id,
+    existing.app_id,
+  );
+  const defaultEntitlements = getDefaultProductEntitlements(
+    existing.type,
+    productReferenceId,
+    productAppId,
+  );
   const entitlements = entitlementUpdate.present
-    ? await replaceProductEntitlements(env.DB, id, entitlementUpdate.entitlements)
-    : await listProductEntitlements(env.DB, id);
+    ? await replaceProductEntitlements(
+      env.DB,
+      id,
+      entitlementUpdate.entitlements.length
+        ? (hasSameEntitlements(entitlementUpdate.entitlements, previousDefaults)
+          && (updates.reference_id !== undefined || updates.app_id !== undefined)
+          ? defaultEntitlements
+          : entitlementUpdate.entitlements)
+        : defaultEntitlements,
+    )
+    : existingEntitlements.length > 0
+      ? existingEntitlements
+      : await replaceProductEntitlements(
+        env.DB,
+        id,
+        getDefaultProductEntitlements(existing.type, productReferenceId, productAppId),
+      );
 
   return json({ success: true, entitlements });
 };
@@ -154,6 +196,10 @@ export const PUT: APIRoute = async ({ params, request }) => {
         ? reference_id.trim() || null
         : null;
 
+  if ((resolvedType === 'course_unlock' || resolvedType === 'document_unlock') && !resolvedReferenceId) {
+    return badRequest('reference_id is required for this product type');
+  }
+
   if (!PRODUCT_TYPES.has(resolvedType)) return badRequest('Loại sản phẩm không hợp lệ');
   const willBeActive = (is_active as number | undefined) ?? existing.is_active;
   if (resolvedType === 'book_unlock' && willBeActive !== 0) {
@@ -184,9 +230,40 @@ export const PUT: APIRoute = async ({ params, request }) => {
     app_id: app_id === undefined ? existing.app_id : typeof app_id === 'string' ? app_id.trim() || null : null,
     is_active: is_active ?? existing.is_active,
   });
+  const resolvedAppId = app_id === undefined
+    ? existing.app_id
+    : typeof app_id === 'string'
+      ? app_id.trim() || null
+      : null;
+  const existingEntitlements = await listProductEntitlements(env.DB, id);
+  const previousDefaults = getDefaultProductEntitlements(
+    existing.type,
+    existing.reference_id,
+    existing.app_id,
+  );
+  const defaultEntitlements = getDefaultProductEntitlements(
+    resolvedType,
+    resolvedReferenceId,
+    resolvedAppId,
+  );
   const entitlements = entitlementUpdate.present
-    ? await replaceProductEntitlements(env.DB, id, entitlementUpdate.entitlements)
-    : await listProductEntitlements(env.DB, id);
+    ? await replaceProductEntitlements(
+      env.DB,
+      id,
+      entitlementUpdate.entitlements.length
+        ? (hasSameEntitlements(entitlementUpdate.entitlements, previousDefaults)
+          && (reference_id !== undefined || app_id !== undefined || type !== undefined)
+          ? defaultEntitlements
+          : entitlementUpdate.entitlements)
+        : defaultEntitlements,
+    )
+    : existingEntitlements.length > 0
+      ? existingEntitlements
+      : await replaceProductEntitlements(
+        env.DB,
+        id,
+        getDefaultProductEntitlements(resolvedType, resolvedReferenceId, resolvedAppId),
+      );
 
   return json({ id, updated: true, entitlements });
 };

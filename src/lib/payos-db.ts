@@ -347,8 +347,36 @@ export async function grantAccess(
     expires_at: string | null;
   },
 ): Promise<Access> {
+  // A payment can be delivered more than once. Its original grant is the
+  // authoritative result, so retries must not create another renewal.
+  const orderAccess = await db
+    .prepare('SELECT * FROM "access" WHERE "order_id" = ? LIMIT 1')
+    .bind(input.order_id)
+    .first<Access>();
+  if (orderAccess) return orderAccess;
+
   const ts = now();
   const id = uid();
+
+  const existing = await db
+    .prepare(
+      `SELECT "expires_at" FROM "access"
+       WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1
+       LIMIT 1`,
+    )
+    .bind(input.user_id, input.product_id)
+    .first<{ expires_at: string | null }>();
+
+  // Renewals extend from the later of now and the current expiry. A permanent
+  // access remains permanent when the same product is granted again.
+  const expiresAt = existing?.expires_at === null
+    ? null
+    : existing?.expires_at && input.expires_at
+      ? new Date(Math.max(
+        new Date(existing.expires_at).getTime(),
+        new Date(input.expires_at).getTime(),
+      )).toISOString()
+      : input.expires_at;
 
   // Deactivate any existing active access for this user+product first.
   // This prevents race conditions (e.g., PayOS webhook fires twice for the same payment).
@@ -366,10 +394,39 @@ export async function grantAccess(
       `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active")
        VALUES (?,?,?,?,?,?,1)`,
     )
-    .bind(id, input.user_id, input.product_id, input.order_id, ts, input.expires_at)
+    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt)
     .run();
 
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
+}
+
+/** Grant product access using its duration without shortening an active renewal. */
+export async function grantProductAccess(
+  db: D1Database,
+  input: { user_id: string; product_id: string; order_id: string },
+): Promise<Access> {
+  const product = await getProduct(db, input.product_id);
+  if (!product) throw new Error(`Product not found: ${input.product_id}`);
+
+  let expiresAt: string | null = null;
+  if (product.duration_days && product.duration_days > 0) {
+    const existing = await db
+      .prepare(
+        `SELECT "expires_at" FROM "access"
+         WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1
+         LIMIT 1`,
+      )
+      .bind(input.user_id, input.product_id)
+      .first<{ expires_at: string | null }>();
+
+    if (existing?.expires_at !== null) {
+      const currentExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
+      const base = Math.max(Date.now(), currentExpiry);
+      expiresAt = new Date(base + product.duration_days * 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
+
+  return grantAccess(db, { ...input, expires_at: expiresAt });
 }
 
 export async function hasAccess(
@@ -382,10 +439,8 @@ export async function hasAccess(
   const row = await db
     .prepare(
       `SELECT 1 FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
        WHERE a."user_id" = ? AND a."product_id" = ? AND a."is_active" = 1
-          AND p."is_active" = 1
-          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+           AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        LIMIT 1`,
     )
     .bind(userId, productId, now)
@@ -445,13 +500,11 @@ export async function hasScannerAccess(
   const now = new Date().toISOString();
   const row = await db
     .prepare(
-      `SELECT 1
-       FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
-       INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
-       WHERE a."user_id" = ? AND ps."scanner_id" = ? AND a."is_active" = 1
-         AND p."is_active" = 1
-         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+       `SELECT 1
+        FROM "access" a
+        INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
+        WHERE a."user_id" = ? AND ps."scanner_id" = ? AND a."is_active" = 1
+          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        LIMIT 1`,
     )
     .bind(userId, scannerId, now)
@@ -478,7 +531,8 @@ export async function getScannerProduct(
     .prepare(
       `SELECT p.id FROM "product" p
        INNER JOIN "product_scanner" ps ON p.id = ps.product_id
-       WHERE ps.scanner_id = ? AND p.is_active = 1
+       WHERE ps.scanner_id = ?
+       ORDER BY p."is_active" DESC, ps."assigned_at" DESC
        LIMIT 1`,
     )
     .bind(scannerId)
@@ -516,14 +570,14 @@ export async function getScannerProductMapping(
 ): Promise<Map<string, string>> {
   const { results } = await db
     .prepare(
-      `SELECT ps.scanner_id, p.id as product_id
-       FROM "product_scanner" ps
-       INNER JOIN "product" p ON ps.product_id = p.id
-       WHERE p.is_active = 1`,
+       `SELECT ps.scanner_id, p.id as product_id
+        FROM "product_scanner" ps
+        INNER JOIN "product" p ON ps.product_id = p.id
+        ORDER BY ps.scanner_id ASC, p.is_active DESC, ps.assigned_at DESC`,
     )
     .all<{ scanner_id: string; product_id: string }>();
   const map = new Map<string, string>();
-  for (const r of results) map.set(r.scanner_id, r.product_id);
+  for (const r of results) if (!map.has(r.scanner_id)) map.set(r.scanner_id, r.product_id);
   return map;
 }
 
@@ -532,14 +586,14 @@ export async function getScannerPriceMapping(
 ): Promise<Map<string, number>> {
   const { results } = await db
     .prepare(
-      `SELECT ps.scanner_id, p.price
-       FROM "product_scanner" ps
-       INNER JOIN "product" p ON ps.product_id = p.id
-       WHERE p.is_active = 1`,
+       `SELECT ps.scanner_id, p.price
+        FROM "product_scanner" ps
+        INNER JOIN "product" p ON ps.product_id = p.id
+        ORDER BY ps.scanner_id ASC, p.is_active DESC, ps.assigned_at DESC`,
     )
     .all<{ scanner_id: string; price: number }>();
   const map = new Map<string, number>();
-  for (const r of results) map.set(r.scanner_id, r.price);
+  for (const r of results) if (!map.has(r.scanner_id)) map.set(r.scanner_id, r.price);
   return map;
 }
 
@@ -547,8 +601,7 @@ export async function listUserAccess(db: D1Database, userId: string): Promise<Ac
   const { results } = await db
     .prepare(
       `SELECT a.* FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
-       WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
+       WHERE a."user_id" = ? AND a."is_active" = 1
        ORDER BY a."granted_at" DESC`,
     )
     .bind(userId)

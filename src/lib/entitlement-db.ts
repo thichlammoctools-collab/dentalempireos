@@ -134,12 +134,10 @@ export async function listActiveUserEntitlements(
     .prepare(
       `SELECT pe.*, a."id" AS "access_id", a."user_id", a."granted_at", a."expires_at"
        FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
        INNER JOIN "product_entitlement" pe ON pe."product_id" = a."product_id"
        WHERE a."user_id" = ?
-         AND a."is_active" = 1
-         AND p."is_active" = 1
-         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+          AND a."is_active" = 1
+          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        ORDER BY a."granted_at" DESC`,
     )
     .bind(userId, now())
@@ -157,12 +155,10 @@ export async function hasActiveEntitlementForContent(
     .prepare(
       `SELECT 1
        FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
        INNER JOIN "product_entitlement" pe ON pe."product_id" = a."product_id"
        WHERE a."user_id" = ?
-         AND a."is_active" = 1
-         AND p."is_active" = 1
-         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+          AND a."is_active" = 1
+          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
          AND pe."content_type" = ?
          AND pe."content_id" IN (?, '*')
        LIMIT 1`,

@@ -4,9 +4,8 @@ import { verifySignature } from '../../../lib/payos';
 import {
   getOrderByCode,
   updateOrderStatus,
-  grantAccess,
+  grantProductAccess,
   logWebhook,
-  getProduct,
   getPayosSettings,
   getPayosEnv,
 } from '../../../lib/payos-db';
@@ -98,21 +97,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (isSuccess) {
     await updateOrderStatus(env.DB, order.id, 'paid');
 
-    // Grant access
-    const product = await getProduct(env.DB, order.product_id);
-    let expiresAt: string | null = null;
-
-    if (product?.duration_days) {
-      const d = new Date();
-      d.setDate(d.getDate() + product.duration_days);
-      expiresAt = d.toISOString();
-    }
-
-    await grantAccess(env.DB, {
+    await grantProductAccess(env.DB, {
       user_id: order.user_id,
       product_id: order.product_id,
       order_id: order.id,
-      expires_at: expiresAt,
     });
   } else {
     await updateOrderStatus(env.DB, order.id, 'cancelled');

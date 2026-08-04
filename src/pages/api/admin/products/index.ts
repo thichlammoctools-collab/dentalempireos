@@ -4,6 +4,7 @@ import { json, badRequest, slugify } from '../../../../lib/api-helpers';
 import { listProducts, upsertProduct } from '../../../../lib/payos-db';
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
+  getDefaultProductEntitlements,
   isEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
@@ -61,15 +62,16 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (app_id !== undefined && app_id !== null && typeof app_id !== 'string') return badRequest('app_id must be a string or null');
   if (is_active !== undefined && is_active !== 0 && is_active !== 1) return badRequest('is_active must be 0 or 1');
+  const normalizedReferenceId = type === 'book_unlock' ? null : reference_id?.trim() || null;
+  if ((type === 'course_unlock' || type === 'document_unlock') && !normalizedReferenceId) {
+    return badRequest('reference_id is required for this product type');
+  }
   if (entitlement_preset !== undefined && !isEntitlementPreset(entitlement_preset)) {
     return badRequest('entitlement_preset is invalid');
   }
   const parsedEntitlements = entitlements === undefined ? undefined : parseEntitlements(entitlements);
   if (parsedEntitlements === null) return badRequest('entitlements must be an array of valid entitlement rows');
   const resolvedEntitlements = resolveEntitlements(entitlement_preset, parsedEntitlements);
-  if (entitlement_preset !== undefined && !resolvedEntitlements) {
-    return badRequest('custom requires entitlements; preset entitlements are defined by the server');
-  }
   if (resolvedEntitlements === null) return badRequest('Invalid entitlement mapping');
   if (
     type !== 'service_program'
@@ -92,11 +94,19 @@ export const POST: APIRoute = async ({ request }) => {
     price,
     description: description?.trim(),
     duration_days,
-    reference_id: type === 'book_unlock' ? null : reference_id?.trim() || null,
+    reference_id: normalizedReferenceId,
     app_id: app_id?.trim() || null,
     is_active,
   });
-  await replaceProductEntitlements(env.DB, id, resolvedEntitlements ?? []);
+  const defaultEntitlements = getDefaultProductEntitlements(
+    type,
+    normalizedReferenceId,
+    app_id?.trim() || null,
+  );
+  const finalEntitlements = resolvedEntitlements?.length
+    ? resolvedEntitlements
+    : defaultEntitlements;
+  await replaceProductEntitlements(env.DB, id, finalEntitlements);
 
-  return json({ id, entitlements: resolvedEntitlements ?? [] }, 201);
+  return json({ id, entitlements: finalEntitlements }, 201);
 };

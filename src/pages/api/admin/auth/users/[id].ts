@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../../lib/api-helpers';
 import { createAuth } from '../../../../../lib/auth';
-import { getProduct, grantAccess, listProducts } from '../../../../../lib/payos-db';
+import { getProduct, grantProductAccess, listProducts } from '../../../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -21,8 +21,8 @@ export const GET: APIRoute = async ({ params, request }) => {
                   p."name" AS "product_name"
            FROM "access" a
            JOIN "product" p ON p."id" = a."product_id"
-           WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
-           ORDER BY a."granted_at" DESC`,
+            WHERE a."user_id" = ? AND a."is_active" = 1
+            ORDER BY a."granted_at" DESC`,
         )
         .bind(id)
         .all(),
@@ -56,12 +56,8 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const product = await getProduct(env.DB, productId);
   if (!product) return json({ error: 'Không tìm thấy sản phẩm' }, 404);
-  if (product.is_active !== 1) return badRequest('Sản phẩm hiện không được kích hoạt');
 
   const now = new Date();
-  const expiresAt = product.duration_days
-    ? new Date(now.getTime() + product.duration_days * 24 * 60 * 60 * 1000).toISOString()
-    : null;
   const orderId = crypto.randomUUID();
   // Internal orders remain auditable while not colliding with customer payment codes.
   const orderCode = now.getTime() * 1000 + Math.floor(Math.random() * 1000);
@@ -74,11 +70,10 @@ export const POST: APIRoute = async ({ params, request }) => {
     .bind(orderId, userId, product.id, orderCode, 0, now.toISOString(), now.toISOString())
     .run();
 
-  const access = await grantAccess(env.DB, {
+  const access = await grantProductAccess(env.DB, {
     user_id: userId,
     product_id: product.id,
     order_id: orderId,
-    expires_at: expiresAt,
   });
 
   return json({ ok: true, access });

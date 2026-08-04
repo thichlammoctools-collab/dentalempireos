@@ -99,7 +99,7 @@ export async function getPurchasedPaidScanners(
        LEFT JOIN "scanner_history" h ON h."user_id" = a."user_id"
          AND h."survey_id" = d."id"
          AND substr(h."created_at", 1, 7) = ?
-       WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
+        WHERE a."user_id" = ? AND a."is_active" = 1
          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        GROUP BY d."id", d."title_vi", d."slug"
        ORDER BY "purchased_at" DESC, d."title_vi" ASC`,

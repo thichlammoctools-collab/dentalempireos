@@ -5,8 +5,7 @@ import { checkUserAccess, checkUserAccessBatch } from '../../../lib/access-check
 import {
   getPayosEnv,
   getPayosSettings,
-  getProduct,
-  grantAccess,
+  grantProductAccess,
   updateOrderStatus,
 } from '../../../lib/payos-db';
 import { getPaymentInfo } from '../../../lib/payos';
@@ -45,19 +44,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
             if (payment.status === 'PAID') {
               await updateOrderStatus(env.DB, order.id, 'paid');
 
-              const product = await getProduct(env.DB, order.product_id);
-              let expiresAt: string | null = null;
-              if (product?.duration_days) {
-                const expires = new Date();
-                expires.setDate(expires.getDate() + product.duration_days);
-                expiresAt = expires.toISOString();
-              }
-
-              await grantAccess(env.DB, {
+              await grantProductAccess(env.DB, {
                 user_id: order.user_id,
                 product_id: order.product_id,
                 order_id: order.id,
-                expires_at: expiresAt,
               });
               return json({ status: 'paid', product_id: order.product_id });
             }

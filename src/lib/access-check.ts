@@ -34,16 +34,13 @@ export async function checkUserAccessBatch(
   const { results } = await db
     .prepare(
       `SELECT a."product_id", a."expires_at" FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
-       WHERE a."user_id" = ? AND a."product_id" IN (${placeholders}) AND a."is_active" = 1
-         AND p."is_active" = 1`,
+        WHERE a."user_id" = ? AND a."product_id" IN (${placeholders}) AND a."is_active" = 1
+          AND (a."expires_at" IS NULL OR a."expires_at" > ?)`,
     )
-    .bind(userId, ...productIds)
+    .bind(userId, ...productIds, now)
     .all<{ product_id: string; expires_at: string | null }>();
 
-  const activeSet = new Set(
-    results.filter((r) => !r.expires_at || r.expires_at > now).map((r) => r.product_id),
-  );
+  const activeSet = new Set(results.map((r) => r.product_id));
 
   for (const id of productIds) {
     result.set(id, activeSet.has(id));
@@ -63,8 +60,7 @@ export async function getUserUnlockedProductIds(
   const { results } = await db
     .prepare(
       `SELECT DISTINCT a."product_id" FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
-       WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
+       WHERE a."user_id" = ? AND a."is_active" = 1
           AND (a."expires_at" IS NULL OR a."expires_at" > ?)`,
     )
     .bind(userId, now)

@@ -5,7 +5,6 @@ const navLinks = [
   { href: '/resources', label: 'Tài nguyên' },
   { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
   { href: '/dich-vu', label: 'Dịch vụ' },
-  { href: '/#buy', label: 'Mua ngay' },
   { href: '/book', label: 'Đọc sách' },
 ];
 
@@ -22,7 +21,7 @@ const currentHash = Astro.url.hash;
 
     <!-- Desktop Nav -->
     <nav class="hidden lg:flex items-center gap-8" aria-label="Điều hướng chính">
-        {navLinks.slice(0, 5).map((link) => {
+      {navLinks.slice(0, 5).map((link) => {
         const isAnchorLink = link.href.startsWith('/#');
         const isActive = isAnchorLink
           ? currentPath === '/' && currentHash === link.href.slice(1)
@@ -55,7 +54,7 @@ const currentHash = Astro.url.hash;
     {!currentPath.startsWith('/resources') && (
       <a
         href="/search"
-        class="lg:hidden flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
+        class="lg:hidden min-w-0 flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
       >
         <span class="material-symbols-outlined text-xl">search</span>
         <span class="truncate">Tìm kiếm...</span>
