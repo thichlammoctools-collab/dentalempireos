@@ -23,7 +23,7 @@ const currentHash = Astro.url.hash;
   <div class="flex justify-between items-center w-full px-6 max-w-[1200px] mx-auto h-full">
     <!-- Logo -->
     <a href="/" class="hidden lg:flex items-center hover:opacity-80 transition-opacity">
-      <img src="/images/logo-header.png" alt="Dental Empire" class="h-10 w-auto" width="140" height="46" />
+      <img src="/images/logo-header.png" alt="Dental Empire" class="h-10 w-auto" width="140" height="46" fetchpriority="high" decoding="async" />
     </a>
 
     <!-- Desktop Nav -->
@@ -192,7 +192,12 @@ const currentHash = Astro.url.hash;
     });
   }
 
-  initAuthState();
+  // Keep the first paint focused on navigation; auth state can update once idle.
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(initAuthState, { timeout: 1500 });
+  } else {
+    window.setTimeout(initAuthState, 0);
+  }
 
   const desktopThemeToggle = document.getElementById('desktop-theme-toggle');
   const desktopThemeIcon = document.getElementById('desktop-theme-icon');

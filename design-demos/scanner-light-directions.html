@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scanner light mode directions</title>
+  <style>
+    :root { font-family: "Be Vietnam Pro", Inter, system-ui, sans-serif; color: #172033; background: #eef2f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 30px; }
+    h1 { margin: 0 0 8px; font-size: 20px; letter-spacing: 0; }
+    .intro { color: #667085; font-size: 13px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start; }
+    .direction { min-width: 0; }
+    .direction > h2 { font-size: 14px; margin: 0 0 8px; }
+    .direction > p { color: #667085; font-size: 11px; line-height: 1.45; min-height: 34px; margin: 0 0 10px; }
+    .panel { overflow: hidden; border: 1px solid #dfe5ec; background: #fff; box-shadow: 0 12px 28px rgba(24, 39, 75, .08); }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; padding: 18px 18px 14px; border-bottom: 1px solid #edf0f4; }
+    .eyebrow { color: #0b8f65; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .count { color: #98a2b3; font-size: 10px; font-weight: 600; }
+    .btn { border: 0; padding: 8px 12px; color: #fff; background: #0879b8; font-weight: 800; font-size: 10px; }
+    .filters { display: flex; gap: 6px; padding: 10px 18px; background: #f7f9fb; border-bottom: 1px solid #edf0f4; }
+    select { min-width: 0; flex: 1; border: 1px solid #dfe5ec; padding: 7px 6px; color: #475467; background: #fff; font-size: 9px; }
+    .seed { margin: 12px 18px; padding: 11px; border: 1px solid #d8eee6; background: #f3fbf7; }
+    .seed-title { display: flex; justify-content: space-between; color: #0b8f65; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+    .seed-list { display: grid; grid-template-columns: repeat(2,1fr); gap: 5px; margin-top: 8px; }
+    .seed-item { padding: 7px; background: #fff; border: 1px solid #e5eee9; font-size: 9px; }
+    .seed-item small { display: block; margin-top: 3px; color: #98a2b3; font-size: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 10px 12px; color: #98a2b3; background: #fbfcfd; font-size: 8px; text-align: left; text-transform: uppercase; letter-spacing: .04em; }
+    td { padding: 11px 12px; border-top: 1px solid #f0f2f5; font-size: 9px; vertical-align: middle; }
+    .name { display: flex; gap: 8px; align-items: center; min-width: 116px; }
+    .avatar { display: grid; place-items: center; width: 25px; height: 25px; color: #fff; font-size: 8px; font-weight: 800; }
+    .name strong { display: block; font-size: 9px; }
+    .name small { display: block; margin-top: 2px; color: #98a2b3; font: 7px ui-monospace, monospace; }
+    .pill { display: inline-block; padding: 3px 5px; font-size: 8px; font-weight: 800; }
+    .mini { color: #2874c6; background: #e9f2ff; }
+    .full { color: #8f4fc0; background: #f3eaff; }
+    .live { color: #098f60; background: #dcf8ea; }
+    .actions { color: #98a2b3; font-size: 13px; letter-spacing: 3px; white-space: nowrap; }
+    .foot { display: flex; justify-content: space-between; align-items: center; padding: 11px 12px; color: #98a2b3; border-top: 1px solid #edf0f4; font-size: 9px; }
+    .pages span { display: inline-grid; place-items: center; width: 20px; height: 20px; color: #667085; }
+    .pages .active { color: #fff; background: #0879b8; font-weight: 800; }
+    /* Direction-specific signatures */
+    .direction:nth-child(1) .panel { border-radius: 10px; }
+    .direction:nth-child(1) .avatar { border-radius: 7px; }
+    .direction:nth-child(1) .btn, .direction:nth-child(1) .pages .active { border-radius: 7px; }
+    .direction:nth-child(2) .panel { border-radius: 18px; box-shadow: 0 18px 34px rgba(36, 54, 82, .09); }
+    .direction:nth-child(2) .toolbar { padding: 22px 20px 16px; background: linear-gradient(120deg,#fff,#f5fbff); }
+    .direction:nth-child(2) .seed { margin: 14px 20px; border-radius: 12px; }
+    .direction:nth-child(2) .avatar { border-radius: 50%; }
+    .direction:nth-child(2) .btn, .direction:nth-child(2) .pages .active { border-radius: 999px; }
+    .direction:nth-child(3) .panel { border: 0; background: #f8fafc; box-shadow: none; }
+    .direction:nth-child(3) .toolbar { padding: 14px 14px 12px; background: #172033; color: #fff; border: 0; }
+    .direction:nth-child(3) .eyebrow { color: #75e0b5; }
+    .direction:nth-child(3) .count { color: #a9b5c7; }
+    .direction:nth-child(3) .btn { background: #75bff0; color: #10243c; }
+    .direction:nth-child(3) .filters { padding: 8px 14px; background: #fff; }
+    .direction:nth-child(3) .seed { margin: 10px 14px; border: 0; background: #fff; }
+    .direction:nth-child(3) table { background: #fff; }
+    .direction:nth-child(3) th { background: #f1f5f9; }
+    .direction:nth-child(3) td { padding: 9px 10px; }
+    .direction:nth-child(3) .pages .active { background: #172033; }
+    @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; max-width: 720px; } .direction > p { min-height: 0; } }
+  </style>
+</head>
+<body>
+  <h1>Scanner management · Light mode directions</h1>
+  <div class="intro">Ba hướng cùng giữ nguyên dữ liệu, bộ lọc và thao tác. Mỗi hướng thay đổi nhịp thị giác và độ nổi của khu vực seed/list.</div>
+  <main class="grid">
+    <section class="direction">
+      <h2>01 · Clinical Table</h2>
+      <p>Gọn, rõ, giống công cụ vận hành chuyên nghiệp. Ưu tiên scan nhanh tên, trạng thái và action.</p>
+      <div class="panel">
+        <div class="toolbar"><div><div class="eyebrow">✓ Seed từ thư viện <span class="count">(38)</span></div></div><button class="btn">+ Tạo mới</button></div>
+        <div class="filters"><select><option>Trạng thái: Đang hoạt động</option></select><select><option>Loại: Tất cả</option></select><select><option>Sản phẩm</option></select></div>
+        <div class="seed"><div class="seed-title"><span>Seed từ thư viện</span><span>Thu gọn⌃</span></div><div class="seed-list"><div class="seed-item">Hồ Sơ Gốc Rễ<small>Full · 12 sections</small></div><div class="seed-item">Hệ Thống Check<small>Mini · 6 sections</small></div></div></div>
+        <table><thead><tr><th>Scanner</th><th>Loại</th><th>Trạng thái</th><th>Responses</th><th>Hành động</th></tr></thead><tbody>
+          <tr><td><div class="name"><span class="avatar" style="background:#0879b8">HS</span><span><strong>Hồ Sơ Gốc Rễ</strong><small>ho-so-goc-re</small></span></div></td><td><span class="pill full">Full</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>2</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#bd31c7">HT</span><span><strong>Hệ Thống Check</strong><small>he-thong-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>13</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#099b78">NS</span><span><strong>Nhân Sự Check</strong><small>nhan-su-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>7</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+        </tbody></table><div class="foot"><span>1–10 / 38</span><div class="pages"><span class="active">1</span><span>2</span><span>3</span><span>›</span></div></div>
+      </div>
+    </section>
+    <section class="direction">
+      <h2>02 · Soft Workspace</h2>
+      <p>Thân thiện và sáng hơn, có cảm giác workspace. Seed library trở thành vùng gợi ý nổi bật để quản trị viên thao tác nhanh.</p>
+      <div class="panel">
+        <div class="toolbar"><div><div class="eyebrow">✓ Seed từ thư viện <span class="count">(38)</span></div><div style="font-size:13px;font-weight:800;margin-top:5px">Scanner workspace</div></div><button class="btn">+ Tạo mới</button></div>
+        <div class="filters"><select><option>Trạng thái: Tất cả</option></select><select><option>Loại: Tất cả</option></select><select><option>Sản phẩm</option></select></div>
+        <div class="seed"><div class="seed-title"><span>Thư viện scanner</span><span>Thu gọn⌃</span></div><div class="seed-list"><div class="seed-item">Hồ Sơ Gốc Rễ<small>Full · 12 sections</small></div><div class="seed-item">Hệ Thống Check<small>Mini · 6 sections</small></div></div></div>
+        <table><thead><tr><th>Scanner</th><th>Loại</th><th>Trạng thái</th><th>Responses</th><th>Hành động</th></tr></thead><tbody>
+          <tr><td><div class="name"><span class="avatar" style="background:#0879b8">HS</span><span><strong>Hồ Sơ Gốc Rễ</strong><small>ho-so-goc-re</small></span></div></td><td><span class="pill full">Full</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>2</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#bd31c7">HT</span><span><strong>Hệ Thống Check</strong><small>he-thong-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>13</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#099b78">NS</span><span><strong>Nhân Sự Check</strong><small>nhan-su-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>7</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+        </tbody></table><div class="foot"><span>1–10 / 38</span><div class="pages"><span class="active">1</span><span>2</span><span>3</span><span>›</span></div></div>
+      </div>
+    </section>
+    <section class="direction">
+      <h2>03 · Control Desk</h2>
+      <p>Độ tương phản mạnh hơn ở header để tạo một điểm neo, nhưng phần dữ liệu vẫn light và dễ đọc. Hợp với admin có nhiều module.</p>
+      <div class="panel">
+        <div class="toolbar"><div><div class="eyebrow">✓ Seed từ thư viện <span class="count">(38)</span></div><div style="font-size:13px;font-weight:800;margin-top:5px">Scanner control desk</div></div><button class="btn">+ Tạo mới</button></div>
+        <div class="filters"><select><option>Trạng thái: Tất cả</option></select><select><option>Loại: Tất cả</option></select><select><option>Sản phẩm</option></select></div>
+        <div class="seed"><div class="seed-title"><span>Seed library</span><span>Thu gọn⌃</span></div><div class="seed-list"><div class="seed-item">Hồ Sơ Gốc Rễ<small>Full · 12 sections</small></div><div class="seed-item">Hệ Thống Check<small>Mini · 6 sections</small></div></div></div>
+        <table><thead><tr><th>Scanner</th><th>Loại</th><th>Trạng thái</th><th>Responses</th><th>Hành động</th></tr></thead><tbody>
+          <tr><td><div class="name"><span class="avatar" style="background:#0879b8">HS</span><span><strong>Hồ Sơ Gốc Rễ</strong><small>ho-so-goc-re</small></span></div></td><td><span class="pill full">Full</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>2</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#bd31c7">HT</span><span><strong>Hệ Thống Check</strong><small>he-thong-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>13</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+          <tr><td><div class="name"><span class="avatar" style="background:#099b78">NS</span><span><strong>Nhân Sự Check</strong><small>nhan-su-check</small></span></div></td><td><span class="pill mini">Mini</span></td><td><span class="pill live">● Đang hoạt động</span></td><td>7</td><td class="actions">◉ ▤ ✎ ♜</td></tr>
+        </tbody></table><div class="foot"><span>1–10 / 38</span><div class="pages"><span class="active">1</span><span>2</span><span>3</span><span>›</span></div></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

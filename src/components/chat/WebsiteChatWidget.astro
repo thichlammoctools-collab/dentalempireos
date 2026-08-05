@@ -275,6 +275,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
 <script define:vars={{ pageType, pageSlug, chapterId }}>
 (function () {
+  var initialized = false;
+
   // Load marked + dompurify as classic scripts to avoid module issues
   function loadScripts() {
     return new Promise(function (resolve) {
@@ -303,7 +305,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     });
   }
 
-  loadScripts().then(function () {
+  function initializeChat() {
+    if (initialized) return;
+    initialized = true;
+
+    loadScripts().then(function () {
     // ── Rate limit ───────────────────────────────────────────────
     var FREE_QUESTIONS = 3;
     var STORAGE_KEY = 'de_chat_free';
@@ -709,6 +715,13 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
   }).catch(function (err) {
     console.error('[chat] Init error:', err);
-  });
+    });
+  }
+
+  // Avoid a third-party script, session request, and chat setup until the visitor
+  // actually intends to use the assistant.
+  var chatTrigger = document.getElementById('website-chat-trigger');
+  chatTrigger?.addEventListener('pointerdown', initializeChat, { once: true });
+  chatTrigger?.addEventListener('click', initializeChat);
 })();
 </script>

@@ -1,4 +1,4 @@
-## vexp - Context-Aware AI Coding <!-- vexp v2.4.0 -->
+## vexp - Context-Aware AI Coding <!-- vexp v2.5.0 -->
 
 ### Context strategy: call run_pipeline ONCE at task start
 If the task already names the files/symbols to touch, skip vexp and work
@@ -16,6 +16,9 @@ Then implement with your normal tools:
   need to understand, not edit.
 - Do NOT open files one by one to find your way around - one good pipeline call
   beats five exploratory reads; every extra tool call costs a turn.
+- Before declaring a multi-file task complete, call `verify_done` once:
+  it returns mechanically broken references (imports of removed names,
+  parse errors) and untouched dependents of your changes, with file:line.
 
 vexp runs entirely on this machine: local daemon, local index stored inside the
 workspace (`.vexp/`). `run_pipeline` transmits nothing to any external service -

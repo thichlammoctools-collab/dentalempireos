@@ -8,6 +8,7 @@ import {
   type ConsultationInterest,
 } from '../../lib/consultation-request-db';
 import { hashIp, validateEmail } from '../../lib/newsletter';
+import { sendConsultationTelegramNotification } from '../../lib/telegram';
 
 export const prerender = false;
 
@@ -27,7 +28,7 @@ function cleanText(value: unknown, label: string, min: number, max: number, requ
 }
 
 // POST /api/consultation-requests — public lead capture; intentionally unauthenticated.
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, ctx }) => {
   const contentLength = Number(request.headers.get('content-length') ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
     return json({ error: 'Dữ liệu gửi lên quá lớn.' }, 413);
@@ -106,6 +107,21 @@ export const POST: APIRoute = async ({ request }) => {
       message: message!,
       ipHash,
     });
+
+    const notification = sendConsultationTelegramNotification(
+      consultationRequest,
+      env.TELEGRAM_BOT_TOKEN,
+      env.TELEGRAM_CHAT_ID,
+    ).catch((error: unknown) => {
+      console.error('[consultation] Failed to send Telegram notification:', error);
+    });
+    const waitUntil = (ctx as typeof ctx & { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
+    if (waitUntil) {
+      waitUntil(notification);
+    } else {
+      void notification;
+    }
+
     return json({ ok: true, id: consultationRequest.id }, 201);
   } catch (error) {
     if (error instanceof Error) return badRequest(error.message);
