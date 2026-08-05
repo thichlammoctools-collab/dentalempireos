@@ -54,7 +54,7 @@ export const PRODUCT_ENTITLEMENT_PRESET_LABELS = {
   ai_tools_all: 'Tất cả công cụ AI',
   scanners_all: 'Tất cả scanner',
   courses_all: 'Tất cả khóa học',
-  blog_premium: 'Blog premium',
+  blog_premium: 'Gói đăng ký Blog (tất cả bài Premium)',
   resources_premium: 'Tài liệu premium',
   consulting_guided: 'Tư vấn đồng hành',
   consulting_full: 'Tư vấn chuyên sâu',

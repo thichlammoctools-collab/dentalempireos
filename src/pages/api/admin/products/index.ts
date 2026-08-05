@@ -60,8 +60,15 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const parsedEntitlements = entitlements === undefined ? undefined : parseEntitlements(entitlements);
   if (parsedEntitlements === null) return badRequest('entitlements must be an array of valid entitlement rows');
+  if (parsedEntitlements?.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id !== '*')) {
+    return badRequest('Blog chỉ hỗ trợ gói đăng ký mở khóa toàn bộ bài Premium');
+  }
   const resolvedEntitlements = resolveEntitlements(entitlement_preset, parsedEntitlements);
   if (resolvedEntitlements === null) return badRequest('Invalid entitlement mapping');
+  if (resolvedEntitlements?.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
+    && (!duration_days || duration_days < 1)) {
+    return badRequest('Gói đăng ký Blog phải có thời hạn lớn hơn 0 ngày');
+  }
   const id = slugify(name.trim()) + '-' + Date.now().toString(36);
   await upsertProduct(env.DB, {
     id,

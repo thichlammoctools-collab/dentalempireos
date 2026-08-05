@@ -107,7 +107,9 @@ export async function canAccessBlogPost(
   const post = await getPostById(db, postId);
   if (!post) return false;
   if (post.access_tier === 'free') return true;
-  return hasPaidAccess(db, userId, 'blog', postId);
+  // Blog access is subscription-based: one active blog:* entitlement unlocks
+  // every post that is explicitly marked Premium.
+  return hasPaidAccess(db, userId, 'blog', '*');
 }
 
 export async function canAccessResource(

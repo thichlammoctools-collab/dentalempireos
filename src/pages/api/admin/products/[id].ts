@@ -28,6 +28,9 @@ function parseEntitlementUpdate(body: Record<string, unknown>) {
     : undefined;
   const parsedEntitlements = hasEntitlements ? parseEntitlements(body.entitlements) : undefined;
   if (parsedEntitlements === null) return { error: 'entitlements must be an array of valid entitlement rows' };
+  if (parsedEntitlements?.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id !== '*')) {
+    return { error: 'Blog chỉ hỗ trợ gói đăng ký mở khóa toàn bộ bài Premium' };
+  }
 
   const resolvedEntitlements = resolveEntitlements(
     resolvedPreset,
@@ -87,6 +90,12 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
+  }
+  const resolvedDurationDays = duration_days === undefined ? existing.duration_days : duration_days as number | null;
+  if (entitlementUpdate.present
+    && entitlementUpdate.entitlements.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
+    && (!resolvedDurationDays || resolvedDurationDays < 1)) {
+    return badRequest('Gói đăng ký Blog phải có thời hạn lớn hơn 0 ngày');
   }
 
   if (Object.keys(updates).length === 0 && !entitlementUpdate.present) return badRequest('No fields to update');
@@ -184,7 +193,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     type: resolvedType,
     price: (price as number | undefined) ?? existing.price,
     description: typeof description === 'string' ? description.trim() : existing.description ?? undefined,
-    duration_days: duration_days === undefined ? existing.duration_days : duration_days as number | null,
+     duration_days: resolvedDurationDays,
     reference_id: resolvedReferenceId,
     app_id: app_id === undefined ? existing.app_id : typeof app_id === 'string' ? app_id.trim() || null : null,
     is_active: is_active ?? existing.is_active,
