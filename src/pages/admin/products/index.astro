@@ -3,6 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listProducts } from '../../../lib/payos-db';
 import { listProductEntitlements } from '../../../lib/entitlement-db';
+import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 import {
   PRODUCT_ENTITLEMENT_PRESETS,
   PRODUCT_ENTITLEMENT_PRESET_LABELS,
@@ -12,6 +13,8 @@ export const prerender = false;
 
 const db = env.DB;
 const products = await listProducts(db);
+const scanners = await listSurveyDefinitions(db, { status: 'active' });
+const scannerLabels = Object.fromEntries(scanners.map((scanner) => [scanner.id, scanner.title_vi]));
 const productEntitlementMap = Object.fromEntries(await Promise.all(
   products.map(async (product) => [product.id, await listProductEntitlements(db, product.id)]),
 ));
@@ -61,7 +64,9 @@ function getEntitlementLabel(entitlement: { content_type: string; content_id: st
     return 'Sách: Các chương trả phí';
   }
   const typeLabel = entitlementTypeLabels[entitlement.content_type] ?? entitlement.content_type;
-  const idLabel = entitlementIdLabels[entitlement.content_id] ?? entitlement.content_id;
+  const idLabel = entitlement.content_type === 'scanner'
+    ? scannerLabels[entitlement.content_id] ?? entitlementIdLabels[entitlement.content_id] ?? entitlement.content_id
+    : entitlementIdLabels[entitlement.content_id] ?? entitlement.content_id;
   return `${typeLabel}: ${idLabel}`;
 }
 
@@ -278,7 +283,7 @@ const newId = nanoid();
     </div>
   </div>
 
-  <script define:vars={{ typeLabels, entitlementPresets }}>
+  <script define:vars={{ typeLabels, entitlementPresets, scanners }}>
     const modal = document.getElementById('new-product-modal');
     const closeBtn = document.getElementById('modal-close');
     const newBtn = document.getElementById('btn-new-product');
@@ -321,6 +326,14 @@ const newId = nanoid();
     function openModal() {
       modal?.classList.remove('hidden');
       updateEntitlementPresetOptions();
+      const scannerId = new URLSearchParams(window.location.search).get('scanner');
+      if (!editingId && scannerId) {
+        const scanner = scanners.find((item) => item.id === scannerId);
+        const nameInput = form?.querySelector('[name="name"]');
+        if (scanner && nameInput) nameInput.value = `Mở khóa ${scanner.title_vi}`;
+        if (scanner) renderEntitlementRows([{ content_type: 'scanner', content_id: scannerId }]);
+        setPresetValue('custom');
+      }
     }
 
     function updateEntitlementPresetOptions() {
@@ -352,11 +365,44 @@ const newId = nanoid();
         typeInput.appendChild(option);
       }
 
-      const idInput = document.createElement('input');
+      let idInput = document.createElement('input');
       idInput.type = 'text';
       idInput.value = entitlement.content_id || '';
       idInput.placeholder = 'ID hoặc *';
       idInput.className = 'entitlement-id min-w-0 w-full px-3 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface placeholder:text-on-surface-variant/70 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+      function renderContentIdInput() {
+        const currentValue = idInput.value;
+        const replacement = typeInput.value === 'scanner'
+          ? document.createElement('select')
+          : document.createElement('input');
+        replacement.className = idInput.className;
+        replacement.classList.add('entitlement-id');
+        if (typeInput.value === 'scanner') {
+          const empty = document.createElement('option');
+          empty.value = '';
+          empty.textContent = 'Chọn Scanner';
+          replacement.appendChild(empty);
+          const all = document.createElement('option');
+          all.value = '*';
+          all.textContent = 'Tất cả Scanner';
+          replacement.appendChild(all);
+          for (const scanner of scanners) {
+            const option = document.createElement('option');
+            option.value = scanner.id;
+            option.textContent = scanner.title_vi;
+            replacement.appendChild(option);
+          }
+        } else {
+          replacement.type = 'text';
+          replacement.placeholder = 'ID hoặc *';
+        }
+        replacement.value = currentValue;
+        replacement.addEventListener('input', markEntitlementsCustom);
+        replacement.addEventListener('change', markEntitlementsCustom);
+        idInput.replaceWith(replacement);
+        idInput = replacement;
+      }
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -367,11 +413,15 @@ const newId = nanoid();
         row.remove();
         markEntitlementsCustom();
       });
-      typeInput.addEventListener('change', markEntitlementsCustom);
+      typeInput.addEventListener('change', () => {
+        renderContentIdInput();
+        markEntitlementsCustom();
+      });
       idInput.addEventListener('input', markEntitlementsCustom);
 
       row.append(typeInput, idInput, removeBtn);
       entitlementRows.appendChild(row);
+      renderContentIdInput();
     }
 
     function renderEntitlementRows(entitlements) {
@@ -428,6 +478,7 @@ const newId = nanoid();
     }
 
     newBtn?.addEventListener('click', openModal);
+    if (new URLSearchParams(window.location.search).has('scanner')) openModal();
     closeBtn?.addEventListener('click', closeModal);
 
     // Edit buttons
@@ -459,6 +510,9 @@ const newId = nanoid();
         modal?.classList.remove('hidden');
       });
     });
+
+    const editProductId = new URLSearchParams(window.location.search).get('edit');
+    if (editProductId) document.querySelector(`.edit-btn[data-id="${CSS.escape(editProductId)}"]`)?.click();
 
     // Delete buttons
     document.querySelectorAll('.delete-btn').forEach((btn) => {

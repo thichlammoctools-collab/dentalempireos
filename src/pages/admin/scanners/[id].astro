@@ -2,6 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFull, parseScoringRules, parseAiConfig } from '../../../lib/survey-config-db';
+import { getProduct, getScannerProduct } from '../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -59,6 +60,8 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
   total_formula: 'average',
   thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 },
 });
+const scannerProductId = await getScannerProduct(env.DB, def.id);
+const scannerProduct = scannerProductId ? await getProduct(env.DB, scannerProductId) : null;
 ---
 
 <AdminLayout title={`${def ? def.title_vi : 'Scanner'} | Admin`}>
@@ -105,10 +108,31 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
 
       <div class="sticky top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex gap-1 border-b border-outline-variant/15 bg-surface/95 backdrop-blur-md overflow-x-auto scrollbar-hide">
         <a href="#info" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap">Thông tin cơ bản</a>
+        <a href="#pricing" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Tính phí</a>
         <a href="#sections" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Sections & Questions ({sections.length})</a>
         <a href="#ai" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">AI Config</a>
         <a href="#scoring" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Scoring Rules</a>
       </div>
+
+      <section id="pricing" class="scroll-mt-24 glass-card rounded-2xl p-4 sm:p-5 border border-outline-variant/20">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary">payments</span>
+              <h2 class="text-lg font-bold text-on-surface">Cấu hình tính phí</h2>
+            </div>
+            {scannerProduct ? (
+              <p class="mt-1 text-sm text-on-surface-variant">Đang thuộc sản phẩm <strong class="text-on-surface">{scannerProduct.name}</strong> · {scannerProduct.price.toLocaleString('vi-VN')}₫</p>
+            ) : (
+              <p class="mt-1 text-sm text-on-surface-variant">Chưa có sản phẩm riêng. Scanner vẫn có thể được mở khóa bởi gói toàn bộ Scanner.</p>
+            )}
+          </div>
+          <a href={`/admin/products?${scannerProduct ? `edit=${encodeURIComponent(scannerProduct.id)}` : `scanner=${encodeURIComponent(def.id)}`}`} class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-container px-4 py-2.5 text-sm font-bold text-white cyan-glow hover:opacity-90">
+            <span class="material-symbols-outlined text-[18px]">{scannerProduct ? 'edit' : 'add'}</span>
+            {scannerProduct ? 'Sửa sản phẩm' : 'Tạo sản phẩm tính phí'}
+          </a>
+        </div>
+      </section>
 
       <!-- Basic Info -->
       <div id="info" class="scroll-mt-24"></div>
