@@ -12,15 +12,7 @@ import {
 
 export const prerender = false;
 
-const PRODUCT_TYPES = new Set([
-  'course_unlock',
-  'document_unlock',
-  'booking',
-  'event_ticket',
-  'survey_unlock',
-  'book_unlock',
-  'service_program',
-]);
+const PRODUCT_TYPES = new Set(['access_package']);
 
 // GET /api/admin/products — list all products
 export const GET: APIRoute = async () => {
@@ -62,10 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (app_id !== undefined && app_id !== null && typeof app_id !== 'string') return badRequest('app_id must be a string or null');
   if (is_active !== undefined && is_active !== 0 && is_active !== 1) return badRequest('is_active must be 0 or 1');
-  const normalizedReferenceId = type === 'book_unlock' ? null : reference_id?.trim() || null;
-  if ((type === 'course_unlock' || type === 'document_unlock') && !normalizedReferenceId) {
-    return badRequest('reference_id is required for this product type');
-  }
+  const normalizedReferenceId = reference_id?.trim() || null;
   if (entitlement_preset !== undefined && !isEntitlementPreset(entitlement_preset)) {
     return badRequest('entitlement_preset is invalid');
   }
@@ -73,19 +62,6 @@ export const POST: APIRoute = async ({ request }) => {
   if (parsedEntitlements === null) return badRequest('entitlements must be an array of valid entitlement rows');
   const resolvedEntitlements = resolveEntitlements(entitlement_preset, parsedEntitlements);
   if (resolvedEntitlements === null) return badRequest('Invalid entitlement mapping');
-  if (
-    type !== 'service_program'
-    && resolvedEntitlements?.some((entitlement) => entitlement.content_type === 'service')
-  ) {
-    return badRequest('service entitlements require a service_program product');
-  }
-  if (type === 'book_unlock' && is_active !== 0) {
-    const activeBookProduct = await env.DB
-      .prepare('SELECT "id" FROM "product" WHERE "type" = ? AND "is_active" = 1 LIMIT 1')
-      .bind('book_unlock')
-      .first<{ id: string }>();
-    if (activeBookProduct) return badRequest('Chỉ được phép có một gói mở khóa sách đang bán');
-  }
   const id = slugify(name.trim()) + '-' + Date.now().toString(36);
   await upsertProduct(env.DB, {
     id,

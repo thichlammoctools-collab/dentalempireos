@@ -7,7 +7,6 @@ import {
   getDefaultProductEntitlements,
   hasSameEntitlements,
   isEntitlementPreset,
-  isServiceEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
   type EntitlementPreset,
@@ -15,17 +14,9 @@ import {
 
 export const prerender = false;
 
-const PRODUCT_TYPES = new Set([
-  'course_unlock',
-  'document_unlock',
-  'booking',
-  'event_ticket',
-  'survey_unlock',
-  'book_unlock',
-  'service_program',
-]);
+const PRODUCT_TYPES = new Set(['access_package']);
 
-function parseEntitlementUpdate(body: Record<string, unknown>, productType: string) {
+function parseEntitlementUpdate(body: Record<string, unknown>) {
   const hasPreset = Object.prototype.hasOwnProperty.call(body, 'entitlement_preset');
   const hasEntitlements = Object.prototype.hasOwnProperty.call(body, 'entitlements');
   if (!hasPreset && !hasEntitlements) return { present: false as const };
@@ -35,9 +26,6 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
   const resolvedPreset: EntitlementPreset | undefined = hasPreset
     ? preset as EntitlementPreset
     : undefined;
-  if (resolvedPreset && isServiceEntitlementPreset(resolvedPreset) && productType !== 'service_program') {
-    return { error: 'service entitlement presets require a service_program product' };
-  }
   const parsedEntitlements = hasEntitlements ? parseEntitlements(body.entitlements) : undefined;
   if (parsedEntitlements === null) return { error: 'entitlements must be an array of valid entitlement rows' };
 
@@ -46,12 +34,6 @@ function parseEntitlementUpdate(body: Record<string, unknown>, productType: stri
     parsedEntitlements,
   );
   if (!resolvedEntitlements) return { error: 'preset entitlements are defined by the server' };
-  if (
-    productType !== 'service_program'
-    && resolvedEntitlements.some((entitlement) => entitlement.content_type === 'service')
-  ) {
-    return { error: 'service entitlements require a service_program product' };
-  }
   return { present: true as const, entitlements: resolvedEntitlements };
 }
 
@@ -95,17 +77,14 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
   if (body.reference_id !== undefined) {
     if (typeof body.reference_id !== 'string' && body.reference_id !== null) return badRequest('reference_id must be a string or null');
-    updates.reference_id = existing.type === 'book_unlock' ? null : body.reference_id?.trim() || null;
-    if ((existing.type === 'course_unlock' || existing.type === 'document_unlock') && !updates.reference_id) {
-      return badRequest('reference_id is required for this product type');
-    }
+    updates.reference_id = body.reference_id?.trim() || null;
   }
   if (body.app_id !== undefined) {
     if (typeof body.app_id !== 'string' && body.app_id !== null) return badRequest('app_id must be a string or null');
     updates.app_id = body.app_id?.trim() || null;
   }
 
-  const entitlementUpdate = parseEntitlementUpdate(body, existing.type);
+  const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
   }
@@ -188,36 +167,16 @@ export const PUT: APIRoute = async ({ params, request }) => {
   if (is_active !== undefined && is_active !== 0 && is_active !== 1) return badRequest('is_active must be 0 or 1');
 
   const resolvedType = (type as string | undefined) ?? existing.type;
-  const resolvedReferenceId = resolvedType === 'book_unlock'
-    ? null
-    : reference_id === undefined
-      ? existing.reference_id
-      : typeof reference_id === 'string'
-        ? reference_id.trim() || null
-        : null;
-
-  if ((resolvedType === 'course_unlock' || resolvedType === 'document_unlock') && !resolvedReferenceId) {
-    return badRequest('reference_id is required for this product type');
-  }
+  const resolvedReferenceId = reference_id === undefined
+    ? existing.reference_id
+    : typeof reference_id === 'string'
+      ? reference_id.trim() || null
+      : null;
 
   if (!PRODUCT_TYPES.has(resolvedType)) return badRequest('Loại sản phẩm không hợp lệ');
-  const willBeActive = (is_active as number | undefined) ?? existing.is_active;
-  if (resolvedType === 'book_unlock' && willBeActive !== 0) {
-    const activeBookProduct = await env.DB
-      .prepare('SELECT "id" FROM "product" WHERE "type" = ? AND "is_active" = 1 AND "id" != ? LIMIT 1')
-      .bind('book_unlock', id)
-      .first<{ id: string }>();
-    if (activeBookProduct) return badRequest('Chỉ được phép có một gói mở khóa sách đang bán');
-  }
-  const entitlementUpdate = parseEntitlementUpdate(body, resolvedType);
+  const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
-  }
-  if (!entitlementUpdate.present && resolvedType !== 'service_program') {
-    const existingEntitlements = await listProductEntitlements(env.DB, id);
-    if (existingEntitlements.some((entitlement) => entitlement.content_type === 'service')) {
-      return badRequest('service entitlements require a service_program product');
-    }
   }
   await upsertProduct(env.DB, {
     id,

@@ -1,6 +1,8 @@
-## vexp - Context-Aware AI Coding <!-- vexp v2.3.1 -->
+## vexp - Context-Aware AI Coding <!-- vexp v2.4.0 -->
 
 ### Context strategy: call run_pipeline ONCE at task start
+If the task already names the files/symbols to touch, skip vexp and work
+with your normal tools - a skipped call costs nothing.
 For every multi-file task - bug fixes, features, refactors, questions about the code:
 **start with one `run_pipeline` call**. It runs context search + impact analysis +
 memory recall in a single call and returns compressed, graph-ranked results: the

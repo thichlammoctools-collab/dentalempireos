@@ -1,0 +1,13 @@
+{
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash \"c:/Users/PNN/Documents/GitHub/dentalempireos/.codex/vexp-hint.sh\"",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}

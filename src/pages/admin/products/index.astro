@@ -1,13 +1,12 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listProducts, getAllProductScanners, getScannerProductMapping } from '../../../lib/payos-db';
+import { listProducts } from '../../../lib/payos-db';
 import { listProductEntitlements } from '../../../lib/entitlement-db';
 import {
   PRODUCT_ENTITLEMENT_PRESETS,
   PRODUCT_ENTITLEMENT_PRESET_LABELS,
 } from '../../../lib/product-entitlement-presets';
-import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 
 export const prerender = false;
 
@@ -17,12 +16,9 @@ const productEntitlementMap = Object.fromEntries(await Promise.all(
   products.map(async (product) => [product.id, await listProductEntitlements(db, product.id)]),
 ));
 
-const mappings = await getAllProductScanners(db);
-const scannerProductMap = await getScannerProductMapping(db);
-const scanners = await listSurveyDefinitions(db, { status: 'active' });
-
 const activeCount = products.filter((p) => p.is_active === 1).length;
 const typeLabels: Record<string, string> = {
+  access_package: 'Gói truy cập',
   course_unlock: 'Mở khóa khóa học',
   document_unlock: 'Mở khóa tài liệu',
   booking: 'Booking tư vấn',
@@ -66,15 +62,6 @@ function getEntitlementLabel(entitlement: { content_type: string; content_id: st
   return `${typeLabel}: ${idLabel}`;
 }
 
-const scannerMap = Object.fromEntries(scanners.map((s) => [s.id, s.title_vi]));
-
-// Build product → scanner_ids map
-const productScannerMap: Record<string, string[]> = {};
-for (const m of mappings) {
-  if (!productScannerMap[m.product_id]) productScannerMap[m.product_id] = [];
-  productScannerMap[m.product_id].push(m.scanner_id);
-}
-
 function nanoid(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 }
@@ -96,7 +83,7 @@ const newId = nanoid();
       class="bg-primary-container text-on-primary-container px-6 py-3 rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 self-start md:self-auto"
     >
       <span class="material-symbols-outlined text-[20px]">add</span>
-      <span class="text-sm">Tạo sản phẩm mới</span>
+      <span class="text-sm">Tạo gói dịch vụ</span>
     </button>
   </div>
 
@@ -106,8 +93,8 @@ const newId = nanoid();
     <div class="relative glass-card bg-surface-container-lowest rounded-2xl p-5 sm:p-6 lg:p-8 w-full max-w-2xl lg:max-w-5xl max-h-[calc(100vh-2rem)] overflow-y-auto shadow-2xl">
       <div class="flex items-center justify-between mb-6 lg:mb-8">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary mb-1">Catalog</p>
-          <h3 class="text-xl lg:text-2xl font-bold text-on-surface" id="modal-title">Tạo sản phẩm mới</h3>
+          <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary mb-1">Dịch vụ</p>
+          <h3 class="text-xl lg:text-2xl font-bold text-on-surface" id="modal-title">Tạo gói dịch vụ mới</h3>
         </div>
         <button id="modal-close" type="button" class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors">
           <span class="material-symbols-outlined text-[20px]">close</span>
@@ -115,27 +102,21 @@ const newId = nanoid();
       </div>
       <form id="product-form" class="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-6">
         <input type="hidden" name="id" id="form-id" value={newId} />
+        <input type="hidden" name="type" value="access_package" />
         <div class="lg:col-span-2">
-          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Tên sản phẩm <span class="text-red-400">*</span></label>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Tên gói dịch vụ <span class="text-red-400">*</span></label>
           <input type="text" name="name" required
             class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
-            placeholder="VD: Khóa học Premium"
+            placeholder="VD: Gói đồng hành 3 tháng"
           />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
           <div>
-            <label class="block text-sm font-semibold text-on-surface-variant mb-2">Loại <span class="text-red-400">*</span></label>
-            <select name="type" required
-              class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 focus:outline-none"
-            >
-              <option value="course_unlock">Mở khóa khóa học</option>
-              <option value="document_unlock">Mở khóa tài liệu</option>
-              <option value="booking">Booking tư vấn</option>
-              <option value="event_ticket">Vé sự kiện</option>
-              <option value="survey_unlock">Mở khóa khảo sát AI</option>
-              <option value="book_unlock">Mở khóa toàn bộ sách</option>
-              <option value="service_program">Gói dịch vụ</option>
-            </select>
+            <label class="block text-sm font-semibold text-on-surface-variant mb-2">Hình thức</label>
+            <div class="flex h-[50px] items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-4 text-sm text-on-surface">
+              <span class="material-symbols-outlined text-primary text-[20px]">workspace_premium</span>
+              Gói truy cập & dịch vụ
+            </div>
           </div>
           <div>
             <label class="block text-sm font-semibold text-on-surface-variant mb-2">Giá (VND) <span class="text-red-400">*</span></label>
@@ -145,15 +126,8 @@ const newId = nanoid();
             />
           </div>
         </div>
-        <div id="scanner-field" class="hidden">
-          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Scanners</label>
-          <div id="scanner-list" class="flex flex-col gap-2 max-h-48 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-low p-3">
-            <!-- populated by JS -->
-          </div>
-          <p class="text-xs text-on-surface-variant/75 mt-1">Mỗi scanner chỉ gắn được với 1 sản phẩm đang bán.</p>
-        </div>
         <div class="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-4 lg:p-5 lg:col-span-2">
-          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Quyền lợi</label>
+          <label class="block text-sm font-semibold text-on-surface-variant mb-2">Quyền lợi trong gói</label>
           <select name="entitlement_preset" id="entitlement-preset"
             class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 focus:outline-none"
           >
@@ -186,7 +160,7 @@ const newId = nanoid();
             placeholder="Mô tả ngắn về sản phẩm"
           ></textarea>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5 lg:col-span-2">
+        <div class="lg:col-span-2">
           <div>
             <label class="block text-sm font-semibold text-on-surface-variant mb-2">Thời hạn (ngày)</label>
             <input type="number" name="duration_days" min="0"
@@ -194,22 +168,6 @@ const newId = nanoid();
               placeholder="Để trống = vĩnh viễn"
             />
             <p class="text-xs text-on-surface-variant/75 mt-1">Để trống nếu quyền truy cập vĩnh viễn</p>
-          </div>
-          <div id="reference-id-field">
-            <label class="block text-sm font-semibold text-on-surface-variant mb-2">Reference ID</label>
-            <input type="text" name="reference_id"
-              class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
-              placeholder="ID nội dung liên kết"
-            />
-            <p class="text-xs text-on-surface-variant/75 mt-1">Không sử dụng cho gói mở khóa sách hoặc khảo sát.</p>
-          </div>
-          <div id="app-id-field">
-            <label class="block text-sm font-semibold text-on-surface-variant mb-2">AI App ID (tùy chọn)</label>
-            <input type="text" name="app_id"
-              class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
-              placeholder="ID AI app liên kết"
-            />
-            <p class="text-xs text-on-surface-variant/75 mt-1">Nhập khi sản phẩm mở khóa một AI app cụ thể.</p>
           </div>
         </div>
         <div class="flex items-center gap-3 lg:col-span-2">
@@ -222,7 +180,7 @@ const newId = nanoid();
         <button type="submit" id="form-submit"
           class="w-full px-4 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all lg:col-span-2"
         >
-          Tạo sản phẩm
+          Tạo gói dịch vụ
         </button>
       </form>
     </div>
@@ -231,12 +189,11 @@ const newId = nanoid();
   <!-- Products Table -->
   <div class="mt-8 glass-card rounded-2xl border border-outline-variant/20 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm min-w-[920px]">
+      <table class="w-full text-sm min-w-[800px]">
         <thead>
           <tr class="border-b border-outline-variant/20 text-on-surface-variant">
             <th class="text-left px-4 py-3 font-semibold">Tên</th>
             <th class="text-left px-4 py-3 font-semibold">Loại</th>
-            <th class="text-left px-4 py-3 font-semibold">Scanners</th>
             <th class="text-left px-4 py-3 font-semibold">Quyền lợi</th>
             <th class="text-right px-4 py-3 font-semibold">Giá</th>
             <th class="text-center px-4 py-3 font-semibold">Thời hạn</th>
@@ -247,31 +204,14 @@ const newId = nanoid();
         <tbody>
           {products.length === 0 ? (
             <tr>
-              <td colspan="8" class="px-4 py-8 text-center text-on-surface-variant">
-                Chưa có sản phẩm nào. Nhấn "Tạo sản phẩm mới" để bắt đầu.
+              <td colspan="7" class="px-4 py-8 text-center text-on-surface-variant">
+                Chưa có gói dịch vụ nào. Nhấn "Tạo gói dịch vụ" để bắt đầu.
               </td>
             </tr>
           ) : products.map((p) => (
             <tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors" data-id={p.id}>
               <td class="px-4 py-4 text-on-surface font-semibold">{p.name}</td>
               <td class="px-4 py-3 text-on-surface-variant">{typeLabels[p.type] ?? p.type}</td>
-              <td class="px-4 py-3 text-on-surface-variant text-xs">
-                {p.type === 'survey_unlock' ? (
-                  productScannerMap[p.id]?.length ? (
-                    <div class="flex flex-wrap gap-1">
-                      {productScannerMap[p.id].map((sid) => (
-                        <span key={sid} class="px-1.5 py-0.5 bg-primary-container/45 text-on-primary-container rounded-md text-xs font-medium">
-                          {scannerMap[sid] ?? sid}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span class="text-warning text-xs font-medium">Chưa gắn</span>
-                  )
-                ) : (
-                  <span class="text-on-surface-variant/55">—</span>
-                )}
-              </td>
               <td class="px-4 py-3 text-on-surface-variant text-xs">
                 {productEntitlementMap[p.id]?.length ? (
                   <div class="flex flex-wrap gap-1">
@@ -305,8 +245,7 @@ const newId = nanoid();
                    data-duration_days={p.duration_days ?? ''}
                    data-reference_id={p.reference_id ?? ''}
                    data-app_id={p.app_id ?? ''}
-                  data-scanners={JSON.stringify(productScannerMap[p.id] ?? [])}
-                  data-entitlements={JSON.stringify(productEntitlementMap[p.id] ?? [])}
+                   data-entitlements={JSON.stringify(productEntitlementMap[p.id] ?? [])}
                   data-is_active={p.is_active}
                 >
                   Sửa
@@ -334,17 +273,12 @@ const newId = nanoid();
     const errorEl = document.getElementById('form-error');
     const submitBtn = document.getElementById('form-submit');
     const modalTitle = document.getElementById('modal-title');
-    const scannerField = document.getElementById('scanner-field');
-    const referenceIdField = document.getElementById('reference-id-field');
-    const appIdField = document.getElementById('app-id-field');
-    const scannerList = document.getElementById('scanner-list');
     const entitlementPreset = document.getElementById('entitlement-preset');
     const entitlementRows = document.getElementById('entitlement-rows');
     const addEntitlementBtn = document.getElementById('add-entitlement');
     const typeSelect = form?.querySelector('[name="type"]');
 
     let editingId = null;
-    let allScanners = [];
     const entitlementTypes = [
       ['book', 'Sách'],
       ['ai_app', 'AI app'],
@@ -355,48 +289,15 @@ const newId = nanoid();
       ['service', 'Dịch vụ'],
     ];
 
-    async function loadScanners() {
-      const resp = await fetch('/api/admin/products/scanners');
-      if (!resp.ok) return;
-      const data = await resp.json();
-      allScanners = data.scanners || [];
-      renderScannerList(allScanners, []);
-    }
-
-    function renderScannerList(scanners, selectedIds) {
-      if (!scannerList) return;
-      scannerList.innerHTML = '';
-      for (const s of scanners) {
-        const isSelected = selectedIds.includes(s.id);
-        const isTaken = s.assigned_to !== null && !isSelected;
-        const div = document.createElement('div');
-        div.className = 'flex items-center gap-2';
-        div.innerHTML = `
-          <input type="checkbox" id="scan-${s.id}" name="scanner_ids" value="${s.id}"
-            ${isSelected ? 'checked' : ''} ${isTaken ? 'disabled' : ''}
-            class="w-4 h-4 rounded border-outline-variant bg-surface-container-low text-primary focus:ring-primary" />
-          <label for="scan-${s.id}" class="text-sm ${isTaken ? 'text-on-surface-variant/55' : 'text-on-surface'} ${isTaken ? 'cursor-not-allowed' : 'cursor-pointer'}">
-            ${s.title}${isTaken ? ' (đã gắn sản phẩm khác)' : ''}
-          </label>
-        `;
-        scannerList.appendChild(div);
-      }
-    }
-
     function openModal() {
       modal?.classList.remove('hidden');
-      toggleProductFields();
       updateEntitlementPresetOptions();
     }
 
     function updateEntitlementPresetOptions() {
-      const isService = typeSelect?.value === 'service_program';
       entitlementPreset?.querySelectorAll('[data-service-preset]').forEach((option) => {
-        option.hidden = !isService;
+        option.hidden = false;
       });
-      if (!isService && entitlementPreset?.selectedOptions[0]?.hasAttribute('data-service-preset')) {
-        entitlementPreset.value = 'custom';
-      }
     }
 
     function setPresetValue(value) {
@@ -483,27 +384,6 @@ const newId = nanoid();
       addEntitlementRow();
     });
 
-    async function toggleProductFields(selectedScannerIds = []) {
-      if (typeSelect && scannerField) {
-        const isSurvey = typeSelect.value === 'survey_unlock';
-        const isBookUnlock = typeSelect.value === 'book_unlock';
-        // Ẩn reference ID khi chọn survey_unlock (dùng scanner) hoặc book_unlock (không cần)
-        const hideReferenceId = isSurvey || isBookUnlock;
-        scannerField.classList.toggle('hidden', !isSurvey);
-        referenceIdField?.classList.toggle('hidden', hideReferenceId);
-        if (isSurvey) {
-          if (allScanners.length === 0) {
-            await loadScanners();
-          }
-          renderScannerList(allScanners, selectedScannerIds);
-        }
-      }
-    }
-    typeSelect?.addEventListener('change', () => {
-      toggleProductFields();
-      updateEntitlementPresetOptions();
-    });
-
     function closeModal() {
       modal?.classList.add('hidden');
       form?.reset();
@@ -511,10 +391,9 @@ const newId = nanoid();
       setPresetValue('custom');
       updateEntitlementPresetOptions();
       editingId = null;
-      modalTitle.textContent = 'Tạo sản phẩm mới';
-      submitBtn.textContent = 'Tạo sản phẩm';
+      modalTitle.textContent = 'Tạo gói dịch vụ mới';
+      submitBtn.textContent = 'Tạo gói dịch vụ';
       errorEl?.classList.add('hidden');
-      scannerField?.classList.add('hidden');
     }
 
     newBtn?.addEventListener('click', openModal);
@@ -530,8 +409,6 @@ const newId = nanoid();
         const priceInput = form?.querySelector('[name="price"]');
         const descInput = form?.querySelector('[name="description"]');
         const durInput = form?.querySelector('[name="duration_days"]');
-        const refInput = form?.querySelector('[name="reference_id"]');
-        const appInput = form?.querySelector('[name="app_id"]');
         const activeInput = document.getElementById('is_active');
 
         if (nameInput) nameInput.value = b.dataset.name || '';
@@ -539,8 +416,6 @@ const newId = nanoid();
         if (priceInput) priceInput.value = b.dataset.price || '';
         if (descInput) descInput.value = b.dataset.description || '';
         if (durInput) durInput.value = b.dataset.duration_days || '';
-        if (refInput) refInput.value = b.dataset.reference_id || '';
-        if (appInput) appInput.value = b.dataset.app_id || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
 
         let entitlements = [];
@@ -549,20 +424,7 @@ const newId = nanoid();
         setPresetValue(inferEntitlementPreset(entitlements));
         updateEntitlementPresetOptions();
 
-        if (typeInput?.value === 'survey_unlock') {
-          if (allScanners.length === 0) await loadScanners();
-          let selectedIds = [];
-          try { selectedIds = JSON.parse(b.dataset.scanners || '[]'); } catch {}
-          renderScannerList(allScanners, selectedIds);
-          scannerField?.classList.remove('hidden');
-          referenceIdField?.classList.add('hidden');
-        } else {
-          scannerField?.classList.add('hidden');
-          // Ẩn reference ID chỉ khi book_unlock
-          referenceIdField?.classList.toggle('hidden', typeInput?.value === 'book_unlock');
-        }
-
-        modalTitle.textContent = 'Sửa sản phẩm';
+        modalTitle.textContent = 'Sửa gói dịch vụ';
         submitBtn.textContent = 'Cập nhật';
         modal?.classList.remove('hidden');
       });
@@ -597,8 +459,8 @@ const newId = nanoid();
         price: parseInt(String(data.get('price')), 10),
         description: String(data.get('description') ?? ''),
         duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
-        reference_id: data.get('type') === 'book_unlock' ? null : data.get('reference_id') || null,
-        app_id: data.get('app_id') || null,
+        reference_id: null,
+        app_id: null,
         is_active: data.get('is_active') === 'on' ? 1 : 0,
         ...(entitlementPreset !== 'custom'
           ? { entitlement_preset: entitlementPreset }
@@ -624,28 +486,8 @@ const newId = nanoid();
           errorEl.textContent = result.error || 'Lỗi lưu sản phẩm';
           errorEl?.classList.remove('hidden');
           submitBtn.disabled = false;
-          submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo sản phẩm';
+          submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo gói dịch vụ';
           return;
-        }
-
-        // Save scanner mapping if survey_unlock product
-        const productId = editingId || result.id;
-        if (typeSelect?.value === 'survey_unlock') {
-          const checked = Array.from(scannerList?.querySelectorAll('input[name="scanner_ids"]:checked') ?? [])
-            .map((cb) => cb.value);
-          const scanResp = await fetch('/api/admin/products/scanners', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product_id: productId, scanner_ids: checked }),
-          });
-          if (!scanResp.ok) {
-            const scanErr = await scanResp.json().catch(() => ({}));
-            errorEl.textContent = scanErr.error || 'Lỗi lưu scanner mapping';
-            errorEl?.classList.remove('hidden');
-            submitBtn.disabled = false;
-            submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo sản phẩm';
-            return;
-          }
         }
 
         window.location.reload();
@@ -653,7 +495,7 @@ const newId = nanoid();
         errorEl.textContent = 'Lỗi kết nối';
         errorEl?.classList.remove('hidden');
         submitBtn.disabled = false;
-        submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo sản phẩm';
+        submitBtn.textContent = editingId ? 'Cập nhật' : 'Tạo gói dịch vụ';
       }
     });
   </script>
