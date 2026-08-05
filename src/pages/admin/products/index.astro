@@ -95,20 +95,33 @@ const newId = nanoid();
 
 <AdminLayout title="Sản Phẩm | Admin">
   <!-- Header -->
-  <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+  <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
     <div>
-      <h2 class="text-3xl font-bold text-on-surface mb-1">Quản lý Sản Phẩm</h2>
-      <p class="text-on-surface-variant">
-        {products.length} sản phẩm · {activeCount} đang bán
-      </p>
+      <div class="flex items-center gap-3 mb-2">
+        <span class="material-symbols-outlined text-primary text-[28px]">inventory_2</span>
+        <h2 class="text-3xl font-bold tracking-tight text-on-surface">Quản lý sản phẩm</h2>
+      </div>
+      <p class="text-sm text-on-surface-variant">Tạo và quản lý các gói truy cập nội dung, công cụ và dịch vụ.</p>
     </div>
-    <button
-      id="btn-new-product"
-      class="bg-primary-container text-on-primary-container px-6 py-3 rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 self-start md:self-auto"
-    >
-      <span class="material-symbols-outlined text-[20px]">add</span>
-      <span class="text-sm">Tạo gói dịch vụ</span>
-    </button>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="grid grid-cols-2 gap-2 min-w-[250px]">
+        <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3">
+          <p class="text-[11px] uppercase tracking-wider text-on-surface-variant">Tổng gói</p>
+          <p class="mt-1 text-xl font-bold text-on-surface">{products.length}</p>
+        </div>
+        <div class="rounded-xl border border-success/20 bg-success-container/10 px-4 py-3">
+          <p class="text-[11px] uppercase tracking-wider text-on-surface-variant">Đang bán</p>
+          <p class="mt-1 text-xl font-bold text-success">{activeCount}</p>
+        </div>
+      </div>
+      <button
+        id="btn-new-product"
+        class="bg-primary-container text-on-primary-container px-5 py-3 rounded-xl font-bold cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+      >
+        <span class="material-symbols-outlined text-[20px]">add</span>
+        <span class="text-sm">Tạo gói dịch vụ</span>
+      </button>
+    </div>
   </div>
 
   <!-- New Product Modal -->
@@ -258,17 +271,27 @@ const newId = nanoid();
 
   <!-- Products Table -->
   <div class="mt-8 glass-card rounded-2xl border border-outline-variant/20 overflow-hidden">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-low/35 px-4 py-3">
+      <div>
+        <h3 class="font-semibold text-on-surface">Danh sách gói</h3>
+        <p class="mt-0.5 text-xs text-on-surface-variant">Theo dõi quyền lợi, giá và trạng thái bán.</p>
+      </div>
+      <label class="relative block w-full sm:w-64">
+        <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">search</span>
+        <input id="product-search" type="search" placeholder="Tìm tên gói..." class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-9 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/70 outline-none focus:border-primary/70" />
+      </label>
+    </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-sm min-w-[800px]">
-        <thead>
-          <tr class="border-b border-outline-variant/20 text-on-surface-variant">
-            <th class="text-left px-4 py-3 font-semibold">Tên</th>
+      <table class="w-full text-sm min-w-[920px]">
+        <thead class="bg-surface-container-low/25">
+          <tr class="border-b border-outline-variant/20 text-[11px] uppercase tracking-wider text-on-surface-variant">
+            <th class="text-left px-5 py-3 font-semibold">Sản phẩm</th>
             <th class="text-left px-4 py-3 font-semibold">Loại</th>
             <th class="text-left px-4 py-3 font-semibold">Quyền lợi</th>
             <th class="text-right px-4 py-3 font-semibold">Giá</th>
             <th class="text-center px-4 py-3 font-semibold">Thời hạn</th>
             <th class="text-center px-4 py-3 font-semibold">Trạng thái</th>
-            <th class="text-right px-4 py-3 font-semibold">Thao tác</th>
+            <th class="text-right px-5 py-3 font-semibold">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -279,8 +302,11 @@ const newId = nanoid();
               </td>
             </tr>
           ) : products.map((p) => (
-            <tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors" data-id={p.id}>
-              <td class="px-4 py-4 text-on-surface font-semibold">{p.name}</td>
+            <tr class="product-row border-b border-outline-variant/15 hover:bg-primary/5 transition-colors" data-id={p.id} data-search={p.name.toLowerCase()}>
+              <td class="px-5 py-4 align-top">
+                <p class="font-semibold text-on-surface">{p.name}</p>
+                {p.description && <p class="mt-1 max-w-[240px] truncate text-xs text-on-surface-variant" title={p.description}>{p.description}</p>}
+              </td>
               <td class="px-4 py-3 text-on-surface-variant">{typeLabels[p.type] ?? p.type}</td>
               <td class="px-4 py-3 text-on-surface-variant text-xs">
                 {productEntitlementMap[p.id]?.length ? (
@@ -304,9 +330,10 @@ const newId = nanoid();
                   {p.is_active ? 'Đang bán' : 'Tạm dừng'}
                 </span>
               </td>
-              <td class="px-4 py-3 text-right">
+              <td class="px-5 py-3 text-right whitespace-nowrap">
                 <button
-                  class="edit-btn text-primary hover:underline text-xs font-semibold"
+                  class="edit-btn inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-primary hover:bg-primary/10 text-xs font-semibold transition-colors"
+                  title="Sửa sản phẩm"
                   data-id={p.id}
                   data-name={p.name}
                   data-type={p.type}
@@ -318,14 +345,15 @@ const newId = nanoid();
                    data-entitlements={JSON.stringify(productEntitlementMap[p.id] ?? [])}
                   data-is_active={p.is_active}
                 >
-                  Sửa
+                  <span class="material-symbols-outlined text-[16px]">edit</span>Sửa
                 </button>
                 <button
-                  class="delete-btn text-rose-400 hover:underline text-xs font-semibold ml-2"
+                  class="delete-btn inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-rose-400 hover:bg-rose-400/10 text-xs font-semibold transition-colors ml-1"
+                  title="Xóa sản phẩm"
                   data-id={p.id}
                   data-name={p.name}
                 >
-                  Xóa
+                  <span class="material-symbols-outlined text-[16px]">delete</span>Xóa
                 </button>
               </td>
             </tr>
@@ -351,9 +379,17 @@ const newId = nanoid();
     const resourcePicker = document.getElementById('resource-picker');
     const coursePicker = document.getElementById('course-picker');
     const addEntitlementBtn = document.getElementById('add-entitlement');
+    const productSearch = document.getElementById('product-search');
     const typeSelect = form?.querySelector('[name="type"]');
 
     let editingId = null;
+
+    productSearch?.addEventListener('input', () => {
+      const query = productSearch.value.trim().toLowerCase();
+      document.querySelectorAll('.product-row').forEach((row) => {
+        row.classList.toggle('hidden', query.length > 0 && !row.dataset.search.includes(query));
+      });
+    });
     const entitlementTypes = [
       ['book', 'Sách'],
       ['ai_app', 'AI app'],
