@@ -30,7 +30,7 @@ const currentHash = Astro.url.hash;
 
     <!-- Desktop Nav -->
     <nav class="hidden lg:flex items-center gap-8" aria-label="Điều hướng chính">
-      {navLinks.slice(0, 5).map((link) => {
+      {navLinks.slice(0, 6).map((link) => {
         const isAnchorLink = link.href.startsWith('/#');
         const isActive = isAnchorLink
           ? currentPath === '/' && currentHash === link.href.slice(1)
@@ -98,7 +98,7 @@ const currentHash = Astro.url.hash;
     <!-- Right side (desktop only) -->
     <div class="hidden lg:flex items-center gap-4">
       <nav class="flex items-center gap-5" aria-label="Liên kết trang">
-        {navLinks.slice(5).map((link) => {
+        {navLinks.slice(6).map((link) => {
           const isActive = currentPath.startsWith(link.href);
           return (
             <a

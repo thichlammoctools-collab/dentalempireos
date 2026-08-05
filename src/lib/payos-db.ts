@@ -45,6 +45,11 @@ export interface Order {
   expires_at: string | null;
 }
 
+export interface OrderWithBuyer extends Order {
+  buyer_name: string | null;
+  buyer_email: string | null;
+}
+
 export interface Access {
   id: string;
   user_id: string;
@@ -296,7 +301,7 @@ export async function getOrderByCode(db: D1Database, orderCode: number): Promise
 export async function listOrders(
   db: D1Database,
   opts: { status?: string; user_id?: string; limit?: number; offset?: number } = {},
-): Promise<{ orders: Order[]; total: number }> {
+): Promise<{ orders: OrderWithBuyer[]; total: number }> {
   const conditions: string[] = [];
   const binds: (string | number)[] = [];
 
@@ -319,9 +324,15 @@ export async function listOrders(
     .first<{ count: number }>();
 
   const { results } = await db
-    .prepare(`SELECT * FROM "order" ${where} ORDER BY "created_at" DESC LIMIT ? OFFSET ?`)
+    .prepare(
+      `SELECT o.*, u."name" AS "buyer_name", u."email" AS "buyer_email"
+       FROM "order" o
+       LEFT JOIN "user" u ON u."id" = o."user_id"
+       ${where ? `WHERE ${conditions.map((condition) => condition.replaceAll('"', 'o."')).join(' AND ')}` : ''}
+       ORDER BY o."created_at" DESC LIMIT ? OFFSET ?`,
+    )
     .bind(...binds, limit, offset)
-    .all<Order>();
+    .all<OrderWithBuyer>();
 
   return { orders: results, total: row?.count ?? 0 };
 }
