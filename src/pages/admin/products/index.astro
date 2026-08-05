@@ -119,11 +119,17 @@ const newId = nanoid();
             </div>
           </div>
           <div>
-            <label class="block text-sm font-semibold text-on-surface-variant mb-2">Giá (VND) <span class="text-red-400">*</span></label>
-            <input type="number" name="price" required min="0" step="1000"
-              class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
-              placeholder="500000"
-            />
+            <label for="price-display" class="block text-sm font-semibold text-on-surface-variant mb-2">Giá bán <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <input type="hidden" name="price" id="price" value="0" />
+              <input type="text" id="price-display" inputmode="numeric" autocomplete="off" required
+                class="w-full px-4 py-3 pr-14 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none tabular-nums"
+                placeholder="0"
+                aria-describedby="price-help"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-on-surface-variant">đ</span>
+            </div>
+            <p id="price-help" class="mt-1 text-xs text-on-surface-variant/75">Nhập số tiền, hệ thống tự thêm dấu phân cách. Ví dụ: 4.500.000đ</p>
           </div>
         </div>
         <div class="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-4 lg:p-5 lg:col-span-2">
@@ -272,6 +278,8 @@ const newId = nanoid();
     const form = document.getElementById('product-form');
     const errorEl = document.getElementById('form-error');
     const submitBtn = document.getElementById('form-submit');
+    const priceInput = document.getElementById('price');
+    const priceDisplay = document.getElementById('price-display');
     const modalTitle = document.getElementById('modal-title');
     const entitlementPreset = document.getElementById('entitlement-preset');
     const entitlementRows = document.getElementById('entitlement-rows');
@@ -288,6 +296,20 @@ const newId = nanoid();
       ['resource', 'Tài liệu'],
       ['service', 'Dịch vụ'],
     ];
+
+    function formatPrice(value) {
+      const digits = String(value ?? '').replace(/\D/g, '');
+      if (priceInput) priceInput.value = digits || '0';
+      return digits ? Number(digits).toLocaleString('vi-VN') : '';
+    }
+
+    priceDisplay?.addEventListener('input', () => {
+      priceDisplay.value = formatPrice(priceDisplay.value);
+    });
+
+    priceDisplay?.addEventListener('blur', () => {
+      priceDisplay.value = formatPrice(priceDisplay.value);
+    });
 
     function openModal() {
       modal?.classList.remove('hidden');
@@ -387,6 +409,8 @@ const newId = nanoid();
     function closeModal() {
       modal?.classList.add('hidden');
       form?.reset();
+      if (priceDisplay) priceDisplay.value = '';
+      if (priceInput) priceInput.value = '0';
       renderEntitlementRows([]);
       setPresetValue('custom');
       updateEntitlementPresetOptions();
@@ -406,14 +430,13 @@ const newId = nanoid();
         editingId = b.dataset.id;
         const nameInput = form?.querySelector('[name="name"]');
         const typeInput = form?.querySelector('[name="type"]');
-        const priceInput = form?.querySelector('[name="price"]');
         const descInput = form?.querySelector('[name="description"]');
         const durInput = form?.querySelector('[name="duration_days"]');
         const activeInput = document.getElementById('is_active');
 
         if (nameInput) nameInput.value = b.dataset.name || '';
         if (typeInput) typeInput.value = b.dataset.type || '';
-        if (priceInput) priceInput.value = b.dataset.price || '';
+        if (priceDisplay) priceDisplay.value = formatPrice(b.dataset.price || '');
         if (descInput) descInput.value = b.dataset.description || '';
         if (durInput) durInput.value = b.dataset.duration_days || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
@@ -456,7 +479,7 @@ const newId = nanoid();
       const body = {
         name: data.get('name'),
         type: data.get('type'),
-        price: parseInt(String(data.get('price')), 10),
+        price: Number(data.get('price') || 0),
         description: String(data.get('description') ?? ''),
         duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
         reference_id: null,
