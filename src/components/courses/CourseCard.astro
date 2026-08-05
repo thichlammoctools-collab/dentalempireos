@@ -6,9 +6,10 @@ interface Props {
   thumbnailUrl?: string | null;
   videoCount: number;
   href: string;
+  isLocked?: boolean;
 }
 
-const { id, title, description, thumbnailUrl, videoCount, href } = Astro.props;
+const { id, title, description, thumbnailUrl, videoCount, href, isLocked = false } = Astro.props;
 
 const fallbackGradient = [
   'from-[#2b98dd]/30 to-[#0088cc]/20',
@@ -39,6 +40,12 @@ const fallbackGradient = [
     <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
       <span class="material-symbols-outlined text-6xl text-white">play_circle</span>
     </div>
+    {isLocked && (
+      <div class="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-amber-300 backdrop-blur-sm">
+        <span class="material-symbols-outlined text-[13px]">lock</span>
+        Cần mở khóa
+      </div>
+    )}
     <!-- Video count badge -->
     <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5">
       <span class="material-symbols-outlined text-[16px] text-white">play_arrow</span>

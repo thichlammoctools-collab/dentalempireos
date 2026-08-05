@@ -4,6 +4,9 @@ import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
 import { canAccessResource } from '../../lib/entitlement-check';
+import { getActiveProducts, type Product } from '../../lib/payos-db';
+import { listProductEntitlements } from '../../lib/entitlement-db';
+import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
 
@@ -23,6 +26,20 @@ const [resources, total] = await Promise.all([
 const paginated = resources.slice((page - 1) * perPage, page * perPage);
 const totalPages = Math.ceil(total / perPage);
 const user = Astro.locals.user;
+let resourcePackages: Product[] = [];
+try {
+  const products = await getActiveProducts(db);
+  const withEntitlements = await Promise.all(products.map(async (product) => ({
+    product,
+    entitlements: await listProductEntitlements(db, product.id),
+  })));
+  resourcePackages = withEntitlements
+    .filter(({ entitlements }) => entitlements.some((item) => item.content_type === 'resource'))
+    .map(({ product }) => product)
+    .sort((a, b) => a.price - b.price);
+} catch {
+  resourcePackages = [];
+}
 const accessByResourceId = new Map(
   await Promise.all(
     paginated.map(async (resource) => [
@@ -206,9 +223,10 @@ function resourceUrl(fileUrl: string): string {
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <span
-                          class={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`}
+                          class={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`}
                         >
-                          {tierLabel[res.tier] ?? res.tier}
+                          {res.tier === 'premium' && <span class="material-symbols-outlined text-[12px]">lock</span>}
+                          {res.tier === 'premium' ? 'Cần mở khóa' : tierLabel[res.tier] ?? res.tier}
                         </span>
                         <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
                           .{res.file_ext}
@@ -377,6 +395,32 @@ function resourceUrl(fileUrl: string): string {
       </aside>
     </div>
   </section>
+
+  {resourcePackages.length > 0 && (
+    <section class="px-6 max-w-[1200px] mx-auto pb-16" aria-labelledby="resource-packages-title">
+      <div class="border-t border-outline-variant/25 pt-10">
+        <p class="text-xs uppercase tracking-wider text-amber-500 font-bold mb-2">Quyền truy cập tài liệu</p>
+        <h2 id="resource-packages-title" class="text-2xl md:text-3xl font-bold text-white">Các gói tài liệu</h2>
+        <p class="mt-2 text-sm text-on-surface-variant max-w-2xl">Một gói có thể bao gồm nhiều tài liệu. Giá được hiển thị ở cấp gói để bạn dễ lựa chọn quyền lợi phù hợp.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+          {resourcePackages.map((product) => (
+            <article class="glass-card rounded-2xl border border-outline-variant/20 p-6 flex flex-col">
+              <div class="flex items-start justify-between gap-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                  <span class="material-symbols-outlined">folder_special</span>
+                </div>
+                <span class="text-lg font-bold text-white tabular-nums">{product.price.toLocaleString('vi-VN')}₫</span>
+              </div>
+              <h3 class="mt-5 text-lg font-bold text-white">{product.name}</h3>
+              <p class="mt-2 text-sm text-on-surface-variant min-h-[3rem]">{product.description ?? 'Gói quyền truy cập tài liệu chuyên sâu của Dental Empire OS.'}</p>
+              <p class="mt-4 text-xs text-on-surface-variant/80">{product.duration_days ? `Thời hạn truy cập: ${product.duration_days} ngày` : 'Thời hạn truy cập: không giới hạn'}</p>
+              <PaymentButton productId={product.id} productName={product.name} price={product.price} class="mt-5 w-full" />
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
 </BaseLayout>
 
 <script>

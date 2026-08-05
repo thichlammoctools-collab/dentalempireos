@@ -15,7 +15,7 @@ interface Props {
 const { currentPath, groupedChapters = [], currentSlug = '' } = Astro.props;
 
 const getNavState = () => {
-  if (currentPath.startsWith('/account/profile')) return 'profile';
+  if (currentPath.startsWith('/scanner')) return 'scanner';
   if (currentPath.startsWith('/book')) return 'library';
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
@@ -194,17 +194,17 @@ const activeNav = getNavState();
       <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
 
-    <!-- Profile -->
+    <!-- Scanner -->
     <a
-      href="/account/profile"
-      aria-current={activeNav === 'profile' ? 'page' : undefined}
+      href="/scanner"
+      aria-current={activeNav === 'scanner' ? 'page' : undefined}
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200 rounded-xl mx-0.5',
-        activeNav === 'profile' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant'
+        activeNav === 'scanner' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant'
       ]}
     >
-      <span class="material-symbols-outlined text-2xl">account_circle</span>
-      <span class="text-[10px] font-medium">Profile</span>
+      <span class="material-symbols-outlined text-2xl">fact_check</span>
+      <span class="text-[10px] font-medium">Scanner</span>
     </a>
   </div>
 </nav>
