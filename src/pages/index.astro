@@ -114,14 +114,10 @@ const faqs = [
           <li class="rounded-2xl border border-outline-variant/70 bg-surface-container/80 p-4 text-sm font-semibold text-on-surface">Tạo nền để vận hành ổn định và có thể nhân bản.</li>
         </ul>
         <div class="mt-9 flex flex-wrap gap-3">
-          {canPurchaseBook && activeBookProduct ? (
-            <PaymentButton productId={activeBookProduct.id} productName={activeBookProduct.name} price={activeBookProduct.price} class="text-base" />
-          ) : (
-            <a href="/book" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
-              {homepage.hero_cta_primary}
-              <span class="material-symbols-outlined text-lg">arrow_forward</span>
-            </a>
-          )}
+          <a href="/dich-vu" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
+            Khám phá dịch vụ
+            <span class="material-symbols-outlined text-lg">arrow_forward</span>
+          </a>
           <a href="/book" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">
             {homepage.hero_cta_secondary}
             <span class="material-symbols-outlined text-lg">menu_book</span>
