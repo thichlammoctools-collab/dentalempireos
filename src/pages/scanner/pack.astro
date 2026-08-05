@@ -93,10 +93,10 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
       <!-- Price -->
       <div class="my-8">
         <div class="inline-flex items-baseline gap-1">
-          <span class="text-5xl font-black text-white">{scannerPackProduct ? `${Math.round(scannerPackProduct.price / 1000)}K` : '499K'}</span>
+           <span class="text-5xl font-black text-white">{scannerPackProduct ? `${Math.round(scannerPackProduct.price / 1000)}K` : 'Liên hệ'}</span>
           <span class="text-xl text-on-surface-variant">/ lần</span>
         </div>
-        <p class="text-xs text-emerald-400 mt-2">Tiết kiệm 95% so với mua lẻ từng scanner</p>
+         <p class="text-xs text-emerald-400 mt-2">Mua một lần, mở khóa toàn bộ scanner trong gói</p>
       </div>
 
       <!-- Scanner list — dynamically loaded from DB -->
@@ -162,7 +162,7 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
       ) : (
         <p class="mb-4 text-sm text-amber-400">Gói Scanner hiện chưa mở bán.</p>
       )}
-      <p class="text-xs text-on-surface-variant/60">Thanh toán qua PayOS · Mua 1 lần dùng mãi mãi</p>
+       <p class="text-xs text-on-surface-variant/60">Thanh toán qua PayOS · Mua một lần, dùng theo quyền truy cập của gói</p>
 
       <!-- Note -->
       <div class="mt-8 p-4 rounded-xl bg-surface-container-low border border-outline-variant/20 text-left">

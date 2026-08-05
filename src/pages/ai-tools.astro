@@ -194,7 +194,7 @@ const appGroups = [
                           Miễn phí
                         </span>
                       ) : product ? (
-                        <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">{product.price.toLocaleString('vi-VN')}₫</span>
+                        <span class="text-right text-xs font-semibold text-amber-600 dark:text-amber-400"><span class="block text-[10px] font-normal uppercase tracking-wide opacity-75">Mở khóa từ</span>{product.price.toLocaleString('vi-VN')}₫</span>
                       ) : (
                         <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">Chuyên sâu</span>
                       )}
@@ -267,7 +267,7 @@ const appGroups = [
                        <span class={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${color.bg} ${color.border} ${color.text}`}>
                          {appTypeLabels[app.type] ?? app.type}
                        </span>
-                        <span class={`text-[11px] font-bold ${isFree ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{isFree ? 'Miễn phí' : product ? `${product.price.toLocaleString('vi-VN')}₫` : 'Chuyên sâu'}</span>
+                         <span class={`text-[11px] font-bold ${isFree ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{isFree ? 'Miễn phí' : product ? `Từ ${product.price.toLocaleString('vi-VN')}₫` : 'Liên hệ'}</span>
                     </div>
                   </div>
 
