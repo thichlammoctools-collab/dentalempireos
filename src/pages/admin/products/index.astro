@@ -149,6 +149,7 @@ const newId = nanoid();
             <option value="book_full">{PRODUCT_ENTITLEMENT_PRESET_LABELS.book_full}</option>
             <option value="ai_tools_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.ai_tools_all}</option>
             <option value="scanners_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.scanners_all}</option>
+            <option value="scanner_custom">Mở khóa Scanner tùy chọn</option>
             <option value="courses_all">{PRODUCT_ENTITLEMENT_PRESET_LABELS.courses_all}</option>
             <option value="blog_premium">{PRODUCT_ENTITLEMENT_PRESET_LABELS.blog_premium}</option>
             <option value="resources_premium">{PRODUCT_ENTITLEMENT_PRESET_LABELS.resources_premium}</option>
@@ -162,7 +163,18 @@ const newId = nanoid();
             <option value="guided_6m" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.guided_6m}</option>
             <option value="full_implementation" data-service-preset>{PRODUCT_ENTITLEMENT_PRESET_LABELS.full_implementation}</option>
           </select>
-          <div id="entitlement-rows" class="flex flex-col gap-2 mt-3"></div>
+           <div id="entitlement-rows" class="flex flex-col gap-2 mt-3"></div>
+           <div id="scanner-picker" class="hidden mt-3">
+             <p class="mb-2 text-xs text-on-surface-variant">Chọn Scanner được mở khóa trong sản phẩm này:</p>
+             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+               {scanners.map((scanner) => (
+                 <label class="scanner-option flex items-center gap-2 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-sm text-on-surface cursor-pointer hover:border-primary/60">
+                   <input type="checkbox" value={scanner.id} class="scanner-checkbox h-4 w-4 rounded accent-primary" />
+                   <span>{scanner.title_vi}</span>
+                 </label>
+               ))}
+             </div>
+           </div>
           <button type="button" id="add-entitlement" class="mt-2 text-xs font-semibold text-primary hover:underline">
             + Thêm quyền lợi
           </button>
@@ -295,6 +307,7 @@ const newId = nanoid();
     const modalTitle = document.getElementById('modal-title');
     const entitlementPreset = document.getElementById('entitlement-preset');
     const entitlementRows = document.getElementById('entitlement-rows');
+    const scannerPicker = document.getElementById('scanner-picker');
     const addEntitlementBtn = document.getElementById('add-entitlement');
     const typeSelect = form?.querySelector('[name="type"]');
 
@@ -331,8 +344,10 @@ const newId = nanoid();
         const scanner = scanners.find((item) => item.id === scannerId);
         const nameInput = form?.querySelector('[name="name"]');
         if (scanner && nameInput) nameInput.value = `Mở khóa ${scanner.title_vi}`;
-        if (scanner) renderEntitlementRows([{ content_type: 'scanner', content_id: scannerId }]);
-        setPresetValue('custom');
+        if (scanner) {
+          setSelectedScanners([{ content_type: 'scanner', content_id: scannerId }]);
+          setPresetValue('scanner_custom');
+        }
       }
     }
 
@@ -344,10 +359,27 @@ const newId = nanoid();
 
     function setPresetValue(value) {
       if (entitlementPreset) entitlementPreset.value = value;
+      scannerPicker?.classList.toggle('hidden', value !== 'scanner_custom');
+      entitlementRows?.classList.toggle('hidden', value === 'scanner_custom');
+      addEntitlementBtn?.classList.toggle('hidden', value === 'scanner_custom');
     }
 
     function markEntitlementsCustom() {
       setPresetValue('custom');
+    }
+
+    function getSelectedScanners() {
+      return Array.from(document.querySelectorAll('.scanner-checkbox:checked'))
+        .map((checkbox) => ({ content_type: 'scanner', content_id: checkbox.value }));
+    }
+
+    function setSelectedScanners(entitlements) {
+      const ids = new Set(entitlements
+        .filter((entitlement) => entitlement.content_type === 'scanner')
+        .map((entitlement) => entitlement.content_id));
+      document.querySelectorAll('.scanner-checkbox').forEach((checkbox) => {
+        checkbox.checked = ids.has(checkbox.value);
+      });
     }
 
     function addEntitlementRow(entitlement = { content_type: 'book', content_id: '' }) {
@@ -431,6 +463,7 @@ const newId = nanoid();
     }
 
     function readEntitlements() {
+      if (entitlementPreset?.value === 'scanner_custom') return getSelectedScanners();
       return Array.from(entitlementRows?.querySelectorAll('.entitlement-row') ?? [])
         .map((row) => ({
           content_type: row.querySelector('.entitlement-type')?.value,
@@ -456,7 +489,14 @@ const newId = nanoid();
 
     entitlementPreset?.addEventListener('change', () => {
       const selected = entitlementPreset.value;
-      if (selected !== 'custom') renderEntitlementRows(entitlementPresets[selected] || []);
+      if (selected === 'scanner_custom') {
+        entitlementRows?.classList.add('hidden');
+        scannerPicker?.classList.remove('hidden');
+        setSelectedScanners([]);
+      } else {
+        renderEntitlementRows(entitlementPresets[selected] || []);
+        scannerPicker?.classList.add('hidden');
+      }
     });
     addEntitlementBtn?.addEventListener('click', () => {
       markEntitlementsCustom();
@@ -469,6 +509,7 @@ const newId = nanoid();
       if (priceDisplay) priceDisplay.value = '';
       if (priceInput) priceInput.value = '0';
       renderEntitlementRows([]);
+      setSelectedScanners([]);
       setPresetValue('custom');
       updateEntitlementPresetOptions();
       editingId = null;
@@ -502,7 +543,13 @@ const newId = nanoid();
         let entitlements = [];
         try { entitlements = JSON.parse(b.dataset.entitlements || '[]'); } catch {}
         renderEntitlementRows(entitlements);
-        setPresetValue(inferEntitlementPreset(entitlements));
+        const inferredPreset = inferEntitlementPreset(entitlements);
+        if (inferredPreset === 'custom' && entitlements.length > 0 && entitlements.every((entitlement) => entitlement.content_type === 'scanner')) {
+          setSelectedScanners(entitlements);
+          setPresetValue('scanner_custom');
+        } else {
+          setPresetValue(inferredPreset);
+        }
         updateEntitlementPresetOptions();
 
         modalTitle.textContent = 'Sửa gói dịch vụ';
@@ -535,9 +582,15 @@ const newId = nanoid();
       errorEl?.classList.add('hidden');
 
       const data = new FormData(form);
-      const entitlementPreset = data.get('entitlement_preset') || 'custom';
-      const customEntitlements = readEntitlements();
-      const body = {
+       const selectedEntitlementPreset = data.get('entitlement_preset') || 'custom';
+       const entitlementPreset = selectedEntitlementPreset === 'scanner_custom' ? 'custom' : selectedEntitlementPreset;
+       const customEntitlements = readEntitlements();
+       if (selectedEntitlementPreset === 'scanner_custom' && customEntitlements.length === 0) {
+         errorEl.textContent = 'Chọn ít nhất một Scanner để mở khóa.';
+         errorEl?.classList.remove('hidden');
+         return;
+       }
+       const body = {
         name: data.get('name'),
         type: data.get('type'),
         price: Number(data.get('price') || 0),
