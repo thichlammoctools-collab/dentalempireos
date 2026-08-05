@@ -1,11 +1,11 @@
 ---
 const navLinks = [
   { href: '/about', label: 'About' },
+  { href: '/dich-vu', label: 'Dịch vụ' },
   { href: '/blog', label: 'Tin Tức' },
   { href: '/resources', label: 'Tài nguyên' },
   { href: '/scanner', label: 'Scanner' },
   { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
-  { href: '/dich-vu', label: 'Dịch vụ' },
   { href: '/book', label: 'Đọc sách' },
 ];
 
@@ -30,7 +30,7 @@ const currentHash = Astro.url.hash;
 
     <!-- Desktop Nav -->
     <nav class="hidden lg:flex items-center gap-8" aria-label="Điều hướng chính">
-      {navLinks.slice(0, 5).map((link) => {
+      {navLinks.slice(0, 6).map((link) => {
         const isAnchorLink = link.href.startsWith('/#');
         const isActive = isAnchorLink
           ? currentPath === '/' && currentHash === link.href.slice(1)
@@ -106,7 +106,7 @@ const currentHash = Astro.url.hash;
               aria-current={isActive ? 'page' : undefined}
               class:list={[
                 'label-md font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap',
-                link.label === 'Mua ngay'
+                link.label === 'Đọc sách'
                   ? 'px-4 py-2.5 btn-primary-metallic font-bold rounded-lg'
                   : isActive
                     ? 'text-primary border-b-2 border-primary pb-1'
