@@ -119,11 +119,11 @@ export const POST: APIRoute = async ({ request, ctx }) => {
     ).catch((error: unknown) => {
       console.error('[consultation] Failed to send Telegram notification:', error);
     });
-    const waitUntil = (ctx as typeof ctx & { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
+    const waitUntil = (ctx as (typeof ctx & { waitUntil?: (promise: Promise<unknown>) => void }) | undefined)?.waitUntil;
     if (waitUntil) {
       waitUntil(notification);
     } else {
-      void notification;
+      await notification;
     }
 
     return json({ ok: true, id: consultationRequest.id }, 201);
