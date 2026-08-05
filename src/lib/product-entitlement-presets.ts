@@ -50,7 +50,7 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
 } as const satisfies Record<string, readonly ProductEntitlementInput[]>;
 
 export const PRODUCT_ENTITLEMENT_PRESET_LABELS = {
-  book_full: 'Toàn bộ sách',
+  book_full: 'Mở khóa các chương trả phí',
   ai_tools_all: 'Tất cả công cụ AI',
   scanners_all: 'Tất cả scanner',
   courses_all: 'Tất cả khóa học',
