@@ -13,7 +13,8 @@ import { sendConsultationTelegramNotification } from '../../lib/telegram';
 export const prerender = false;
 
 const MAX_BODY_BYTES = 12_000;
-const PHONE_RE = /^\+?[0-9][0-9\s().-]{7,18}$/;
+const PHONE_FORMAT_RE = /^[0-9+\s().-]+$/;
+const NORMALIZED_PHONE_RE = /^\+?[0-9]{9,15}$/;
 
 function cleanText(value: unknown, label: string, min: number, max: number, required = true): string | null {
   if (typeof value !== 'string') {
@@ -72,7 +73,10 @@ export const POST: APIRoute = async ({ request, ctx }) => {
 
     const name = cleanText(payload.name, 'Họ và tên', 2, 100);
     const phone = cleanText(payload.phone, 'Số điện thoại', 8, 24);
-    if (!phone || !PHONE_RE.test(phone)) throw new Error('Số điện thoại không hợp lệ.');
+    const normalizedPhone = phone?.replace(/[\s().-]/g, '') ?? '';
+    if (!phone || !PHONE_FORMAT_RE.test(phone) || !NORMALIZED_PHONE_RE.test(normalizedPhone)) {
+      throw new Error('Số điện thoại không hợp lệ.');
+    }
 
     const email = cleanText(payload.email, 'Email', 0, 254, false);
     if (email) {
@@ -99,7 +103,7 @@ export const POST: APIRoute = async ({ request, ctx }) => {
 
     const consultationRequest = await createConsultationRequest(env.DB, {
       name: name!,
-      phone: phone,
+      phone: normalizedPhone,
       email: email?.toLowerCase() ?? null,
       clinicName,
       teamSize,
