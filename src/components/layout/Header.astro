@@ -4,7 +4,7 @@ const navLinks = [
   { href: '/dich-vu', label: 'Dịch vụ' },
   { href: '/blog', label: 'Tin Tức' },
   { href: '/resources', label: 'Tài nguyên' },
-  { href: '/scanner', label: 'Scanner' },
+  { href: '/scanner', label: 'Scanner', badge: 'AI' },
   { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
   { href: '/book', label: 'Đọc sách' },
 ];
@@ -129,7 +129,7 @@ const currentHash = Astro.url.hash;
         <span id="desktop-theme-icon" class="material-symbols-outlined text-[20px]">light_mode</span>
       </button>
       <!-- Auth state: keep a stable slot while the session is loading. -->
-      <div class="min-w-[190px]">
+      <div id="auth-slot" class="min-w-[190px] invisible" aria-busy="true">
         <!-- Auth: logged-out state -->
         <div id="auth-logged-out" class="hidden items-center justify-end gap-2">
           <a
@@ -174,27 +174,38 @@ const currentHash = Astro.url.hash;
   import { onThemeChange, toggleTheme, updateThemeToggle } from '../../scripts/theme';
 
   async function initAuthState() {
-    const { data } = await getSession();
-    const loggedIn = !!data?.user;
+    const authSlot = document.getElementById('auth-slot');
 
-    const show = (id: string, display: string) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.classList.remove('hidden');
-        el.classList.add(display);
+    try {
+      const { data } = await getSession();
+      const loggedIn = !!data?.user;
+
+      const show = (id: string, display: string) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove('hidden');
+          el.classList.add(display);
+        }
+      };
+
+      if (loggedIn) {
+        show('auth-logged-in', 'flex');
+      } else {
+        show('auth-logged-out', 'flex');
       }
-    };
 
-    if (loggedIn) {
-      show('auth-logged-in', 'flex');
-    } else {
-      show('auth-logged-out', 'flex');
+      document.getElementById('auth-logout')?.addEventListener('click', async () => {
+        await signOut();
+        window.location.href = '/';
+      });
+    } catch {
+      const loggedOut = document.getElementById('auth-logged-out');
+      loggedOut?.classList.remove('hidden');
+      loggedOut?.classList.add('flex');
+    } finally {
+      authSlot?.classList.remove('invisible');
+      authSlot?.removeAttribute('aria-busy');
     }
-
-    document.getElementById('auth-logout')?.addEventListener('click', async () => {
-      await signOut();
-      window.location.href = '/';
-    });
   }
 
   // Resolve auth immediately; the surrounding slot prevents layout shift.

@@ -10,22 +10,22 @@ export const prerender = false;
 
 let scanners: Awaited<ReturnType<typeof listSurveyDefinitions>> = [];
 let scannerPackage: Product | null = null;
+let productsWithEntitlements: Array<{ product: Product; entitlements: Awaited<ReturnType<typeof listProductEntitlements>> }> = [];
 try {
   const [surveyDefinitions, products] = await Promise.all([
     listSurveyDefinitions(env.DB, { status: 'active' }),
     getActiveProducts(env.DB),
   ]);
   scanners = surveyDefinitions;
-  const productsWithEntitlements = await Promise.all(products.map(async (product) => ({
+   productsWithEntitlements = await Promise.all(products.map(async (product) => ({
     product,
     entitlements: await listProductEntitlements(env.DB, product.id),
   })));
   for (const { product, entitlements } of productsWithEntitlements) {
-    const scannerEntitlements = entitlements.filter((item) => item.content_type === 'scanner');
-    if (!scannerEntitlements.length) continue;
-
-    const isScannerOnlyPackage = entitlements.every((item) => item.content_type === 'scanner');
-    if (isScannerOnlyPackage && (!scannerPackage || product.price < scannerPackage.price)) {
+     const isFullScannerPackage = entitlements.some((item) =>
+       item.content_type === 'scanner' && item.content_id === '*',
+     );
+     if (isFullScannerPackage && (!scannerPackage || product.price < scannerPackage.price)) {
       scannerPackage = product;
     }
   }
@@ -45,8 +45,19 @@ const typeColors: Record<string, string> = {
   checklist: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
 };
 
-const freeScanners = scanners.filter((scanner) => scanner.is_free === 1);
-const paidScanners = scanners.filter((scanner) => scanner.is_free !== 1);
+const scannerProducts = new Map<string, Product>();
+for (const { product, entitlements } of productsWithEntitlements) {
+  for (const entitlement of entitlements) {
+    if (entitlement.content_type !== 'scanner') continue;
+    if (entitlement.content_id !== '*' && scanners.some((scanner) => scanner.id === entitlement.content_id)) {
+      const current = scannerProducts.get(entitlement.content_id);
+      if (!current || product.price < current.price) scannerProducts.set(entitlement.content_id, product);
+    }
+  }
+}
+
+const freeScanners = scanners.filter((scanner) => scanner.is_free === 1 && !scannerProducts.has(scanner.id));
+const paidScanners = scanners.filter((scanner) => scanner.is_free !== 1 || scannerProducts.has(scanner.id));
 ---
 
 <BaseLayout
@@ -143,11 +154,12 @@ const paidScanners = scanners.filter((scanner) => scanner.is_free !== 1);
       )}
       {paidScanners.length > 0 ? (
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {paidScanners.map((s) => (
-        <a
-          href={`/scanner/${s.slug}`}
-          class="glass-card rounded-2xl p-6 border border-outline-variant/20 hover:border-primary/50 transition-all hover:-translate-y-0.5 group"
-        >
+           {paidScanners.map((s) => {
+             const product = scannerProducts.get(s.id);
+             return (
+         <div
+           class="glass-card rounded-2xl p-6 border border-outline-variant/20 hover:border-primary/50 transition-all hover:-translate-y-0.5 group"
+         >
           <div class="flex items-center justify-between mb-3">
             <span class={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold border ${typeColors[s.survey_type] ?? 'bg-gray-500/20 text-gray-300 border-gray-500/30'}`}>
               {typeLabels[s.survey_type] ?? s.survey_type}
@@ -163,13 +175,21 @@ const paidScanners = scanners.filter((scanner) => scanner.is_free !== 1);
           <p class="text-sm text-on-surface-variant line-clamp-3 mb-4 min-h-[3.6em]">
             {s.description_vi ?? 'Khám phá điểm mạnh và tiềm năng phòng khám của bạn.'}
           </p>
-          <div class="flex items-center justify-between">
-            {s.subtitle_vi && (
-              <p class="text-xs text-on-surface-variant/70 truncate">{s.subtitle_vi}</p>
-            )}
-            <span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">arrow_forward</span>
-          </div>
-        </a>
+           <div class="flex items-center justify-between gap-3">
+             {s.subtitle_vi && (
+               <p class="text-xs text-on-surface-variant/70 truncate">{s.subtitle_vi}</p>
+             )}
+             <a href={`/scanner/${s.slug}`} class="text-xs text-primary font-semibold hover:underline">Xem Scanner</a>
+           </div>
+           {product && (
+             <div class="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/15 pt-4">
+               <span class="text-lg font-bold text-on-surface">{product.price.toLocaleString('vi-VN')}₫</span>
+               <PaymentButton productId={product.id} productName={product.name} price={product.price} class="!w-auto px-5" />
+             </div>
+           )}
+         </div>
+             );
+           })}
           ))}
         </div>
       ) : <p class="text-sm text-on-surface-variant">Hiện chưa có Scanner trả phí.</p>}

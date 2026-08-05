@@ -16,6 +16,25 @@ async function hasPaidAccess(
   return userId ? hasActiveEntitlementForContent(db, userId, contentType, contentId) : false;
 }
 
+export async function hasActiveScannerProduct(
+  db: D1Database,
+  scannerId: string,
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1
+       FROM "product" p
+       INNER JOIN "product_entitlement" pe ON pe."product_id" = p."id"
+       WHERE p."is_active" = 1
+         AND pe."content_type" = 'scanner'
+         AND pe."content_id" IN (?, '*')
+       LIMIT 1`,
+    )
+    .bind(scannerId)
+    .first();
+  return row !== null;
+}
+
 export async function canAccessBook(
   db: D1Database,
   userId: UserId,
@@ -57,7 +76,8 @@ export async function canAccessScanner(
 ): Promise<boolean> {
   const scanner = await getSurveyDefinitionById(db, scannerId);
   if (!scanner || scanner.status !== 'active') return false;
-  if (scanner.is_free === 1) return true;
+  const hasConfiguredProduct = await hasActiveScannerProduct(db, scannerId);
+  if (scanner.is_free === 1 && !hasConfiguredProduct) return true;
   if (!userId) return false;
 
   const [hasAllAccess, hasContentAccess] = await Promise.all([
