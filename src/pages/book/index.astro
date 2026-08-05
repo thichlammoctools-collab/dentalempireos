@@ -4,15 +4,22 @@ import { env } from 'cloudflare:workers';
 import { listPublishedChapters } from '../../lib/book-db';
 import { getTierLabel } from '../../lib/collection-helpers';
 import Badge from '../../components/ui/Badge.astro';
-import { getActiveBookProduct, hasAccess } from '../../lib/payos-db';
+import { canAccessBook } from '../../lib/entitlement-check';
 
 export const prerender = false;
 
 const chapters = await listPublishedChapters(env.DB);
-const bookProduct = await getActiveBookProduct(env.DB).catch(() => null);
-const userHasAccess = Astro.locals.user && bookProduct
-  ? await hasAccess(env.DB, Astro.locals.user.id, bookProduct.id)
-  : false;
+const premiumChapterIds = new Set(
+  Astro.locals.user
+    ? (await Promise.all(
+        chapters
+          .filter((chapter) => chapter.has_premium)
+          .map(async (chapter) => (
+            await canAccessBook(env.DB, Astro.locals.user!.id, chapter.id) ? chapter.id : null
+          )),
+      )).filter((id): id is string => id !== null)
+    : [],
+);
 const tiers = [1, 2, 3];
 ---
 
@@ -56,7 +63,7 @@ const tiers = [1, 2, 3];
                     <div>
                       <div class="flex items-center gap-2 mb-1">
                         <p class="text-xs text-on-surface-variant">Chương {ch.chapter_no}</p>
-                        {ch.has_premium && !userHasAccess && (
+                        {ch.has_premium && !premiumChapterIds.has(ch.id) && (
                           <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
                         )}
                       </div>

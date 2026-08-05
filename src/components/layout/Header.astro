@@ -8,6 +8,13 @@ const navLinks = [
   { href: '/book', label: 'Đọc sách' },
 ];
 
+const mobileHeaderLinks = [
+  { href: '/', label: 'Trang chủ', icon: 'home' },
+  { href: '/about', label: 'About', icon: 'info' },
+  { href: '/dich-vu', label: 'Dịch vụ', icon: 'handshake' },
+  { href: '/courses', label: 'Khóa học', icon: 'play_circle' },
+];
+
 const currentPath = Astro.url.pathname;
 const currentHash = Astro.url.hash;
 ---
@@ -15,7 +22,7 @@ const currentHash = Astro.url.hash;
 <header class="fixed top-0 w-full z-50 bg-surface-container-lowest glass-nav border-b border-outline-variant h-20">
   <div class="flex justify-between items-center w-full px-6 max-w-[1200px] mx-auto h-full">
     <!-- Logo -->
-    <a href="/" class="flex items-center hover:opacity-80 transition-opacity">
+    <a href="/" class="hidden lg:flex items-center hover:opacity-80 transition-opacity">
       <img src="/images/logo-header.png" alt="Dental Empire" class="h-10 w-auto" width="140" height="46" />
     </a>
 
@@ -50,49 +57,41 @@ const currentHash = Astro.url.hash;
       })}
     </nav>
 
-    <!-- Mobile: search input (top-right) — hidden on /resources which has its own search -->
-    {!currentPath.startsWith('/resources') && (
-      <a
-        href="/search"
-        class="lg:hidden min-w-0 flex-1 max-w-[240px] ml-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm"
-      >
-        <span class="material-symbols-outlined text-xl">search</span>
-        <span class="truncate">Tìm kiếm...</span>
-      </a>
-    )}
+    <div class="lg:hidden flex items-center justify-between w-full">
+      {mobileHeaderLinks.map((link) => {
+        const isActive = link.href === '/'
+          ? currentPath === '/'
+          : currentPath.startsWith(link.href);
+        return (
+          <a
+            href={link.href}
+            aria-current={isActive ? 'page' : undefined}
+            aria-label={link.label}
+            class:list={[
+              'flex items-center justify-center w-9 h-9 rounded-lg transition-all',
+              isActive
+                ? 'text-primary bg-primary/10'
+                : 'text-on-surface-variant hover:text-primary hover:bg-surface-container',
+            ]}
+          >
+            <span class="material-symbols-outlined text-xl">{link.icon}</span>
+          </a>
+        );
+      })}
 
-    <!-- Mobile: courses icon -->
-    <a
-      href="/courses"
-      class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
-      aria-label="Khóa học"
-    >
-      <span class="material-symbols-outlined text-xl">play_circle</span>
-    </a>
-
-    <!-- Mobile: homepage theme toggle -->
-    {currentPath === '/' && (
+      <!-- Mobile: theme toggle -->
       <button
         id="mobile-home-theme-toggle"
         type="button"
         role="switch"
         aria-checked="false"
-        class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
+        class="flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all"
         title="Đổi giao diện sáng/tối"
         aria-label="Đổi giao diện sáng/tối"
       >
         <span id="mobile-home-theme-icon" class="material-symbols-outlined text-xl">light_mode</span>
       </button>
-    )}
-
-    <!-- Mobile: profile icon (top-right, only when logged in) -->
-    <a
-      id="mobile-profile-link"
-      href="/account/profile"
-      class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all hidden"
-    >
-      <span class="material-symbols-outlined text-xl">account_circle</span>
-    </a>
+    </div>
 
     <!-- Right side (desktop only) -->
     <div class="hidden lg:flex items-center gap-4">
@@ -183,7 +182,6 @@ const currentHash = Astro.url.hash;
 
     if (loggedIn) {
       show('auth-logged-in', 'flex');
-      show('mobile-profile-link', 'flex');
     } else {
       show('auth-logged-out', 'flex');
     }

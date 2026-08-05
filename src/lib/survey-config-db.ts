@@ -259,9 +259,10 @@ export async function listSurveyDefinitions(
   if (opts.has_active_product !== undefined) {
     conditions.push(`${opts.has_active_product ? '' : 'NOT '}EXISTS (
       SELECT 1
-      FROM "product_scanner" ps
-      INNER JOIN "product" p ON p.id = ps."product_id"
-      WHERE ps."scanner_id" = "survey_definition".id AND p."is_active" = 1
+       FROM "product_entitlement" pe
+       INNER JOIN "product" p ON p.id = pe."product_id"
+       WHERE pe."content_type" = 'scanner'
+         AND pe."content_id" IN ("survey_definition".id, '*') AND p."is_active" = 1
     )`);
   }
   if (opts.survey_type) {
@@ -307,9 +308,10 @@ export async function countSurveyDefinitions(
   if (opts.has_active_product !== undefined) {
     conditions.push(`${opts.has_active_product ? '' : 'NOT '}EXISTS (
       SELECT 1
-      FROM "product_scanner" ps
-      INNER JOIN "product" p ON p.id = ps."product_id"
-      WHERE ps."scanner_id" = "survey_definition".id AND p."is_active" = 1
+       FROM "product_entitlement" pe
+       INNER JOIN "product" p ON p.id = pe."product_id"
+       WHERE pe."content_type" = 'scanner'
+         AND pe."content_id" IN ("survey_definition".id, '*') AND p."is_active" = 1
     )`);
   }
   if (opts.survey_type) {

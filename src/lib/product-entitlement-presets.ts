@@ -139,49 +139,13 @@ export function resolveEntitlements(
   return presetEntitlements.map((entitlement) => ({ ...entitlement }));
 }
 
-type ProductEntitlementDefaultContext = {
-  referenceId?: string | null;
-  appId?: string | null;
-};
-
-type ProductEntitlementDefault = {
-  content_type: EntitlementContentType;
-  resolveContentId: (context: ProductEntitlementDefaultContext) => string | null | undefined;
-};
-
-const PRODUCT_ENTITLEMENT_DEFAULTS = {
-  book_unlock: [{ content_type: 'book', resolveContentId: () => '*' }],
-  course_unlock: [{ content_type: 'course', resolveContentId: ({ referenceId }) => referenceId }],
-  document_unlock: [{ content_type: 'resource', resolveContentId: ({ referenceId }) => referenceId }],
-} as const satisfies Record<string, readonly ProductEntitlementDefault[]>;
-
-export type ProductTypeWithDefaultEntitlements = keyof typeof PRODUCT_ENTITLEMENT_DEFAULTS;
-
+/** Kept for callers that still validate this field; product type has no semantics. */
 export function getDefaultProductEntitlements(
-  type: string,
-  referenceId?: string | null,
-  appId?: string | null,
+  _type?: string,
+  _referenceId?: string | null,
+  _appId?: string | null,
 ): ProductEntitlementInput[] {
-  const entitlements = new Map<string, ProductEntitlementInput>();
-  const add = (content_type: EntitlementContentType, content_id: string | null | undefined) => {
-    const normalizedContentId = content_id?.trim();
-    if (!normalizedContentId) return;
-    entitlements.set(`${content_type}:${normalizedContentId}`, {
-      content_type,
-      content_id: normalizedContentId,
-    });
-  };
-
-  const context = { referenceId, appId };
-  const defaults = PRODUCT_ENTITLEMENT_DEFAULTS[
-    type as ProductTypeWithDefaultEntitlements
-  ];
-  defaults?.forEach(({ content_type, resolveContentId }) => {
-    add(content_type, resolveContentId(context));
-  });
-  add('ai_app', context.appId);
-
-  return [...entitlements.values()];
+  return [];
 }
 
 export function hasSameEntitlements(

@@ -15,12 +15,11 @@ interface Props {
 const { currentPath, groupedChapters = [], currentSlug = '' } = Astro.props;
 
 const getNavState = () => {
-  if (currentPath === '/') return 'home';
-  if (currentPath.startsWith('/book') && !currentPath.includes('/book/')) return 'library';
+  if (currentPath.startsWith('/account/profile')) return 'profile';
+  if (currentPath.startsWith('/book')) return 'library';
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
   if (currentPath.startsWith('/ai-tools')) return 'aitools';
-  if (currentPath.startsWith('/about')) return 'about';
   return '';
 };
 
@@ -136,19 +135,7 @@ const activeNav = getNavState();
   class="fixed bottom-0 left-0 right-0 z-[100] backdrop-blur-xl border-t lg:hidden"
   style="background: var(--reader-chrome-bg, var(--color-surface-container-lowest)); border-color: var(--reader-border, var(--color-outline-variant)); padding-bottom: env(safe-area-inset-bottom, 0px);"
 >
-  <div class="flex items-center justify-around h-16">
-    <!-- Trang chủ -->
-    <a
-      href="/"
-      class:list={[
-        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'home' ? 'text-primary' : 'text-on-surface-variant'
-      ]}
-    >
-      <span class="material-symbols-outlined text-2xl">home</span>
-      <span class="text-[10px] font-medium">Trang chủ</span>
-    </a>
-
+  <div class="flex items-center justify-around h-16 px-1">
     <!-- Blog -->
     <a
       href="/blog"
@@ -159,18 +146,6 @@ const activeNav = getNavState();
     >
       <span class="material-symbols-outlined text-2xl">article</span>
       <span class="text-[10px] font-medium">Blog</span>
-    </a>
-
-    <!-- Đọc sách -->
-    <a
-      href="/book"
-      class:list={[
-        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'library' ? 'text-primary' : 'text-on-surface-variant'
-      ]}
-    >
-      <span class="material-symbols-outlined text-2xl">menu_book</span>
-      <span class="text-[10px] font-medium">Đọc sách</span>
     </a>
 
     <!-- Tài nguyên -->
@@ -185,7 +160,21 @@ const activeNav = getNavState();
       <span class="text-[10px] font-medium">Tài nguyên</span>
     </a>
 
-    <!-- Công cụ -->
+    <!-- Đọc sách -->
+    <a
+      href="/book"
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
+        activeNav === 'library' ? 'text-primary' : 'text-on-surface-variant'
+      ]}
+    >
+      <span class="flex flex-col items-center justify-center -mt-4 px-4 py-2 rounded-2xl bg-gradient-to-b from-primary/25 to-primary/5 shadow-lg shadow-primary/10 border border-primary/20">
+        <span class="material-symbols-outlined text-3xl">menu_book</span>
+        <span class="text-[10px] font-bold leading-none mt-0.5">Đọc sách</span>
+      </span>
+    </a>
+
+    <!-- AI Tools -->
     <a
       href="/ai-tools"
       class:list={[
@@ -194,19 +183,20 @@ const activeNav = getNavState();
       ]}
     >
       <span class="material-symbols-outlined inline-flex w-6 h-6 items-center justify-center text-2xl leading-none" style="filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.7));">psychology</span>
-      <span class="text-[10px] font-semibold">Công cụ</span>
+      <span class="text-[10px] font-semibold">AI Tools</span>
       <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
 
+    <!-- Profile -->
     <a
-      href="/about"
+      href="/account/profile"
       class:list={[
         'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-        activeNav === 'about' ? 'text-primary' : 'text-on-surface-variant'
+        activeNav === 'profile' ? 'text-primary' : 'text-on-surface-variant'
       ]}
     >
-      <span class="material-symbols-outlined text-2xl">info</span>
-      <span class="text-[10px] font-medium">About</span>
+      <span class="material-symbols-outlined text-2xl">account_circle</span>
+      <span class="text-[10px] font-medium">Profile</span>
     </a>
   </div>
 </nav>

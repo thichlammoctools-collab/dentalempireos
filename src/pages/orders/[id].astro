@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getOrderWithProduct } from '../../lib/payos-db';
+import { listProductEntitlements } from '../../lib/entitlement-db';
 
 export const prerender = false;
 
@@ -26,6 +27,9 @@ const statusConfig: Record<string, { label: string; className: string; icon: str
 const st = statusConfig[order.status] ?? statusConfig.pending;
 const isManual = !order.payment_link_id;
 const canPay = order.status === 'pending' && isManual;
+const entitlements = await listProductEntitlements(env.DB, order.product_id).catch(() => []);
+const hasEntitlement = (contentType: string) =>
+  entitlements.some((entitlement) => entitlement.content_type === contentType);
 ---
 
 <BaseLayout title={`Đơn hàng ${order.id} | Dental Empire OS`} noindex={true}>
@@ -100,12 +104,12 @@ const canPay = order.status === 'pending' && isManual;
         <div class="mt-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
           <p class="text-sm text-emerald-300 font-medium">Đơn hàng đã được xác nhận. Bạn có thể truy cập nội dung ngay.</p>
           <div class="mt-3 flex flex-col sm:flex-row gap-2">
-            {order.product_type === 'scanner_pack' && (
+            {hasEntitlement('scanner') && (
               <a href="/scanner" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
                 Khám phá Scanner
               </a>
             )}
-            {order.product_type === 'book_unlock' && (
+            {hasEntitlement('book') && (
               <a href="/book" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
                 Đọc sách
               </a>

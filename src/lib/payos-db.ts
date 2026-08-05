@@ -6,7 +6,9 @@
 export interface Product {
   id: string;
   name: string;
-  type: 'course_unlock' | 'document_unlock' | 'booking' | 'event_ticket' | 'survey_unlock' | 'book_unlock' | 'service_program';
+  // Persisted values are normalized to access_package. Keep this permissive for
+  // external callers that still send or display legacy labels during rollout.
+  type: string;
   price: number;
   description: string | null;
   duration_days: number | null;
@@ -20,7 +22,7 @@ export interface Product {
 export interface ProductInput {
   id: string;
   name: string;
-  type: string;
+  type?: string;
   price: number;
   description?: string;
   duration_days?: number | null;
@@ -94,7 +96,14 @@ export async function getActiveBookProduct(db: D1Database): Promise<Product | nu
   return db
     .prepare(
       `SELECT * FROM "product"
-       WHERE "type" = 'book_unlock' AND "is_active" = 1
+       WHERE "is_active" = 1
+         AND EXISTS (
+           SELECT 1 FROM "product_entitlement" pe
+           WHERE pe."product_id" = "product"."id"
+             AND pe."content_type" = 'book'
+             AND pe."content_id" = '*'
+         )
+       ORDER BY "created_at" DESC
        LIMIT 1`,
     )
     .first<Product>();
@@ -127,7 +136,7 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
     .bind(
       input.id,
       input.name,
-      input.type,
+      'access_package',
       input.price,
       input.description ?? null,
       input.duration_days ?? null,
@@ -502,8 +511,9 @@ export async function hasScannerAccess(
     .prepare(
        `SELECT 1
         FROM "access" a
-        INNER JOIN "product_scanner" ps ON ps."product_id" = a."product_id"
-        WHERE a."user_id" = ? AND ps."scanner_id" = ? AND a."is_active" = 1
+         INNER JOIN "product_entitlement" pe ON pe."product_id" = a."product_id"
+         WHERE a."user_id" = ? AND pe."content_type" = 'scanner'
+           AND pe."content_id" IN (?, '*') AND a."is_active" = 1
           AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        LIMIT 1`,
     )
@@ -517,7 +527,11 @@ export async function hasScannerAccess(
 /** Get all scanner IDs assigned to a product. */
 export async function getProductScanners(db: D1Database, productId: string): Promise<string[]> {
   const { results } = await db
-    .prepare('SELECT "scanner_id" FROM "product_scanner" WHERE "product_id" = ?')
+    .prepare(`SELECT DISTINCT d."id" AS "scanner_id"
+      FROM "product_entitlement" pe
+      INNER JOIN "survey_definition" d ON pe."content_id" = d."id" OR pe."content_id" = '*'
+      WHERE pe."product_id" = ? AND pe."content_type" = 'scanner'
+      ORDER BY d."id" ASC`)
     .bind(productId)
     .all<{ scanner_id: string }>();
   return results.map((r) => r.scanner_id);
@@ -529,10 +543,11 @@ export async function getScannerProduct(
 ): Promise<string | null> {
   const row = await db
     .prepare(
-      `SELECT p.id FROM "product" p
-       INNER JOIN "product_scanner" ps ON p.id = ps.product_id
-       WHERE ps.scanner_id = ?
-       ORDER BY p."is_active" DESC, ps."assigned_at" DESC
+       `SELECT p.id FROM "product" p
+        INNER JOIN "product_entitlement" pe ON p.id = pe.product_id
+        WHERE pe."content_type" = 'scanner'
+          AND pe."content_id" IN (?, '*')
+        ORDER BY p."is_active" DESC, pe."created_at" DESC
        LIMIT 1`,
     )
     .bind(scannerId)
@@ -546,12 +561,14 @@ export async function setProductScanners(
   scannerIds: string[],
 ): Promise<void> {
   await db.batch([
-    db.prepare('DELETE FROM "product_scanner" WHERE "product_id" = ?').bind(productId),
+    db.prepare(`DELETE FROM "product_entitlement"
+      WHERE "product_id" = ? AND "content_type" = 'scanner'`).bind(productId),
     ...scannerIds.map((scannerId) =>
       db
         .prepare(
-          `INSERT INTO "product_scanner" ("product_id", "scanner_id", "assigned_at")
-           VALUES (?, ?, datetime('now'))`,
+          `INSERT INTO "product_entitlement"
+           ("product_id", "content_type", "content_id", "created_at", "updated_at")
+           VALUES (?, 'scanner', ?, datetime('now'), datetime('now'))`,
         )
         .bind(productId, scannerId),
     ),
@@ -561,8 +578,14 @@ export async function setProductScanners(
 export async function getAllProductScanners(
   db: D1Database,
 ): Promise<Array<{ product_id: string; scanner_id: string; assigned_at: string }>> {
-  const { results } = await db.prepare('SELECT * FROM "product_scanner"').all();
-  return results as Array<{ product_id: string; scanner_id: string; assigned_at: string }>;
+  const { results } = await db.prepare(
+    `SELECT pe."product_id", d."id" AS "scanner_id", pe."created_at" AS "assigned_at"
+     FROM "product_entitlement" pe
+     INNER JOIN "survey_definition" d ON pe."content_id" = d."id" OR pe."content_id" = '*'
+     WHERE pe."content_type" = 'scanner'
+     ORDER BY "assigned_at" ASC`,
+  ).all<{ product_id: string; scanner_id: string; assigned_at: string }>();
+  return results;
 }
 
 export async function getScannerProductMapping(
@@ -570,10 +593,13 @@ export async function getScannerProductMapping(
 ): Promise<Map<string, string>> {
   const { results } = await db
     .prepare(
-       `SELECT ps.scanner_id, p.id as product_id
-        FROM "product_scanner" ps
-        INNER JOIN "product" p ON ps.product_id = p.id
-        ORDER BY ps.scanner_id ASC, p.is_active DESC, ps.assigned_at DESC`,
+       `SELECT d.id AS scanner_id, p.id as product_id
+         FROM "product_entitlement" pe
+         INNER JOIN "product" p ON pe.product_id = p.id
+         INNER JOIN "survey_definition" d
+           ON pe.content_id = d.id OR pe.content_id = '*'
+         WHERE pe.content_type = 'scanner'
+         ORDER BY d.id ASC, p.is_active DESC, pe.created_at DESC`,
     )
     .all<{ scanner_id: string; product_id: string }>();
   const map = new Map<string, string>();
@@ -586,10 +612,13 @@ export async function getScannerPriceMapping(
 ): Promise<Map<string, number>> {
   const { results } = await db
     .prepare(
-       `SELECT ps.scanner_id, p.price
-        FROM "product_scanner" ps
-        INNER JOIN "product" p ON ps.product_id = p.id
-        ORDER BY ps.scanner_id ASC, p.is_active DESC, ps.assigned_at DESC`,
+       `SELECT d.id AS scanner_id, p.price
+         FROM "product_entitlement" pe
+         INNER JOIN "product" p ON pe.product_id = p.id
+         INNER JOIN "survey_definition" d
+           ON pe.content_id = d.id OR pe.content_id = '*'
+         WHERE pe.content_type = 'scanner'
+         ORDER BY d.id ASC, p.is_active DESC, pe.created_at DESC`,
     )
     .all<{ scanner_id: string; price: number }>();
   const map = new Map<string, number>();

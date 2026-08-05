@@ -5,6 +5,7 @@ import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
 import { listQuestionsByUser } from '../../lib/question-db';
 import { listChapters } from '../../lib/book-db';
+import { listProductEntitlements, type ProductEntitlement } from '../../lib/entitlement-db';
 
 export const prerender = false;
 
@@ -29,10 +30,8 @@ const { results: purchases } = await env.DB
        a."expires_at",
        a."is_active"  as "access_active",
        p."id"         as "product_id",
-       p."name"       as "product_name",
-       p."type"       as "product_type",
-       p."price"      as "product_price",
-       p."reference_id",
+        p."name"       as "product_name",
+        p."price"      as "product_price",
        o."amount"     as "paid_amount",
        o."paid_at"
      FROM "access" a
@@ -49,24 +48,43 @@ const { results: purchases } = await env.DB
     access_active: number;
     product_id: string;
     product_name: string;
-    product_type: string;
     product_price: number;
-    reference_id: string | null;
     paid_amount: number;
     paid_at: string | null;
   }>();
 
-const productTypeMap: Record<string, { label: string; icon: string }> = {
-  course_unlock:      { label: 'Khóa học',       icon: 'school' },
-  document_unlock:    { label: 'Tài liệu',       icon: 'description' },
-  booking:           { label: 'Đặt lịch',        icon: 'event' },
-  event_ticket:      { label: 'Vé sự kiện',      icon: 'confirmation_number' },
-  survey_unlock:     { label: 'Khảo sát',        icon: 'analytics' },
-};
+const purchaseDetails = await Promise.all(
+  purchases.map(async (purchase) => ({
+    ...purchase,
+    entitlements: await listProductEntitlements(env.DB, purchase.product_id).catch(() => []),
+  })),
+);
 
-function productLink(p: typeof purchases[0]): string {
-  if (p.product_type === 'course_unlock' && p.reference_id) return `/courses/${p.reference_id}`;
-  if (p.product_type === 'document_unlock') return '/resources';
+function getEntitlement(p: typeof purchaseDetails[0], contentType: ProductEntitlement['content_type']) {
+  return p.entitlements.find((entitlement) => entitlement.content_type === contentType);
+}
+
+function productLabel(p: typeof purchaseDetails[0]): { label: string; icon: string } {
+  const labels: Record<string, { label: string; icon: string }> = {
+    book: { label: 'Sách', icon: 'menu_book' },
+    ai_app: { label: 'Công cụ AI', icon: 'psychology' },
+    scanner: { label: 'Scanner', icon: 'analytics' },
+    course: { label: 'Khóa học', icon: 'school' },
+    blog: { label: 'Blog', icon: 'article' },
+    resource: { label: 'Tài liệu', icon: 'description' },
+    service: { label: 'Dịch vụ', icon: 'support_agent' },
+  };
+  const entitlement = p.entitlements[0];
+  return (entitlement && labels[entitlement.content_type]) ?? { label: 'Sản phẩm', icon: 'inventory_2' };
+}
+
+function productLink(p: typeof purchaseDetails[0]): string {
+  const course = getEntitlement(p, 'course');
+  if (course && course.content_id !== '*') return `/courses/${course.content_id}`;
+  if (getEntitlement(p, 'resource')) return '/resources';
+  if (getEntitlement(p, 'book')) return '/book';
+  if (getEntitlement(p, 'scanner')) return '/scanner';
+  if (getEntitlement(p, 'ai_app')) return '/ai-tools';
   return '#';
 }
 
@@ -95,7 +113,7 @@ function statusInfo(status: string) {
   return { label: 'Đã đóng', icon: 'archive', color: 'text-on-surface-variant bg-surface-container-high' };
 }
 
-const totalSpent = purchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
 ---
 
 <BaseLayout title="Hồ Sơ Cá Nhân | Dental Empire OS" description="Quản lý thông tin hồ sơ cá nhân." noindex={true}>
@@ -280,8 +298,8 @@ const totalSpent = purchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
               </div>
             ) : (
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {purchases.map(p => {
-                  const typeInfo = productTypeMap[p.product_type] || { label: p.product_type, icon: 'inventory_2' };
+                {purchaseDetails.map(p => {
+                  const typeInfo = productLabel(p);
                   const link = productLink(p);
                   const expiry = p.expires_at ? formatDate(p.expires_at) : null;
                   return (

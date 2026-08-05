@@ -17,9 +17,7 @@ interface ServiceProduct {
 let serviceProducts: ServiceProduct[] = [];
 
 try {
-  const products = (await getActiveProducts(env.DB)).filter(
-    (product) => product.type === 'service_program',
-  );
+  const products = await getActiveProducts(env.DB);
   const productsWithEntitlements = await Promise.all(
     products.map(async (product) => ({
       product,
@@ -27,18 +25,21 @@ try {
     })),
   );
 
-  serviceProducts = productsWithEntitlements.map(({ product, entitlements }) => ({
-    product,
-    programs: entitlements
+  serviceProducts = productsWithEntitlements.flatMap(({ product, entitlements }) => {
+    const serviceIds = entitlements
       .filter((entitlement) => entitlement.content_type === 'service')
-      .map((entitlement) => entitlement.content_id)
-      .filter((program): program is ServiceProgram => (
-        program === 'self_serve'
-        || program === 'guided_3m'
-        || program === 'guided_6m'
-        || program === 'full_implementation'
-      )),
-  }));
+      .map((entitlement) => entitlement.content_id);
+    const programs: ServiceProgram[] = serviceIds.includes('*')
+      ? ['self_serve', 'guided_3m', 'guided_6m', 'full_implementation']
+      : serviceIds.filter((program): program is ServiceProgram => (
+          program === 'self_serve'
+          || program === 'guided_3m'
+          || program === 'guided_6m'
+          || program === 'full_implementation'
+        ));
+
+    return programs.length > 0 ? [{ product, programs }] : [];
+  });
 } catch {
   // The marketing page remains available if the product catalog is temporarily unavailable.
   serviceProducts = [];

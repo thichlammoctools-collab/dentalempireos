@@ -3,14 +3,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listSurveyDefinitions, type SurveyDefinition } from '../lib/survey-config-db';
 import { listApps, type App } from '../lib/app-db';
-import { listProducts, getScannerProductMapping } from '../lib/payos-db';
+import { getActiveProducts, type Product } from '../lib/payos-db';
+import { listProductEntitlements } from '../lib/entitlement-db';
 
 export const prerender = false;
 
 let scanners: Awaited<ReturnType<typeof listSurveyDefinitions>> = [];
 let apps: Awaited<ReturnType<typeof listApps>> = [];
-let activeProducts: Awaited<ReturnType<typeof listProducts>> = [];
-let scannerProductMap = new Map<string, string>();
+let activeProducts: Product[] = [];
+let productEntitlements = new Map<string, Awaited<ReturnType<typeof listProductEntitlements>>>();
 
 try {
   scanners = await listSurveyDefinitions(env.DB, { status: 'active' });
@@ -25,29 +26,32 @@ try {
 }
 
 try {
-  const [products, scannerMap] = await Promise.all([
-    listProducts(env.DB),
-    getScannerProductMapping(env.DB),
-  ]);
-  activeProducts = products.filter((product) => product.is_active === 1);
-  scannerProductMap = scannerMap;
+  activeProducts = await getActiveProducts(env.DB);
+  const entries = await Promise.all(activeProducts.map(async (product) => [
+    product.id,
+    await listProductEntitlements(env.DB, product.id),
+  ] as const));
+  productEntitlements = new Map(entries);
 } catch {
   activeProducts = [];
-  scannerProductMap = new Map();
+  productEntitlements = new Map();
 }
 
-const appProductMap = new Map(
-  activeProducts
-    .filter((product) => product.app_id)
-    .map((product) => [product.app_id as string, product]),
-);
+function getEntitlementProduct(contentType: 'scanner' | 'ai_app', contentId: string): Product | null {
+  return activeProducts
+    .filter((product) => productEntitlements.get(product.id)?.some(
+      (entitlement) => entitlement.content_type === contentType
+        && (entitlement.content_id === contentId || entitlement.content_id === '*'),
+    ))
+    .sort((a, b) => a.price - b.price)[0] ?? null;
+}
 
-const isScannerFree = (scanner: SurveyDefinition) => scanner.is_free === 1;
 const getScannerProduct = (scanner: SurveyDefinition) => {
-  const productId = scannerProductMap.get(scanner.id);
-  return activeProducts.find((product) => product.id === productId) ?? null;
+  return getEntitlementProduct('scanner', scanner.id);
 };
-const isAppFree = (app: App) => app.is_free === 1;
+const getAppProduct = (app: App) => getEntitlementProduct('ai_app', app.id);
+const isScannerFree = (scanner: SurveyDefinition) => !getScannerProduct(scanner);
+const isAppFree = (app: App) => !getAppProduct(app);
 
 const typeColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
   mini:       { bg: 'bg-blue-50 dark:bg-blue-500/10',   border: 'border-blue-200 dark:border-blue-500/30',   text: 'text-blue-700 dark:text-blue-300',   icon: 'flash_on' },
@@ -246,7 +250,7 @@ const appGroups = [
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.items.map((app) => {
               const color = appTypeColors[app.type] ?? { bg: 'bg-gray-50 dark:bg-gray-500/10', border: 'border-gray-200 dark:border-gray-500/30', text: 'text-gray-700 dark:text-gray-300' };
-              const product = appProductMap.get(app.id);
+              const product = getAppProduct(app);
               const isFree = isAppFree(app);
               return (
                 <a

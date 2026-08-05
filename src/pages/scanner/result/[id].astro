@@ -19,6 +19,8 @@ import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 import { getClinicProfile } from '../../../lib/clinic-profile-db';
 import { canAccessScanner } from '../../../lib/entitlement-check';
+import { getActiveProducts } from '../../../lib/payos-db';
+import { listProductEntitlements } from '../../../lib/entitlement-db';
 
 export const prerender = false;
 
@@ -137,26 +139,23 @@ if (definition.chapter_refs) {
   } catch { /* ignore */ }
 }
 
-// Resolve linked product (for paywall)
+// Resolve the lowest-priced active product that grants this scanner entitlement.
 let linkedProduct: { id: string; name: string; price: number } | null = null;
 try {
-  // Product mappings are the source of truth: packs may unlock many scanners.
-  linkedProduct = await env.DB
-    .prepare(
-      `SELECT p.id, p.name, p.price
-       FROM "product" p
-       INNER JOIN "product_scanner" ps ON ps."product_id" = p.id
-       WHERE ps."scanner_id" = ? AND p."is_active" = 1
-       ORDER BY p."price" ASC
-       LIMIT 1`,
-    )
-    .bind(definition.id)
-    .first<{ id: string; name: string; price: number }>();
+  const products = await getActiveProducts(env.DB);
+  const productsWithEntitlements = await Promise.all(products.map(async (product) => ({
+    product,
+    entitlements: await listProductEntitlements(env.DB, product.id),
+  })));
+  linkedProduct = productsWithEntitlements
+    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && (entitlement.content_id === definition.id || entitlement.content_id === '*')))
+    .map(({ product }) => product)
+    .sort((a, b) => a.price - b.price)[0] ?? null;
 } catch {
   // ignore
 }
 
-const productId = linkedProduct?.id ?? `survey-${definition.id}`;
+const productId = linkedProduct?.id ?? '';
 const isPaidScanner = definition.is_free !== 1;
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
@@ -531,10 +530,14 @@ try {
               <span class="paywall-amount">{priceFormatted}</span>
               <span class="paywall-currency">VND</span>
             </div>
-            <button id="btn-unlock" class="btn btn-primary paywall-btn">
-              <span class="material-symbols-outlined text-base">lock_open</span>
-              {lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}
-            </button>
+            {linkedProduct ? (
+              <button id="btn-unlock" class="btn btn-primary paywall-btn">
+                <span class="material-symbols-outlined text-base">lock_open</span>
+                {lang === 'vi' ? 'Mở khóa ngay' : 'Unlock now'}
+              </button>
+            ) : (
+              <p class="paywall-note">{lang === 'vi' ? 'Scanner này chưa có sản phẩm mở khóa.' : 'This scanner does not have an unlock product yet.'}</p>
+            )}
             <p class="paywall-note">
               {lang === 'vi' ? 'Thanh toán qua PayOS • Truy cập vĩnh viễn' : 'Pay via PayOS • Lifetime access'}
             </p>
@@ -1464,7 +1467,7 @@ try {
   }
 
   btnUnlock?.addEventListener('click', async () => {
-    if (!btnUnlock) return;
+    if (!btnUnlock || !productId) return;
     btnUnlock.innerHTML = `<span>${lang === 'vi' ? 'Đang chuyển...' : 'Redirecting...'}</span>`;
     btnUnlock.setAttribute('disabled', 'true');
 

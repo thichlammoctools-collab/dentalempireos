@@ -2,17 +2,33 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listSurveyDefinitions } from '../../lib/survey-config-db';
-import { getScannerProductMapping } from '../../lib/payos-db';
+import { getActiveProducts, type Product } from '../../lib/payos-db';
+import { listProductEntitlements } from '../../lib/entitlement-db';
 
 export const prerender = false;
 
 let scanners: Awaited<ReturnType<typeof listSurveyDefinitions>> = [];
-let scannerProductMap = new Map<string, string>();
+let scannerProductMap = new Map<string, Product>();
 try {
-  [scanners, scannerProductMap] = await Promise.all([
+  const [surveyDefinitions, products] = await Promise.all([
     listSurveyDefinitions(env.DB, { status: 'active' }),
-    getScannerProductMapping(env.DB),
+    getActiveProducts(env.DB),
   ]);
+  scanners = surveyDefinitions;
+  const productsWithEntitlements = await Promise.all(products.map(async (product) => ({
+    product,
+    entitlements: await listProductEntitlements(env.DB, product.id),
+  })));
+  for (const { product, entitlements } of productsWithEntitlements) {
+    for (const entitlement of entitlements.filter((item) => item.content_type === 'scanner')) {
+      if (entitlement.content_id !== '*') scannerProductMap.set(entitlement.content_id, product);
+    }
+  }
+  for (const { product, entitlements } of productsWithEntitlements) {
+    if (entitlements.some((item) => item.content_type === 'scanner' && item.content_id === '*')) {
+      for (const scanner of scanners) if (!scannerProductMap.has(scanner.id)) scannerProductMap.set(scanner.id, product);
+    }
+  }
 } catch {
   scanners = [];
 }

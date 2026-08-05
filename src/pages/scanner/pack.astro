@@ -1,19 +1,39 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
+import { getActiveProducts, type Product } from '../../lib/payos-db';
+import { listProductEntitlements } from '../../lib/entitlement-db';
 
 export const prerender = false;
 
 let scanners: Array<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }> = [];
 let scannerProductIds = new Set<string>();
+let scannerPackProduct: Product | null = null;
 try {
-  const [surveyResult, productResult] = await Promise.all([
+  const [surveyResult, products] = await Promise.all([
     env.DB.prepare('SELECT id, slug, title_vi, chapter_refs FROM "survey_definition" WHERE status = \'active\' ORDER BY order_index ASC').all<{ id: string; slug: string; title_vi: string; chapter_refs: string | null }>(),
-    env.DB.prepare('SELECT ps."scanner_id" FROM "product_scanner" ps INNER JOIN "product" p ON p."id" = ps."product_id" WHERE p."is_active" = 1').all<{ scanner_id: string }>(),
+    getActiveProducts(env.DB),
   ]);
   const results = surveyResult.results;
   scanners = results ?? [];
-  scannerProductIds = new Set((productResult.results ?? []).map((row) => row.scanner_id));
+  const productsWithEntitlements = await Promise.all(products.map(async (product) => ({
+    product,
+    entitlements: await listProductEntitlements(env.DB, product.id),
+  })));
+  scannerPackProduct = productsWithEntitlements
+    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === '*'))
+    .map(({ product }) => product)
+    .sort((a, b) => a.price - b.price)[0] ?? null;
+  for (const { entitlements } of productsWithEntitlements) {
+    for (const entitlement of entitlements) {
+      if (entitlement.content_type !== 'scanner') continue;
+      if (entitlement.content_id === '*') {
+        scanners.forEach((scanner) => scannerProductIds.add(scanner.id));
+      } else {
+        scannerProductIds.add(entitlement.content_id);
+      }
+    }
+  }
 } catch {
   scanners = [];
 }
@@ -73,7 +93,7 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
       <!-- Price -->
       <div class="my-8">
         <div class="inline-flex items-baseline gap-1">
-          <span class="text-5xl font-black text-white">499K</span>
+          <span class="text-5xl font-black text-white">{scannerPackProduct ? `${Math.round(scannerPackProduct.price / 1000)}K` : '499K'}</span>
           <span class="text-xl text-on-surface-variant">/ lần</span>
         </div>
         <p class="text-xs text-emerald-400 mt-2">Tiết kiệm 95% so với mua lẻ từng scanner</p>
@@ -130,12 +150,18 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
       </div>
 
       <!-- CTA -->
-      <button
-        id="buy-pack-btn"
-        class="w-full sm:w-auto px-10 py-4 rounded-2xl bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-4"
-      >
-        Mua Scanner Pack — 499.000đ
-      </button>
+      {scannerPackProduct ? (
+        <button
+          id="buy-pack-btn"
+          data-product-id={scannerPackProduct.id}
+          data-product-name={scannerPackProduct.name}
+          class="w-full sm:w-auto px-10 py-4 rounded-2xl bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-4"
+        >
+          Mua {scannerPackProduct.name} — {scannerPackProduct.price.toLocaleString('vi-VN')}đ
+        </button>
+      ) : (
+        <p class="mb-4 text-sm text-amber-400">Gói Scanner hiện chưa mở bán.</p>
+      )}
       <p class="text-xs text-on-surface-variant/60">Thanh toán qua PayOS · Mua 1 lần dùng mãi mãi</p>
 
       <!-- Note -->
@@ -150,13 +176,16 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
   <script>
     document.getElementById('buy-pack-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('buy-pack-btn') as HTMLButtonElement;
+      const productId = btn?.dataset.productId;
+      const productName = btn?.dataset.productName ?? 'Scanner Pack';
+      if (!btn || !productId) return;
       btn.disabled = true;
       btn.textContent = 'Đang chuyển...';
       try {
         const res = await fetch('/api/payos/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: 'prod-scanner-pack' }),
+          body: JSON.stringify({ product_id: productId }),
         });
         const data = await res.json() as { checkoutUrl?: string; error?: string };
         if (data.checkoutUrl) {
@@ -164,12 +193,12 @@ const colorClasses: Record<string, { border: string; bg: string; text: string }>
         } else {
           alert(data.error ?? 'Có lỗi xảy ra');
           btn.disabled = false;
-          btn.textContent = 'Mua Scanner Pack — 499.000đ';
+          btn.textContent = `Mua ${productName}`;
         }
       } catch {
         alert('Có lỗi xảy ra');
         btn.disabled = false;
-        btn.textContent = 'Mua Scanner Pack — 499.000đ';
+        btn.textContent = `Mua ${productName}`;
       }
     });
   </script>

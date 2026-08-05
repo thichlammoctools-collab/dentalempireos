@@ -1,26 +1,30 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
+import { listProductEntitlements, type ProductEntitlement } from '../../lib/entitlement-db';
 
 export const prerender = false;
 
 const orderId = Astro.url.searchParams.get('order') || '';
 
 // Fetch order details to show which product was purchased
-let orderInfo: { product_name: string; product_id: string; product_type: string } | null = null;
+let orderInfo: { product_name: string; product_id: string; entitlements: ProductEntitlement[] } | null = null;
 if (orderId) {
   try {
     const result = await env.DB
       .prepare(
-        `SELECT p.name as product_name, p.type as product_type, o.product_id
+        `SELECT p.name as product_name, o.product_id
          FROM "order" o
          JOIN "product" p ON o.product_id = p.id
          WHERE o.id = ? LIMIT 1`
       )
       .bind(orderId)
-        .first<{ product_name: string; product_id: string; product_type: string }>();
+        .first<{ product_name: string; product_id: string }>();
     if (result) {
-      orderInfo = result;
+      orderInfo = {
+        ...result,
+        entitlements: await listProductEntitlements(env.DB, result.product_id),
+      };
     }
   } catch {
     // ignore
@@ -28,9 +32,10 @@ if (orderId) {
 }
 
 const productName = orderInfo?.product_name ?? 'nội dung của bạn';
-const bookUrl = orderInfo?.product_type === 'book_unlock'
-  ? '/book'
-  : null;
+const hasEntitlement = (contentType: ProductEntitlement['content_type']) =>
+  orderInfo?.entitlements.some((entitlement) => entitlement.content_type === contentType) ?? false;
+const bookUrl = hasEntitlement('book') ? '/book' : null;
+const scannerUrl = hasEntitlement('scanner') ? '/scanner' : null;
 ---
 
 <BaseLayout title="Kết quả thanh toán | Dental Empire OS" noindex={true}>
@@ -58,7 +63,7 @@ const bookUrl = orderInfo?.product_type === 'book_unlock'
           <a href="/" class="flex-1 px-6 py-2.5 btn-primary-metallic font-bold rounded-xl text-sm">
             Về trang chủ
           </a>
-          {orderInfo?.product_id === 'prod-scanner-pack' && (
+          {scannerUrl && (
             <a href="/scanner" class="flex-1 px-6 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all">
               <span class="material-symbols-outlined text-base">fact_check</span>
               Khám phá Scanner

@@ -2,7 +2,6 @@ import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
 import { hasActiveEntitlementForContent } from './entitlement-db';
-import { getActiveBookProduct, getActiveProducts, hasAccess, hasScannerAccess } from './payos-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
 
@@ -31,14 +30,7 @@ export async function canAccessBook(
   if (chapter.is_premium !== 1) return true;
   if (!userId) return false;
 
-  const [hasEntitlement, legacyBookProduct] = await Promise.all([
-    hasPaidAccess(db, userId, 'book', chapterId).catch(() => false),
-    getActiveBookProduct(db).catch(() => null),
-  ]);
-  if (hasEntitlement) return true;
-
-  // Keep existing book_unlock purchases valid while products transition to entitlements.
-  return !!legacyBookProduct && hasAccess(db, userId, legacyBookProduct.id);
+  return hasPaidAccess(db, userId, 'book', chapterId);
 }
 
 export async function canAccessAiApp(
@@ -51,17 +43,11 @@ export async function canAccessAiApp(
   if (app.is_free === 1) return true;
   if (!userId) return false;
 
-  const [hasAllAccess, hasContentAccess, products] = await Promise.all([
+  const [hasAllAccess, hasContentAccess] = await Promise.all([
     hasActiveEntitlementForContent(db, userId, 'ai_app', '*'),
     hasActiveEntitlementForContent(db, userId, 'ai_app', appId),
-    getActiveProducts(db),
   ]);
-  const legacyProducts = products.filter((product) => product.app_id === appId);
-  const hasLegacyAccess = (await Promise.all(
-    legacyProducts.map((product) => hasAccess(db, userId, product.id)),
-  )).some(Boolean);
-
-  return hasAllAccess || hasContentAccess || hasLegacyAccess;
+  return hasAllAccess || hasContentAccess;
 }
 
 export async function canAccessScanner(
@@ -74,13 +60,12 @@ export async function canAccessScanner(
   if (scanner.is_free === 1) return true;
   if (!userId) return false;
 
-  const [hasAllAccess, hasContentAccess, hasLegacyAccess] = await Promise.all([
+  const [hasAllAccess, hasContentAccess] = await Promise.all([
     hasActiveEntitlementForContent(db, userId, 'scanner', '*'),
     hasActiveEntitlementForContent(db, userId, 'scanner', scannerId),
-    hasScannerAccess(db, userId, scannerId),
   ]);
 
-  return hasAllAccess || hasContentAccess || hasLegacyAccess;
+  return hasAllAccess || hasContentAccess;
 }
 
 export async function canAccessCourse(

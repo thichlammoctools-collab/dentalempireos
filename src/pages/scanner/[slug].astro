@@ -4,7 +4,8 @@ import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
-import { getProduct, getScannerProduct } from '../../lib/payos-db';
+import { getActiveProducts, type Product } from '../../lib/payos-db';
+import { listProductEntitlements } from '../../lib/entitlement-db';
 import { canAccessScanner } from '../../lib/entitlement-check';
 import PaymentButton from '../../components/PaymentButton.astro';
 
@@ -40,12 +41,19 @@ const { definition, sections } = full;
 
 const hasPaidAccess = await canAccessScanner(env.DB, currentUser.id, definition.id);
 
-const scannerProductId = await getScannerProduct(env.DB, definition.id);
 const isPaidScanner = definition.is_free !== 1;
 const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
-const scannerProduct = scannerProductId
-  ? await getProduct(env.DB, scannerProductId)
-  : null;
+const scannerProducts = await getActiveProducts(env.DB).then(async (products) => {
+  const withEntitlements = await Promise.all(products.map(async (product) => ({
+    product,
+    entitlements: await listProductEntitlements(env.DB, product.id),
+  })));
+  return withEntitlements
+    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && (entitlement.content_id === definition.id || entitlement.content_id === '*')))
+    .map(({ product }) => product)
+    .sort((a, b) => a.price - b.price);
+});
+const scannerProduct: Product | null = scannerProducts[0] ?? null;
 const quotaExhausted = usage.remaining === 0;
 const scannerUnavailable = !hasPaidAccess || quotaExhausted;
 const scannerNotice = !hasPaidAccess
@@ -257,6 +265,8 @@ const defaultScaleEn: Record<string, string> = {
     margin: 0 auto;
     padding: 1rem 0 7rem;
   }
+  .survey-wrap *,
+  .sticky-nav * { box-sizing: border-box; }
   .scanner-quota-notice {
     display: flex;
     align-items: flex-start;
@@ -361,6 +371,7 @@ const defaultScaleEn: Record<string, string> = {
     font-weight: 600;
   }
   .card {
+    min-width: 0;
     background: var(--color-surface);
     border: 1px solid var(--color-outline-variant);
     border-radius: 1rem;
@@ -421,6 +432,7 @@ const defaultScaleEn: Record<string, string> = {
   .form-label .req { color: #ef4444; }
   .form-input {
     width: 100%;
+    min-width: 0;
     padding: 0.6rem 0.75rem;
      background: var(--color-surface-container-lowest);
      border: 1px solid var(--color-outline-variant);
@@ -434,6 +446,7 @@ const defaultScaleEn: Record<string, string> = {
    .form-input::placeholder { color: var(--color-outline); }
   .form-textarea {
     width: 100%;
+    min-width: 0;
     padding: 0.6rem 0.75rem;
      background: var(--color-surface-container-lowest);
      border: 1px solid var(--color-outline-variant);
@@ -492,7 +505,7 @@ const defaultScaleEn: Record<string, string> = {
     margin-bottom: 0.3rem;
   }
    .part-subtitle { font-size: 0.8rem; color: var(--color-on-surface-variant); line-height: 1.5; }
-  .question { margin-bottom: 1.25rem; }
+  .question { margin-bottom: 1.25rem; min-width: 0; }
   .question.anchor { border-left: 3px solid #f59e0b; padding-left: 1rem; }
   .anchor-badge {
     display: inline-block;
@@ -508,14 +521,23 @@ const defaultScaleEn: Record<string, string> = {
     margin-bottom: 0.6rem;
     line-height: 1.5;
   }
-  .scale-group { display: flex; flex-direction: column; gap: 0.4rem; }
-  .scale-option { display: block; cursor: pointer; }
+  .scale-group {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.45rem;
+    width: 100%;
+  }
+  .scale-option { display: block; min-width: 0; cursor: pointer; }
   .scale-option input { display: none; }
   .scale-option .scale-pill {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.4rem;
     padding: 0.6rem 0.85rem;
+    width: 100%;
+    height: 100%;
+    text-align: center;
      background: var(--color-surface-container-low);
      border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
@@ -529,21 +551,31 @@ const defaultScaleEn: Record<string, string> = {
     font-size: 0.85rem;
     font-weight: 700;
      color: var(--color-on-surface-variant);
-    min-width: 1.5rem;
+    min-width: 0;
   }
   .scale-option input:checked + .scale-pill .scale-num { color: #f59e0b; }
-   .scale-text { font-size: 0.8rem; color: var(--color-on-surface); }
+   .scale-text {
+     font-size: 0.8rem;
+     line-height: 1.3;
+     overflow-wrap: anywhere;
+     word-break: break-word;
+     color: var(--color-on-surface);
+   }
   .scale-option input:checked + .scale-pill .scale-text { color: #f59e0b; }
-  .radio-group { display: flex; flex-direction: column; gap: 0.4rem; }
-  .radio-option { display: block; cursor: pointer; }
+  .radio-group { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+  .radio-option { display: block; min-width: 0; cursor: pointer; }
   .radio-option input { display: none; }
   .radio-option .radio-label {
     display: block;
+    min-width: 0;
     padding: 0.6rem 0.85rem;
      background: var(--color-surface-container-low);
      border: 1px solid var(--color-outline-variant);
     border-radius: 0.5rem;
     font-size: 0.85rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
      color: var(--color-on-surface);
     transition: all 0.15s;
   }
@@ -619,6 +651,7 @@ const defaultScaleEn: Record<string, string> = {
   .nav-buttons {
     display: flex;
     gap: 0.75rem;
+    min-width: 0;
     margin-top: 1.5rem;
     padding-top: 1rem;
     padding-bottom: 0.5rem;
@@ -644,8 +677,16 @@ const defaultScaleEn: Record<string, string> = {
   @media (max-width: 640px) {
     .survey-wrap { padding: 0.75rem 0 6rem; }
     .card { padding: 1rem; }
-    .scale-pill { padding: 0.5rem 0.65rem; }
-    .scale-text { font-size: 0.7rem; }
+     .scale-group { gap: 0.3rem; }
+     .scale-pill { gap: 0.3rem; padding: 0.5rem 0.35rem; }
+     .scale-num { font-size: 0.8rem; }
+     .scale-text { font-size: 0.66rem; }
+     .nav-buttons { gap: 0.5rem; }
+     .nav-buttons .btn { flex: 1 1 0; min-width: 0; padding: 0.65rem 0.55rem; }
+     .sticky-nav-inner { gap: 0.4rem; }
+     .sticky-btn-back,
+     .sticky-btn-next { min-width: 0; padding: 0.65rem 0.5rem; font-size: 0.78rem; }
+     #sticky-step-label { font-size: 0.6rem; }
   }
 </style>
 
