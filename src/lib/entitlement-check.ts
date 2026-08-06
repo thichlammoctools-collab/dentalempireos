@@ -27,7 +27,7 @@ export async function hasActiveScannerProduct(
        INNER JOIN "product_entitlement" pe ON pe."product_id" = p."id"
        WHERE p."is_active" = 1
          AND pe."content_type" = 'scanner'
-         AND pe."content_id" IN (?, '*')
+         AND pe."content_id" = ?
        LIMIT 1`,
     )
     .bind(scannerId)
@@ -76,9 +76,10 @@ export async function canAccessScanner(
 ): Promise<boolean> {
   const scanner = await getSurveyDefinitionById(db, scannerId);
   if (!scanner || scanner.status !== 'active') return false;
-  // Free scanners remain free even when an admin has linked them to a product.
-  // Authentication and the usage quota are enforced by the scanner flow.
-  if (scanner.is_free === 1) return true;
+  const hasConfiguredProduct = await hasActiveScannerProduct(db, scannerId);
+  // A Scanner's access tier is determined by whether it has a retail product.
+  // The is_free flag is legacy metadata and does not override product setup.
+  if (!hasConfiguredProduct) return true;
   if (!userId) return false;
 
   const [hasAllAccess, hasContentAccess] = await Promise.all([

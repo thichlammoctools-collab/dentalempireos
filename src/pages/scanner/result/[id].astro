@@ -18,7 +18,7 @@ import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../lib/user-db';
 import { getClinicProfile } from '../../../lib/clinic-profile-db';
-import { canAccessScanner } from '../../../lib/entitlement-check';
+import { canAccessScanner, hasActiveScannerProduct } from '../../../lib/entitlement-check';
 import { getActiveProducts } from '../../../lib/payos-db';
 import { listProductEntitlements } from '../../../lib/entitlement-db';
 
@@ -156,7 +156,7 @@ try {
 }
 
 const productId = linkedProduct?.id ?? '';
-const isPaidScanner = definition.is_free !== 1;
+const isPaidScanner = await hasActiveScannerProduct(env.DB, definition.id);
 const priceFormatted = linkedProduct
   ? new Intl.NumberFormat('vi-VN').format(linkedProduct.price)
   : '0';

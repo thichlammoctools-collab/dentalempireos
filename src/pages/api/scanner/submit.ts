@@ -20,7 +20,7 @@ import {
 import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
-import { canAccessScanner } from '../../../lib/entitlement-check';
+import { canAccessScanner, hasActiveScannerProduct } from '../../../lib/entitlement-check';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -72,7 +72,7 @@ export const POST: APIRoute = async (ctx) => {
       upgrade_url: '/dich-vu',
     }, 402);
   }
-  const isPaidScanner = def.is_free !== 1;
+  const isPaidScanner = await hasActiveScannerProduct(env.DB, surveyId);
   const usage = await getScannerUsage(env.DB, session.user.id, surveyId, !isPaidScanner);
   console.log('[scanner/submit] usage:', usage);
   if (usage.remaining <= 0) {

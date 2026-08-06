@@ -6,7 +6,7 @@ import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
 import { getActiveProducts, type Product } from '../../lib/payos-db';
 import { listProductEntitlements } from '../../lib/entitlement-db';
-import { canAccessScanner } from '../../lib/entitlement-check';
+import { canAccessScanner, hasActiveScannerProduct } from '../../lib/entitlement-check';
 import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
@@ -41,9 +41,10 @@ const { definition, sections } = full;
 
 const hasPaidAccess = await canAccessScanner(env.DB, currentUser.id, definition.id);
 
-const isPaidScanner = definition.is_free !== 1;
+const hasConfiguredProduct = await hasActiveScannerProduct(env.DB, definition.id);
+const isPaidScanner = hasConfiguredProduct;
 const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
-const scannerProducts = isPaidScanner ? await getActiveProducts(env.DB).then(async (products) => {
+const scannerProducts = hasConfiguredProduct ? await getActiveProducts(env.DB).then(async (products) => {
   const withEntitlements = await Promise.all(products.map(async (product) => ({
     product,
     entitlements: await listProductEntitlements(env.DB, product.id),

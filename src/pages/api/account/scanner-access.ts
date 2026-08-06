@@ -32,14 +32,14 @@ export const GET: APIRoute = async ({ locals }) => {
 
   const items = await Promise.all(
     surveys.map(async (s) => {
-       const product = s.is_free === 1 ? null : getScannerProduct(s.id);
+       const product = getScannerProduct(s.id);
       const has_access = await canAccessScanner(env.DB, locals.user!.id, s.id).catch(() => false);
 
       return {
         id: s.id,
         slug: s.slug,
         title: s.title_vi,
-        is_free: s.is_free === 1,
+        is_free: !product,
         has_access,
         price: product?.price ?? null,
         product_id: product?.id ?? null,

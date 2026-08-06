@@ -56,8 +56,8 @@ for (const { product, entitlements } of productsWithEntitlements) {
   }
 }
 
-const freeScanners = scanners.filter((scanner) => scanner.is_free === 1);
-const paidScanners = scanners.filter((scanner) => scanner.is_free !== 1);
+const freeScanners = scanners.filter((scanner) => !scannerProducts.has(scanner.id));
+const paidScanners = scanners.filter((scanner) => scannerProducts.has(scanner.id));
 ---
 
 <BaseLayout
