@@ -4,8 +4,6 @@ import { json, badRequest, notFound } from '../../../../lib/api-helpers';
 import { getProduct, upsertProduct, deleteProduct } from '../../../../lib/payos-db';
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
-  getDefaultProductEntitlements,
-  hasSameEntitlements,
   isEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
@@ -13,8 +11,6 @@ import {
 } from '../../../../lib/product-entitlement-presets';
 
 export const prerender = false;
-
-const PRODUCT_TYPES = new Set(['access_package']);
 
 function parseEntitlementUpdate(body: Record<string, unknown>) {
   const hasPreset = Object.prototype.hasOwnProperty.call(body, 'entitlement_preset');
@@ -37,6 +33,7 @@ function parseEntitlementUpdate(body: Record<string, unknown>) {
     parsedEntitlements,
   );
   if (!resolvedEntitlements) return { error: 'preset entitlements are defined by the server' };
+  if (resolvedEntitlements.length === 0) return { error: 'Ít nhất một quyền lợi là bắt buộc' };
   return { present: true as const, entitlements: resolvedEntitlements };
 }
 
@@ -97,7 +94,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     await upsertProduct(env.DB, {
       id,
       name: updates.name ?? existing.name,
-      type: existing.type,
+      type: 'access_package',
       price: updates.price ?? existing.price,
       description: updates.description ?? existing.description ?? undefined,
       duration_days: existing.duration_days,
@@ -106,39 +103,9 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       is_active: updates.is_active ?? existing.is_active,
     });
   }
-  const productReferenceId = updates.reference_id !== undefined
-    ? updates.reference_id
-    : existing.reference_id;
-  const productAppId = updates.app_id !== undefined ? updates.app_id : existing.app_id;
-  const existingEntitlements = await listProductEntitlements(env.DB, id);
-  const previousDefaults = getDefaultProductEntitlements(
-    existing.type,
-    existing.reference_id,
-    existing.app_id,
-  );
-  const defaultEntitlements = getDefaultProductEntitlements(
-    existing.type,
-    productReferenceId,
-    productAppId,
-  );
   const entitlements = entitlementUpdate.present
-    ? await replaceProductEntitlements(
-      env.DB,
-      id,
-      entitlementUpdate.entitlements.length
-        ? (hasSameEntitlements(entitlementUpdate.entitlements, previousDefaults)
-          && (updates.reference_id !== undefined || updates.app_id !== undefined)
-          ? defaultEntitlements
-          : entitlementUpdate.entitlements)
-        : defaultEntitlements,
-    )
-    : existingEntitlements.length > 0
-      ? existingEntitlements
-      : await replaceProductEntitlements(
-        env.DB,
-        id,
-        getDefaultProductEntitlements(existing.type, productReferenceId, productAppId),
-      );
+    ? await replaceProductEntitlements(env.DB, id, entitlementUpdate.entitlements)
+    : await listProductEntitlements(env.DB, id);
 
   return json({ success: true, entitlements });
 };
@@ -154,9 +121,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON body');
 
-  const { name, type, price, description, duration_days, reference_id, app_id, is_active } = body;
+  const { name, price, description, duration_days, reference_id, app_id, is_active } = body;
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) return badRequest('name must be a non-empty string');
-  if (type !== undefined && typeof type !== 'string') return badRequest('type must be a string');
   if (price !== undefined && (typeof price !== 'number' || !Number.isFinite(price) || price < 0)) return badRequest('price must be >= 0');
   if (description !== undefined && typeof description !== 'string') return badRequest('description must be a string');
   if (duration_days !== undefined && duration_days !== null && (typeof duration_days !== 'number' || !Number.isInteger(duration_days) || duration_days < 0)) {
@@ -168,28 +134,29 @@ export const PUT: APIRoute = async ({ params, request }) => {
   if (app_id !== undefined && app_id !== null && typeof app_id !== 'string') return badRequest('app_id must be a string or null');
   if (is_active !== undefined && is_active !== 0 && is_active !== 1) return badRequest('is_active must be 0 or 1');
 
-  const resolvedType = (type as string | undefined) ?? existing.type;
   const resolvedReferenceId = reference_id === undefined
     ? existing.reference_id
     : typeof reference_id === 'string'
       ? reference_id.trim() || null
       : null;
 
-  if (!PRODUCT_TYPES.has(resolvedType)) return badRequest('Loại sản phẩm không hợp lệ');
   const entitlementUpdate = parseEntitlementUpdate(body);
   if ('error' in entitlementUpdate && typeof entitlementUpdate.error === 'string') {
     return badRequest(entitlementUpdate.error);
   }
   const resolvedDurationDays = duration_days === undefined ? existing.duration_days : duration_days as number | null;
-  if (entitlementUpdate.present
-    && entitlementUpdate.entitlements.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
+  const currentEntitlements = await listProductEntitlements(env.DB, id);
+  const finalEntitlements = entitlementUpdate.present
+    ? entitlementUpdate.entitlements
+    : currentEntitlements;
+  if (finalEntitlements.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
     && (!resolvedDurationDays || resolvedDurationDays < 1)) {
     return badRequest('Gói đăng ký Blog phải có thời hạn lớn hơn 0 ngày');
   }
   await upsertProduct(env.DB, {
     id,
     name: typeof name === 'string' ? name.trim() : existing.name,
-    type: resolvedType,
+    type: 'access_package',
     price: (price as number | undefined) ?? existing.price,
     description: typeof description === 'string' ? description.trim() : existing.description ?? undefined,
     duration_days: resolvedDurationDays,
@@ -197,40 +164,9 @@ export const PUT: APIRoute = async ({ params, request }) => {
     app_id: app_id === undefined ? existing.app_id : typeof app_id === 'string' ? app_id.trim() || null : null,
     is_active: is_active ?? existing.is_active,
   });
-  const resolvedAppId = app_id === undefined
-    ? existing.app_id
-    : typeof app_id === 'string'
-      ? app_id.trim() || null
-      : null;
-  const existingEntitlements = await listProductEntitlements(env.DB, id);
-  const previousDefaults = getDefaultProductEntitlements(
-    existing.type,
-    existing.reference_id,
-    existing.app_id,
-  );
-  const defaultEntitlements = getDefaultProductEntitlements(
-    resolvedType,
-    resolvedReferenceId,
-    resolvedAppId,
-  );
   const entitlements = entitlementUpdate.present
-    ? await replaceProductEntitlements(
-      env.DB,
-      id,
-      entitlementUpdate.entitlements.length
-        ? (hasSameEntitlements(entitlementUpdate.entitlements, previousDefaults)
-          && (reference_id !== undefined || app_id !== undefined || type !== undefined)
-          ? defaultEntitlements
-          : entitlementUpdate.entitlements)
-        : defaultEntitlements,
-    )
-    : existingEntitlements.length > 0
-      ? existingEntitlements
-      : await replaceProductEntitlements(
-        env.DB,
-        id,
-        getDefaultProductEntitlements(resolvedType, resolvedReferenceId, resolvedAppId),
-      );
+    ? await replaceProductEntitlements(env.DB, id, finalEntitlements)
+    : currentEntitlements;
 
   return json({ id, updated: true, entitlements });
 };

@@ -4,15 +4,12 @@ import { json, badRequest, slugify } from '../../../../lib/api-helpers';
 import { listProducts, upsertProduct } from '../../../../lib/payos-db';
 import { listProductEntitlements, replaceProductEntitlements } from '../../../../lib/entitlement-db';
 import {
-  getDefaultProductEntitlements,
   isEntitlementPreset,
   parseEntitlements,
   resolveEntitlements,
 } from '../../../../lib/product-entitlement-presets';
 
 export const prerender = false;
-
-const PRODUCT_TYPES = new Set(['access_package']);
 
 // GET /api/admin/products — list all products
 export const GET: APIRoute = async () => {
@@ -28,9 +25,8 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON body');
 
-  const { name, type, price, description, duration_days, reference_id, app_id, is_active, entitlement_preset, entitlements } = body as {
+  const { name, price, description, duration_days, reference_id, app_id, is_active, entitlement_preset, entitlements } = body as {
     name?: string;
-    type?: string;
     price?: number;
     description?: string;
     duration_days?: number | null;
@@ -42,9 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
   };
 
   if (typeof name !== 'string' || !name.trim()) return badRequest('name is required');
-  if (typeof type !== 'string') return badRequest('type is required');
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return badRequest('price must be >= 0');
-  if (!PRODUCT_TYPES.has(type)) return badRequest('Loại sản phẩm không hợp lệ');
   if (description !== undefined && typeof description !== 'string') return badRequest('description must be a string');
   if (duration_days !== undefined && duration_days !== null && (!Number.isInteger(duration_days) || duration_days < 0)) {
     return badRequest('duration_days must be a non-negative integer or null');
@@ -65,6 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const resolvedEntitlements = resolveEntitlements(entitlement_preset, parsedEntitlements);
   if (resolvedEntitlements === null) return badRequest('Invalid entitlement mapping');
+  if (!resolvedEntitlements?.length) return badRequest('Ít nhất một quyền lợi là bắt buộc');
   if (resolvedEntitlements?.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
     && (!duration_days || duration_days < 1)) {
     return badRequest('Gói đăng ký Blog phải có thời hạn lớn hơn 0 ngày');
@@ -73,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
   await upsertProduct(env.DB, {
     id,
     name: name.trim(),
-    type,
+    type: 'access_package',
     price,
     description: description?.trim(),
     duration_days,
@@ -81,15 +76,7 @@ export const POST: APIRoute = async ({ request }) => {
     app_id: app_id?.trim() || null,
     is_active,
   });
-  const defaultEntitlements = getDefaultProductEntitlements(
-    type,
-    normalizedReferenceId,
-    app_id?.trim() || null,
-  );
-  const finalEntitlements = resolvedEntitlements?.length
-    ? resolvedEntitlements
-    : defaultEntitlements;
-  await replaceProductEntitlements(env.DB, id, finalEntitlements);
+  await replaceProductEntitlements(env.DB, id, resolvedEntitlements);
 
-  return json({ id, entitlements: finalEntitlements }, 201);
+  return json({ id, entitlements: resolvedEntitlements }, 201);
 };

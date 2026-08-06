@@ -26,17 +26,6 @@ const productEntitlementMap = Object.fromEntries(await Promise.all(
 ));
 
 const activeCount = products.filter((p) => p.is_active === 1).length;
-const typeLabels: Record<string, string> = {
-  access_package: 'Gói truy cập',
-  course_unlock: 'Mở khóa khóa học',
-  document_unlock: 'Mở khóa tài liệu',
-  booking: 'Booking tư vấn',
-  event_ticket: 'Vé sự kiện',
-  survey_unlock: 'Mở khóa khảo sát AI',
-  book_unlock: 'Mở khóa các chương trả phí',
-  service_program: 'Gói dịch vụ',
-};
-
 const entitlementTypeLabels: Record<string, string> = {
   book: 'Sách',
   ai_app: 'AI app',
@@ -139,7 +128,6 @@ const newId = nanoid();
       </div>
       <form id="product-form" class="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-6">
         <input type="hidden" name="id" id="form-id" value={newId} />
-        <input type="hidden" name="type" value="access_package" />
         <div class="lg:col-span-2">
           <label class="block text-sm font-semibold text-on-surface-variant mb-2">Tên gói dịch vụ <span class="text-red-400">*</span></label>
           <input type="text" name="name" required
@@ -198,12 +186,13 @@ const newId = nanoid();
             <div id="scanner-picker" class="hidden mt-3">
              <p class="mb-2 text-xs text-on-surface-variant">Chọn Scanner được mở khóa trong sản phẩm này:</p>
              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-               {scanners.map((scanner) => (
+                {scanners.map((scanner) => (
                  <label class="scanner-option flex items-center gap-2 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-sm text-on-surface cursor-pointer hover:border-primary/60">
                    <input type="checkbox" value={scanner.id} class="scanner-checkbox h-4 w-4 rounded accent-primary" />
                    <span>{scanner.title_vi}</span>
                  </label>
-               ))}
+                ))}
+              </div>
             </div>
             <div id="resource-picker" class="hidden mt-3">
               <p class="mb-2 text-xs text-on-surface-variant">Chọn tài liệu được mở khóa trong sản phẩm này:</p>
@@ -227,7 +216,6 @@ const newId = nanoid();
                 ))}
               </div>
             </div>
-           </div>
           <button type="button" id="add-entitlement" class="mt-2 text-xs font-semibold text-primary hover:underline">
             + Thêm quyền lợi
           </button>
@@ -286,7 +274,6 @@ const newId = nanoid();
         <thead class="bg-surface-container-low/25">
           <tr class="border-b border-outline-variant/20 text-[11px] uppercase tracking-wider text-on-surface-variant">
             <th class="text-left px-5 py-3 font-semibold">Sản phẩm</th>
-            <th class="text-left px-4 py-3 font-semibold">Loại</th>
             <th class="text-left px-4 py-3 font-semibold">Quyền lợi</th>
             <th class="text-right px-4 py-3 font-semibold">Giá</th>
             <th class="text-center px-4 py-3 font-semibold">Thời hạn</th>
@@ -297,7 +284,7 @@ const newId = nanoid();
         <tbody>
           {products.length === 0 ? (
             <tr>
-              <td colspan="7" class="px-4 py-8 text-center text-on-surface-variant">
+              <td colspan="6" class="px-4 py-8 text-center text-on-surface-variant">
                 Chưa có gói dịch vụ nào. Nhấn "Tạo gói dịch vụ" để bắt đầu.
               </td>
             </tr>
@@ -307,7 +294,6 @@ const newId = nanoid();
                 <p class="font-semibold text-on-surface">{p.name}</p>
                 {p.description && <p class="mt-1 max-w-[240px] truncate text-xs text-on-surface-variant" title={p.description}>{p.description}</p>}
               </td>
-              <td class="px-4 py-3 text-on-surface-variant">{typeLabels[p.type] ?? p.type}</td>
               <td class="px-4 py-3 text-on-surface-variant text-xs">
                 {productEntitlementMap[p.id]?.length ? (
                   <div class="flex flex-wrap gap-1">
@@ -336,12 +322,9 @@ const newId = nanoid();
                   title="Sửa sản phẩm"
                   data-id={p.id}
                   data-name={p.name}
-                  data-type={p.type}
-                  data-price={p.price}
-                  data-description={p.description ?? ''}
+                   data-price={p.price}
+                   data-description={p.description ?? ''}
                    data-duration_days={p.duration_days ?? ''}
-                   data-reference_id={p.reference_id ?? ''}
-                   data-app_id={p.app_id ?? ''}
                    data-entitlements={JSON.stringify(productEntitlementMap[p.id] ?? [])}
                   data-is_active={p.is_active}
                 >
@@ -363,7 +346,7 @@ const newId = nanoid();
     </div>
   </div>
 
-  <script define:vars={{ typeLabels, entitlementPresets, scanners }}>
+  <script define:vars={{ entitlementPresets, scanners }}>
     const modal = document.getElementById('new-product-modal');
     const closeBtn = document.getElementById('modal-close');
     const newBtn = document.getElementById('btn-new-product');
@@ -380,7 +363,6 @@ const newId = nanoid();
     const coursePicker = document.getElementById('course-picker');
     const addEntitlementBtn = document.getElementById('add-entitlement');
     const productSearch = document.getElementById('product-search');
-    const typeSelect = form?.querySelector('[name="type"]');
 
     let editingId = null;
 
@@ -600,29 +582,13 @@ const newId = nanoid();
 
     entitlementPreset?.addEventListener('change', () => {
       const selected = entitlementPreset.value;
-      if (selected === 'scanner_custom') {
-        entitlementRows?.classList.add('hidden');
-        scannerPicker?.classList.remove('hidden');
-        setSelectedScanners([]);
-        resourcePicker?.classList.add('hidden');
-      } else if (selected === 'resource_custom') {
-        entitlementRows?.classList.add('hidden');
-        scannerPicker?.classList.add('hidden');
-        resourcePicker?.classList.remove('hidden');
-        setSelectedResources([]);
-        coursePicker?.classList.add('hidden');
-      } else if (selected === 'course_custom') {
-        entitlementRows?.classList.add('hidden');
-        scannerPicker?.classList.add('hidden');
-        resourcePicker?.classList.add('hidden');
-        coursePicker?.classList.remove('hidden');
-        setSelectedCourses([]);
-      } else {
+      if (selected === 'scanner_custom') setSelectedScanners([]);
+      if (selected === 'resource_custom') setSelectedResources([]);
+      if (selected === 'course_custom') setSelectedCourses([]);
+      if (!['scanner_custom', 'resource_custom', 'course_custom'].includes(selected)) {
         renderEntitlementRows(entitlementPresets[selected] || []);
-        scannerPicker?.classList.add('hidden');
-        resourcePicker?.classList.add('hidden');
-        coursePicker?.classList.add('hidden');
       }
+      setPresetValue(selected);
     });
     addEntitlementBtn?.addEventListener('click', () => {
       markEntitlementsCustom();
@@ -656,13 +622,11 @@ const newId = nanoid();
         const b = btn;
         editingId = b.dataset.id;
         const nameInput = form?.querySelector('[name="name"]');
-        const typeInput = form?.querySelector('[name="type"]');
         const descInput = form?.querySelector('[name="description"]');
         const durInput = form?.querySelector('[name="duration_days"]');
         const activeInput = document.getElementById('is_active');
 
         if (nameInput) nameInput.value = b.dataset.name || '';
-        if (typeInput) typeInput.value = b.dataset.type || '';
         if (priceDisplay) priceDisplay.value = formatPrice(b.dataset.price || '');
         if (descInput) descInput.value = b.dataset.description || '';
         if (durInput) durInput.value = b.dataset.duration_days || '';
@@ -710,7 +674,7 @@ const newId = nanoid();
       });
     });
 
-    // Form submit (two-step: product save → scanner mapping save)
+    // Product details and all entitlements are submitted in one request.
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorEl?.classList.add('hidden');
@@ -738,18 +702,14 @@ const newId = nanoid();
        }
        const body = {
         name: data.get('name'),
-        type: data.get('type'),
         price: Number(data.get('price') || 0),
         description: String(data.get('description') ?? ''),
         duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
         reference_id: null,
         app_id: null,
         is_active: data.get('is_active') === 'on' ? 1 : 0,
-        ...(entitlementPreset !== 'custom'
-          ? { entitlement_preset: entitlementPreset }
-          : customEntitlements.length > 0
-            ? { entitlement_preset: entitlementPreset, entitlements: customEntitlements }
-            : {}),
+        entitlement_preset: entitlementPreset,
+        entitlements: customEntitlements,
       };
 
       submitBtn.disabled = true;

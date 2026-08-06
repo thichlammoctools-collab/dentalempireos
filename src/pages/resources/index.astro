@@ -33,17 +33,14 @@ try {
     product,
     entitlements: await listProductEntitlements(db, product.id),
   })));
-   resourcePackages = withEntitlements
-     .map(({ product, entitlements }) => {
-       const resourceEntitlements = entitlements.filter((item) => item.content_type === 'resource');
-       return {
-         product,
-         resourceIds: resourceEntitlements.filter((item) => item.content_id !== '*').map((item) => item.content_id),
-         includesAll: resourceEntitlements.some((item) => item.content_id === '*'),
-       };
-     })
-     .filter(({ includesAll, resourceIds }) => includesAll || resourceIds.length > 0)
-     .sort((a, b) => a.product.price - b.product.price);
+    resourcePackages = withEntitlements
+      .filter(({ entitlements }) => entitlements.length > 0 && entitlements.every((item) => item.content_type === 'resource'))
+      .map(({ product, entitlements }) => ({
+        product,
+        resourceIds: entitlements.filter((item) => item.content_id !== '*').map((item) => item.content_id),
+        includesAll: entitlements.some((item) => item.content_id === '*'),
+      }))
+      .sort((a, b) => a.product.price - b.product.price);
 } catch {
   resourcePackages = [];
 }
