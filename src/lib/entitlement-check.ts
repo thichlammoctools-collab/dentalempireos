@@ -76,8 +76,9 @@ export async function canAccessScanner(
 ): Promise<boolean> {
   const scanner = await getSurveyDefinitionById(db, scannerId);
   if (!scanner || scanner.status !== 'active') return false;
-  const hasConfiguredProduct = await hasActiveScannerProduct(db, scannerId);
-  if (scanner.is_free === 1 && !hasConfiguredProduct) return true;
+  // Free scanners remain free even when an admin has linked them to a product.
+  // Authentication and the usage quota are enforced by the scanner flow.
+  if (scanner.is_free === 1) return true;
   if (!userId) return false;
 
   const [hasAllAccess, hasContentAccess] = await Promise.all([
