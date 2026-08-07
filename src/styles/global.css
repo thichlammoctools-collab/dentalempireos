@@ -1,4 +1,4 @@
-@import "tailwindcss";
+ể @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 /* Self-host Be Vietnam Pro via @fontsource (replaces Google Fonts CDN).
@@ -232,7 +232,9 @@
   html:not(.dark) .site-theme h5.text-white,
   html:not(.dark) .site-theme h6.text-white,
   html:not(.dark) .site-theme p.text-white,
+  html:not(.dark) .site-theme span.text-white,
   html:not(.dark) .site-theme strong.text-white,
+  html:not(.dark) .site-theme dd.text-white,
   html:not(.dark) .site-theme input.text-white,
   html:not(.dark) .site-theme textarea.text-white,
   html:not(.dark) .site-theme select.text-white {

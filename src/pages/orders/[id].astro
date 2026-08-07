@@ -18,10 +18,10 @@ if (!order) {
 }
 
 const statusConfig: Record<string, { label: string; className: string; icon: string }> = {
-  pending: { label: 'Chờ thanh toán', className: 'bg-amber-400/15 text-amber-300', icon: 'schedule' },
-  paid: { label: 'Đã thanh toán', className: 'bg-emerald-400/15 text-emerald-300', icon: 'check_circle' },
-  cancelled: { label: 'Đã hủy', className: 'bg-rose-400/15 text-rose-300', icon: 'cancel' },
-  expired: { label: 'Hết hạn', className: 'bg-white/10 text-on-surface-variant', icon: 'timer_off' },
+  pending: { label: 'Chờ thanh toán', className: 'bg-amber-400/15 text-amber-600 dark:text-amber-300', icon: 'schedule' },
+  paid: { label: 'Đã thanh toán', className: 'bg-emerald-400/15 text-emerald-600 dark:text-emerald-300', icon: 'check_circle' },
+  cancelled: { label: 'Đã hủy', className: 'bg-rose-400/15 text-rose-600 dark:text-rose-300', icon: 'cancel' },
+  expired: { label: 'Hết hạn', className: 'bg-on-surface/10 text-on-surface-variant', icon: 'timer_off' },
 };
 
 const st = statusConfig[order.status] ?? statusConfig.pending;
@@ -47,7 +47,7 @@ const hasEntitlement = (contentType: string) =>
           <span class="material-symbols-outlined text-2xl">{st.icon}</span>
         </div>
         <div>
-          <h1 class="text-xl font-bold text-white">{st.label}</h1>
+          <h1 class="text-xl font-bold text-on-surface">{st.label}</h1>
           <p class="text-sm text-on-surface-variant">
             {new Date(order.created_at).toLocaleString('vi-VN')}
           </p>
@@ -57,7 +57,7 @@ const hasEntitlement = (contentType: string) =>
       <!-- Order details -->
       <div class="glass-card rounded-2xl border border-outline-variant/20 overflow-hidden">
         <div class="p-5 border-b border-outline-variant/15">
-          <h2 class="font-bold text-white">{order.product_name}</h2>
+          <h2 class="font-bold text-on-surface">{order.product_name}</h2>
           <p class="mt-1 text-xs text-on-surface-variant">
             {isManual ? 'Chuyển khoản ngân hàng' : 'Thanh toán tự động PayOS'}
           </p>
@@ -66,7 +66,7 @@ const hasEntitlement = (contentType: string) =>
         <dl class="divide-y divide-outline-variant/15 text-sm">
           <div class="p-4 flex justify-between gap-4">
             <dt class="text-on-surface-variant">Mã đơn hàng</dt>
-            <dd class="font-mono text-xs text-white">{order.id}</dd>
+            <dd class="font-mono text-xs text-on-surface">{order.id}</dd>
           </div>
           <div class="p-4 flex justify-between gap-4">
             <dt class="text-on-surface-variant">Số tiền</dt>
@@ -102,15 +102,15 @@ const hasEntitlement = (contentType: string) =>
 
       {order.status === 'paid' && (
         <div class="mt-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-          <p class="text-sm text-emerald-300 font-medium">Đơn hàng đã được xác nhận. Bạn có thể truy cập nội dung ngay.</p>
+          <p class="text-sm text-emerald-600 dark:text-emerald-300 font-medium">Đơn hàng đã được xác nhận. Bạn có thể truy cập nội dung ngay.</p>
           <div class="mt-3 flex flex-col sm:flex-row gap-2">
             {hasEntitlement('scanner') && (
-              <a href="/scanner" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
+              <a href="/scanner" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
                 Khám phá Scanner
               </a>
             )}
             {hasEntitlement('book') && (
-              <a href="/book" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
+              <a href="/book" class="flex-1 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl text-sm text-center transition-all">
                 Đọc tài liệu
               </a>
             )}
@@ -120,7 +120,7 @@ const hasEntitlement = (contentType: string) =>
 
       {order.status === 'cancelled' && (
         <div class="mt-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-          <p class="text-sm text-rose-300">Đơn hàng đã bị hủy. Vui lòng tạo đơn mới nếu muốn tiếp tục.</p>
+          <p class="text-sm text-rose-600 dark:text-rose-300">Đơn hàng đã bị hủy. Vui lòng tạo đơn mới nếu muốn tiếp tục.</p>
         </div>
       )}
     </div>
