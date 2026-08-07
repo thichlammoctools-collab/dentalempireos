@@ -468,6 +468,10 @@ export async function hasAccess(
   return !!row;
 }
 
+export interface OrderWithScanners extends OrderWithProduct {
+  scanner_names: string[];
+}
+
 export async function listUserOrders(db: D1Database, userId: string): Promise<OrderWithProduct[]> {
   const { results } = await db
     .prepare(
@@ -480,6 +484,42 @@ export async function listUserOrders(db: D1Database, userId: string): Promise<Or
     .bind(userId)
     .all<OrderWithProduct>();
   return results;
+}
+
+/** List user orders with the scanner names attached to each product. */
+export async function listUserOrdersWithScanners(
+  db: D1Database,
+  userId: string,
+): Promise<OrderWithScanners[]> {
+  const orders = await listUserOrders(db, userId);
+  if (orders.length === 0) return orders as OrderWithScanners[];
+
+  const productIds = [...new Set(orders.map((o) => o.product_id))];
+  const placeholders = productIds.map(() => '?').join(',');
+  const { results: scannerRows } = await db
+    .prepare(
+      `SELECT pe."product_id", d."name" AS "scanner_name"
+       FROM "product_entitlement" pe
+       INNER JOIN "survey_definition" d
+         ON pe."content_id" = d."id" OR pe."content_id" = '*'
+       WHERE pe."content_type" = 'scanner'
+         AND pe."product_id" IN (${placeholders})
+       ORDER BY d."name" ASC`,
+    )
+    .bind(...productIds)
+    .all<{ product_id: string; scanner_name: string }>();
+
+  const byProduct = new Map<string, string[]>();
+  for (const row of scannerRows) {
+    const list = byProduct.get(row.product_id) ?? [];
+    if (!list.includes(row.scanner_name)) list.push(row.scanner_name);
+    byProduct.set(row.product_id, list);
+  }
+
+  return orders.map((order) => ({
+    ...order,
+    scanner_names: byProduct.get(order.product_id) ?? [],
+  }));
 }
 
 export async function listManualOrders(db: D1Database): Promise<OrderWithProduct[]> {

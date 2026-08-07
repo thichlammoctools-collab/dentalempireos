@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import { listSurveyDefinitions } from '../../lib/survey-config-db';
 import { getActiveProducts, type Product } from '../../lib/payos-db';
 import { listProductEntitlements } from '../../lib/entitlement-db';
+import { canAccessScanner } from '../../lib/entitlement-check';
 import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
@@ -58,6 +59,14 @@ for (const { product, entitlements } of productsWithEntitlements) {
 
 const freeScanners = scanners.filter((scanner) => !scannerProducts.has(scanner.id));
 const paidScanners = scanners.filter((scanner) => scannerProducts.has(scanner.id));
+const currentUser = Astro.locals.user;
+const openedScannerIds = new Set(
+  currentUser
+    ? (await Promise.all(paidScanners.map(async (scanner) => (
+      (await canAccessScanner(env.DB, currentUser.id, scanner.id)) ? scanner.id : null
+    )))).filter((scannerId): scannerId is string => scannerId !== null)
+    : [],
+);
 ---
 
 <BaseLayout
@@ -156,6 +165,7 @@ const paidScanners = scanners.filter((scanner) => scannerProducts.has(scanner.id
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
            {paidScanners.map((s) => {
              const product = scannerProducts.get(s.id);
+             const isOpened = openedScannerIds.has(s.id);
              return (
          <div
            class="glass-card rounded-2xl p-6 border border-outline-variant/20 hover:border-primary/50 transition-all hover:-translate-y-0.5 group"
@@ -164,9 +174,12 @@ const paidScanners = scanners.filter((scanner) => scannerProducts.has(scanner.id
             <span class={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold border ${typeColors[s.survey_type] ?? 'bg-gray-500/20 text-gray-300 border-gray-500/30'}`}>
               {typeLabels[s.survey_type] ?? s.survey_type}
             </span>
-            <span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-400" title="Scanner này cần quyền truy cập từ một gói dịch vụ">
-              <span class="material-symbols-outlined text-[14px]">lock</span>
-              Cần mở khóa
+             <span class:list={[
+               'inline-flex items-center gap-1 text-xs font-semibold',
+               isOpened ? 'text-green-400' : 'text-amber-400',
+             ]} title={isOpened ? 'Bạn đã mở Scanner này' : 'Scanner này cần quyền truy cập từ một gói dịch vụ'}>
+               <span class="material-symbols-outlined text-[14px]">{isOpened ? 'verified' : 'lock'}</span>
+               {isOpened ? 'Đã mở' : 'Cần mở khóa'}
             </span>
           </div>
           <h3 class="text-xl font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">
@@ -181,12 +194,20 @@ const paidScanners = scanners.filter((scanner) => scannerProducts.has(scanner.id
              )}
              <a href={`/scanner/${s.slug}`} class="text-xs text-primary font-semibold hover:underline">Xem Scanner</a>
            </div>
-           {product && (
-             <div class="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/15 pt-4">
-               <span class="text-lg font-bold text-on-surface">{product.price.toLocaleString('vi-VN')}₫</span>
-               <PaymentButton productId={product.id} productName={product.name} price={product.price} class="!w-auto px-5" />
-             </div>
-           )}
+            {product && !isOpened && (
+              <div class="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/15 pt-4">
+                <span class="text-lg font-bold text-on-surface">{product.price.toLocaleString('vi-VN')}₫</span>
+                <PaymentButton productId={product.id} productName={product.name} price={product.price} class="!w-auto px-5" />
+              </div>
+            )}
+            {isOpened && (
+              <div class="mt-4 border-t border-outline-variant/15 pt-4">
+                <a href={`/scanner/${s.slug}`} class="inline-flex items-center gap-1 text-sm font-semibold text-green-400 hover:underline">
+                  <span class="material-symbols-outlined text-base">play_arrow</span>
+                  Bắt đầu Scanner
+                </a>
+              </div>
+            )}
          </div>
              );
            })}
