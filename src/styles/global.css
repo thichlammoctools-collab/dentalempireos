@@ -1,4 +1,4 @@
-ể @import "tailwindcss";
+@import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 /* Self-host Be Vietnam Pro via @fontsource (replaces Google Fonts CDN).

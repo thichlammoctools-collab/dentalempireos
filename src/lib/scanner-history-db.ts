@@ -93,14 +93,19 @@ export async function getPurchasedPaidScanners(
               3 AS "limit"
        FROM "access" a
        INNER JOIN "product" p ON p."id" = a."product_id"
-        INNER JOIN "product_entitlement" pe
-          ON pe."product_id" = a."product_id" AND pe."content_type" = 'scanner'
-        INNER JOIN "survey_definition" d ON d."id" = pe."content_id" OR pe."content_id" = '*'
+       INNER JOIN "product_entitlement" pe
+         ON pe."product_id" = a."product_id" AND pe."content_type" = 'scanner'
+       INNER JOIN "survey_definition" d
+         ON d."id" = CASE
+           WHEN a."selected_scanner_id" IS NOT NULL THEN a."selected_scanner_id"
+           ELSE pe."content_id"
+         END
+         OR (a."selected_scanner_id" IS NULL AND pe."content_id" = '*')
        LEFT JOIN "order" o ON o."id" = a."order_id"
        LEFT JOIN "scanner_history" h ON h."user_id" = a."user_id"
          AND h."survey_id" = d."id"
          AND substr(h."created_at", 1, 7) = ?
-        WHERE a."user_id" = ? AND a."is_active" = 1
+       WHERE a."user_id" = ? AND a."is_active" = 1
          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        GROUP BY d."id", d."title_vi", d."slug"
        ORDER BY "purchased_at" DESC, d."title_vi" ASC`,

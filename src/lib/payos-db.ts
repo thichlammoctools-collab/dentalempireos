@@ -619,6 +619,7 @@ export async function hasAccess(
 
 export interface OrderWithScanners extends OrderWithProduct {
   scanner_names: string[];
+  scanner_links: Array<{ name: string; href: string }>;
 }
 
 export async function listUserOrders(db: D1Database, userId: string): Promise<OrderWithProduct[]> {
@@ -646,14 +647,16 @@ export async function listUserOrdersWithScanners(
   const selectedScannerIds = [...new Set(
     orders.flatMap((order) => order.selected_scanner_id ? [order.selected_scanner_id] : []),
   )];
-  const selectedNames = new Map<string, string>();
+  const selectedScanners = new Map<string, { name: string; href: string }>();
   if (selectedScannerIds.length > 0) {
     const placeholders = selectedScannerIds.map(() => '?').join(',');
     const { results } = await db
-      .prepare(`SELECT "id", "title_vi" FROM "survey_definition" WHERE "id" IN (${placeholders})`)
+      .prepare(`SELECT "id", "title_vi", "slug" FROM "survey_definition" WHERE "id" IN (${placeholders})`)
       .bind(...selectedScannerIds)
-      .all<{ id: string; title_vi: string }>();
-    for (const scanner of results) selectedNames.set(scanner.id, scanner.title_vi);
+      .all<{ id: string; title_vi: string; slug: string }>();
+    for (const scanner of results) {
+      selectedScanners.set(scanner.id, { name: scanner.title_vi, href: `/scanner/${scanner.slug}` });
+    }
   }
 
   // Orders created before Scanner selections were tracked keep the previous
@@ -661,35 +664,44 @@ export async function listUserOrdersWithScanners(
   const legacyProductIds = [...new Set(
     orders.flatMap((order) => order.selected_scanner_id ? [] : [order.product_id]),
   )];
-  const scannerRows: Array<{ product_id: string; scanner_name: string }> = [];
+  const scannerRows: Array<{ product_id: string; scanner_name: string; scanner_href: string }> = [];
   if (legacyProductIds.length > 0) {
     const placeholders = legacyProductIds.map(() => '?').join(',');
     const { results } = await db
       .prepare(
-        `SELECT pe."product_id", CASE WHEN pe."content_id" = '*' THEN 'Toàn bộ Scanner' ELSE d."title_vi" END AS "scanner_name"
+        `SELECT pe."product_id",
+                CASE WHEN pe."content_id" = '*' THEN 'Toàn bộ Scanner' ELSE d."title_vi" END AS "scanner_name",
+                CASE WHEN pe."content_id" = '*' THEN '/scanner' ELSE '/scanner/' || d."slug" END AS "scanner_href"
          FROM "product_entitlement" pe
          LEFT JOIN "survey_definition" d ON pe."content_id" = d."id"
          WHERE pe."content_type" = 'scanner' AND pe."product_id" IN (${placeholders})
          ORDER BY d."title_vi" ASC`,
       )
       .bind(...legacyProductIds)
-      .all<{ product_id: string; scanner_name: string }>();
+      .all<{ product_id: string; scanner_name: string; scanner_href: string }>();
     scannerRows.push(...results.filter((row) => Boolean(row.scanner_name)));
   }
 
-  const byProduct = new Map<string, string[]>();
+  const byProduct = new Map<string, Array<{ name: string; href: string }>>();
   for (const row of scannerRows) {
     const list = byProduct.get(row.product_id) ?? [];
-    if (!list.includes(row.scanner_name)) list.push(row.scanner_name);
+    if (!list.some((item) => item.href === row.scanner_href)) {
+      list.push({ name: row.scanner_name, href: row.scanner_href });
+    }
     byProduct.set(row.product_id, list);
   }
 
-  return orders.map((order) => ({
-    ...order,
-    scanner_names: order.selected_scanner_id
-      ? [selectedNames.get(order.selected_scanner_id) ?? 'Scanner đã chọn']
-      : byProduct.get(order.product_id) ?? [],
-  }));
+  return orders.map((order) => {
+    const scannerLinks = order.selected_scanner_id
+      ? [selectedScanners.get(order.selected_scanner_id) ?? { name: 'Scanner đã chọn', href: '/scanner' }]
+      : byProduct.get(order.product_id) ?? [];
+
+    return {
+      ...order,
+      scanner_names: scannerLinks.map((scanner) => scanner.name),
+      scanner_links: scannerLinks,
+    };
+  });
 }
 
 export async function listManualOrders(db: D1Database): Promise<OrderWithProduct[]> {
