@@ -16,16 +16,16 @@
 
 @theme {
   /* === Material Design 3 Color System === */
-  --color-background: #121317;
-  --color-surface: #121317;
-  --color-surface-dim: #121317;
-  --color-surface-container: #1e1f23;
-  --color-surface-container-low: #1a1b1f;
-  --color-surface-container-lowest: #0d0e12;
-  --color-surface-container-high: #292a2e;
-  --color-surface-container-highest: #343539;
-  --color-surface-bright: #38393d;
-  --color-surface-variant: #343539;
+  --color-background: #0a1622;
+  --color-surface: #0a1622;
+  --color-surface-dim: #0a1622;
+  --color-surface-container: #14273a;
+  --color-surface-container-low: #0f1f30;
+  --color-surface-container-lowest: #060d16;
+  --color-surface-container-high: #1d3247;
+  --color-surface-container-highest: #263d54;
+  --color-surface-bright: #2e4760;
+  --color-surface-variant: #263d54;
 
   --color-primary: #92ccff;
   --color-primary-container: #2b98dd;
@@ -142,16 +142,16 @@
 }
 
 .dark {
-  --color-background: #121317;
-  --color-surface: #121317;
-  --color-surface-dim: #121317;
-  --color-surface-container: #1e1f23;
-  --color-surface-container-low: #1a1b1f;
-  --color-surface-container-lowest: #0d0e12;
-  --color-surface-container-high: #292a2e;
-  --color-surface-container-highest: #343539;
-  --color-surface-bright: #38393d;
-  --color-surface-variant: #343539;
+  --color-background: #0a1622;
+  --color-surface: #0a1622;
+  --color-surface-dim: #0a1622;
+  --color-surface-container: #14273a;
+  --color-surface-container-low: #0f1f30;
+  --color-surface-container-lowest: #060d16;
+  --color-surface-container-high: #1d3247;
+  --color-surface-container-highest: #263d54;
+  --color-surface-bright: #2e4760;
+  --color-surface-variant: #263d54;
 
   --color-primary: #92ccff;
   --color-primary-container: #2b98dd;
@@ -918,12 +918,12 @@ h4.section-heading {
 }
 
 /* Links inside reader */
-.reader-content a {
+.reader-content a:not(.btn-primary-metallic):not([class*="bg-"]) {
   color: var(--reader-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.reader-content a:hover {
+.reader-content a:not(.btn-primary-metallic):not([class*="bg-"]):hover {
   color: color-mix(in srgb, var(--reader-accent) 78%, var(--reader-text));
 }
 
