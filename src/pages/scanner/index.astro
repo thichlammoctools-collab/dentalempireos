@@ -50,9 +50,14 @@ const scannerProducts = new Map<string, Product>();
 for (const { product, entitlements } of productsWithEntitlements) {
   for (const entitlement of entitlements) {
     if (entitlement.content_type !== 'scanner') continue;
-    if (entitlement.content_id !== '*' && scanners.some((scanner) => scanner.id === entitlement.content_id)) {
-      const current = scannerProducts.get(entitlement.content_id);
-      if (!current || product.price < current.price) scannerProducts.set(entitlement.content_id, product);
+    const entitlementScannerIds = entitlement.content_id === '*'
+      ? scanners.map((scanner) => scanner.id)
+      : scanners.some((scanner) => scanner.id === entitlement.content_id)
+        ? [entitlement.content_id]
+        : [];
+    for (const scannerId of entitlementScannerIds) {
+      const current = scannerProducts.get(scannerId);
+      if (!current || product.price < current.price) scannerProducts.set(scannerId, product);
     }
   }
 }

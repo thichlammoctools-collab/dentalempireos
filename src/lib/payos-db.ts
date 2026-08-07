@@ -498,13 +498,13 @@ export async function listUserOrdersWithScanners(
   const placeholders = productIds.map(() => '?').join(',');
   const { results: scannerRows } = await db
     .prepare(
-      `SELECT pe."product_id", d."name" AS "scanner_name"
+       `SELECT pe."product_id", CASE WHEN pe."content_id" = '*' THEN 'Toàn bộ Scanner' ELSE d."title_vi" END AS "scanner_name"
        FROM "product_entitlement" pe
-       INNER JOIN "survey_definition" d
-         ON pe."content_id" = d."id" OR pe."content_id" = '*'
+       LEFT JOIN "survey_definition" d
+         ON pe."content_id" = d."id"
        WHERE pe."content_type" = 'scanner'
          AND pe."product_id" IN (${placeholders})
-       ORDER BY d."name" ASC`,
+        ORDER BY d."title_vi" ASC`,
     )
     .bind(...productIds)
     .all<{ product_id: string; scanner_name: string }>();
