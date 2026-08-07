@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { verifySignature } from '../../../lib/payos';
 import {
   getOrderByCode,
-  updateOrderStatus,
+  markOrderPaidIfPending,
   fulfillPaidOrder,
   logWebhook,
   getPayosSettings,
@@ -95,9 +95,8 @@ export const POST: APIRoute = async ({ request }) => {
   const isSuccess = data.status === 'PAID' || body.code === '00';
 
   if (isSuccess) {
-    await updateOrderStatus(env.DB, order.id, 'paid');
-
     await fulfillPaidOrder(env.DB, order);
+    await markOrderPaidIfPending(env.DB, order.id);
   } else {
     await updateOrderStatus(env.DB, order.id, 'cancelled');
   }

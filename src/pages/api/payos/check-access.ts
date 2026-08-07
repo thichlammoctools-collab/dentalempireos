@@ -7,7 +7,7 @@ import {
   getPayosSettings,
   fulfillPaidOrder,
   getOrder,
-  updateOrderStatus,
+  markOrderPaidIfPending,
 } from '../../../lib/payos-db';
 import { getPaymentInfo } from '../../../lib/payos';
 
@@ -34,8 +34,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           if (creds.PAYOS_CLIENT_ID && creds.PAYOS_API_KEY && creds.PAYOS_CHECKSUM_KEY) {
             const payment = await getPaymentInfo(creds, order.payment_link_id);
             if (payment.status === 'PAID') {
-              await updateOrderStatus(env.DB, order.id, 'paid');
               await fulfillPaidOrder(env.DB, order);
+              await markOrderPaidIfPending(env.DB, order.id);
               return json({ status: 'paid', product_id: order.product_id });
             }
           }

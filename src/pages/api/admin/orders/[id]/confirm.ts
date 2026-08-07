@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { badRequest, json } from '../../../../../lib/api-helpers';
-import { fulfillPaidOrder, getOrder, getProduct, updateOrderStatus } from '../../../../../lib/payos-db';
+import { fulfillPaidOrder, getOrder, getProduct, markOrderPaidIfPending } from '../../../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ params }) => {
   const product = await getProduct(env.DB, order.product_id);
   if (!product) return json({ error: 'Không tìm thấy sản phẩm của đơn hàng' }, 404);
 
-  await updateOrderStatus(env.DB, order.id, 'paid');
   await fulfillPaidOrder(env.DB, order);
+  await markOrderPaidIfPending(env.DB, order.id);
   return json({ ok: true });
 };

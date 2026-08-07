@@ -489,6 +489,22 @@ export async function grantProductAccess(
 }
 
 /**
+ * Claim a pending order for fulfillment. Only the caller that changes its
+ * status may grant access, preventing concurrent webhook/return-page handlers
+ * from both changing package access.
+ */
+export async function markOrderPaidIfPending(
+  db: D1Database,
+  orderId: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare(`UPDATE "order" SET "status" = 'paid', "paid_at" = ? WHERE "id" = ? AND "status" = 'pending'`)
+    .bind(now(), orderId)
+    .run();
+  return result.meta.changes === 1;
+}
+
+/**
  * Grant everything a paid order entitles, including upgrade conversion.
  *
  * The new package is always granted before the credited one is deactivated, so
@@ -514,8 +530,11 @@ export async function fulfillPaidOrder(db: D1Database, order: Order): Promise<Ac
   if (!isUpgrade) return access;
 
   await db
-    .prepare('UPDATE "access" SET "is_active" = 0 WHERE "id" = ? AND "user_id" = ?')
-    .bind(order.upgrade_from_access_id, order.user_id)
+    .prepare(
+      `UPDATE "access" SET "is_active" = 0
+       WHERE "id" = ? AND "user_id" = ? AND "product_id" = ? AND "is_active" = 1`,
+    )
+    .bind(order.upgrade_from_access_id, order.user_id, order.upgrade_from_product_id)
     .run();
 
   await db
@@ -562,9 +581,10 @@ async function grantUpgradedAccess(db: D1Database, order: Order): Promise<Access
   await db
     .prepare(
       `UPDATE "access" SET "is_active" = 0
-       WHERE "user_id" = ? AND "product_id" = ? AND "selected_scanner_id" IS NULL AND "is_active" = 1`,
+       WHERE "user_id" = ? AND "product_id" = ? AND "selected_scanner_id" IS NULL
+         AND "is_active" = 1 AND "order_id" <> ?`,
     )
-    .bind(order.user_id, order.product_id)
+    .bind(order.user_id, order.product_id, order.id)
     .run();
 
   await db

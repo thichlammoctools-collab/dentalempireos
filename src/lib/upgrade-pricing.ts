@@ -18,6 +18,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type UpgradeIneligibleReason =
   | 'no_active_package'
   | 'already_owned'
+  | 'upgrade_pending'
   | 'product_unavailable'
   | 'product_not_upgradable'
   | 'no_upgrade_path';
@@ -25,6 +26,7 @@ export type UpgradeIneligibleReason =
 export const UPGRADE_INELIGIBLE_MESSAGES: Record<UpgradeIneligibleReason, string> = {
   no_active_package: 'Bạn chưa có gói nào đang hiệu lực để nâng cấp.',
   already_owned: 'Bạn đang sử dụng gói này.',
+  upgrade_pending: 'Bạn đang có một đơn nâng cấp chờ thanh toán cho gói này.',
   product_unavailable: 'Sản phẩm không tồn tại hoặc đã ngừng bán.',
   product_not_upgradable: 'Gói này không hỗ trợ nâng cấp.',
   no_upgrade_path: 'Gói hiện tại của bạn không thể nâng cấp lên gói này.',
@@ -105,6 +107,7 @@ export function coversEntitlements(
 interface UpgradeCandidate {
   access: Access;
   product: Product;
+  hasPendingUpgrade: boolean;
 }
 
 /**
@@ -117,7 +120,13 @@ async function listUpgradeCandidates(
 ): Promise<UpgradeCandidate[]> {
   const { results } = await db
     .prepare(
-      `SELECT a."id" AS "access_id", a."expires_at", p.*
+      `SELECT a."id" AS "access_id", a."expires_at", p.*,
+              EXISTS (
+                SELECT 1 FROM "order" o
+                WHERE o."user_id" = a."user_id"
+                  AND o."upgrade_from_access_id" = a."id"
+                  AND o."status" = 'pending'
+              ) AS "has_pending_upgrade"
        FROM "access" a
        INNER JOIN "product" p ON p."id" = a."product_id"
        WHERE a."user_id" = ?
@@ -130,13 +139,14 @@ async function listUpgradeCandidates(
        ORDER BY a."granted_at" DESC`,
     )
     .bind(userId, new Date().toISOString())
-    .all<Product & { access_id: string; expires_at: string }>();
+    .all<Product & { access_id: string; expires_at: string; has_pending_upgrade: number }>();
 
   return results.map((row) => {
-    const { access_id, expires_at, ...product } = row;
+    const { access_id, expires_at, has_pending_upgrade, ...product } = row;
     return {
       access: { id: access_id, expires_at } as Access,
       product: product as Product,
+      hasPendingUpgrade: has_pending_upgrade === 1,
     };
   });
 }
@@ -173,6 +183,7 @@ export async function getUpgradeQuote(
 
   let best: { candidate: UpgradeCandidate; credit: number; days: number } | null = null;
   for (const candidate of scoped) {
+    if (candidate.hasPendingUpgrade) continue;
     const fromEntitlements = await listProductEntitlements(db, candidate.product.id);
     if (!coversEntitlements(fromEntitlements, toEntitlements)) continue;
 
@@ -187,7 +198,11 @@ export async function getUpgradeQuote(
     if (!best || credit > best.credit) best = { candidate, credit, days };
   }
 
-  if (!best) return reject('no_upgrade_path');
+  if (!best) {
+    return scoped.some((candidate) => candidate.hasPendingUpgrade)
+      ? reject('upgrade_pending')
+      : reject('no_upgrade_path');
+  }
 
   return {
     eligible: true,
