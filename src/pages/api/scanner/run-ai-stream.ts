@@ -130,7 +130,7 @@ export const POST: APIRoute = async (ctx) => {
         for (const t of types) {
           activeType = t;
           await setStatus(t, 'running');
-          sseEnqueue(controller, 'status', { status: 'retrieving', type: t, message: 'Đang tìm nội dung liên quan trong sách...' });
+          sseEnqueue(controller, 'status', { status: 'retrieving', type: t, message: 'Đang tìm nội dung liên quan trong tài liệu...' });
 
           let fullText = '';
 

@@ -248,7 +248,7 @@ export function buildWebsiteContext(chunks: WebsiteChunk[]): string {
   return chunks
     .map(c => {
       const heading = c.heading_path ?? '';
-      const typeLabel = c.content_type === 'book' ? 'Sách' : c.content_type === 'blog' ? 'Blog' : 'Tài nguyên';
+      const typeLabel = c.content_type === 'book' ? 'Tài liệu' : c.content_type === 'blog' ? 'Blog' : 'Tài nguyên';
       return `[${typeLabel}] ${c.title}${heading ? ' > ' + heading : ''}\n${stripMarkdown(c.text)}`.trim();
     })
     .join('\n\n---\n\n');

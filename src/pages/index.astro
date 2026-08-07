@@ -41,8 +41,8 @@ const paymentCopy = payosPaymentAvailable && manualPaymentAvailable
   : payosPaymentAvailable
     ? 'Thanh toán qua PayOS đang hoạt động; quyền truy cập được kích hoạt khi hệ thống nhận được xác nhận thanh toán thành công.'
     : manualPaymentAvailable
-      ? 'Thanh toán chuyển khoản đang hoạt động; quét QR đúng số tiền rồi nhắn Zalo để được xác nhận.'
-      : 'Thanh toán hiện chưa được cấu hình. Bạn vẫn có thể xem trước nội dung sách.';
+    ? 'Thanh toán chuyển khoản đang hoạt động; quét QR đúng số tiền rồi nhắn Zalo để được xác nhận.'
+      : 'Thanh toán hiện chưa được cấu hình. Bạn vẫn có thể xem trước nội dung tài liệu.';
 
 const tiers = [
   { number: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, icon: homepage.tier1_icon, stats: tier1Stats },
@@ -58,12 +58,12 @@ const testimonials = [
 
 const faqs = [
   {
-    question: 'Sách này phù hợp với ai?',
-    answer: 'Sách dành cho bác sĩ, chủ phòng khám và quản lý muốn nhìn hoạt động nha khoa như một hệ thống có thể đo lường, chuẩn hóa và cải tiến.',
+    question: 'Tài liệu này phù hợp với ai?',
+    answer: 'Tài liệu dành cho bác sĩ, chủ phòng khám và quản lý muốn nhìn hoạt động nha khoa như một hệ thống có thể đo lường, chuẩn hóa và cải tiến.',
   },
   {
-    question: 'Mua sách có được nhận kèm các mẫu tài liệu vận hành không?',
-    answer: 'Không. SOP, KPI dashboard, CRM tracker, financial report, marketing plan và hiring template là các tài nguyên riêng trên nền tảng; chúng không được đóng gói hoặc mở khóa cùng sách.',
+    question: 'Mua tài liệu có được nhận kèm các mẫu tài liệu vận hành không?',
+    answer: 'Không. SOP, KPI dashboard, CRM tracker, financial report, marketing plan và hiring template là các tài nguyên riêng trên nền tảng; chúng không được đóng gói hoặc mở khóa cùng tài liệu.',
   },
   {
     question: 'Tôi thanh toán bằng cách nào?',
@@ -71,11 +71,11 @@ const faqs = [
   },
   {
     question: 'Tôi có thể xem nội dung trước khi mua không?',
-    answer: 'Có. Bạn có thể vào mục Đọc sách để xem các nội dung được mở xem trước. Các phần cần quyền truy cập sẽ hiển thị theo trạng thái của sản phẩm.',
+    answer: 'Có. Bạn có thể vào mục Đọc tài liệu để xem các nội dung được mở xem trước. Các phần cần quyền truy cập sẽ hiển thị theo trạng thái của sản phẩm.',
   },
   {
-    question: 'Tôi có thể đọc sách trên điện thoại, máy tính bảng và máy tính không?',
-    answer: 'Có. Giao diện đọc sách được thiết kế responsive để sử dụng thuận tiện trên điện thoại, máy tính bảng và máy tính để bàn.',
+    question: 'Tôi có thể đọc tài liệu trên điện thoại, máy tính bảng và máy tính không?',
+    answer: 'Có. Giao diện đọc tài liệu được thiết kế responsive để sử dụng thuận tiện trên điện thoại, máy tính bảng và máy tính để bàn.',
   },
   {
     question: 'Sau khi thanh toán, quyền truy cập được kích hoạt như thế nào?',
@@ -256,7 +256,7 @@ const faqs = [
       </div>
       <div class="mt-8 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6">
         <h3 class="text-lg font-bold text-on-surface">Tài nguyên nền tảng là danh mục riêng</h3>
-        <p class="mt-2 max-w-4xl leading-relaxed text-on-surface-variant">SOP, KPI dashboard, CRM tracker, financial report, marketing plan và hiring template có trên nền tảng như các tài nguyên riêng. Chúng không được đóng gói hoặc mở khóa cùng sách.</p>
+        <p class="mt-2 max-w-4xl leading-relaxed text-on-surface-variant">SOP, KPI dashboard, CRM tracker, financial report, marketing plan và hiring template có trên nền tảng như các tài nguyên riêng. Chúng không được đóng gói hoặc mở khóa cùng tài liệu.</p>
         <a href="/resources" class="mt-4 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Xem tài nguyên <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
       </div>
     </div>

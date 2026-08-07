@@ -79,7 +79,7 @@ export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelco
 
               ${postRefLine}
 
-              <!-- Ebook CTA -->
+              <!-- Tài liệu CTA -->
               <table width="100%" cellpadding="0" cellspacing="0" style="margin: 28px 0; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid rgba(34,211,238,0.2); border-radius: 12px; padding: 24px;">
                 <tr>
                   <td>
@@ -87,14 +87,14 @@ export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelco
                       📘 Tài liệu miễn phí
                     </p>
                     <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #ffffff;">
-                      Dental Empire OS — Ebook
+                      Dental Empire OS — Tài liệu
                     </h2>
                     <p style="margin: 0 0 16px; font-size: 14px; color: #94a3b8; line-height: 1.5;">
                       Bộ sưu tập 32 chương đầy đủ về quản trị, vận hành, marketing, tài chính, và nhân sự phòng khám nha khoa.
                     </p>
                     <a href="${bookUrl}"
                        style="display: inline-block; background: linear-gradient(135deg, #0891b2, #22d3ee); color: #0a0a14; font-weight: 800; font-size: 14px; padding: 12px 28px; border-radius: 8px; text-decoration: none;">
-                      📖 Đọc Ebook miễn phí →
+                      📖 Đọc tài liệu miễn phí →
                     </a>
                   </td>
                 </tr>
@@ -145,7 +145,7 @@ export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelco
       from,
       to: email,
       subject: postTitle
-        ? `📖 "${postTitle}" — và Ebook miễn phí cho bạn!`
+        ? `📖 "${postTitle}" — và tài liệu miễn phí cho bạn!`
         : '🦷 Chào mừng đến Dental Empire OS!',
       html,
     });

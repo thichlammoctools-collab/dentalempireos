@@ -82,7 +82,7 @@
 
         <!-- Email capture -->
         <div class="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-          <p class="text-xs text-on-surface mb-2">📧 Để lại email, mình sẽ báo khi có ebook mới (miễn phí).</p>
+          <p class="text-xs text-on-surface mb-2">📧 Để lại email, mình sẽ báo khi có tài liệu mới (miễn phí).</p>
           <div class="flex gap-2">
             <input type="email" id="pwa-email-input" placeholder="email@gmail.com"
               class="flex-1 px-3 py-2 text-xs bg-surface-container border border-outline-variant/30 rounded-lg text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -147,7 +147,7 @@
 
         <!-- Email capture -->
         <div class="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-          <p class="text-xs text-on-surface mb-2">📧 Để lại email, mình sẽ báo khi có ebook mới (miễn phí).</p>
+          <p class="text-xs text-on-surface mb-2">📧 Để lại email, mình sẽ báo khi có tài liệu mới (miễn phí).</p>
           <div class="flex gap-2">
             <input type="email" id="pwa-email-input" placeholder="email@gmail.com"
               class="flex-1 px-3 py-2 text-xs bg-surface-container border border-outline-variant/30 rounded-lg text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -279,7 +279,7 @@
           body: JSON.stringify({ email }),
         });
       } catch (e) {}
-      emailMsg.textContent = '✅ Cảm ơn bạn! Mình sẽ báo khi có ebook mới.';
+      emailMsg.textContent = '✅ Cảm ơn bạn! Mình sẽ báo khi có tài liệu mới.';
       emailMsg.classList.remove('hidden', 'text-red-400');
       emailMsg.classList.add('text-green-400');
       (emailInput as HTMLInputElement).value = '';

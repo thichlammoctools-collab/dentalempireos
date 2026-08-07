@@ -66,7 +66,7 @@ function getEntitlement(p: typeof purchaseDetails[0], contentType: ProductEntitl
 
 function productLabel(p: typeof purchaseDetails[0]): { label: string; icon: string } {
   const labels: Record<string, { label: string; icon: string }> = {
-    book: { label: 'Sách', icon: 'menu_book' },
+    book: { label: 'Tài liệu', icon: 'menu_book' },
     ai_app: { label: 'Công cụ AI', icon: 'psychology' },
     scanner: { label: 'Scanner', icon: 'analytics' },
     course: { label: 'Khóa học', icon: 'school' },
@@ -433,13 +433,13 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
               <div class="text-center py-8">
                 <span class="material-symbols-outlined text-5xl text-on-surface-variant/20 block mb-3">question_answer</span>
                 <p class="text-sm text-on-surface-variant mb-1">Chưa có câu hỏi nào</p>
-                <p class="text-xs text-on-surface-variant/70 mb-4">Hãy đọc sách và nhấn nút "Hỏi Tác Giả" để đặt câu hỏi.</p>
+                <p class="text-xs text-on-surface-variant/70 mb-4">Hãy đọc tài liệu và nhấn nút "Hỏi Tác Giả" để đặt câu hỏi.</p>
                 <a
                   href="/book"
                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-xs hover:opacity-90 transition-all"
                 >
                   <span class="material-symbols-outlined text-sm">menu_book</span>
-                  Đọc sách
+                  Đọc tài liệu
                 </a>
               </div>
             ) : (

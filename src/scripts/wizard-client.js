@@ -125,7 +125,7 @@
     if (subtitle) {
       var subtitles = {
         survey: 'Cấu hình khảo sát: số section, chủ đề, và scoring',
-        ebook_ai: 'Cấu hình ebook: chủ đề, số chương, độ sâu',
+        ebook_ai: 'Cấu hình tài liệu: chủ đề, số chương, độ sâu',
         course_ai: 'Cấu hình khóa học: chủ đề, số bài, định dạng',
         tool: 'Cấu hình công cụ: mục đích, input, output',
         generator: 'Cấu hình generator: loại nội dung, tone, format'

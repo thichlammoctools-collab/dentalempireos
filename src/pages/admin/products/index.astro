@@ -27,7 +27,7 @@ const productEntitlementMap = Object.fromEntries(await Promise.all(
 
 const activeCount = products.filter((p) => p.is_active === 1).length;
 const entitlementTypeLabels: Record<string, string> = {
-  book: 'Sách',
+  book: 'Tài liệu',
   ai_app: 'AI app',
   scanner: 'Scanner',
   course: 'Khóa học',
@@ -56,7 +56,7 @@ const entitlementIdLabels: Record<string, string> = {
 
 function getEntitlementLabel(entitlement: { content_type: string; content_id: string }): string {
   if (entitlement.content_type === 'book' && entitlement.content_id === '*') {
-    return 'Sách: Các chương trả phí';
+    return 'Tài liệu: Các chương trả phí';
   }
   if (entitlement.content_type === 'resource' && entitlement.content_id === '*') {
     return 'Tài liệu: Tất cả';
@@ -373,7 +373,7 @@ const newId = nanoid();
       });
     });
     const entitlementTypes = [
-      ['book', 'Sách'],
+      ['book', 'Tài liệu'],
       ['ai_app', 'AI app'],
       ['scanner', 'Scanner'],
       ['course', 'Khóa học'],

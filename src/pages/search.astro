@@ -49,7 +49,7 @@ function formatDate(iso: string | null): string {
 
 <BaseLayout
   title={q ? `Tìm kiếm "${q}" | Dental Empire OS` : 'Tìm kiếm | Dental Empire OS'}
-  description="Tìm kiếm bài viết, tài nguyên, và nội dung E-book trên Dental Empire OS."
+  description="Tìm kiếm bài viết, tài nguyên, và nội dung tài liệu trên Dental Empire OS."
 >
   <!-- Hero / Search Bar -->
   <section class="relative py-14 overflow-hidden">
@@ -186,12 +186,12 @@ function formatDate(iso: string | null): string {
       </div>
     )}
 
-    {/* ── E-book Results ── */}
+    {/* ── Tài liệu Results ── */}
     {chapters.length > 0 && (
       <div>
          <h2 class="text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
           <span class="material-symbols-outlined text-primary text-[20px]">menu_book</span>
-          E-book
+          Tài liệu
           <span class="text-xs font-normal text-on-surface-variant">({chapters.length})</span>
         </h2>
         <div class="space-y-2">

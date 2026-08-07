@@ -28,7 +28,7 @@ export const adminNav: AdminNavSection[] = [
     key: 'content',
     label: 'NỘI DUNG & ĐÀO TẠO',
     items: [
-      { href: '/admin/ebooks',    label: 'Sách điện tử', icon: 'menu_book',     match: '/admin/ebooks' },
+      { href: '/admin/ebooks',    label: 'Tài liệu điện tử', icon: 'menu_book',     match: '/admin/ebooks' },
       { href: '/admin/blog',      label: 'Bài viết',     icon: 'newsmode',      match: '/admin/blog' },
       { href: '/admin/resources', label: 'Tài liệu',     icon: 'folder_shared', match: '/admin/resources' },
       { href: '/admin/courses',   label: 'Khóa học',     icon: 'school',        match: '/admin/courses' },

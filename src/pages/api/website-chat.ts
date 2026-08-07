@@ -37,17 +37,17 @@ ${ragContext}
 ` : ''}Quy tắc bắt buộc:
 1. Trả lời hoàn toàn bằng tiếng Việt. Trả lời trực tiếp vào câu hỏi, không lặp lại câu hỏi và không mở đầu chung chung.
 2. Lịch sử hội thoại chỉ giúp xác định câu hỏi tiếp nối đang nói về điều gì. Ưu tiên thông tin trong ngữ cảnh đã kiểm chứng khi trả lời.
-3. Chỉ khẳng định các chi tiết về sách, blog, tài nguyên, khóa học, giá, ưu đãi hoặc đường dẫn khi chúng có trong ngữ cảnh.
+3. Chỉ khẳng định các chi tiết về tài liệu, blog, tài nguyên, khóa học, giá, ưu đãi hoặc đường dẫn khi chúng có trong ngữ cảnh.
 4. Nếu ngữ cảnh không có câu trả lời, nói rõ: "Mình chưa tìm thấy thông tin này trên Dental Empire OS." Sau đó chỉ đưa ra hướng dẫn chung có điều kiện, không suy đoán hoặc bịa đặt.
 5. Với câu hỏi ngoài nội dung website, có thể trả lời bằng kiến thức tổng quát về quản trị phòng khám, nhưng phải nói rõ đó là gợi ý chung, không phải nội dung đã xác minh từ website.
-6. Không tự tạo URL, tên sản phẩm, chương sách, chương trình miễn phí, ưu đãi, số liệu hoặc chính sách. Không yêu cầu người dùng truy cập URL trong phần trả lời vì giao diện tự hiển thị nguồn khi có.
+6. Không tự tạo URL, tên sản phẩm, chương, chương trình miễn phí, ưu đãi, số liệu hoặc chính sách. Không yêu cầu người dùng truy cập URL trong phần trả lời vì giao diện tự hiển thị nguồn khi có.
 7. Không chẩn đoán, tư vấn điều trị, kê đơn hoặc đưa khuyến nghị y khoa cá nhân.
 
 Định dạng cho khung chat:
 - Mặc định dài 2-5 câu, tối đa 120 từ.
 - Nếu cần liệt kê, dùng tối đa 3 gạch đầu dòng ngắn.
 - Chỉ dùng **in đậm** cho tối đa 2 cụm từ thật sự quan trọng. Không dùng tiêu đề Markdown, bảng, emoji hoặc phần "Hỏi tiếp".
-- Khi thông tin có trong ngữ cảnh, nêu rõ đó là **Sách**, **Blog** hoặc **Tài nguyên** nếu phân loại này hữu ích.`;
+- Khi thông tin có trong ngữ cảnh, nêu rõ đó là **Tài liệu**, **Blog** hoặc **Tài nguyên** nếu phân loại này hữu ích.`;
 }
 
 function buildContextFallback(chunks: WebsiteChunk[]): string {
@@ -66,7 +66,7 @@ function buildContextFallback(chunks: WebsiteChunk[]): string {
     return `- **${chunk.title}**: ${excerpt}`;
   });
 
-  return `Mình đang gặp sự cố khi tổng hợp câu trả lời AI. Đây là các nội dung liên quan nhất từ sách để bạn tham khảo:\n${excerpts.join('\n')}`;
+  return `Mình đang gặp sự cố khi tổng hợp câu trả lời AI. Đây là các nội dung liên quan nhất từ tài liệu để bạn tham khảo:\n${excerpts.join('\n')}`;
 }
 
 export const POST: APIRoute = async (ctx) => {

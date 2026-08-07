@@ -99,10 +99,10 @@ const chapterURL = new URL(`/book/${currentSlug}`, 'https://dentalempireos.com')
 
 const bookSchema = {
   '@context': 'https://schema.org',
-  '@type': 'Book',
+  '@type': 'DigitalDocument',
   name: 'Dental Empire OS',
   alternateName: 'Hệ Điều Hành Quản Trị Nha Khoa',
-  bookFormat: 'https://schema.org/EBook',
+  bookFormat: 'https://schema.org/DigitalDocument',
   inLanguage: 'vi',
   author: {
     '@type': 'Person',
@@ -125,7 +125,7 @@ const chapterSchema = {
   description: description,
   inLanguage: 'vi',
   isPartOf: {
-    '@type': 'Book',
+    '@type': 'DigitalDocument',
     name: 'Dental Empire OS',
     url: 'https://dentalempireos.com/book',
   },
@@ -150,7 +150,7 @@ const breadcrumbSchema = {
     {
       '@type': 'ListItem',
       position: 2,
-      name: 'Thư viện sách',
+      name: 'Thư viện tài liệu',
       item: 'https://dentalempireos.com/book',
     },
     {

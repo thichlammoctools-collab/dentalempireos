@@ -146,7 +146,7 @@ function buildMessages(
 }
 
 /**
- * Retrieves only the book passages relevant to this scanner and its weakest
+ * Retrieves only the document passages relevant to this scanner and its weakest
  * areas. Retrieval failure is deliberately non-fatal: scanner prompts remain
  * useful before the knowledge base has been indexed.
  */
@@ -181,7 +181,7 @@ async function getBookContext(
     // A bounded context keeps generation responsive and focused on the result.
     return buildWebsiteContext(chunks).slice(0, 6000);
   } catch (error) {
-    console.warn('[scanner-ai] Book retrieval failed; continuing without RAG:', error);
+    console.warn('[scanner-ai] Document retrieval failed; continuing without RAG:', error);
     return '';
   }
 }
@@ -190,8 +190,8 @@ function addBookContext(systemPrompt: string, bookContext: string, lang: 'vi' | 
   if (!bookContext) return systemPrompt;
 
   const instruction = lang === 'vi'
-    ? `\n\n# NGỮ CẢNH ĐÃ KIỂM CHỨNG TỪ SÁCH DENTAL EMPIRE OS\n${bookContext}\n# HẾT NGỮ CẢNH\nDùng ngữ cảnh này để làm phân tích và hành động bám sát framework của sách. Chỉ nêu chi tiết thuộc sách khi chúng có trong ngữ cảnh; không bịa tên chương, số liệu hoặc khuyến nghị.`
-    : `\n\n# VERIFIED DENTAL EMPIRE OS BOOK CONTEXT\n${bookContext}\n# END CONTEXT\nUse this context to ground the analysis and actions in the book's framework. Only state book-specific details that appear in this context; do not invent chapter names, numbers, or recommendations.`;
+    ? `\n\n# NGỮ CẢNH ĐÃ KIỂM CHỨNG TỪ TÀI LIỆU DENTAL EMPIRE OS\n${bookContext}\n# HẾT NGỮ CẢNH\nDùng ngữ cảnh này để làm phân tích và hành động bám sát framework của tài liệu. Chỉ nêu chi tiết thuộc tài liệu khi chúng có trong ngữ cảnh; không bịa tên chương, số liệu hoặc khuyến nghị.`
+    : `\n\n# VERIFIED DENTAL EMPIRE OS DOCUMENT CONTEXT\n${bookContext}\n# END CONTEXT\nUse this context to ground the analysis and actions in the document's framework. Only state document-specific details that appear in this context; do not invent chapter names, numbers, or recommendations.`;
   return `${systemPrompt}${instruction}`;
 }
 

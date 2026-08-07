@@ -86,7 +86,7 @@ const activeNav = getNavState();
     <nav class="px-4 py-2 space-y-1">
       <a href="/#what-you-get" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-sm text-on-surface-variant">menu_book</span>
-        <span class="text-sm text-on-surface">Nội dung sách</span>
+        <span class="text-sm text-on-surface">Nội dung tài liệu</span>
       </a>
       <a href="/resources" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-sm text-on-surface-variant">folder_special</span>
@@ -162,7 +162,7 @@ const activeNav = getNavState();
       <span class="text-[10px] font-medium">Tài nguyên</span>
     </a>
 
-    <!-- Đọc sách -->
+    <!-- Đọc tài liệu -->
     <a
       href="/book"
       aria-current={activeNav === 'library' ? 'page' : undefined}
@@ -176,7 +176,7 @@ const activeNav = getNavState();
         activeNav === 'library' ? 'bg-primary/10' : ''
       ]}>
         <span class="material-symbols-outlined text-2xl">menu_book</span>
-        <span class="text-[10px] font-medium leading-none">Đọc sách</span>
+        <span class="text-[10px] font-medium leading-none">Đọc tài liệu</span>
       </span>
     </a>
 
@@ -219,7 +219,7 @@ const activeNav = getNavState();
     <div class="w-12 h-1.5 rounded-full bg-outline-variant"></div>
   </div>
   <div class="px-5 pb-3 border-b" style="border-color: var(--reader-border, var(--color-outline-variant));">
-    <h3 class="text-lg font-bold r-text">Thư viện sách</h3>
+    <h3 class="text-lg font-bold r-text">Thư viện tài liệu</h3>
     <p class="text-xs r-text-muted mt-1">Chọn chương để đọc</p>
   </div>
   <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2" id="chapter-drawer-content">

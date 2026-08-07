@@ -16,7 +16,7 @@ if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
 }
 
 const title = app.name;
-const description = app.description ?? 'Trợ lý AI đọc sách Dental Empire OS';
+const description = app.description ?? 'Trợ lý AI đọc tài liệu Dental Empire OS';
 const chapterId = Astro.url.searchParams.get('chapter') ?? '';
 ---
 
@@ -56,7 +56,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
             <span class="material-symbols-outlined text-primary text-3xl">psychology</span>
             {title}
           </h1>
-          <p class="text-sm text-on-surface-variant mt-1">Hỏi đáp về nội dung sách Dental Empire OS</p>
+          <p class="text-sm text-on-surface-variant mt-1">Hỏi đáp về nội dung tài liệu Dental Empire OS</p>
         </div>
 
         <!-- Chat Messages -->
@@ -78,7 +78,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
               id="chat-input"
               type="text"
                class="flex-1 px-4 py-3 bg-surface-container-high border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary focus:outline-none text-sm"
-              placeholder="Hỏi về nội dung sách, quản trị phòng khám..."
+              placeholder="Hỏi về nội dung tài liệu, quản trị phòng khám..."
               required
             />
             <button
@@ -90,7 +90,7 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
             </button>
           </form>
           <p id="ai-warning" class="hidden text-xs text-center text-amber-400 mt-2">
-            Không có nội dung sách để tham khảo — câu trả lời dựa trên kiến thức chung.
+            Không có nội dung tài liệu để tham khảo — câu trả lời dựa trên kiến thức chung.
           </p>
         </div>
       </div>

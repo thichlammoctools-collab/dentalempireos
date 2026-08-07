@@ -84,7 +84,7 @@ export const testimonials = [
     avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop',
   },
   {
-    quote: 'Kiến thức về Marketing và Tài chính trong sách rất thực chiến. Tôi đã áp dụng ngay và thấy doanh thu tăng trưởng rõ rệt chỉ sau 3 tháng.',
+    quote: 'Kiến thức về Marketing và Tài chính trong tài liệu rất thực chiến. Tôi đã áp dụng ngay và thấy doanh thu tăng trưởng rõ rệt chỉ sau 3 tháng.',
     name: 'BS. Phan Thùy Linh',
     role: 'Giám đốc Nha Khoa Elite',
     avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop',

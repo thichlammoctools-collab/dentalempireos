@@ -104,9 +104,9 @@ function buildSystemPrompt(ragContext: string): string {
   if (ragContext) {
     return `Bạn là AI Mentor của Dental Empire OS — trợ lý AI chuyên về quản trị phòng khám nha khoa.
 
-Sử dụng nội dung sách sau để trả lời câu hỏi của user. Nếu câu hỏi nằm NGOÀI phạm vi nội dung sách, hãy nói rõ điều đó.
+Sử dụng nội dung tài liệu sau để trả lời câu hỏi của user. Nếu câu hỏi nằm NGOÀI phạm vi nội dung tài liệu, hãy nói rõ điều đó.
 
---- NGỮ CẢNH TỪ SÁCH ---
+--- NGỮ CẢNH TỪ TÀI LIỆU ---
 ${ragContext}
 --- HẾT NGỮ CẢNH ---
 
@@ -116,7 +116,7 @@ Trả lời bằng tiếng Việt, ngắn gọn, có ví dụ cụ thể khi ph�
 
 Trả lời bằng tiếng Việt, ngắn gọn, có ví dụ cụ thể khi phù hợp. Đánh dấu các thuật ngữ quan trọng bằng **bold**.
 
-Nếu câu hỏi nằm ngoài phạm vi sách Dental Empire OS, hãy nói rõ điều đó.`;
+Nếu câu hỏi nằm ngoài phạm vi tài liệu Dental Empire OS, hãy nói rõ điều đó.`;
 }
 
 export const POST: APIRoute = async (ctx) => {

@@ -6,7 +6,7 @@ const navLinks = [
   { href: '/resources', label: 'Tài nguyên' },
   { href: '/scanner', label: 'Scanner', badge: 'AI' },
   { href: '/ai-tools', label: 'Công cụ', badge: 'AI' },
-  { href: '/book', label: 'Đọc sách' },
+  { href: '/book', label: 'Đọc tài liệu' },
 ];
 
 const mobileHeaderLinks = [
@@ -106,7 +106,7 @@ const currentHash = Astro.url.hash;
               aria-current={isActive ? 'page' : undefined}
               class:list={[
                 'label-md font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap',
-                link.label === 'Đọc sách'
+                link.label === 'Đọc tài liệu'
                   ? 'px-4 py-2.5 btn-primary-metallic font-bold rounded-lg'
                   : isActive
                     ? 'text-primary border-b-2 border-primary pb-1'
