@@ -24,10 +24,10 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .bind(key)
     .first<BookMediaAccess>();
 
-  // Premium chapters always defer to canAccessBook, which covers entitlement
-  // book:* and legacy per-chapter access. Unattached files remain public.
+  // Images/files attached to a free-preview section remain public even when
+  // the surrounding chapter is premium. Only premium sections require access.
   // Files not attached to a book block remain public to preserve existing media behavior.
-  if (!block || block.is_premium !== 1) return true;
+  if (!block || block.is_premium !== 1 || block.is_free === 1) return true;
   return !!userId && canAccessBook(env.DB, userId, block.chapter_id);
 }
 

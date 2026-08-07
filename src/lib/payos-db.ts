@@ -110,7 +110,8 @@ export async function getActiveBookProduct(db: D1Database): Promise<Product | nu
              AND pe."content_type" = 'book'
              AND pe."content_id" = '*'
          )
-       ORDER BY "created_at" DESC
+       ORDER BY CASE WHEN "name" = 'Đọc full sách 1 năm' THEN 0 ELSE 1 END,
+                "created_at" DESC
        LIMIT 1`,
     )
     .first<Product>();

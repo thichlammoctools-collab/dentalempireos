@@ -87,9 +87,29 @@ const groupedByTier = [1, 2, 3].map((tier) => ({
     .filter((c) => c.tier === tier)
     .map((c) => ({
       id: c.id,
-      data: { title: c.title, tier: c.tier, chapter: c.chapter_no, has_premium: c.has_premium ?? false },
+      data: { title: c.title, tier: c.tier, chapter: c.chapter_no, has_premium: c.is_premium === 1 },
+      hasAccess: c.is_premium !== 1,
     })),
 }));
+
+// Resolve access per chapter so the sidebar does not reuse the current
+// chapter's entitlement state for every premium item.
+if (currentUser) {
+  await Promise.all(
+    allPublished
+      .filter((chapter) => chapter.is_premium === 1)
+      .map(async (chapter) => {
+        const group = groupedByTier.find((item) => item.tier === chapter.tier);
+        const item = group?.chapters.find((entry) => entry.id === chapter.id);
+        if (!item) return;
+        try {
+          item.hasAccess = await canAccessBook(db, currentUser.id, chapter.id);
+        } catch {
+          item.hasAccess = false;
+        }
+      }),
+  );
+}
 
 const flatIds = allPublished.map((c) => c.id);
 const currentIdx = flatIds.indexOf(slug);
