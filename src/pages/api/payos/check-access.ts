@@ -5,7 +5,8 @@ import { checkUserAccess, checkUserAccessBatch } from '../../../lib/access-check
 import {
   getPayosEnv,
   getPayosSettings,
-  grantProductAccess,
+  fulfillPaidOrder,
+  getOrder,
   updateOrderStatus,
 } from '../../../lib/payos-db';
 import { getPaymentInfo } from '../../../lib/payos';
@@ -19,17 +20,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // Reconcile a returning customer with PayOS if a webhook has not arrived yet.
   if (orderId) {
     try {
-      const order = await env.DB
-        .prepare('SELECT * FROM "order" WHERE id = ? LIMIT 1')
-        .bind(orderId)
-        .first<{
-          id: string;
-          user_id: string;
-           product_id: string;
-           selected_scanner_id: string | null;
-          payment_link_id: string | null;
-          status: string;
-        }>();
+      const order = await getOrder(env.DB, orderId);
 
       if (order) {
         if (
@@ -44,13 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             const payment = await getPaymentInfo(creds, order.payment_link_id);
             if (payment.status === 'PAID') {
               await updateOrderStatus(env.DB, order.id, 'paid');
-
-              await grantProductAccess(env.DB, {
-                user_id: order.user_id,
-                product_id: order.product_id,
-                order_id: order.id,
-                selected_scanner_id: order.selected_scanner_id,
-              });
+              await fulfillPaidOrder(env.DB, order);
               return json({ status: 'paid', product_id: order.product_id });
             }
           }

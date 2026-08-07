@@ -4,7 +4,7 @@ import { verifySignature } from '../../../lib/payos';
 import {
   getOrderByCode,
   updateOrderStatus,
-  grantProductAccess,
+  fulfillPaidOrder,
   logWebhook,
   getPayosSettings,
   getPayosEnv,
@@ -97,12 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (isSuccess) {
     await updateOrderStatus(env.DB, order.id, 'paid');
 
-    await grantProductAccess(env.DB, {
-      user_id: order.user_id,
-      product_id: order.product_id,
-      order_id: order.id,
-      selected_scanner_id: order.selected_scanner_id,
-    });
+    await fulfillPaidOrder(env.DB, order);
   } else {
     await updateOrderStatus(env.DB, order.id, 'cancelled');
   }

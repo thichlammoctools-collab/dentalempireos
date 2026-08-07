@@ -44,6 +44,12 @@ export interface Order {
   paid_at: string | null;
   expires_at: string | null;
   selected_scanner_id?: string | null;
+  order_kind?: 'purchase' | 'upgrade';
+  upgrade_from_product_id?: string | null;
+  upgrade_from_access_id?: string | null;
+  upgrade_original_amount?: number | null;
+  upgrade_credit_amount?: number | null;
+  upgrade_credit_days?: number | null;
 }
 
 export interface OrderWithBuyer extends Order {
@@ -60,6 +66,15 @@ export interface Access {
   expires_at: string | null;
   is_active: number;
   selected_scanner_id?: string | null;
+}
+
+/** Breakdown persisted on an upgrade order so payments stay auditable. */
+export interface UpgradeOrderDetails {
+  from_product_id: string;
+  from_access_id: string;
+  original_amount: number;
+  credit_amount: number;
+  credit_days: number;
 }
 
 function now(): string {
@@ -208,15 +223,30 @@ export async function reservePayosOrder(
     order_code: number;
     amount: number;
     selected_scanner_id?: string | null;
+    upgrade?: UpgradeOrderDetails | null;
   },
 ): Promise<Order> {
   const ts = now();
   await db
     .prepare(
-       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id")
-        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?)`,
+       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id","order_kind","upgrade_from_product_id","upgrade_from_access_id","upgrade_original_amount","upgrade_credit_amount","upgrade_credit_days")
+        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?,?,?,?,?,?,?)`,
     )
-    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts, input.selected_scanner_id ?? null)
+    .bind(
+      input.id,
+      input.user_id,
+      input.product_id,
+      input.order_code,
+      input.amount,
+      ts,
+      input.selected_scanner_id ?? null,
+      input.upgrade ? 'upgrade' : 'purchase',
+      input.upgrade?.from_product_id ?? null,
+      input.upgrade?.from_access_id ?? null,
+      input.upgrade?.original_amount ?? null,
+      input.upgrade?.credit_amount ?? null,
+      input.upgrade?.credit_days ?? null,
+    )
     .run();
   return getOrder(db, input.id) as Promise<Order>;
 }
@@ -266,6 +296,7 @@ export async function getRecentPendingOrder(
   userId: string,
   productId: string,
   selectedScannerId: string | null = null,
+  orderKind: 'purchase' | 'upgrade' = 'purchase',
 ): Promise<Order | null> {
   const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   return db
@@ -273,11 +304,12 @@ export async function getRecentPendingOrder(
       `SELECT * FROM "order"
        WHERE "user_id" = ? AND "product_id" = ? AND "status" = 'pending'
           AND IFNULL("selected_scanner_id", '') = IFNULL(?, '')
+          AND "order_kind" = ?
           AND "payment_link_id" IS NOT NULL AND "created_at" >= ?
        ORDER BY "created_at" DESC
        LIMIT 1`,
     )
-    .bind(userId, productId, selectedScannerId, cutoff)
+    .bind(userId, productId, selectedScannerId, orderKind, cutoff)
     .first<Order>();
 }
 
@@ -456,6 +488,96 @@ export async function grantProductAccess(
   return grantAccess(db, { ...input, expires_at: expiresAt });
 }
 
+/**
+ * Grant everything a paid order entitles, including upgrade conversion.
+ *
+ * The new package is always granted before the credited one is deactivated, so
+ * a failure part-way through can never leave a customer without access. Repeat
+ * webhook deliveries are absorbed by grantAccess and the unique upgrade index.
+ */
+export async function fulfillPaidOrder(db: D1Database, order: Order): Promise<Access> {
+  const isUpgrade = order.order_kind === 'upgrade'
+    && Boolean(order.upgrade_from_product_id)
+    && Boolean(order.upgrade_from_access_id);
+
+  // An upgrade starts a fresh term because the credited days were already paid
+  // back as a discount, so it must not extend an existing expiry.
+  const access = isUpgrade
+    ? await grantUpgradedAccess(db, order)
+    : await grantProductAccess(db, {
+      user_id: order.user_id,
+      product_id: order.product_id,
+      order_id: order.id,
+      selected_scanner_id: order.selected_scanner_id,
+    });
+
+  if (!isUpgrade) return access;
+
+  await db
+    .prepare('UPDATE "access" SET "is_active" = 0 WHERE "id" = ? AND "user_id" = ?')
+    .bind(order.upgrade_from_access_id, order.user_id)
+    .run();
+
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO "upgrade"
+       ("id","user_id","order_id","from_product_id","to_product_id","from_access_id","to_access_id","credit_days","credit_amount","created_at")
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    )
+    .bind(
+      uid(),
+      order.user_id,
+      order.id,
+      order.upgrade_from_product_id,
+      order.product_id,
+      order.upgrade_from_access_id,
+      access.id,
+      order.upgrade_credit_days ?? 0,
+      order.upgrade_credit_amount ?? 0,
+      now(),
+    )
+    .run();
+
+  return access;
+}
+
+/** Grant an upgrade target with a term starting at payment time. */
+async function grantUpgradedAccess(db: D1Database, order: Order): Promise<Access> {
+  const product = await getProduct(db, order.product_id);
+  if (!product) throw new Error(`Product not found: ${order.product_id}`);
+
+  const expiresAt = product.duration_days && product.duration_days > 0
+    ? new Date(Date.now() + product.duration_days * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  const existing = await db
+    .prepare('SELECT * FROM "access" WHERE "order_id" = ? LIMIT 1')
+    .bind(order.id)
+    .first<Access>();
+  if (existing) return existing;
+
+  const ts = now();
+  const id = uid();
+
+  await db
+    .prepare(
+      `UPDATE "access" SET "is_active" = 0
+       WHERE "user_id" = ? AND "product_id" = ? AND "selected_scanner_id" IS NULL AND "is_active" = 1`,
+    )
+    .bind(order.user_id, order.product_id)
+    .run();
+
+  await db
+    .prepare(
+      `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id")
+       VALUES (?,?,?,?,?,?,1,NULL)`,
+    )
+    .bind(id, order.user_id, order.product_id, order.id, ts, expiresAt)
+    .run();
+
+  return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
+}
+
 export async function hasAccess(
   db: D1Database,
   userId: string,
@@ -566,15 +688,37 @@ export async function listManualOrders(db: D1Database): Promise<OrderWithProduct
 /** Create a pending order for a bank transfer. Its order code is the transfer reference. */
 export async function createManualOrder(
   db: D1Database,
-  input: { id: string; user_id: string; product_id: string; order_code: number; amount: number; selected_scanner_id?: string | null },
+  input: {
+    id: string;
+    user_id: string;
+    product_id: string;
+    order_code: number;
+    amount: number;
+    selected_scanner_id?: string | null;
+    upgrade?: UpgradeOrderDetails | null;
+  },
 ): Promise<Order> {
   const ts = now();
   await db
     .prepare(
-       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id")
-        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?)`,
+       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id","order_kind","upgrade_from_product_id","upgrade_from_access_id","upgrade_original_amount","upgrade_credit_amount","upgrade_credit_days")
+        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?,?,?,?,?,?,?)`,
     )
-    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts, input.selected_scanner_id ?? null)
+    .bind(
+      input.id,
+      input.user_id,
+      input.product_id,
+      input.order_code,
+      input.amount,
+      ts,
+      input.selected_scanner_id ?? null,
+      input.upgrade ? 'upgrade' : 'purchase',
+      input.upgrade?.from_product_id ?? null,
+      input.upgrade?.from_access_id ?? null,
+      input.upgrade?.original_amount ?? null,
+      input.upgrade?.credit_amount ?? null,
+      input.upgrade?.credit_days ?? null,
+    )
     .run();
   return getOrder(db, input.id) as Promise<Order>;
 }

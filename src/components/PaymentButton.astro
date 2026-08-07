@@ -15,6 +15,7 @@
 
 import { env } from 'cloudflare:workers';
 import { getPayosSettings, getManualPaymentSettings } from '../lib/payos-db';
+import { getUpgradeQuote } from '../lib/upgrade-pricing';
 
 interface Props {
   productId: string;
@@ -37,6 +38,15 @@ const [payosSettings, manualSettings] = await Promise.all([
 const payosEnabled = payosSettings?.is_active === 1;
 const manualEnabled = manualSettings?.is_active === 1;
 const hasAnyMethod = payosEnabled || manualEnabled;
+
+// A customer holding a smaller package pays only the difference, so this button
+// switches to upgrade mode and bills the credited amount instead of list price.
+const upgradeQuote = user && !scannerId
+  ? await getUpgradeQuote(env.DB, user.id, productId).catch(() => null)
+  : null;
+const upgrade = upgradeQuote?.eligible ? upgradeQuote : null;
+const formatVnd = (value: number) => `${value.toLocaleString('vi-VN')}₫`;
+
 const paymentMethodDescription = payosEnabled && manualEnabled
   ? 'Chọn phương thức thanh toán phù hợp với bạn.'
   : payosEnabled
@@ -47,6 +57,9 @@ const paymentMethodDescription = payosEnabled && manualEnabled
 const singleMethod = payosEnabled && !manualEnabled ? 'payos'
   : !payosEnabled && manualEnabled ? 'manual'
   : null;
+
+// An upgrade always shows its breakdown first so the discount is explained.
+const effectiveSingleMethod = upgrade ? null : singleMethod;
 ---
 
 {user ? (
@@ -56,14 +69,18 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
       data-product-id={productId}
        data-product-name={productName ?? ''}
        data-scanner-id={scannerId ?? ''}
-      data-single-method={singleMethod}
+      data-single-method={effectiveSingleMethod}
+      data-upgrade={upgrade ? 'true' : null}
+      data-from-product-id={upgrade?.fromProduct.id ?? null}
       class={`payment-method-trigger group relative px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all ${className}`}
     >
       <span>
-        {price ? `Mua ngay — ${price.toLocaleString('vi-VN')}₫` : 'Mua ngay'}
+        {upgrade
+          ? `Nâng cấp — ${formatVnd(upgrade.finalAmount)}`
+          : price ? `Mua ngay — ${formatVnd(price)}` : 'Mua ngay'}
       </span>
     </button>
-    {singleMethod ? (
+    {effectiveSingleMethod ? (
       <dialog class="payment-method-dialog fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-0 text-on-surface shadow-2xl backdrop:bg-black/70">
         <div class="p-6">
           <div class="flex items-start justify-between gap-4">
@@ -78,11 +95,36 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
         <div class="p-6">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h2 class="text-lg font-bold text-on-surface">Chọn phương thức thanh toán</h2>
-              <p class="mt-1 text-sm text-on-surface-variant">{paymentMethodDescription}</p>
+              <h2 class="text-lg font-bold text-on-surface">{upgrade ? 'Nâng cấp gói' : 'Chọn phương thức thanh toán'}</h2>
+              <p class="mt-1 text-sm text-on-surface-variant">{upgrade ? 'Thời gian còn lại của gói hiện tại được quy đổi thành giảm giá.' : paymentMethodDescription}</p>
             </div>
              <button type="button" class="payment-dialog-close rounded-lg p-1 text-on-surface-variant hover:bg-surface-container-high" aria-label="Đóng"><span class="material-symbols-outlined">close</span></button>
           </div>
+          {upgrade && (
+            <dl class="mt-5 space-y-2 rounded-xl border border-outline-variant/30 bg-surface-container-high/40 p-4 text-sm">
+              <div class="flex items-baseline justify-between gap-3">
+                <dt class="text-on-surface-variant">Gói hiện tại</dt>
+                <dd class="text-right font-semibold text-on-surface">{upgrade.fromProduct.name}</dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3">
+                <dt class="text-on-surface-variant">Còn lại</dt>
+                <dd class="text-right font-semibold text-on-surface">{upgrade.remainingDays} ngày</dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3">
+                <dt class="text-on-surface-variant">Giá gói mới</dt>
+                <dd class="text-right font-semibold text-on-surface">{formatVnd(upgrade.originalAmount)}</dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3">
+                <dt class="text-on-surface-variant">Được quy đổi</dt>
+                <dd class="text-right font-semibold text-emerald-600 dark:text-emerald-400">-{formatVnd(upgrade.creditAmount)}</dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3 border-t border-outline-variant/30 pt-2">
+                <dt class="font-bold text-on-surface">Cần thanh toán</dt>
+                <dd class="text-right text-lg font-black text-on-surface">{formatVnd(upgrade.finalAmount)}</dd>
+              </div>
+              <p class="pt-1 text-xs text-on-surface-variant">Thời hạn mới bắt đầu từ ngày nâng cấp thành công.</p>
+            </dl>
+          )}
           <div class="mt-5 grid gap-3">
             {payosEnabled && (
               <button type="button" class="payment-option payment-option-payos text-left rounded-xl border border-primary/35 bg-primary/10 p-4 hover:bg-primary/15 transition-colors" data-method="payos">
@@ -123,6 +165,8 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
     const singleMethod = button.dataset.singleMethod;
     const productId = button.dataset.productId;
     const scannerId = button.dataset.scannerId;
+    const isUpgrade = button.dataset.upgrade === 'true';
+    const fromProductId = button.dataset.fromProductId;
     let isCreatingPayment = false;
 
     // Helper: tạo thanh toán theo phương thức
@@ -143,7 +187,12 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
         const resp = await fetch(method === 'manual' ? '/api/manual-payment/create-payment' : '/api/payos/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: productId, scanner_id: scannerId || undefined }),
+          body: JSON.stringify({
+            product_id: productId,
+            scanner_id: scannerId || undefined,
+            upgrade: isUpgrade || undefined,
+            from_product_id: isUpgrade ? fromProductId || undefined : undefined,
+          }),
         });
         const data = await resp.json() as Record<string, unknown>;
         if (!resp.ok || data.error) {

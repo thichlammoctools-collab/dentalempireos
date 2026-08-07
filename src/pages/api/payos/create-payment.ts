@@ -13,6 +13,8 @@ import {
 } from '../../../lib/payos-db';
 import { listProductEntitlements } from '../../../lib/entitlement-db';
 import { cancelPaymentLink, createPaymentLink } from '../../../lib/payos';
+import { getUpgradeQuote } from '../../../lib/upgrade-pricing';
+import type { UpgradeOrderDetails } from '../../../lib/payos-db';
 
 export const prerender = false;
 
@@ -39,6 +41,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const selectedScannerId = typeof body.scanner_id === 'string' && body.scanner_id.trim()
     ? body.scanner_id.trim()
     : null;
+  const isUpgrade = body.upgrade === true;
 
   const product = await getProduct(env.DB, body.product_id as string);
   if (!product || !product.is_active) {
@@ -55,13 +58,44 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!scanner || !isSelectableScanner) return badRequest('Scanner được chọn không thuộc sản phẩm này');
   }
 
+  // Upgrade pricing is always recomputed here; a client-supplied amount or
+  // source package can never lower the charge.
+  let amount = product.price;
+  let upgrade: UpgradeOrderDetails | null = null;
+  if (isUpgrade) {
+    if (selectedScannerId) return badRequest('Không thể nâng cấp cho sản phẩm Scanner tùy chọn');
+    const quote = await getUpgradeQuote(
+      env.DB,
+      locals.user.id,
+      product.id,
+      typeof body.from_product_id === 'string' ? body.from_product_id : null,
+    );
+    if (!quote.eligible) return json({ error: quote.message, reason: quote.reason }, 409);
+
+    amount = quote.finalAmount;
+    upgrade = {
+      from_product_id: quote.fromProduct.id,
+      from_access_id: quote.fromAccessId,
+      original_amount: quote.originalAmount,
+      credit_amount: quote.creditAmount,
+      credit_days: quote.remainingDays,
+    };
+  }
+
   // Reuse an in-flight checkout so retries or double-clicks cannot create duplicate charges.
-  const pendingOrder = await getRecentPendingOrder(env.DB, locals.user.id, product.id, selectedScannerId);
+  const pendingOrder = await getRecentPendingOrder(
+    env.DB,
+    locals.user.id,
+    product.id,
+    selectedScannerId,
+    isUpgrade ? 'upgrade' : 'purchase',
+  );
   if (pendingOrder?.checkout_url) {
     return json({
       checkoutUrl: pendingOrder.checkout_url,
       orderCode: pendingOrder.order_code,
       orderId: pendingOrder.id,
+      amount: pendingOrder.amount,
     });
   }
 
@@ -79,8 +113,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         user_id: locals.user.id,
         product_id: product.id,
         order_code: orderCode,
-        amount: product.price,
+        amount,
         selected_scanner_id: selectedScannerId,
+        upgrade,
       });
       reserved = true;
       break;
@@ -103,7 +138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const payosResponse = await createPaymentLink(creds, {
       orderCode,
-      amount: product.price,
+      amount,
       // PayOS limits payment descriptions; keep this ASCII reference short and unique.
       description: `DEOS${orderCode}`,
       cancelUrl,
@@ -134,6 +169,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       orderCode,
       orderId,
       qrCode: payosResponse.data.qrCode,
+      amount,
     });
   } catch (err) {
     console.error('PayOS create payment error:', err);
