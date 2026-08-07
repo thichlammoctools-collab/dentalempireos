@@ -1,12 +1,19 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listUserOrdersWithScanners } from '../../lib/payos-db';
+import { listUserOrders, listUserOrdersWithScanners } from '../../lib/payos-db';
 
 export const prerender = false;
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?redirect=%2Faccount%2Fpayments');
-const orders = await listUserOrdersWithScanners(env.DB, user.id);
+let orders;
+try {
+  orders = await listUserOrdersWithScanners(env.DB, user.id);
+} catch (error) {
+  console.error('[account/payments] Failed to load scanner details:', error);
+  const baseOrders = await listUserOrders(env.DB, user.id);
+  orders = baseOrders.map((order) => ({ ...order, scanner_names: [] }));
+}
 const status: Record<string, { label: string; className: string }> = {
   pending: { label: 'Chờ xác nhận', className: 'bg-amber-400/15 text-amber-300' }, paid: { label: 'Đã thanh toán', className: 'bg-emerald-400/15 text-emerald-300' }, cancelled: { label: 'Đã hủy', className: 'bg-rose-400/15 text-rose-300' }, expired: { label: 'Hết hạn', className: 'bg-white/10 text-on-surface-variant' },
 };
