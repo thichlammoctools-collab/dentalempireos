@@ -167,3 +167,36 @@ export async function hasActiveEntitlementForContent(
     .first();
   return entitlement !== null;
 }
+
+/**
+ * Scanner selections are stored on access records so one selectable product can
+ * grant only the Scanner a customer chose, rather than every configured option.
+ */
+export async function hasActiveScannerEntitlement(
+  db: D1Database,
+  userId: string,
+  scannerId: string,
+): Promise<boolean> {
+  const entitlement = await db
+    .prepare(
+      `SELECT 1
+       FROM "access" a
+       LEFT JOIN "product_entitlement" pe
+         ON pe."product_id" = a."product_id"
+        AND pe."content_type" = 'scanner'
+       WHERE a."user_id" = ?
+         AND a."is_active" = 1
+         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+         AND (
+           a."selected_scanner_id" = ?
+           OR (
+             a."selected_scanner_id" IS NULL
+             AND pe."content_id" IN (?, '*')
+           )
+         )
+       LIMIT 1`,
+    )
+    .bind(userId, now(), scannerId, scannerId)
+    .first();
+  return entitlement !== null;
+}

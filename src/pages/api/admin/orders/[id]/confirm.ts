@@ -24,6 +24,7 @@ export const POST: APIRoute = async ({ params }) => {
     user_id: order.user_id,
     product_id: order.product_id,
     order_id: order.id,
+    selected_scanner_id: order.selected_scanner_id,
   });
   return json({ ok: true });
 };

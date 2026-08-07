@@ -50,7 +50,7 @@ const scannerProducts = hasConfiguredProduct ? await getActiveProducts(env.DB).t
     entitlements: await listProductEntitlements(env.DB, product.id),
   })));
   return withEntitlements
-    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && (entitlement.content_id === definition.id || entitlement.content_id === '*')))
+    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === definition.id))
     .map(({ product }) => product)
     .sort((a, b) => a.price - b.price);
 }) : [];
@@ -191,7 +191,7 @@ const defaultScaleEn: Record<string, string> = {
                     </ol>
                   )}
                   {scannerProduct ? (
-                    <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} class="scanner-unlock-card__button" />
+                    <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} scannerId={definition.id} class="scanner-unlock-card__button" />
                   ) : (
                     <p class="scanner-unlock-card__unavailable">Scanner này chưa được gán sản phẩm thanh toán. Vui lòng liên hệ quản trị viên.</p>
                   )}

@@ -50,6 +50,7 @@ const scannerProducts = new Map<string, Product>();
 for (const { product, entitlements } of productsWithEntitlements) {
   for (const entitlement of entitlements) {
     if (entitlement.content_type !== 'scanner') continue;
+    if (entitlement.content_id === '*') continue;
     const entitlementScannerIds = entitlement.content_id === '*'
       ? scanners.map((scanner) => scanner.id)
       : scanners.some((scanner) => scanner.id === entitlement.content_id)
@@ -202,7 +203,7 @@ const openedScannerIds = new Set(
             {product && !isOpened && (
               <div class="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/15 pt-4">
                 <span class="text-lg font-bold text-on-surface">{product.price.toLocaleString('vi-VN')}₫</span>
-                <PaymentButton productId={product.id} productName={product.name} price={product.price} class="!w-auto px-5" />
+                <PaymentButton productId={product.id} productName={product.name} price={product.price} scannerId={s.id} class="!w-auto px-5" />
               </div>
             )}
             {isOpened && (

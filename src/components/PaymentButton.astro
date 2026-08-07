@@ -9,6 +9,7 @@
  *   productId  — ID of the product to purchase
  *   productName — Display name (shown on button if no slot)
  *   price      — Price in VND (display only, real price from DB)
+ *   scannerId  — Scanner chosen from a selectable Scanner product
  *   class      — Additional CSS classes
  */
 
@@ -19,10 +20,11 @@ interface Props {
   productId: string;
   productName?: string;
   price?: number;
+  scannerId?: string;
   class?: string;
 }
 
-const { productId, productName, price, class: className = '' } = Astro.props;
+const { productId, productName, price, scannerId, class: className = '' } = Astro.props;
 
 const user = Astro.locals.user;
 
@@ -52,7 +54,8 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
     <>
     <button
       data-product-id={productId}
-      data-product-name={productName ?? ''}
+       data-product-name={productName ?? ''}
+       data-scanner-id={scannerId ?? ''}
       data-single-method={singleMethod}
       class={`payment-method-trigger group relative px-6 py-3 btn-primary-metallic font-bold rounded-xl text-sm active:scale-95 transition-all ${className}`}
     >
@@ -119,6 +122,7 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
 
     const singleMethod = button.dataset.singleMethod;
     const productId = button.dataset.productId;
+    const scannerId = button.dataset.scannerId;
     let isCreatingPayment = false;
 
     // Helper: tạo thanh toán theo phương thức
@@ -139,7 +143,7 @@ const singleMethod = payosEnabled && !manualEnabled ? 'payos'
         const resp = await fetch(method === 'manual' ? '/api/manual-payment/create-payment' : '/api/payos/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: productId }),
+          body: JSON.stringify({ product_id: productId, scanner_id: scannerId || undefined }),
         });
         const data = await resp.json() as Record<string, unknown>;
         if (!resp.ok || data.error) {

@@ -43,6 +43,7 @@ export interface Order {
   created_at: string;
   paid_at: string | null;
   expires_at: string | null;
+  selected_scanner_id?: string | null;
 }
 
 export interface OrderWithBuyer extends Order {
@@ -58,6 +59,7 @@ export interface Access {
   granted_at: string;
   expires_at: string | null;
   is_active: number;
+  selected_scanner_id?: string | null;
 }
 
 function now(): string {
@@ -204,15 +206,16 @@ export async function reservePayosOrder(
     product_id: string;
     order_code: number;
     amount: number;
+    selected_scanner_id?: string | null;
   },
 ): Promise<Order> {
   const ts = now();
   await db
     .prepare(
-      `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at")
-       VALUES (?,?,?,?,?,'pending',NULL,NULL,?)`,
+       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id")
+        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?)`,
     )
-    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts)
+    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts, input.selected_scanner_id ?? null)
     .run();
   return getOrder(db, input.id) as Promise<Order>;
 }
@@ -261,17 +264,19 @@ export async function getRecentPendingOrder(
   db: D1Database,
   userId: string,
   productId: string,
+  selectedScannerId: string | null = null,
 ): Promise<Order | null> {
   const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   return db
     .prepare(
       `SELECT * FROM "order"
        WHERE "user_id" = ? AND "product_id" = ? AND "status" = 'pending'
-         AND "payment_link_id" IS NOT NULL AND "created_at" >= ?
+          AND IFNULL("selected_scanner_id", '') = IFNULL(?, '')
+          AND "payment_link_id" IS NOT NULL AND "created_at" >= ?
        ORDER BY "created_at" DESC
        LIMIT 1`,
     )
-    .bind(userId, productId, cutoff)
+    .bind(userId, productId, selectedScannerId, cutoff)
     .first<Order>();
 }
 
@@ -365,6 +370,7 @@ export async function grantAccess(
     product_id: string;
     order_id: string;
     expires_at: string | null;
+    selected_scanner_id?: string | null;
   },
 ): Promise<Access> {
   // A payment can be delivered more than once. Its original grant is the
@@ -380,11 +386,11 @@ export async function grantAccess(
 
   const existing = await db
     .prepare(
-      `SELECT "expires_at" FROM "access"
-       WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1
+       `SELECT "expires_at" FROM "access"
+        WHERE "user_id" = ? AND "product_id" = ? AND IFNULL("selected_scanner_id", '') = IFNULL(?, '') AND "is_active" = 1
        LIMIT 1`,
     )
-    .bind(input.user_id, input.product_id)
+    .bind(input.user_id, input.product_id, input.selected_scanner_id ?? null)
     .first<{ expires_at: string | null }>();
 
   // Renewals extend from the later of now and the current expiry. A permanent
@@ -403,18 +409,18 @@ export async function grantAccess(
   // The unique partial index idx_access_user_product_active also guards against duplicates.
   await db
     .prepare(
-      `UPDATE "access" SET "is_active" = 0
-       WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1`,
+       `UPDATE "access" SET "is_active" = 0
+        WHERE "user_id" = ? AND "product_id" = ? AND IFNULL("selected_scanner_id", '') = IFNULL(?, '') AND "is_active" = 1`,
     )
-    .bind(input.user_id, input.product_id)
+    .bind(input.user_id, input.product_id, input.selected_scanner_id ?? null)
     .run();
 
   await db
     .prepare(
-      `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active")
-       VALUES (?,?,?,?,?,?,1)`,
+       `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id")
+        VALUES (?,?,?,?,?,?,1,?)`,
     )
-    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt)
+    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt, input.selected_scanner_id ?? null)
     .run();
 
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
@@ -423,7 +429,7 @@ export async function grantAccess(
 /** Grant product access using its duration without shortening an active renewal. */
 export async function grantProductAccess(
   db: D1Database,
-  input: { user_id: string; product_id: string; order_id: string },
+  input: { user_id: string; product_id: string; order_id: string; selected_scanner_id?: string | null },
 ): Promise<Access> {
   const product = await getProduct(db, input.product_id);
   if (!product) throw new Error(`Product not found: ${input.product_id}`);
@@ -432,11 +438,11 @@ export async function grantProductAccess(
   if (product.duration_days && product.duration_days > 0) {
     const existing = await db
       .prepare(
-        `SELECT "expires_at" FROM "access"
-         WHERE "user_id" = ? AND "product_id" = ? AND "is_active" = 1
-         LIMIT 1`,
-      )
-      .bind(input.user_id, input.product_id)
+       `SELECT "expires_at" FROM "access"
+          WHERE "user_id" = ? AND "product_id" = ? AND IFNULL("selected_scanner_id", '') = IFNULL(?, '') AND "is_active" = 1
+          LIMIT 1`,
+    )
+      .bind(input.user_id, input.product_id, input.selected_scanner_id ?? null)
       .first<{ expires_at: string | null }>();
 
     if (existing?.expires_at !== null) {
@@ -486,7 +492,7 @@ export async function listUserOrders(db: D1Database, userId: string): Promise<Or
   return results;
 }
 
-/** List user orders with the scanner names attached to each product. */
+/** List user orders with their selected Scanner, or legacy product Scanner details. */
 export async function listUserOrdersWithScanners(
   db: D1Database,
   userId: string,
@@ -494,20 +500,39 @@ export async function listUserOrdersWithScanners(
   const orders = await listUserOrders(db, userId);
   if (orders.length === 0) return orders as OrderWithScanners[];
 
-  const productIds = [...new Set(orders.map((o) => o.product_id))];
-  const placeholders = productIds.map(() => '?').join(',');
-  const { results: scannerRows } = await db
-    .prepare(
-       `SELECT pe."product_id", CASE WHEN pe."content_id" = '*' THEN 'Toàn bộ Scanner' ELSE d."title_vi" END AS "scanner_name"
-       FROM "product_entitlement" pe
-       LEFT JOIN "survey_definition" d
-         ON pe."content_id" = d."id"
-       WHERE pe."content_type" = 'scanner'
-         AND pe."product_id" IN (${placeholders})
-        ORDER BY d."title_vi" ASC`,
-    )
-    .bind(...productIds)
-    .all<{ product_id: string; scanner_name: string }>();
+  const selectedScannerIds = [...new Set(
+    orders.flatMap((order) => order.selected_scanner_id ? [order.selected_scanner_id] : []),
+  )];
+  const selectedNames = new Map<string, string>();
+  if (selectedScannerIds.length > 0) {
+    const placeholders = selectedScannerIds.map(() => '?').join(',');
+    const { results } = await db
+      .prepare(`SELECT "id", "title_vi" FROM "survey_definition" WHERE "id" IN (${placeholders})`)
+      .bind(...selectedScannerIds)
+      .all<{ id: string; title_vi: string }>();
+    for (const scanner of results) selectedNames.set(scanner.id, scanner.title_vi);
+  }
+
+  // Orders created before Scanner selections were tracked keep the previous
+  // product-level display because their original choice cannot be recovered.
+  const legacyProductIds = [...new Set(
+    orders.flatMap((order) => order.selected_scanner_id ? [] : [order.product_id]),
+  )];
+  const scannerRows: Array<{ product_id: string; scanner_name: string }> = [];
+  if (legacyProductIds.length > 0) {
+    const placeholders = legacyProductIds.map(() => '?').join(',');
+    const { results } = await db
+      .prepare(
+        `SELECT pe."product_id", CASE WHEN pe."content_id" = '*' THEN 'Toàn bộ Scanner' ELSE d."title_vi" END AS "scanner_name"
+         FROM "product_entitlement" pe
+         LEFT JOIN "survey_definition" d ON pe."content_id" = d."id"
+         WHERE pe."content_type" = 'scanner' AND pe."product_id" IN (${placeholders})
+         ORDER BY d."title_vi" ASC`,
+      )
+      .bind(...legacyProductIds)
+      .all<{ product_id: string; scanner_name: string }>();
+    scannerRows.push(...results.filter((row) => Boolean(row.scanner_name)));
+  }
 
   const byProduct = new Map<string, string[]>();
   for (const row of scannerRows) {
@@ -518,7 +543,9 @@ export async function listUserOrdersWithScanners(
 
   return orders.map((order) => ({
     ...order,
-    scanner_names: byProduct.get(order.product_id) ?? [],
+    scanner_names: order.selected_scanner_id
+      ? [selectedNames.get(order.selected_scanner_id) ?? 'Scanner đã chọn']
+      : byProduct.get(order.product_id) ?? [],
   }));
 }
 
@@ -538,15 +565,15 @@ export async function listManualOrders(db: D1Database): Promise<OrderWithProduct
 /** Create a pending order for a bank transfer. Its order code is the transfer reference. */
 export async function createManualOrder(
   db: D1Database,
-  input: { id: string; user_id: string; product_id: string; order_code: number; amount: number },
+  input: { id: string; user_id: string; product_id: string; order_code: number; amount: number; selected_scanner_id?: string | null },
 ): Promise<Order> {
   const ts = now();
   await db
     .prepare(
-      `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at")
-       VALUES (?,?,?,?,?,'pending',NULL,NULL,?)`,
+       `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id")
+        VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?)`,
     )
-    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts)
+    .bind(input.id, input.user_id, input.product_id, input.order_code, input.amount, ts, input.selected_scanner_id ?? null)
     .run();
   return getOrder(db, input.id) as Promise<Order>;
 }

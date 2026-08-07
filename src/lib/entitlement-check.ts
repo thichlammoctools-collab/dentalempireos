@@ -1,7 +1,7 @@
 import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
-import { hasActiveEntitlementForContent } from './entitlement-db';
+import { hasActiveEntitlementForContent, hasActiveScannerEntitlement } from './entitlement-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
 
@@ -27,7 +27,7 @@ export async function hasActiveScannerProduct(
        INNER JOIN "product_entitlement" pe ON pe."product_id" = p."id"
        WHERE p."is_active" = 1
          AND pe."content_type" = 'scanner'
-         AND pe."content_id" = ?
+          AND pe."content_id" IN (?, '*')
        LIMIT 1`,
     )
     .bind(scannerId)
@@ -82,12 +82,7 @@ export async function canAccessScanner(
   if (!hasConfiguredProduct) return true;
   if (!userId) return false;
 
-  const [hasAllAccess, hasContentAccess] = await Promise.all([
-    hasActiveEntitlementForContent(db, userId, 'scanner', '*'),
-    hasActiveEntitlementForContent(db, userId, 'scanner', scannerId),
-  ]);
-
-  return hasAllAccess || hasContentAccess;
+  return hasActiveScannerEntitlement(db, userId, scannerId);
 }
 
 export async function canAccessCourse(

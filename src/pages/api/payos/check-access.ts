@@ -25,7 +25,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         .first<{
           id: string;
           user_id: string;
-          product_id: string;
+           product_id: string;
+           selected_scanner_id: string | null;
           payment_link_id: string | null;
           status: string;
         }>();
@@ -48,6 +49,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 user_id: order.user_id,
                 product_id: order.product_id,
                 order_id: order.id,
+                selected_scanner_id: order.selected_scanner_id,
               });
               return json({ status: 'paid', product_id: order.product_id });
             }

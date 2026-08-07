@@ -11,6 +11,7 @@ import {
   cancelPayosReservation,
   isUniqueConstraintError,
 } from '../../../lib/payos-db';
+import { listProductEntitlements } from '../../../lib/entitlement-db';
 import { cancelPaymentLink, createPaymentLink } from '../../../lib/payos';
 
 export const prerender = false;
@@ -34,15 +35,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body?.product_id) return badRequest('Thiếu product_id');
+  if (typeof body?.product_id !== 'string') return badRequest('Thiếu product_id');
+  const selectedScannerId = typeof body.scanner_id === 'string' && body.scanner_id.trim()
+    ? body.scanner_id.trim()
+    : null;
 
   const product = await getProduct(env.DB, body.product_id as string);
   if (!product || !product.is_active) {
     return badRequest('Sản phẩm không tồn tại hoặc đã ngừng bán');
   }
+  if (selectedScannerId) {
+    const [scanner, entitlements] = await Promise.all([
+      env.DB.prepare('SELECT 1 FROM "survey_definition" WHERE "id" = ? AND "status" = \'active\'').bind(selectedScannerId).first(),
+      listProductEntitlements(env.DB, product.id),
+    ]);
+    const isSelectableScanner = entitlements.some(
+      (entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === selectedScannerId,
+    );
+    if (!scanner || !isSelectableScanner) return badRequest('Scanner được chọn không thuộc sản phẩm này');
+  }
 
   // Reuse an in-flight checkout so retries or double-clicks cannot create duplicate charges.
-  const pendingOrder = await getRecentPendingOrder(env.DB, locals.user.id, product.id);
+  const pendingOrder = await getRecentPendingOrder(env.DB, locals.user.id, product.id, selectedScannerId);
   if (pendingOrder?.checkout_url) {
     return json({
       checkoutUrl: pendingOrder.checkout_url,
@@ -66,6 +80,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         product_id: product.id,
         order_code: orderCode,
         amount: product.price,
+        selected_scanner_id: selectedScannerId,
       });
       reserved = true;
       break;
