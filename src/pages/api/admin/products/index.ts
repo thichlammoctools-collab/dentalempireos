@@ -62,23 +62,26 @@ export const POST: APIRoute = async ({ request }) => {
   const resolvedEntitlements = resolveEntitlements(entitlement_preset, parsedEntitlements);
   if (resolvedEntitlements === null) return badRequest('Invalid entitlement mapping');
   if (!resolvedEntitlements?.length) return badRequest('Ít nhất một quyền lợi là bắt buộc');
-  const usesCredits = resolvedEntitlements.some((entitlement) => (
-    entitlement.content_type === 'scanner' || entitlement.content_type === 'ai_app'
-  ));
+  const usesCredits = resolvedEntitlements.some((entitlement) => entitlement.content_type === 'scanner');
+  const allowsHybridScannerPackage = usesCredits
+    && resolvedEntitlements.some((entitlement) => (
+      entitlement.content_type === 'scanner' && entitlement.content_id === '*'
+    ));
   const usesDuration = resolvedEntitlements.some((entitlement) => (
     entitlement.content_type === 'book'
+    || entitlement.content_type === 'ai_app'
     || entitlement.content_type === 'resource'
     || entitlement.content_type === 'blog'
     || entitlement.content_type === 'course'
   ));
-  if (usesCredits && usesDuration) {
+  if (usesCredits && usesDuration && !allowsHybridScannerPackage) {
     return badRequest('Không thể kết hợp quyền lợi dùng credits với quyền lợi tính thời hạn trong cùng một gói');
   }
-  if (usesCredits && duration_days !== undefined && duration_days !== null) {
+  if (usesCredits && !allowsHybridScannerPackage && duration_days !== undefined && duration_days !== null) {
     return badRequest('Gói Scanner hoặc công cụ AI dùng credits không có thời hạn');
   }
   if (!usesCredits && credits !== undefined && credits !== 0) {
-    return badRequest('Credits chỉ áp dụng cho gói Scanner hoặc công cụ AI');
+    return badRequest('Credits chỉ áp dụng cho gói Scanner');
   }
   if (usesDuration && (!duration_days || duration_days < 1)) {
     return badRequest('Gói sách, tài nguyên, Blog hoặc khóa học phải có thời hạn lớn hơn 0 ngày');
@@ -95,7 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
     price,
     credits: usesCredits ? credits : 0,
     description: description?.trim(),
-    duration_days: usesCredits ? null : duration_days,
+     duration_days: usesCredits && !allowsHybridScannerPackage ? null : duration_days,
     reference_id: normalizedReferenceId,
     app_id: app_id?.trim() || null,
     is_active,

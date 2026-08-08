@@ -27,12 +27,12 @@ const productEntitlementMap = Object.fromEntries(await Promise.all(
 
 const activeCount = products.filter((p) => p.is_active === 1).length;
 const entitlementTypeLabels: Record<string, string> = {
-  book: 'Tài liệu',
+  book: 'Sách',
   ai_app: 'AI app',
   scanner: 'Scanner',
   course: 'Khóa học',
   blog: 'Blog',
-  resource: 'Tài liệu',
+  resource: 'Tài liệu tải về',
   service: 'Dịch vụ',
 };
 
@@ -56,10 +56,10 @@ const entitlementIdLabels: Record<string, string> = {
 
 function getEntitlementLabel(entitlement: { content_type: string; content_id: string }): string {
   if (entitlement.content_type === 'book' && entitlement.content_id === '*') {
-    return 'Tài liệu: Các chương trả phí';
+    return 'Sách: Các chương trả phí';
   }
   if (entitlement.content_type === 'resource' && entitlement.content_id === '*') {
-    return 'Tài liệu: Tất cả';
+    return 'Tài liệu tải về: Tất cả';
   }
   if (entitlement.content_type === 'course' && entitlement.content_id === '*') {
     return 'Khóa học: Tất cả';
@@ -157,24 +157,7 @@ const newId = nanoid();
             <p id="price-help" class="mt-1 text-xs text-on-surface-variant/75">Nhập số tiền, hệ thống tự thêm dấu phân cách. Ví dụ: 4.500.000đ</p>
           </div>
         </div>
-        <div id="credits-field" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
-          <div>
-            <label for="credits" class="block text-sm font-semibold text-on-surface-variant mb-2">Số credits <span class="text-red-400">*</span></label>
-            <div class="relative">
-              <input type="number" name="credits" id="credits" min="0" value="20" required
-                class="w-full px-4 py-3 pr-14 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none tabular-nums"
-                placeholder="20"
-                aria-describedby="credits-help"
-              />
-              <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-on-surface-variant">lượt</span>
-            </div>
-            <p id="credits-help" class="mt-1 text-xs text-on-surface-variant/75">Chỉ áp dụng cho gói Scanner hoặc công cụ AI. Gói dùng credits không có thời hạn.</p>
-          </div>
-          <div>
-            <label for="price-display-2" class="block text-sm font-semibold text-on-surface-variant mb-2 text-transparent select-none">.</label>
-            <div class="hidden"></div>
-          </div>
-        </div>
+        <input type="hidden" name="credits" id="credits" value="20" />
         <div class="rounded-xl border border-outline-variant/60 bg-surface-container-low/40 p-4 lg:p-5 lg:col-span-2">
           <label class="block text-sm font-semibold text-on-surface-variant mb-2">Quyền lợi trong gói</label>
           <select name="entitlement_preset" id="entitlement-preset"
@@ -213,7 +196,7 @@ const newId = nanoid();
               </div>
             </div>
             <div id="resource-picker" class="hidden mt-3">
-              <p class="mb-2 text-xs text-on-surface-variant">Chọn tài liệu được mở khóa trong sản phẩm này:</p>
+              <p class="mb-2 text-xs text-on-surface-variant">Chọn tài liệu tải về được mở khóa trong sản phẩm này:</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                 {resources.map((resource) => (
                   <label class="resource-option flex items-center gap-2 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-sm text-on-surface cursor-pointer hover:border-primary/60">
@@ -256,7 +239,7 @@ const newId = nanoid();
               class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
               placeholder="Để trống = vĩnh viễn"
             />
-            <p class="text-xs text-on-surface-variant/75 mt-1">Áp dụng cho sách, tài nguyên, blog và khóa học. Gói dùng credits không có thời hạn.</p>
+            <p class="text-xs text-on-surface-variant/75 mt-1">Áp dụng cho sách, tài liệu tải về, blog và khóa học. Gói dùng credits không có thời hạn.</p>
           </div>
         </div>
         <div class="flex items-center gap-3 lg:col-span-2">
@@ -376,8 +359,8 @@ const newId = nanoid();
     const submitBtn = document.getElementById('form-submit');
     const priceInput = document.getElementById('price');
     const priceDisplay = document.getElementById('price-display');
-    const creditsInput = document.getElementById('credits');
-    const creditsField = document.getElementById('credits-field');
+     const creditsField = document.getElementById('credits-field');
+     const creditsInput = document.getElementById('credits');
     const durationField = document.getElementById('duration-field');
     const modalTitle = document.getElementById('modal-title');
     const entitlementPreset = document.getElementById('entitlement-preset');
@@ -397,14 +380,28 @@ const newId = nanoid();
       });
     });
     const entitlementTypes = [
-      ['book', 'Tài liệu'],
+      ['book', 'Sách'],
       ['ai_app', 'AI app'],
       ['scanner', 'Scanner'],
       ['course', 'Khóa học'],
       ['blog', 'Blog'],
-      ['resource', 'Tài liệu'],
+      ['resource', 'Tài liệu tải về'],
       ['service', 'Dịch vụ'],
     ];
+
+    function getEntitlementDetails(type) {
+      if (type === 'scanner' || type === 'ai_app') return '20 credits';
+      const duration = form?.querySelector('[name="duration_days"]')?.value?.trim();
+      return duration ? `${duration} ngày` : 'Vĩnh viễn';
+    }
+
+    function updateEntitlementDetails() {
+      entitlementRows?.querySelectorAll('.entitlement-row').forEach((row) => {
+        const type = row.querySelector('.entitlement-type')?.value;
+        const detail = row.querySelector('.entitlement-details');
+        if (type && detail) detail.textContent = getEntitlementDetails(type);
+      });
+    }
 
     function formatPrice(value) {
       const digits = String(value ?? '').replace(/\D/g, '');
@@ -534,7 +531,7 @@ const newId = nanoid();
     function addEntitlementRow(entitlement = { content_type: 'book', content_id: '' }) {
       if (!entitlementRows) return;
       const row = document.createElement('div');
-      row.className = 'entitlement-row grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] items-center gap-2';
+       row.className = 'entitlement-row grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,auto)_2.5rem] items-center gap-2';
 
       const typeInput = document.createElement('select');
       typeInput.className = 'entitlement-type min-w-0 w-full px-3 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -550,7 +547,11 @@ const newId = nanoid();
       idInput.type = 'text';
       idInput.value = entitlement.content_id || '';
       idInput.placeholder = 'ID hoặc *';
-      idInput.className = 'entitlement-id min-w-0 w-full px-3 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface placeholder:text-on-surface-variant/70 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
+       idInput.className = 'entitlement-id min-w-0 w-full px-3 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface placeholder:text-on-surface-variant/70 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+       const detail = document.createElement('span');
+       detail.className = 'entitlement-details px-2 text-xs font-semibold text-on-surface-variant whitespace-nowrap';
+       detail.textContent = getEntitlementDetails(entitlement.content_type);
 
       function renderContentIdInput() {
         const currentValue = idInput.value;
@@ -594,17 +595,20 @@ const newId = nanoid();
         row.remove();
         markEntitlementsCustom();
       });
-      typeInput.addEventListener('change', () => {
-        renderContentIdInput();
-        markEntitlementsCustom();
+       typeInput.addEventListener('change', () => {
+         renderContentIdInput();
+         detail.textContent = getEntitlementDetails(typeInput.value);
+         markEntitlementsCustom();
       });
-      idInput.addEventListener('input', markEntitlementsCustom);
+       idInput.addEventListener('input', markEntitlementsCustom);
 
-      row.append(typeInput, idInput, removeBtn);
+       row.append(typeInput, idInput, detail, removeBtn);
       entitlementRows.appendChild(row);
       renderContentIdInput();
       syncBillingFields();
-    }
+     }
+
+    form?.querySelector('[name="duration_days"]')?.addEventListener('input', updateEntitlementDetails);
 
     function renderEntitlementRows(entitlements) {
       if (!entitlementRows) return;
@@ -663,7 +667,6 @@ const newId = nanoid();
       form?.reset();
       if (priceDisplay) priceDisplay.value = '';
       if (priceInput) priceInput.value = '0';
-      if (creditsInput) creditsInput.value = '20';
        renderEntitlementRows([]);
        setSelectedScanners([]);
        setSelectedResources([]);
@@ -756,7 +759,7 @@ const newId = nanoid();
          return;
        }
        if (selectedEntitlementPreset === 'resource_custom' && customEntitlements.length === 0) {
-         errorEl.textContent = 'Chọn ít nhất một tài liệu để mở khóa.';
+        errorEl.textContent = 'Chọn ít nhất một tài liệu tải về để mở khóa.';
          errorEl?.classList.remove('hidden');
          return;
        }
@@ -768,7 +771,7 @@ const newId = nanoid();
        const body = {
         name: data.get('name'),
         price: Number(data.get('price') || 0),
-        credits: packageUsesCredits(customEntitlements) ? Number(data.get('credits') || 0) : 0,
+         credits: packageUsesCredits(customEntitlements) ? Number(data.get('credits') || 20) : 0,
         description: String(data.get('description') ?? ''),
         duration_days: packageUsesCredits(customEntitlements)
           ? null

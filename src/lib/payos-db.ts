@@ -494,10 +494,6 @@ export async function grantProductAccess(
     (entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === '*',
   );
 
-  if (grantsAllScanners) {
-    return grantScannerPackageAccess(db, product, input);
-  }
-
   let expiresAt: string | null = null;
   if (product.duration_days && product.duration_days > 0) {
     const existing = await db
@@ -516,6 +512,24 @@ export async function grantProductAccess(
     }
   }
 
+  if (grantsAllScanners) {
+    const scannerAccess = await grantScannerPackageAccess(db, product, {
+      ...input,
+      expires_at: expiresAt,
+    });
+
+    // Hybrid packages also need one base access row for time-limited content
+    // and Chat. Scanner grants use selected_scanner_id and remain credit-based.
+    if (expiresAt) {
+      await grantAccess(db, {
+        ...input,
+        expires_at: expiresAt,
+        credits: 0,
+      });
+    }
+    return scannerAccess;
+  }
+
   return grantAccess(db, { ...input, expires_at: expiresAt, credits: product.credits });
 }
 
@@ -528,7 +542,7 @@ export async function grantProductAccess(
 async function grantScannerPackageAccess(
   db: D1Database,
   product: Product,
-  input: { user_id: string; product_id: string; order_id: string; selected_scanner_id?: string | null },
+  input: { user_id: string; product_id: string; order_id: string; selected_scanner_id?: string | null; expires_at: string | null },
 ): Promise<Access> {
   const { results } = await db
     .prepare(
