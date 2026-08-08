@@ -155,6 +155,27 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const finalEntitlements = entitlementUpdate.present
     ? entitlementUpdate.entitlements
     : currentEntitlements;
+  const usesCredits = finalEntitlements.some((entitlement) => (
+    entitlement.content_type === 'scanner' || entitlement.content_type === 'ai_app'
+  ));
+  const usesDuration = finalEntitlements.some((entitlement) => (
+    entitlement.content_type === 'book'
+    || entitlement.content_type === 'resource'
+    || entitlement.content_type === 'blog'
+    || entitlement.content_type === 'course'
+  ));
+  if (usesCredits && usesDuration) {
+    return badRequest('Không thể kết hợp quyền lợi dùng credits với quyền lợi tính thời hạn trong cùng một gói');
+  }
+  if (usesCredits && resolvedDurationDays !== null) {
+    return badRequest('Gói Scanner hoặc công cụ AI dùng credits không có thời hạn');
+  }
+  if (!usesCredits && credits !== undefined && credits !== 0) {
+    return badRequest('Credits chỉ áp dụng cho gói Scanner hoặc công cụ AI');
+  }
+  if (usesDuration && (!resolvedDurationDays || resolvedDurationDays < 1)) {
+    return badRequest('Gói sách, tài nguyên, Blog hoặc khóa học phải có thời hạn lớn hơn 0 ngày');
+  }
   if (finalEntitlements.some((entitlement) => entitlement.content_type === 'blog' && entitlement.content_id === '*')
     && (!resolvedDurationDays || resolvedDurationDays < 1)) {
     return badRequest('Gói đăng ký Blog phải có thời hạn lớn hơn 0 ngày');
@@ -164,9 +185,9 @@ export const PUT: APIRoute = async ({ params, request }) => {
     name: typeof name === 'string' ? name.trim() : existing.name,
     type: 'access_package',
     price: (price as number | undefined) ?? existing.price,
-    credits: (credits as number | undefined) ?? existing.credits,
+    credits: usesCredits ? (credits as number | undefined) ?? existing.credits : 0,
     description: typeof description === 'string' ? description.trim() : existing.description ?? undefined,
-    duration_days: resolvedDurationDays,
+    duration_days: usesCredits ? null : resolvedDurationDays,
     reference_id: resolvedReferenceId,
     app_id: app_id === undefined ? existing.app_id : typeof app_id === 'string' ? app_id.trim() || null : null,
     is_active: is_active ?? existing.is_active,

@@ -79,7 +79,7 @@ export const POST: APIRoute = async (ctx) => {
   if (usage.remaining <= 0) {
     return json({
       error: !isPaidScanner
-        ? 'Scanner miễn phí này chỉ được thực hiện 1 lần.'
+        ? 'Scanner miễn phí này đã dùng hết 3 lượt. Mỗi lượt đã bao gồm Phân tích AI và Kế hoạch AI.'
         : 'Bạn đã dùng hết credits cho scanner này.',
       quota: usage,
     }, 429);

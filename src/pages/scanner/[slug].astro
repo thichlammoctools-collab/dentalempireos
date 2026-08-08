@@ -59,7 +59,7 @@ const scannerUnavailable = !hasPaidAccess || quotaExhausted;
 const scannerNotice = !hasPaidAccess
   ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
   : !isPaidScanner
-  ? `Scanner miễn phí: bạn còn ${usage.remaining}/1 lượt. Đăng ký tài khoản để sử dụng.`
+  ? `Scanner miễn phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt bao gồm phân tích AI và kế hoạch AI cho kết quả của bạn.`
   : `Scanner trả phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt scan AI tốn 1 credit.`;
 
 let clinicProfile: any = null;
@@ -151,7 +151,7 @@ const defaultScaleEn: Record<string, string> = {
           class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
           role="status"
           data-notice-vi={scannerNotice}
-          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/1 attempt remaining. Sign up to use it.` : `Paid Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each AI scan costs 1 credit.`}
+          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each attempt includes AI analysis and an AI action plan for your result.` : `Paid Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each AI scan costs 1 credit.`}
         >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">
@@ -212,6 +212,15 @@ const defaultScaleEn: Record<string, string> = {
               <div class="intro-top">
                 <h1 class="intro-title">{definition.title_vi}</h1>
                 <p class="intro-desc">{definition.description_vi}</p>
+              </div>
+              <div class="credit-reminder">
+                <span class="material-symbols-outlined">campaign</span>
+                <p
+                  data-vi="Số lượt scan miễn phí của bạn có hạn — hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất có thể. Mỗi lượt bao gồm cả Phân tích AI và Kế hoạch AI; càng nhiều thông tin, kết quả càng chính xác và hữu ích để bạn sử dụng về sau."
+                  data-en="Your scan credits are limited — please provide the most <strong>accurate and complete</strong> information possible. The more information you share, the more accurate and actionable your results will be."
+                >
+                  Số lượt scan miễn phí của bạn có hạn — hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất có thể. Mỗi lượt bao gồm cả Phân tích AI và Kế hoạch AI; càng nhiều thông tin, kết quả càng chính xác và hữu ích để bạn sử dụng về sau.
+                </p>
               </div>
               <div class="intro-info">
                 <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
@@ -313,6 +322,22 @@ const defaultScaleEn: Record<string, string> = {
   .scanner-unlock-card__steps { display: grid; gap: 0.4rem; margin: 0 0 1rem; padding-left: 1.25rem; color: var(--color-on-surface-variant); font-size: 0.8rem; line-height: 1.45; }
   .scanner-unlock-card__steps strong { color: var(--color-on-surface); }
   .scanner-unlock-card__unavailable { margin: 0.75rem 0 0; color: var(--color-warning); font-size: 0.8rem; }
+  .credit-reminder {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin: 0 0 1.25rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant));
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--color-warning-container) 76%, transparent);
+    color: var(--color-on-surface-variant);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .credit-reminder .material-symbols-outlined { flex: 0 0 auto; margin-top: 0.1rem; font-size: 1rem; color: var(--color-warning); }
+  .credit-reminder p { margin: 0; }
+  .credit-reminder strong { color: var(--color-on-surface); }
   @media (max-width: 480px) {
     .scanner-unlock-card { gap: 0.75rem; padding: 1rem; }
     .scanner-unlock-card__icon { width: 2.25rem; height: 2.25rem; }

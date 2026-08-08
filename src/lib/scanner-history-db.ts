@@ -28,6 +28,8 @@ export interface PurchasedPaidScanner {
   remaining: number;
 }
 
+export const FREE_SCANNER_ATTEMPT_LIMIT = 3;
+
 export async function addToHistory(
   db: D1Database,
   input: {
@@ -152,11 +154,14 @@ export async function getScannerUsage(
   surveyId: string,
   isFree: boolean,
 ): Promise<{ used: number; limit: number; remaining: number }> {
-  const month = new Date().toISOString().slice(0, 7);
   if (isFree) {
     const row = await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>();
     const used = row?.used ?? 0;
-    return { used, limit: 1, remaining: Math.max(0, 1 - used) };
+    return {
+      used,
+      limit: FREE_SCANNER_ATTEMPT_LIMIT,
+      remaining: Math.max(0, FREE_SCANNER_ATTEMPT_LIMIT - used),
+    };
   }
   // Credit-based: query from access table
   const row = await db.prepare(`

@@ -157,7 +157,7 @@ const newId = nanoid();
             <p id="price-help" class="mt-1 text-xs text-on-surface-variant/75">Nhập số tiền, hệ thống tự thêm dấu phân cách. Ví dụ: 4.500.000đ</p>
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
+        <div id="credits-field" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
           <div>
             <label for="credits" class="block text-sm font-semibold text-on-surface-variant mb-2">Số credits <span class="text-red-400">*</span></label>
             <div class="relative">
@@ -168,7 +168,7 @@ const newId = nanoid();
               />
               <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-on-surface-variant">lượt</span>
             </div>
-            <p id="credits-help" class="mt-1 text-xs text-on-surface-variant/75">Số lượt scan mà gói này cấp. Mỗi lần scan AI tốn 1 credit.</p>
+            <p id="credits-help" class="mt-1 text-xs text-on-surface-variant/75">Chỉ áp dụng cho gói Scanner hoặc công cụ AI. Gói dùng credits không có thời hạn.</p>
           </div>
           <div>
             <label for="price-display-2" class="block text-sm font-semibold text-on-surface-variant mb-2 text-transparent select-none">.</label>
@@ -249,14 +249,14 @@ const newId = nanoid();
             placeholder="Mô tả ngắn về sản phẩm"
           ></textarea>
         </div>
-        <div class="lg:col-span-2">
+        <div id="duration-field" class="lg:col-span-2">
           <div>
             <label class="block text-sm font-semibold text-on-surface-variant mb-2">Thời hạn (ngày)</label>
             <input type="number" name="duration_days" min="0"
               class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-on-surface placeholder:text-on-surface-variant/70 focus:ring-2 focus:ring-primary/40 focus:outline-none"
               placeholder="Để trống = vĩnh viễn"
             />
-            <p class="text-xs text-on-surface-variant/75 mt-1">Để trống nếu quyền truy cập vĩnh viễn</p>
+            <p class="text-xs text-on-surface-variant/75 mt-1">Áp dụng cho sách, tài nguyên, blog và khóa học. Gói dùng credits không có thời hạn.</p>
           </div>
         </div>
         <div class="flex items-center gap-3 lg:col-span-2">
@@ -377,6 +377,8 @@ const newId = nanoid();
     const priceInput = document.getElementById('price');
     const priceDisplay = document.getElementById('price-display');
     const creditsInput = document.getElementById('credits');
+    const creditsField = document.getElementById('credits-field');
+    const durationField = document.getElementById('duration-field');
     const modalTitle = document.getElementById('modal-title');
     const entitlementPreset = document.getElementById('entitlement-preset');
     const entitlementRows = document.getElementById('entitlement-rows');
@@ -447,10 +449,44 @@ const newId = nanoid();
       const pickerMode = value === 'scanner_custom' || value === 'resource_custom' || value === 'course_custom';
       entitlementRows?.classList.toggle('hidden', pickerMode);
       addEntitlementBtn?.classList.toggle('hidden', pickerMode);
+      syncBillingFields();
+    }
+
+    function packageUsesCredits(entitlements = readEntitlements()) {
+      return entitlements.some((entitlement) => (
+        entitlement.content_type === 'scanner' || entitlement.content_type === 'ai_app'
+      ));
+    }
+
+    function packageUsesDuration(entitlements = readEntitlements()) {
+      return entitlements.some((entitlement) => (
+        entitlement.content_type === 'book'
+        || entitlement.content_type === 'resource'
+        || entitlement.content_type === 'blog'
+        || entitlement.content_type === 'course'
+      ));
+    }
+
+    function syncBillingFields() {
+      const usesCredits = packageUsesCredits();
+      const usesDuration = packageUsesDuration();
+      const durationInput = form?.querySelector('[name="duration_days"]');
+      creditsField?.classList.toggle('hidden', !usesCredits);
+      durationField?.classList.toggle('hidden', usesCredits);
+      if (creditsInput) {
+        creditsInput.required = usesCredits;
+        if (!usesCredits) creditsInput.value = '0';
+        else if (!creditsInput.value || Number(creditsInput.value) < 1) creditsInput.value = '20';
+      }
+      if (durationInput) {
+        durationInput.required = usesDuration;
+        if (usesCredits) durationInput.value = '';
+      }
     }
 
     function markEntitlementsCustom() {
       setPresetValue('custom');
+      syncBillingFields();
     }
 
     function getSelectedScanners() {
@@ -567,12 +603,14 @@ const newId = nanoid();
       row.append(typeInput, idInput, removeBtn);
       entitlementRows.appendChild(row);
       renderContentIdInput();
+      syncBillingFields();
     }
 
     function renderEntitlementRows(entitlements) {
       if (!entitlementRows) return;
       entitlementRows.innerHTML = '';
       for (const entitlement of entitlements) addEntitlementRow(entitlement);
+      syncBillingFields();
     }
 
     function readEntitlements() {
@@ -611,6 +649,9 @@ const newId = nanoid();
         renderEntitlementRows(entitlementPresets[selected] || []);
       }
       setPresetValue(selected);
+    });
+    document.querySelectorAll('.scanner-checkbox, .resource-checkbox, .course-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', syncBillingFields);
     });
     addEntitlementBtn?.addEventListener('click', () => {
       markEntitlementsCustom();
@@ -651,7 +692,7 @@ const newId = nanoid();
 
         if (nameInput) nameInput.value = b.dataset.name || '';
         if (priceDisplay) priceDisplay.value = formatPrice(b.dataset.price || '');
-        if (creditsInput) creditsInput.value = b.dataset.credits || '20';
+        if (creditsInput) creditsInput.value = b.dataset.credits || '0';
         if (descInput) descInput.value = b.dataset.description || '';
         if (durInput) durInput.value = b.dataset.duration_days || '';
         if (activeInput) activeInput.checked = b.dataset.is_active === '1';
@@ -727,9 +768,11 @@ const newId = nanoid();
        const body = {
         name: data.get('name'),
         price: Number(data.get('price') || 0),
-        credits: Number(data.get('credits') || 20),
+        credits: packageUsesCredits(customEntitlements) ? Number(data.get('credits') || 0) : 0,
         description: String(data.get('description') ?? ''),
-        duration_days: data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
+        duration_days: packageUsesCredits(customEntitlements)
+          ? null
+          : data.get('duration_days') ? parseInt(String(data.get('duration_days')), 10) : null,
         reference_id: null,
         app_id: null,
         is_active: data.get('is_active') === 'on' ? 1 : 0,
