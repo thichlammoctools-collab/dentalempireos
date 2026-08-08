@@ -6,6 +6,7 @@ import { createAuth } from '../../lib/auth';
 import { listQuestionsByUser } from '../../lib/question-db';
 import { listChapters } from '../../lib/book-db';
 import { listProductEntitlements, type ProductEntitlement } from '../../lib/entitlement-db';
+import { listSurveyDefinitions } from '../../lib/survey-config-db';
 
 export const prerender = false;
 
@@ -29,6 +30,9 @@ const { results: purchases } = await env.DB
        a."granted_at",
        a."expires_at",
        a."is_active"  as "access_active",
+       a."credits",
+       a."scans_used",
+       a."selected_scanner_id",
        p."id"         as "product_id",
         p."name"       as "product_name",
         p."price"      as "product_price",
@@ -46,6 +50,9 @@ const { results: purchases } = await env.DB
     granted_at: string;
     expires_at: string | null;
     access_active: number;
+    credits: number;
+    scans_used: number;
+    selected_scanner_id: string | null;
     product_id: string;
     product_name: string;
     product_price: number;
@@ -59,6 +66,9 @@ const purchaseDetails = await Promise.all(
     entitlements: await listProductEntitlements(env.DB, purchase.product_id).catch(() => []),
   })),
 );
+
+const surveyDefs = await listSurveyDefinitions(env.DB, { status: 'active' });
+const scannerSlugMap = new Map<string, string>(surveyDefs.map((s) => [s.id, s.slug]));
 
 function getEntitlement(p: typeof purchaseDetails[0], contentType: ProductEntitlement['content_type']) {
   return p.entitlements.find((entitlement) => entitlement.content_type === contentType);
@@ -83,7 +93,12 @@ function productLink(p: typeof purchaseDetails[0]): string {
   if (course && course.content_id !== '*') return `/courses/${course.content_id}`;
   if (getEntitlement(p, 'resource')) return '/resources';
   if (getEntitlement(p, 'book')) return '/book';
-  if (getEntitlement(p, 'scanner')) return '/scanner';
+  if (getEntitlement(p, 'scanner')) {
+    const targetId = p.selected_scanner_id
+      ?? (getEntitlement(p, 'scanner')!.content_id !== '*' ? getEntitlement(p, 'scanner')!.content_id : null);
+    const slug = targetId ? scannerSlugMap.get(targetId) : null;
+    return slug ? `/scanner/${slug}` : '/scanner';
+  }
   if (getEntitlement(p, 'ai_app')) return '/ai-tools';
   return '#';
 }
@@ -302,6 +317,7 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
                   const typeInfo = productLabel(p);
                   const link = productLink(p);
                   const expiry = p.expires_at ? formatDate(p.expires_at) : null;
+                  const scannerEnt = getEntitlement(p, 'scanner');
                   return (
                     <a
                       href={link}
@@ -325,6 +341,14 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
                             <span class="text-primary/70">· Vĩnh viễn</span>
                           )}
                         </div>
+                        {scannerEnt && (
+                          <div class="flex items-center gap-1 mt-1.5 text-[10px]">
+                            <span class="material-symbols-outlined text-[11px] text-amber-400">bolt</span>
+                            <span class="text-on-surface-variant">
+                              Đã check <strong class="text-white">{p.scans_used}</strong>/{p.credits} lượt
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </a>
                   );
