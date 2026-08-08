@@ -25,7 +25,7 @@ export const GET: APIRoute = async ({ locals }) => {
     productsWithEntitlements
       .filter(({ entitlements }) => entitlements.some(
         (entitlement) => entitlement.content_type === 'scanner'
-          && (entitlement.content_id === scannerId || entitlement.content_id === '*'),
+          && entitlement.content_id === scannerId,
       ))
       .map(({ product }) => product)
       .sort((a, b) => a.price - b.price)[0] ?? null;

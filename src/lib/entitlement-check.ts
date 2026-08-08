@@ -26,8 +26,8 @@ export async function hasActiveScannerProduct(
        FROM "product" p
        INNER JOIN "product_entitlement" pe ON pe."product_id" = p."id"
        WHERE p."is_active" = 1
-         AND pe."content_type" = 'scanner'
-          AND pe."content_id" IN (?, '*')
+          AND pe."content_type" = 'scanner'
+          AND pe."content_id" = ?
        LIMIT 1`,
     )
     .bind(scannerId)

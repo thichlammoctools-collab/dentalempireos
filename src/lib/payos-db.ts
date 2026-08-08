@@ -417,8 +417,13 @@ export async function grantAccess(
   // A payment can be delivered more than once. Its original grant is the
   // authoritative result, so retries must not create another renewal.
   const orderAccess = await db
-    .prepare('SELECT * FROM "access" WHERE "order_id" = ? LIMIT 1')
-    .bind(input.order_id)
+    .prepare(
+      `SELECT * FROM "access"
+       WHERE "order_id" = ?
+         AND IFNULL("selected_scanner_id", '') = IFNULL(?, '')
+       LIMIT 1`,
+    )
+    .bind(input.order_id, input.selected_scanner_id ?? null)
     .first<Access>();
   if (orderAccess) return orderAccess;
 
@@ -427,12 +432,12 @@ export async function grantAccess(
 
   const existing = await db
     .prepare(
-       `SELECT "expires_at" FROM "access"
+       `SELECT "expires_at", "credits", "scans_used" FROM "access"
         WHERE "user_id" = ? AND "product_id" = ? AND IFNULL("selected_scanner_id", '') = IFNULL(?, '') AND "is_active" = 1
        LIMIT 1`,
     )
     .bind(input.user_id, input.product_id, input.selected_scanner_id ?? null)
-    .first<{ expires_at: string | null }>();
+    .first<{ expires_at: string | null; credits: number; scans_used: number }>();
 
   // Renewals extend from the later of now and the current expiry. A permanent
   // access remains permanent when the same product is granted again.
@@ -444,6 +449,12 @@ export async function grantAccess(
         new Date(input.expires_at).getTime(),
       )).toISOString()
       : input.expires_at;
+
+  // A repeat purchase must preserve unused attempts and add the new allocation.
+  // Resetting scans_used makes the resulting grant self-contained and works for
+  // both standalone Scanner products and package-derived Scanner grants.
+  const remainingCredits = Math.max(0, (existing?.credits ?? 0) - (existing?.scans_used ?? 0));
+  const grantedCredits = remainingCredits + credits;
 
   // Deactivate any existing active access for this user+product first.
   // This prevents race conditions (e.g., PayOS webhook fires twice for the same payment).
@@ -461,7 +472,7 @@ export async function grantAccess(
        `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id","credits","scans_used")
         VALUES (?,?,?,?,?,?,1,?,?,0)`,
     )
-    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt, input.selected_scanner_id ?? null, credits)
+    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt, input.selected_scanner_id ?? null, grantedCredits)
     .run();
 
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
@@ -474,6 +485,18 @@ export async function grantProductAccess(
 ): Promise<Access> {
   const product = await getProduct(db, input.product_id);
   if (!product) throw new Error(`Product not found: ${input.product_id}`);
+
+  const entitlements = await db
+    .prepare('SELECT "content_type", "content_id" FROM "product_entitlement" WHERE "product_id" = ?')
+    .bind(product.id)
+    .all<{ content_type: string; content_id: string }>();
+  const grantsAllScanners = (entitlements.results ?? []).some(
+    (entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === '*',
+  );
+
+  if (grantsAllScanners) {
+    return grantScannerPackageAccess(db, product, input);
+  }
 
   let expiresAt: string | null = null;
   if (product.duration_days && product.duration_days > 0) {
@@ -494,6 +517,47 @@ export async function grantProductAccess(
   }
 
   return grantAccess(db, { ...input, expires_at: expiresAt, credits: product.credits });
+}
+
+/**
+ * A scanner:* package is discounted bulk purchase, not a pooled credit wallet.
+ * Grant the package's credits independently to every Scanner that has an active
+ * dedicated product, giving buyers the same per-Scanner benefit as buying each
+ * Scanner separately.
+ */
+async function grantScannerPackageAccess(
+  db: D1Database,
+  product: Product,
+  input: { user_id: string; product_id: string; order_id: string; selected_scanner_id?: string | null },
+): Promise<Access> {
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT pe."content_id" AS "scanner_id"
+       FROM "product_entitlement" pe
+       INNER JOIN "product" p ON p."id" = pe."product_id"
+       INNER JOIN "survey_definition" d ON d."id" = pe."content_id" AND d."status" = 'active'
+       WHERE p."is_active" = 1
+         AND pe."content_type" = 'scanner'
+         AND pe."content_id" <> '*'
+         AND p."id" <> ?
+       ORDER BY pe."content_id"`,
+    )
+    .bind(product.id)
+    .all<{ scanner_id: string }>();
+
+  if (!results?.length) {
+    throw new Error(`Scanner package ${product.id} has no active dedicated Scanner products`);
+  }
+
+  const grants = await Promise.all(results.map(({ scanner_id }) => grantAccess(db, {
+    user_id: input.user_id,
+    product_id: input.product_id,
+    order_id: input.order_id,
+    selected_scanner_id: scanner_id,
+    expires_at: null,
+    credits: product.credits,
+  })));
+  return grants[0];
 }
 
 /**

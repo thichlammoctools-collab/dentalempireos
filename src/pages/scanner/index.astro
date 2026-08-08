@@ -50,7 +50,6 @@ const scannerProducts = new Map<string, Product>();
 for (const { product, entitlements } of productsWithEntitlements) {
   for (const entitlement of entitlements) {
     if (entitlement.content_type !== 'scanner') continue;
-    if (entitlement.content_id === '*') continue;
     const entitlementScannerIds = entitlement.content_id === '*'
       ? scanners.map((scanner) => scanner.id)
       : scanners.some((scanner) => scanner.id === entitlement.content_id)
