@@ -286,6 +286,70 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
         <!-- RIGHT COLUMN: Products + Questions -->
         <div class="flex flex-col gap-4 md:gap-6">
 
+          <!-- Reading Progress -->
+          <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20" id="reading-stats-section">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm md:text-base font-bold text-white">Tiến độ đọc</h2>
+              <span class="material-symbols-outlined text-primary text-lg">auto_stories</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="reading-stats-grid">
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg" id="rp-completed-icon">trending_up</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-completed">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đã đọc</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg" id="rp-progress-icon">menu_book</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-progress">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đang đọc</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg">bookmark</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-bookmarked">...</p>
+                <p class="text-[10px] text-on-surface-variant">Đánh dấu</p>
+              </div>
+              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
+                <span class="material-symbols-outlined text-primary text-lg">calendar_today</span>
+                <p class="text-base font-bold text-white mt-1" id="rp-last-read">...</p>
+                <p class="text-[10px] text-on-surface-variant">Lần cuối</p>
+              </div>
+            </div>
+            <!-- Week bar -->
+            <div class="mt-4 pt-4 border-t border-outline-variant/15">
+              <p class="text-[10px] text-on-surface-variant mb-2">Tuần này</p>
+              <div class="flex gap-1" id="week-bar">
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-0"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T2</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-1"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T3</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-2"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T4</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-3"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T5</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-4"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T6</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-5"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">T7</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-6"></div>
+                  <span class="text-[9px] text-on-surface-variant/60">CN</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Purchased Products -->
           <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
             <div class="flex items-center justify-between mb-4">
@@ -357,70 +421,6 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
             )}
           </section>
 
-          <!-- Reading Progress -->
-          <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20" id="reading-stats-section">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm md:text-base font-bold text-white">Tiến độ đọc</h2>
-              <span class="material-symbols-outlined text-primary text-lg">auto_stories</span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="reading-stats-grid">
-              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
-                <span class="material-symbols-outlined text-primary text-lg" id="rp-completed-icon">trending_up</span>
-                <p class="text-base font-bold text-white mt-1" id="rp-completed">...</p>
-                <p class="text-[10px] text-on-surface-variant">Đã đọc</p>
-              </div>
-              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
-                <span class="material-symbols-outlined text-primary text-lg" id="rp-progress-icon">menu_book</span>
-                <p class="text-base font-bold text-white mt-1" id="rp-progress">...</p>
-                <p class="text-[10px] text-on-surface-variant">Đang đọc</p>
-              </div>
-              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
-                <span class="material-symbols-outlined text-primary text-lg">bookmark</span>
-                <p class="text-base font-bold text-white mt-1" id="rp-bookmarked">...</p>
-                <p class="text-[10px] text-on-surface-variant">Đánh dấu</p>
-              </div>
-              <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
-                <span class="material-symbols-outlined text-primary text-lg">calendar_today</span>
-                <p class="text-base font-bold text-white mt-1" id="rp-last-read">...</p>
-                <p class="text-[10px] text-on-surface-variant">Lần cuối</p>
-              </div>
-            </div>
-            <!-- Week bar -->
-            <div class="mt-4 pt-4 border-t border-outline-variant/15">
-              <p class="text-[10px] text-on-surface-variant mb-2">Tuần này</p>
-              <div class="flex gap-1" id="week-bar">
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-0"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T2</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-1"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T3</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-2"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T4</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-3"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T5</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-4"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T6</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-5"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">T7</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full h-8 rounded bg-white/5" id="day-bar-6"></div>
-                  <span class="text-[9px] text-on-surface-variant/60">CN</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
           <!-- Scanner unlock banner -->
           <div id="scanner-unlock-banner" class="hidden glass-card rounded-2xl p-5 border border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
             <div class="flex items-center gap-3">
@@ -434,17 +434,6 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
               </button>
             </div>
           </div>
-
-          <!-- Scanner access -->
-          <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm md:text-base font-bold text-white">Scanners & AI Mentor</h2>
-              <span class="material-symbols-outlined text-primary text-lg">psychology</span>
-            </div>
-            <div id="scanner-access-list" class="flex flex-col gap-2">
-              <p class="text-xs text-on-surface-variant">Đang tải...</p>
-            </div>
-          </section>
 
           <!-- My Questions -->
           <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
@@ -579,34 +568,6 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
           claimBtn?.addEventListener('click', () => { window.location.href = '/scanner/he-thong-check'; });
         }
       } catch (_) { /* non-critical */ }
-    })();
-
-    // ── Scanner list ──
-    (async () => {
-      const list = document.getElementById('scanner-access-list');
-      if (!list) return;
-      try {
-        const res = await fetch('/api/account/scanner-access');
-        if (!res.ok) return;
-        const data = await res.json() as { items?: Array<{ slug: string; title: string; is_free: boolean; has_access: boolean; price: number | null }> };
-        if (!data.items?.length) {
-          list.innerHTML = '<p class="text-xs text-on-surface-variant">Chưa có scanner nào. <a href="/scanner" class="text-primary underline">Khám phá ngay</a></p>';
-          return;
-        }
-        list.innerHTML = data.items.map(item => `
-          <a href="/scanner/${item.slug}" class="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
-            <span class="material-symbols-outlined text-primary">${item.is_free || item.has_access ? 'check_circle' : 'lock'}</span>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">${item.title}</p>
-              <p class="text-[10px] text-on-surface-variant">${item.is_free || item.has_access ? 'Đã mở khóa' : item.price ? item.price.toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}</p>
-            </div>
-            ${item.is_free || item.has_access
-              ? '<span class="material-symbols-outlined text-primary text-lg">arrow_forward</span>'
-              : item.price ? `<span class="text-xs text-amber-400 font-semibold">${item.price.toLocaleString('vi-VN')}đ</span>` : ''}
-          </a>`).join('');
-      } catch (_) {
-        if (list) list.innerHTML = '<p class="text-xs text-on-surface-variant/60">Không tải được danh sách</p>';
-      }
     })();
 
     declare function showToast(msg: string, type?: string, duration?: number): void;
