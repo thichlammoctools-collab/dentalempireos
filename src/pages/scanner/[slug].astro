@@ -39,10 +39,9 @@ if (full.definition.status !== 'active') {
 
 const { definition, sections } = full;
 
-const hasPaidAccess = await canAccessScanner(env.DB, currentUser.id, definition.id);
-
 const hasConfiguredProduct = await hasActiveScannerProduct(env.DB, definition.id);
 const isPaidScanner = hasConfiguredProduct;
+const hasPaidAccess = isPaidScanner ? await canAccessScanner(env.DB, currentUser.id, definition.id) : true;
 const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
 const scannerProducts = hasConfiguredProduct ? await getActiveProducts(env.DB).then(async (products) => {
   const withEntitlements = await Promise.all(products.map(async (product) => ({
