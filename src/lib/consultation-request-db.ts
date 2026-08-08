@@ -98,11 +98,13 @@ export async function checkConsultationRateLimit(
 
 export async function listConsultationRequests(
   db: D1Database,
-  status?: ConsultationStatus,
+  status?: ConsultationStatus | 'active',
 ): Promise<ConsultationRequest[]> {
   let sql = 'SELECT "id", "name", "phone", "email", "clinic_name", "team_size", "service_interest", "message", "status", "created_at", "updated_at" FROM "consultation_request"';
   const bindings: string[] = [];
-  if (status) {
+  if (status === 'active') {
+    sql += ' WHERE "status" != \'closed\'';
+  } else if (status) {
     sql += ' WHERE "status" = ?';
     bindings.push(status);
   }

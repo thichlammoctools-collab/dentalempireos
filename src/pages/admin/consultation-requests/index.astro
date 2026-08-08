@@ -6,9 +6,12 @@ import { listConsultationRequests, consultationStatusValues, type ConsultationSt
 export const prerender = false;
 
 const selectedStatus = Astro.url.searchParams.get('status');
-const statusFilter = selectedStatus && consultationStatusValues.includes(selectedStatus as ConsultationStatus)
-  ? selectedStatus as ConsultationStatus
-  : undefined;
+const statusFilter: ConsultationStatus | 'active' | undefined =
+  selectedStatus && consultationStatusValues.includes(selectedStatus as ConsultationStatus)
+    ? (selectedStatus as ConsultationStatus)
+    : selectedStatus === 'all'
+      ? undefined
+      : 'active';
 const requests = await listConsultationRequests(env.DB, statusFilter);
 
 const statusLabels: Record<ConsultationStatus, string> = {
@@ -28,9 +31,10 @@ const statusClasses: Record<ConsultationStatus, string> = {
 
 <AdminLayout title="Lead tư vấn | Admin">
   <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-    <div><p class="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Vận hành</p><h2 class="mt-2 text-3xl font-bold text-white">Lead tư vấn</h2><p class="mt-1 text-sm text-on-surface-variant">{requests.length} yêu cầu{statusFilter ? ` với trạng thái ${statusLabels[statusFilter]}` : ''}</p></div>
+    <div><p class="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Vận hành</p><h2 class="mt-2 text-3xl font-bold text-white">Lead tư vấn</h2><p class="mt-1 text-sm text-on-surface-variant">{requests.length} yêu cầu{statusFilter && statusFilter !== 'active' ? ` với trạng thái ${statusLabels[statusFilter]}` : statusFilter === 'active' ? ' (ẩn đã đóng)' : ''}</p></div>
     <div class="flex flex-wrap gap-2">
-      <a href="/admin/consultation-requests" class:list={['rounded-lg px-3 py-2 text-xs font-bold', !statusFilter ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>Tất cả</a>
+      <a href="/admin/consultation-requests" class:list={['rounded-lg px-3 py-2 text-xs font-bold', statusFilter === 'active' ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>Đang mở</a>
+      <a href="/admin/consultation-requests?status=all" class:list={['rounded-lg px-3 py-2 text-xs font-bold', selectedStatus === 'all' ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>Tất cả</a>
       {consultationStatusValues.map((status) => <a href={`/admin/consultation-requests?status=${status}`} class:list={['rounded-lg px-3 py-2 text-xs font-bold', statusFilter === status ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant']}>{statusLabels[status]}</a>)}
     </div>
   </div>
