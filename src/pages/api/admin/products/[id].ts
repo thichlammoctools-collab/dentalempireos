@@ -60,10 +60,14 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON');
 
-  const updates: Partial<{ price: number; is_active: number; name: string; description: string; reference_id: string | null; app_id: string | null }> = {};
+  const updates: Partial<{ price: number; credits: number; is_active: number; name: string; description: string; reference_id: string | null; app_id: string | null }> = {};
   if (body.price !== undefined) {
     if (typeof body.price !== 'number' || !Number.isFinite(body.price) || body.price < 0) return badRequest('price must be >= 0');
     updates.price = body.price;
+  }
+  if (body.credits !== undefined) {
+    if (typeof body.credits !== 'number' || !Number.isInteger(body.credits) || body.credits < 0) return badRequest('credits must be a non-negative integer');
+    updates.credits = body.credits;
   }
   if (typeof body.is_active === 'boolean') updates.is_active = body.is_active ? 1 : 0;
   else if (body.is_active !== undefined) return badRequest('is_active must be a boolean');
@@ -96,6 +100,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       name: updates.name ?? existing.name,
       type: 'access_package',
       price: updates.price ?? existing.price,
+      credits: updates.credits ?? existing.credits,
       description: updates.description ?? existing.description ?? undefined,
       duration_days: existing.duration_days,
       reference_id: updates.reference_id !== undefined ? updates.reference_id : existing.reference_id,
@@ -121,9 +126,10 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON body');
 
-  const { name, price, description, duration_days, reference_id, app_id, is_active } = body;
+  const { name, price, credits, description, duration_days, reference_id, app_id, is_active } = body;
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) return badRequest('name must be a non-empty string');
   if (price !== undefined && (typeof price !== 'number' || !Number.isFinite(price) || price < 0)) return badRequest('price must be >= 0');
+  if (credits !== undefined && (typeof credits !== 'number' || !Number.isInteger(credits) || credits < 0)) return badRequest('credits must be a non-negative integer');
   if (description !== undefined && typeof description !== 'string') return badRequest('description must be a string');
   if (duration_days !== undefined && duration_days !== null && (typeof duration_days !== 'number' || !Number.isInteger(duration_days) || duration_days < 0)) {
     return badRequest('duration_days must be a non-negative integer or null');
@@ -158,6 +164,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     name: typeof name === 'string' ? name.trim() : existing.name,
     type: 'access_package',
     price: (price as number | undefined) ?? existing.price,
+    credits: (credits as number | undefined) ?? existing.credits,
     description: typeof description === 'string' ? description.trim() : existing.description ?? undefined,
     duration_days: resolvedDurationDays,
     reference_id: resolvedReferenceId,

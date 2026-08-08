@@ -21,6 +21,7 @@ import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
 import { canAccessScanner, hasActiveScannerProduct } from '../../../lib/entitlement-check';
+import { deductScannerCredit } from '../../../lib/entitlement-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -79,7 +80,7 @@ export const POST: APIRoute = async (ctx) => {
     return json({
       error: !isPaidScanner
         ? 'Scanner miễn phí này chỉ được thực hiện 1 lần.'
-        : 'Scanner trả phí được thực hiện tối đa 3 lần trong tháng.',
+        : 'Bạn đã dùng hết credits cho scanner này.',
       quota: usage,
     }, 429);
   }
@@ -177,6 +178,16 @@ export const POST: APIRoute = async (ctx) => {
   } catch (err) {
     console.error('[submit] addToHistory failed:', err);
     return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại.' }, 500);
+  }
+
+  // Trừ 1 credit sau khi scan thành công (chỉ áp dụng cho scanner trả phí).
+  if (isPaidScanner) {
+    try {
+      await deductScannerCredit(env.DB, session.user.id, surveyId);
+    } catch (err) {
+      console.error('[submit] deductScannerCredit failed:', err);
+      return json({ error: 'Không thể cập nhật credits. Vui lòng thử lại.' }, 500);
+    }
   }
 
   return json(

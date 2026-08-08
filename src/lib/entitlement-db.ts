@@ -171,6 +171,7 @@ export async function hasActiveEntitlementForContent(
 /**
  * Scanner selections are stored on access records so one selectable product can
  * grant only the Scanner a customer chose, rather than every configured option.
+ * Uses credit-based access: credits > scans_used.
  */
 export async function hasActiveScannerEntitlement(
   db: D1Database,
@@ -186,7 +187,7 @@ export async function hasActiveScannerEntitlement(
         AND pe."content_type" = 'scanner'
        WHERE a."user_id" = ?
          AND a."is_active" = 1
-         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
+         AND a."credits" > a."scans_used"
          AND (
            a."selected_scanner_id" = ?
            OR (
@@ -196,7 +197,111 @@ export async function hasActiveScannerEntitlement(
          )
        LIMIT 1`,
     )
-    .bind(userId, now(), scannerId, scannerId)
+    .bind(userId, scannerId, scannerId)
     .first();
   return entitlement !== null;
+}
+
+/** Trừ 1 credit khi user scan xong. Returns true nếu trừ thành công. */
+export async function deductScannerCredit(
+  db: D1Database,
+  userId: string,
+  scannerId: string,
+): Promise<boolean> {
+  // Ưu tiên trừ credit từ per-scanner access trước
+  const perScanner = await db
+    .prepare(
+      `UPDATE "access"
+       SET "scans_used" = "scans_used" + 1
+       WHERE "id" = (
+         SELECT a."id" FROM "access" a
+         LEFT JOIN "product_entitlement" pe
+           ON pe."product_id" = a."product_id"
+          AND pe."content_type" = 'scanner'
+         WHERE a."user_id" = ?
+           AND a."is_active" = 1
+           AND a."credits" > a."scans_used"
+           AND (
+             a."selected_scanner_id" = ?
+             OR (
+               a."selected_scanner_id" IS NULL
+               AND pe."content_id" IN (?, '*')
+             )
+           )
+         LIMIT 1
+       )`,
+    )
+    .bind(userId, scannerId, scannerId)
+    .run();
+  if (perScanner.meta.changes > 0) return true;
+
+  // Fallback: trừ từ pooled access (content_id = '*')
+  const pooled = await db
+    .prepare(
+      `UPDATE "access"
+       SET "scans_used" = "scans_used" + 1
+       WHERE "id" = (
+         SELECT a."id" FROM "access" a
+         INNER JOIN "product_entitlement" pe
+           ON pe."product_id" = a."product_id"
+          AND pe."content_type" = 'scanner'
+          AND pe."content_id" = '*'
+         WHERE a."user_id" = ?
+           AND a."is_active" = 1
+           AND a."credits" > a."scans_used"
+         LIMIT 1
+       )`,
+    )
+    .bind(userId)
+    .run();
+  return pooled.meta.changes > 0;
+}
+
+/** Lấy số credits còn lại của user cho 1 scanner cụ thể. */
+export async function getCreditBalance(
+  db: D1Database,
+  userId: string,
+  scannerId: string,
+): Promise<{ remaining: number; total: number }> {
+  // Ưu tiên per-scanner credits
+  const perScanner = await db
+    .prepare(
+      `SELECT a."credits" AS total, (a."credits" - a."scans_used") AS remaining
+       FROM "access" a
+       LEFT JOIN "product_entitlement" pe
+         ON pe."product_id" = a."product_id"
+        AND pe."content_type" = 'scanner'
+       WHERE a."user_id" = ?
+         AND a."is_active" = 1
+         AND a."credits" > a."scans_used"
+         AND (
+           a."selected_scanner_id" = ?
+           OR (
+             a."selected_scanner_id" IS NULL
+             AND pe."content_id" IN (?, '*')
+           )
+         )
+       LIMIT 1`,
+    )
+    .bind(userId, scannerId, scannerId)
+    .first<{ total: number; remaining: number }>();
+  if (perScanner) return perScanner;
+
+  // Fallback: pooled credits
+  const pooled = await db
+    .prepare(
+      `SELECT a."credits" AS total, (a."credits" - a."scans_used") AS remaining
+       FROM "access" a
+       INNER JOIN "product_entitlement" pe
+         ON pe."product_id" = a."product_id"
+        AND pe."content_type" = 'scanner'
+        AND pe."content_id" = '*'
+       WHERE a."user_id" = ?
+         AND a."is_active" = 1
+         AND a."credits" > a."scans_used"
+       LIMIT 1`,
+    )
+    .bind(userId)
+    .first<{ total: number; remaining: number }>();
+  return pooled ?? { remaining: 0, total: 0 };
 }

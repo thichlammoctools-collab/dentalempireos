@@ -10,6 +10,7 @@ export interface Product {
   // external callers that still send or display legacy labels during rollout.
   type: string;
   price: number;
+  credits: number;
   description: string | null;
   duration_days: number | null;
   reference_id: string | null;
@@ -24,6 +25,7 @@ export interface ProductInput {
   name: string;
   type?: string;
   price: number;
+  credits?: number;
   description?: string;
   duration_days?: number | null;
   reference_id?: string | null;
@@ -66,6 +68,8 @@ export interface Access {
   expires_at: string | null;
   is_active: number;
   selected_scanner_id?: string | null;
+  credits: number;
+  scans_used: number;
 }
 
 /** Breakdown persisted on an upgrade order so payments stay auditable. */
@@ -143,12 +147,13 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
   const ts = now();
   await db
     .prepare(
-      `INSERT INTO "product" ("id","name","type","price","description","duration_days","reference_id","app_id","is_active","created_at","updated_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO "product" ("id","name","type","price","credits","description","duration_days","reference_id","app_id","is_active","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT("id") DO UPDATE SET
          "name"=excluded."name",
          "type"=excluded."type",
          "price"=excluded."price",
+         "credits"=excluded."credits",
          "description"=excluded."description",
          "duration_days"=excluded."duration_days",
          "reference_id"=excluded."reference_id",
@@ -161,6 +166,7 @@ export async function upsertProduct(db: D1Database, input: ProductInput): Promis
       input.name,
       'access_package',
       input.price,
+      input.credits ?? 20,
       input.description ?? null,
       input.duration_days ?? null,
       input.reference_id ?? null,
@@ -404,8 +410,10 @@ export async function grantAccess(
     order_id: string;
     expires_at: string | null;
     selected_scanner_id?: string | null;
+    credits?: number;
   },
 ): Promise<Access> {
+  const credits = input.credits ?? 20;
   // A payment can be delivered more than once. Its original grant is the
   // authoritative result, so retries must not create another renewal.
   const orderAccess = await db
@@ -450,10 +458,10 @@ export async function grantAccess(
 
   await db
     .prepare(
-       `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id")
-        VALUES (?,?,?,?,?,?,1,?)`,
+       `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id","credits","scans_used")
+        VALUES (?,?,?,?,?,?,1,?,?,0)`,
     )
-    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt, input.selected_scanner_id ?? null)
+    .bind(id, input.user_id, input.product_id, input.order_id, ts, expiresAt, input.selected_scanner_id ?? null, credits)
     .run();
 
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;
@@ -485,7 +493,7 @@ export async function grantProductAccess(
     }
   }
 
-  return grantAccess(db, { ...input, expires_at: expiresAt });
+  return grantAccess(db, { ...input, expires_at: expiresAt, credits: product.credits });
 }
 
 /**
@@ -589,10 +597,10 @@ async function grantUpgradedAccess(db: D1Database, order: Order): Promise<Access
 
   await db
     .prepare(
-      `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id")
-       VALUES (?,?,?,?,?,?,1,NULL)`,
+      `INSERT INTO "access" ("id","user_id","product_id","order_id","granted_at","expires_at","is_active","selected_scanner_id","credits","scans_used")
+       VALUES (?,?,?,?,?,?,1,NULL,?,0)`,
     )
-    .bind(id, order.user_id, order.product_id, order.id, ts, expiresAt)
+    .bind(id, order.user_id, order.product_id, order.id, ts, expiresAt, product.credits)
     .run();
 
   return db.prepare('SELECT * FROM "access" WHERE "id" = ?').bind(id).first<Access>() as Promise<Access>;

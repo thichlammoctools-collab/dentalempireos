@@ -60,7 +60,7 @@ const scannerNotice = !hasPaidAccess
   ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
   : !isPaidScanner
   ? `Scanner miễn phí: bạn còn ${usage.remaining}/1 lượt. Đăng ký tài khoản để sử dụng.`
-  : `Scanner trả phí: bạn còn ${usage.remaining}/3 lượt trong tháng này.`;
+  : `Scanner trả phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt scan AI tốn 1 credit.`;
 
 let clinicProfile: any = null;
 try {
@@ -151,7 +151,7 @@ const defaultScaleEn: Record<string, string> = {
           class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
           role="status"
           data-notice-vi={scannerNotice}
-          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/1 attempt remaining. Sign up to use it.` : `Paid Scanner: ${usage.remaining}/3 attempts remaining this month.`}
+          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/1 attempt remaining. Sign up to use it.` : `Paid Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each AI scan costs 1 credit.`}
         >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">

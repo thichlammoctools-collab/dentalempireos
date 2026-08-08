@@ -25,9 +25,10 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object' || Array.isArray(body)) return badRequest('Invalid JSON body');
 
-  const { name, price, description, duration_days, reference_id, app_id, is_active, entitlement_preset, entitlements } = body as {
+  const { name, price, credits, description, duration_days, reference_id, app_id, is_active, entitlement_preset, entitlements } = body as {
     name?: string;
     price?: number;
+    credits?: number;
     description?: string;
     duration_days?: number | null;
     reference_id?: string | null;
@@ -39,6 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (typeof name !== 'string' || !name.trim()) return badRequest('name is required');
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return badRequest('price must be >= 0');
+  if (credits !== undefined && (!Number.isInteger(credits) || credits < 0)) return badRequest('credits must be a non-negative integer');
   if (description !== undefined && typeof description !== 'string') return badRequest('description must be a string');
   if (duration_days !== undefined && duration_days !== null && (!Number.isInteger(duration_days) || duration_days < 0)) {
     return badRequest('duration_days must be a non-negative integer or null');
@@ -70,6 +72,7 @@ export const POST: APIRoute = async ({ request }) => {
     name: name.trim(),
     type: 'access_package',
     price,
+    credits,
     description: description?.trim(),
     duration_days,
     reference_id: normalizedReferenceId,

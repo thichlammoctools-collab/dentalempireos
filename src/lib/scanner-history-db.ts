@@ -25,6 +25,7 @@ export interface PurchasedPaidScanner {
   expires_at: string | null;
   used: number;
   limit: number;
+  remaining: number;
 }
 
 export async function addToHistory(
@@ -73,13 +74,12 @@ export async function getUserHistory(
   return results ?? [];
 }
 
-/** List paid scanners the user can currently access, with this month's quota usage. */
+/** List paid scanners the user can currently access, with pooled credit balance. */
 export async function getPurchasedPaidScanners(
   db: D1Database,
   userId: string,
 ): Promise<PurchasedPaidScanner[]> {
   const now = new Date().toISOString();
-  const month = now.slice(0, 7);
   const { results } = await db
     .prepare(
       `SELECT d."id" AS "scanner_id",
@@ -89,8 +89,9 @@ export async function getPurchasedPaidScanners(
               MAX(COALESCE(o."paid_at", a."granted_at")) AS "purchased_at",
               CASE WHEN SUM(CASE WHEN a."expires_at" IS NULL THEN 1 ELSE 0 END) > 0
                 THEN NULL ELSE MAX(a."expires_at") END AS "expires_at",
-              COUNT(DISTINCT h."id") AS "used",
-              3 AS "limit"
+              SUM(a."scans_used") AS "used",
+              SUM(a."credits") AS "limit",
+              (SUM(a."credits") - SUM(a."scans_used")) AS "remaining"
        FROM "access" a
        INNER JOIN "product" p ON p."id" = a."product_id"
        INNER JOIN "product_entitlement" pe
@@ -102,15 +103,12 @@ export async function getPurchasedPaidScanners(
          END
          OR (a."selected_scanner_id" IS NULL AND pe."content_id" = '*')
        LEFT JOIN "order" o ON o."id" = a."order_id"
-       LEFT JOIN "scanner_history" h ON h."user_id" = a."user_id"
-         AND h."survey_id" = d."id"
-         AND substr(h."created_at", 1, 7) = ?
        WHERE a."user_id" = ? AND a."is_active" = 1
          AND (a."expires_at" IS NULL OR a."expires_at" > ?)
        GROUP BY d."id", d."title_vi", d."slug"
        ORDER BY "purchased_at" DESC, d."title_vi" ASC`,
     )
-    .bind(month, userId, now)
+    .bind(userId, now)
     .all<PurchasedPaidScanner>();
   return results ?? [];
 }
@@ -155,10 +153,21 @@ export async function getScannerUsage(
   isFree: boolean,
 ): Promise<{ used: number; limit: number; remaining: number }> {
   const month = new Date().toISOString().slice(0, 7);
-  const row = isFree
-    ? await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>()
-    : await db.prepare(`SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ? AND substr("created_at", 1, 7) = ?`).bind(userId, surveyId, month).first<{ used: number }>();
-  const limit = isFree ? 1 : 3;
-  const used = row?.used ?? 0;
-  return { used, limit, remaining: Math.max(0, limit - used) };
+  if (isFree) {
+    const row = await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>();
+    const used = row?.used ?? 0;
+    return { used, limit: 1, remaining: Math.max(0, 1 - used) };
+  }
+  // Credit-based: query from access table
+  const row = await db.prepare(`
+    SELECT (a."credits" - a."scans_used") AS remaining, a."credits" AS "limit"
+    FROM "access" a
+    LEFT JOIN "product_entitlement" pe ON pe."product_id" = a."product_id" AND pe."content_type" = 'scanner'
+    WHERE a."user_id" = ?
+      AND a."is_active" = 1
+      AND a."credits" > a."scans_used"
+      AND (a."selected_scanner_id" = ? OR (a."selected_scanner_id" IS NULL AND pe."content_id" IN (?, '*')))
+    LIMIT 1
+  `).bind(userId, surveyId, surveyId).first<{ remaining: number; limit: number }>();
+  return { used: (row?.limit ?? 0) - (row?.remaining ?? 0), limit: row?.limit ?? 0, remaining: row?.remaining ?? 0 };
 }
