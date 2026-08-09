@@ -64,10 +64,28 @@ export const POST: APIRoute = async ({ request }) => {
     return badRequest('At least one pricing value is required');
   }
 
-  // Editing a rule creates an immutable price version. The client sends the
-  // previous id only to prefill the form, never as the id of the new record.
-  const id = crypto.randomUUID();
   const timestamp = new Date().toISOString();
+  const existingId = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : null;
+  if (existingId) {
+    const existing = await env.DB.prepare(
+      'SELECT "id" FROM "credit_pricing_rule" WHERE "id" = ?',
+    ).bind(existingId).first<{ id: string }>();
+    if (!existing) return badRequest('Rule not found');
+
+    await env.DB.prepare(
+      `UPDATE "credit_pricing_rule"
+       SET "feature_type" = ?, "target_id" = ?, "model" = ?,
+           "credit_amount" = ?, "tokens_per_credit" = ?, "minutes_per_credit" = ?, "max_tokens" = ?,
+           "is_active" = ?, "updated_at" = ?
+       WHERE "id" = ?`,
+    ).bind(
+      featureType, targetId, model, creditAmount, tokensPerCredit, minutesPerCredit, maxTokens,
+      isActive, timestamp, existingId,
+    ).run();
+    return json({ id: existingId, updated: true });
+  }
+
+  const id = crypto.randomUUID();
   const current = await env.DB.prepare(
     `SELECT COALESCE(MAX("rule_version"), 0) AS "version" FROM "credit_pricing_rule"
      WHERE "feature_type" = ? AND "target_id" = ? AND "model" = ?`,
