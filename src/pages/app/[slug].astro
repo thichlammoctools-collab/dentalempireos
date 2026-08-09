@@ -697,6 +697,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
   <div id="response-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script
+      is:inline
       define:vars={{
         appId: app.id,
         appName: app.name,
@@ -719,7 +720,6 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
 
     let conversationHistory = [];
     let isLoading = false;
-    let fullSopText = '';
     let generation = 0;
     let activeRequest = null;
     let userTurn = 0;
@@ -977,7 +977,6 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
           saveDraft();
 
           if (data.sop_complete && data.full_sop_text) {
-            fullSopText = data.full_sop_text;
             showSopResult(data.full_sop_text);
           }
         }
@@ -1195,7 +1194,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
           .replace(/`(.+?)`/g, '<code>$1</code>');
       }
 
-      function renderBlocks(bs, targetClass) {
+      function renderBlocks(bs) {
         return bs.map(b => {
           if (b.type === 'h1') return `<h1>${inline(b.text)}</h1>`;
           if (b.type === 'h2') return `<h2>${inline(b.text)}</h2>`;
@@ -1282,7 +1281,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
   ${tocHtml}
 
   <div class="sop-print-body">
-    ${renderBlocks(blocks, 'sop-print-body')}
+    ${renderBlocks(blocks)}
   </div>
 
   <div class="sop-print-footer">
@@ -1325,7 +1324,6 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       conversationHistory = [];
       userTurn = 0;
       setLoading(false);
-      fullSopText = '';
       clearDraft();
       sopView.classList.remove('visible');
       sopContent.innerHTML = '';

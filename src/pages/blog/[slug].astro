@@ -5,7 +5,7 @@ import AuthorBio from '../../components/blog/AuthorBio.astro';
 import StructuredData from '../../components/seo/StructuredData.astro';
 import { marked } from 'marked';
 import { env } from 'cloudflare:workers';
-import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
+import { getPost, getRelatedPosts, getPopularPosts, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogBlock } from '../../lib/blog-db';
 import { sanitizeRichHtml } from '../../lib/sanitize';
 import { canAccessBlogPost } from '../../lib/entitlement-check';
 import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
@@ -19,13 +19,11 @@ const db = env.DB;
 
 let post: BlogPostWithMeta | null = null;
 let popular: BlogPostWithMeta[] = [];
-let categories: BlogCategory[] = [];
 
 try {
-  [post, popular, categories] = await Promise.all([
+  [post, popular] = await Promise.all([
     getPost(db, slug),
     getPopularPosts(db, 5),
-    listCategories(db),
   ]);
 } catch {
   // If main queries fail, try just the post

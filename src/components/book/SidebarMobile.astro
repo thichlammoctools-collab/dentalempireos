@@ -28,10 +28,7 @@ interface Props {
   currentModules: ModuleItem[];
 }
 
-const { groupedChapters, currentSlug, currentModules } = Astro.props;
-const currentTier = groupedChapters.find((g) =>
-  g.chapters.some((c) => c.id === currentSlug)
-)?.tier ?? 3;
+const { groupedChapters, currentSlug } = Astro.props;
 ---
 
 <!-- Overlay -->
@@ -66,7 +63,6 @@ const currentTier = groupedChapters.find((g) =>
   <!-- Scrollable nav -->
   <nav id="mobile-sheet-nav" class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
     {groupedChapters.map((group) => {
-      const isCurrentTier = group.tier === currentTier;
       return (
         <div>
           <!-- Tier label -->

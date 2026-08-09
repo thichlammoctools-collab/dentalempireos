@@ -5,7 +5,6 @@ interface Props {
 }
 const { postSlug = '', postTitle = '' } = Astro.props;
 const popupId = 'newsletter-popup';
-const utmParams = `utm_source=blog&utm_medium=popup&utm_campaign=ebook${postSlug ? `&utm_content=${postSlug}` : ''}`;
 ---
 
 <!-- Newsletter Popup -->
@@ -102,13 +101,12 @@ const utmParams = `utm_source=blog&utm_medium=popup&utm_campaign=ebook${postSlug
   }
 </style>
 
-<script define:vars={{ popupId }}>
+<script is:inline define:vars={{ popupId }}>
   (function () {
     const STORAGE_KEY = 'popup_seen' + (typeof window !== 'undefined' && window.location.pathname ? window.location.pathname.replace(/\//g, '_') : '');
 
     const closeBtn = document.getElementById(popupId + '-close');
     const popup = document.getElementById(popupId);
-    const card = document.getElementById(popupId + '-card');
     const form = document.getElementById(popupId + '-form');
     const successEl = document.getElementById(popupId + '-success');
 
@@ -173,7 +171,6 @@ const utmParams = `utm_source=blog&utm_medium=popup&utm_campaign=ebook${postSlug
       if (!emailInput) return;
       const email = emailInput.value;
       const postSlug = form.dataset.postSlug || '';
-      const postTitle = form.dataset.postTitle || '';
 
       const submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) {

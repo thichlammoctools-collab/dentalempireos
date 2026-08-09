@@ -31,7 +31,7 @@ interface Props {
   chapterTitle?: string;
 }
 
-const { sections, attachments = [], chapterId = '', chapterTitle = '' } = Astro.props;
+const { sections, attachments = [] } = Astro.props;
 const attachmentCount = attachments.length;
 
 const numberedSections = sections.map((section) => {

@@ -5,12 +5,9 @@ import { getChapterTree, listPublishedChapters, listAllSections, getSupportSetti
 import { getTierLabel } from '../../lib/collection-helpers';
 import BookLayout from '../../layouts/BookLayout.astro';
 import BookHeader from '../../components/book/BookHeader.astro';
-import ChapterNav from '../../components/book/ChapterNav.astro';
 import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
 
-import ReviewDrawer from '../../components/book/ReviewDrawer.astro';
-import { listReviewsByChapter, getReviewStats } from '../../lib/review-db';
 import { canAccessBook } from '../../lib/entitlement-check';
 import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
 
@@ -34,8 +31,6 @@ interface ChapterCacheEntry {
 }
 const _chapterCache = new Map<string, ChapterCacheEntry>();
 const _CHAPTER_TTL_MS = 60_000;
-
-const dbFetchStart = Date.now();
 
 // Fire ALL data fetches in parallel — no sequential dependencies
 // Non-critical queries are wrapped individually so missing tables/columns don't crash the page
@@ -161,7 +156,7 @@ function renderMarkdown(text: string): string {
   let html = marked.parse(text) as string;
   html = html.replace(
     /<img\b([^>]*)>/gi,
-    (match, attrs: string) => {
+    (_match, attrs: string) => {
       let fixed = attrs.replace(
         /\bsrc="([^"]*)"/i,
         (_: string, src: string) => {
@@ -341,20 +336,6 @@ const fileAttachments = attachments.filter((item) => item.type === 'file');
 // Compute sectionNavItems (cheap, always fresh)
 const sectionNavItems = flattenSections(sections);
 
-// Reviews — parallel fetch (wrapped in try-catch: table may not exist yet)
-const reviewLimit = 10;
-let reviews: Awaited<ReturnType<typeof listReviewsByChapter>> = [];
-let reviewStats: Awaited<ReturnType<typeof getReviewStats>> = { avgRating: 0, totalReviews: 0 };
-try {
-  [reviews, reviewStats] = await Promise.all([
-    listReviewsByChapter(db, slug, reviewLimit, 0),
-    getReviewStats(db, slug),
-  ]);
-} catch {
-  // review table may not exist in D1 yet — gracefully degrade
-  reviews = [];
-  reviewStats = { avgRating: 0, totalReviews: 0 };
-}
 ---
 
 <BookLayout

@@ -75,7 +75,6 @@ const {
   description,
   groupedChapters,
   currentSlug,
-  currentModules,
   sections = [],
   attachments = [],
   tier = 3,
@@ -495,14 +494,12 @@ const breadcrumbSchema = {
       // ---- Reader state ----
       const themes = ['dark', 'light', 'sepia'];
       let currentThemeIdx = 0;
-      let bookmarked = false;
       let tocOpen = true;
 
       const doc = document;
       const readerApp = doc.getElementById('reader-app');
       const readerScroll = doc.getElementById('reader-scroll');
       const tocSidebar = doc.getElementById('toc-sidebar');
-      const sectionNav = doc.getElementById('section-nav-desktop');
       const searchOverlay = doc.getElementById('search-overlay');
       const searchInput = doc.getElementById('search-input') as HTMLInputElement | null;
 
@@ -691,16 +688,6 @@ function toggleToc() {
         btn?.classList.toggle('text-primary', tocOpen);
         btn?.classList.toggle('border', tocOpen);
         btn?.classList.toggle('border-primary/30', tocOpen);
-      }
-
-      function toggleSectionNav() {
-        if (!sectionNav) return;
-        // sectionNav is "hidden" when opacity is explicitly '0'
-        const isCurrentlyHidden = sectionNav.style.opacity === '0';
-        const willBeHidden = !isCurrentlyHidden;
-        sectionNav.style.transition = 'opacity 0.25s ease';
-        sectionNav.style.opacity = willBeHidden ? '0' : '1';
-        sectionNav.style.pointerEvents = willBeHidden ? 'none' : '';
       }
 
       doc.getElementById('toc-toggle-btn')?.addEventListener('click', toggleToc);

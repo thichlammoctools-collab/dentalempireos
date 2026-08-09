@@ -5,7 +5,6 @@ import { marked } from 'marked';
 import {
   getSurveyDefinitionFull,
   parseScoringRules,
-  parseAiConfig,
   parseScaleLabels,
 } from '../../../lib/survey-config-db';
 import {
@@ -65,7 +64,6 @@ if (!(await canAccessScanner(env.DB, currentUser.id, definition.id))) {
 
 const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
 const scoringRules = parseScoringRules(definition.scoring_rules);
-const aiConfig = parseAiConfig(definition.ai_config);
 
 const scores = parseScores(response.scores_json);
 const totalScore = scores.total ?? 0;

@@ -273,7 +273,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    :global(#website-chat-root .chat-msg-bubble code) { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 </style>
 
-<script define:vars={{ pageType, pageSlug, chapterId }}>
+<script is:inline define:vars={{ pageType, pageSlug, chapterId }}>
 (function () {
   var initialized = false;
 

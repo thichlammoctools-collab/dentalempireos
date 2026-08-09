@@ -88,7 +88,7 @@ const { chapterId, chapterTitle } = Astro.props;
   </div>
 </div>
 
-<script define:vars={{ chapterId }}>
+<script is:inline define:vars={{ chapterId }}>
   // ── Auth check & show FAB ──
   async function checkAuthAndShow() {
     try {

@@ -512,27 +512,24 @@ const currentChapterTitle = groupedChapters
       // === IMPROVED SWIPE TO CLOSE ===
       let startY = 0;
       let deltaY = 0;
-      let startTime = 0;
       let startX = 0;
       let velocity = 0;
       let lastY = 0;
       let lastTime = 0;
       let dragging = false;
       let rafId: number | null = null;
-      let hoveredGroupTier: number | null = null;
       let expandTimer: ReturnType<typeof setTimeout> | null = null;
 
       handle?.addEventListener('touchstart', (e: TouchEvent) => {
         if ((e.target as HTMLElement).closest('[data-mobile-section-link]')) return;
         startY = lastY = e.touches[0].clientY;
         startX = e.touches[0].clientX;
-        startTime = lastTime = Date.now();
+        lastTime = Date.now();
         velocity = 0;
         deltaY = 0;
         dragging = true;
         sheet.style.transition = 'none';
         overlay!.style.transition = 'none';
-        hoveredGroupTier = null;
       }, { passive: true });
 
       document.addEventListener('touchmove', (e: TouchEvent) => {

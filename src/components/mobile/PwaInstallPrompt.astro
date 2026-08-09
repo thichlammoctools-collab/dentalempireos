@@ -198,8 +198,6 @@
 
     var ua = navigator.userAgent;
     var isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    var isAndroid = /Android/.test(ua);
-
     var variant: 'ios' | 'android' = isIOS ? 'ios' : 'android';
 
     function show() {

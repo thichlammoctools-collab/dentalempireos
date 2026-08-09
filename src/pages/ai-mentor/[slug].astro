@@ -197,7 +197,6 @@ const chapterId = Astro.url.searchParams.get('chapter') ?? '';
       renderMessages();
       setLoading(true);
 
-      const lastAssistantEl = chatMsgs.querySelector<HTMLElement>('[data-msg-idx]');
       const lastIdx = currentMessages.length - 1;
 
       try {

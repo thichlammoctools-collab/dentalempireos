@@ -639,7 +639,7 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
           const key = p.last_read_at.slice(0, 10);
           if (key in dayMap) dayMap[key]++;
         }
-        Object.entries(dayMap).forEach(([key, count], idx) => {
+        Object.entries(dayMap).forEach(([, count], idx) => {
           const bar = document.getElementById(`day-bar-${idx}`);
           if (bar && count > 0) {
             bar.classList.remove('bg-white/5');
@@ -669,8 +669,6 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
         }
       } catch (_) { /* non-critical */ }
     })();
-
-    declare function showToast(msg: string, type?: string, duration?: number): void;
 
     let originalName = (document.getElementById('name-input') as HTMLInputElement).value;
     const originalImageSrc = document.getElementById('avatar-preview')?.getAttribute('src') ?? '';

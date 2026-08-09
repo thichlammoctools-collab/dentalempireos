@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import QuestionThread from '../../components/questions/QuestionThread.astro';
 import { env } from 'cloudflare:workers';
-import { getQuestion, getReplies, listQuestionsByUser } from '../../lib/question-db';
+import { getQuestion, getReplies } from '../../lib/question-db';
 import { listChapters } from '../../lib/book-db';
 import { createAuth } from '../../lib/auth';
 
