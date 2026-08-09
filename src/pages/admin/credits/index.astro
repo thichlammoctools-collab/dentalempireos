@@ -34,8 +34,15 @@ const rules = rulesResult.results ?? [];
       <form id="package-form" class="grid gap-3 sm:grid-cols-2">
         <input name="name" required placeholder="Tên gói" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
         <input name="price" required min="0" type="number" placeholder="Giá VND" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-        <input name="credit_amount" required min="1" type="number" placeholder="Credits cơ bản" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-        <input name="bonus_credits" min="0" type="number" value="0" placeholder="Credits tặng" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Credits cơ bản
+          <input name="credit_amount" required min="1" type="number" placeholder="Ví dụ: 100" aria-describedby="credit-amount-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="credit-amount-help" class="text-xs font-normal text-on-surface-variant">Số Credits khách nhận theo giá trị gói.</span>
+        </label>
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Credits tặng thêm
+          <input name="bonus_credits" min="0" type="number" value="0" placeholder="Ví dụ: 20" aria-describedby="bonus-credits-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="bonus-credits-help" class="text-xs font-normal text-on-surface-variant">Credits khuyến mãi, có thể để 0 nếu không tặng thêm.</span>
+        </label>
+        <p class="sm:col-span-2 rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface"><span class="font-bold">Khách nhận:</span> <span id="package-credit-total">0</span> Credits = Credits cơ bản + Credits tặng thêm.</p>
         <input name="sort_order" min="0" type="number" value="0" placeholder="Thứ tự" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
         <label class="flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface"><input name="is_active" checked type="checkbox" class="accent-primary" /> Đang bán</label>
         <button class="sm:col-span-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Lưu gói Credits</button>
@@ -86,6 +93,15 @@ const rules = rulesResult.results ?? [];
         window.location.reload();
       });
     }
+    const packageForm = document.getElementById('package-form') as HTMLFormElement | null;
+    const packageCreditTotal = document.getElementById('package-credit-total');
+    const updatePackageCreditTotal = () => {
+      const baseCredits = Number((packageForm?.elements.namedItem('credit_amount') as HTMLInputElement | null)?.value || 0);
+      const bonusCredits = Number((packageForm?.elements.namedItem('bonus_credits') as HTMLInputElement | null)?.value || 0);
+      if (packageCreditTotal) packageCreditTotal.textContent = String(baseCredits + bonusCredits);
+    };
+    packageForm?.addEventListener('input', updatePackageCreditTotal);
+    updatePackageCreditTotal();
     submitForm('package-form', '/api/admin/credit-packages');
     submitForm('rule-form', '/api/admin/credit-pricing-rules');
   </script>

@@ -1,363 +1,42 @@
 ---
-import { env } from 'cloudflare:workers';
-import PaymentButton from '../components/PaymentButton.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { listProductEntitlements } from '../lib/entitlement-db';
-import { getActiveProducts, type Product } from '../lib/payos-db';
 
 export const prerender = false;
 
-type ServiceProgram = 'self_serve' | 'guided_3m' | 'guided_6m' | 'full_implementation';
-
-interface ServiceProduct {
-  product: Product;
-  programs: ServiceProgram[];
-  serviceIds: string[];
-}
-
-let serviceProducts: ServiceProduct[] = [];
-
-try {
-  const products = await getActiveProducts(env.DB);
-  const productsWithEntitlements = await Promise.all(
-    products.map(async (product) => ({
-      product,
-      entitlements: await listProductEntitlements(env.DB, product.id),
-    })),
-  );
-
-  serviceProducts = productsWithEntitlements.flatMap(({ product, entitlements }) => {
-    const serviceIds = entitlements
-      .filter((entitlement) => entitlement.content_type === 'service')
-      .map((entitlement) => entitlement.content_id);
-    const programs: ServiceProgram[] = serviceIds.includes('*')
-      ? ['self_serve', 'guided_3m', 'guided_6m', 'full_implementation']
-      : serviceIds.filter((program): program is ServiceProgram => (
-          program === 'self_serve'
-          || program === 'guided_3m'
-          || program === 'guided_6m'
-          || program === 'full_implementation'
-        ));
-
-    return serviceIds.length > 0 ? [{ product, programs, serviceIds }] : [];
-  });
-} catch {
-  // The marketing page remains available if the product catalog is temporarily unavailable.
-  serviceProducts = [];
-}
-
-const selfServeProduct = serviceProducts.find(({ programs }) => programs.includes('self_serve'))?.product;
-const guidedProducts = serviceProducts
-  .filter(({ programs }) => programs.includes('guided_3m') || programs.includes('guided_6m'))
-  .map(({ product }) => product);
-const fullImplementationProduct = serviceProducts.find(
-  ({ programs }) => programs.includes('full_implementation'),
-)?.product;
-const primaryProductIds = new Set(
-  [selfServeProduct, ...guidedProducts, fullImplementationProduct]
-    .filter((product): product is Product => Boolean(product))
-    .map((product) => product.id),
-);
-const additionalServiceProducts = serviceProducts
-  .filter(({ product }) => !primaryProductIds.has(product.id))
-  .map(({ product }) => product);
-
-const consultationHref = (interest: 'guided' | 'implementation') =>
-  `?service_interest=${interest}#dang-ky-tu-van`;
-
-const foundationBenefits = [
-  { icon: 'menu_book', title: 'Tài liệu hệ thống', description: 'Khung tư duy và quy trình quản trị phòng khám theo từng tầng vận hành.' },
-  { icon: 'auto_awesome', title: 'AI Tools', description: 'Công cụ AI hỗ trợ phân tích, xây nội dung và chuẩn bị đầu việc.' },
-  { icon: 'fact_check', title: 'Scanner', description: 'Khảo sát thực trạng để nhận diện điểm nghẽn và ưu tiên cải thiện.' },
-  { icon: 'school', title: 'Khóa học', description: 'Lộ trình học giúp đội ngũ hiểu cách áp dụng vào công việc hằng ngày.' },
-  { icon: 'article', title: 'Blog Premium', description: 'Góc nhìn chuyên sâu, tình huống thực tế và bài học vận hành.' },
-  { icon: 'folder_special', title: 'Tài nguyên Premium', description: 'Biểu mẫu, checklist và tài liệu để chuẩn hóa cách làm.' },
-];
-
-const formatDuration = (duration: number | null) =>
-  duration ? `${duration} ngày truy cập` : 'Truy cập không thời hạn';
+const currentUser = Astro.locals.user;
 ---
 
-<BaseLayout
-  title="Dịch vụ triển khai phòng khám | Dental Empire OS"
-  description="Ba cấp độ đồng hành cùng Dental Empire OS: tự triển khai, tư vấn đồng hành và triển khai trọn gói cho phòng khám nha khoa."
-  ogImage="/images/services-og.svg"
-  ogImageAlt="Dịch vụ triển khai hệ thống phòng khám - Dental Empire OS"
-  keywords="dịch vụ quản trị phòng khám nha khoa, tư vấn vận hành nha khoa, triển khai hệ thống phòng khám, Dental Empire OS"
->
+<BaseLayout title="Tư vấn tác giả | Dental Empire OS" description="Đặt buổi tư vấn trực tiếp với tác giả Dental Empire OS để xác định ưu tiên vận hành cho phòng khám.">
   <section class="relative overflow-hidden border-b border-outline-variant/20">
-    <div class="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div class="absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(ellipse_65%_60%_at_50%_-10%,rgba(0,139,210,0.20),transparent_70%)]"></div>
-      <div class="absolute -right-32 top-20 h-96 w-96 rounded-full bg-amber-400/10 blur-3xl"></div>
-      <div class="absolute -left-36 top-56 h-80 w-80 rounded-full bg-primary/10 blur-3xl"></div>
-    </div>
-
-    <div class="relative mx-auto max-w-6xl px-4 pb-20 pt-16 md:pb-24 md:pt-24">
-      <header class="mx-auto max-w-4xl text-center">
-        <p class="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
-          <span class="material-symbols-outlined text-[16px]">architecture</span>
-          Dịch vụ triển khai hệ thống
-        </p>
-        <h1 class="mt-6 text-4xl font-black leading-tight text-on-surface md:text-6xl">
-          Biến tri thức thành một
-          <span class="bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-transparent"> phòng khám vận hành được</span>
-        </h1>
-        <p class="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-on-surface-variant md:text-xl">
-          Chọn mức độ đồng hành phù hợp với nguồn lực hiện tại: tự triển khai có hướng dẫn, làm cùng chuyên gia, hoặc xây hệ thống từ nền tảng đến vận hành thực tế.
-        </p>
-      </header>
-
-      <div class="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-3">
-        <a href="#tu-trien-khai" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/70 px-4 py-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
-          <span class="text-xs font-bold text-primary">01</span>
-          <span class="mt-1 block font-bold text-on-surface">Tự triển khai</span>
-          <span class="mt-1 block text-xs leading-relaxed text-on-surface-variant">Tự học, tự làm theo lộ trình.</span>
-        </a>
-        <a href="#dong-hanh" class="rounded-2xl border border-primary/35 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15">
-          <span class="text-xs font-bold text-primary">02</span>
-          <span class="mt-1 block font-bold text-on-surface">Đồng hành tư vấn</span>
-          <span class="mt-1 block text-xs leading-relaxed text-on-surface-variant">Có người cùng ưu tiên và phản biện.</span>
-        </a>
-        <a href="#tron-goi" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/70 px-4 py-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
-          <span class="text-xs font-bold text-primary">03</span>
-          <span class="mt-1 block font-bold text-on-surface">Triển khai trọn gói</span>
-          <span class="mt-1 block text-xs leading-relaxed text-on-surface-variant">Thiết kế và đưa hệ thống vào vận hành.</span>
-        </a>
-      </div>
+    <div class="pointer-events-none absolute inset-0" aria-hidden="true"><div class="absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(ellipse_65%_60%_at_50%_-10%,rgba(0,139,210,0.20),transparent_70%)]"></div><div class="absolute -right-32 top-20 h-96 w-96 rounded-full bg-amber-400/10 blur-3xl"></div></div>
+    <div class="relative mx-auto max-w-5xl px-4 pb-20 pt-16 text-center md:pb-24 md:pt-24">
+      <p class="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300"><span class="material-symbols-outlined text-[16px]">forum</span>Tư vấn trực tiếp với tác giả</p>
+      <h1 class="mx-auto mt-6 max-w-4xl text-4xl font-black leading-tight text-on-surface md:text-6xl">Từ kết quả Scanner đến <span class="bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-transparent">một ưu tiên vận hành rõ ràng</span></h1>
+      <p class="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-on-surface-variant md:text-xl">Buổi tư vấn dành cho chủ phòng khám cần nhìn đúng điểm nghẽn, xác định bước đi tiếp theo và phản biện kế hoạch thay đổi theo bối cảnh thực tế.</p>
+      <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">{currentUser ? <a href="#dat-lich-tu-van" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary transition hover:brightness-110"><span class="material-symbols-outlined">calendar_month</span>Đặt yêu cầu tư vấn</a> : <a href="/login?redirect=/dich-vu" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary transition hover:brightness-110"><span class="material-symbols-outlined">login</span>Đăng nhập để đặt tư vấn</a>}<a href="/scanner" class="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/35 px-6 py-3.5 text-sm font-bold text-primary transition hover:bg-primary/10"><span class="material-symbols-outlined">fact_check</span>Làm Scanner trước</a></div>
     </div>
   </section>
 
-  <section class="mx-auto max-w-6xl px-4 py-20 md:py-24" aria-labelledby="service-options-title">
-    <div class="mb-10 max-w-3xl">
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Ba cách bắt đầu</p>
-      <h2 id="service-options-title" class="mt-2 text-3xl font-black text-on-surface md:text-4xl">Bắt đầu đúng với mức độ sẵn sàng của phòng khám</h2>
-      <p class="mt-3 leading-relaxed text-on-surface-variant">Mỗi gói khác nhau ở mức độ can thiệp, nhịp đồng hành và phần việc đội ngũ Dental Empire OS trực tiếp cùng bạn thực hiện.</p>
-    </div>
+  <section class="mx-auto max-w-6xl px-4 py-20 md:py-24"><div class="mb-10 max-w-3xl"><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Buổi tư vấn có cấu trúc</p><h2 class="mt-2 text-3xl font-black text-on-surface md:text-4xl">Dành thời gian cho vấn đề cần quyết định</h2></div><div class="grid gap-5 md:grid-cols-3"><article class="rounded-3xl border border-outline-variant/30 bg-surface-container-low p-6"><span class="material-symbols-outlined text-primary">clinical_notes</span><h3 class="mt-5 text-xl font-black text-on-surface">1. Đọc bối cảnh</h3><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Xem mục tiêu, tình trạng vận hành và kết quả Scanner nếu bạn đã thực hiện.</p></article><article class="rounded-3xl border border-primary/35 bg-primary/5 p-6"><span class="material-symbols-outlined text-primary">target</span><h3 class="mt-5 text-xl font-black text-on-surface">2. Chọn ưu tiên</h3><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Xác định điểm cần giải quyết trước, tiêu chí thành công và phần việc đội ngũ có thể bắt đầu ngay.</p></article><article class="rounded-3xl border border-outline-variant/30 bg-surface-container-low p-6"><span class="material-symbols-outlined text-primary">route</span><h3 class="mt-5 text-xl font-black text-on-surface">3. Chốt bước tiếp theo</h3><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Nhận định hướng hành động phù hợp, thay vì một gói giải pháp cố định cho mọi phòng khám.</p></article></div></section>
 
-    <div class="grid gap-6 lg:grid-cols-3">
-      <article id="tu-trien-khai" class="flex scroll-mt-28 flex-col rounded-3xl border border-outline-variant/30 bg-surface-container-low p-6 md:p-7">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/15 text-primary"><span class="material-symbols-outlined">rocket_launch</span></div>
-          <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Tự chủ</span>
-        </div>
-        <h3 class="mt-5 text-2xl font-black text-on-surface">Tự triển khai</h3>
-        <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Dành cho người đã sẵn sàng dành thời gian học, tự ra quyết định và tự triển khai theo lộ trình.</p>
-        <ul class="mt-6 space-y-3 text-sm text-on-surface-variant">
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Truy cập toàn bộ tài liệu, AI Tools, Scanner, khóa học, blog và tài nguyên Premium.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Tự dùng scanner để xác định điểm cần ưu tiên.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-emerald-600 dark:text-emerald-400">check_circle</span>Tự chịu trách nhiệm cho tiến độ triển khai.</li>
-        </ul>
-        <div class="mt-7 border-t border-outline-variant/25 pt-5">
-          {selfServeProduct ? (
-            <>
-              <p class="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">{selfServeProduct.name}</p>
-              <p class="mt-1 text-2xl font-black text-on-surface">{selfServeProduct.price.toLocaleString('vi-VN')}₫</p>
-              <p class="mt-1 text-xs text-on-surface-variant">{formatDuration(selfServeProduct.duration_days)}</p>
-              {selfServeProduct.description && <p class="mt-3 text-sm leading-relaxed text-on-surface-variant">{selfServeProduct.description}</p>}
-              <PaymentButton productId={selfServeProduct.id} productName={selfServeProduct.name} price={selfServeProduct.price} class="mt-5 w-full" />
-            </>
-          ) : (
-            <p class="text-sm leading-relaxed text-on-surface-variant">Gói tự triển khai sẽ hiển thị nút mua khi sản phẩm tương ứng đang được mở bán.</p>
-          )}
-        </div>
-      </article>
+  <section class="border-y border-outline-variant/20 bg-surface-container-low"><div class="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:py-24 lg:grid-cols-[0.9fr_1.1fr] lg:items-start"><div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Sử dụng Credits</p><h2 class="mt-2 text-3xl font-black text-on-surface">Đặt lịch theo block 30 phút</h2><p class="mt-4 leading-relaxed text-on-surface-variant">Sau khi gửi yêu cầu, quản trị viên xác nhận lịch và tạm giữ Credits theo số block đã chọn. Credits chỉ được settle sau buổi tư vấn theo thời lượng thực tế; phần chưa dùng được hoàn lại vào ví.</p><div class="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-sm text-on-surface-variant"><span class="font-bold text-primary">Lưu ý:</span> Giá phút/Credit và lịch hẹn được xác nhận bởi quản trị viên. Chưa có tích hợp lịch ngoài ở giai đoạn này.</div></div><div class="rounded-3xl border border-outline-variant/30 bg-surface-container-lowest p-6 md:p-8"><h3 class="text-xl font-black text-on-surface">Trước khi đặt lịch</h3><ul class="mt-5 space-y-3 text-sm text-on-surface-variant"><li class="flex gap-2"><span class="material-symbols-outlined text-primary">check_circle</span>Hoàn thiện hồ sơ phòng khám.</li><li class="flex gap-2"><span class="material-symbols-outlined text-primary">check_circle</span>Thực hiện Scanner liên quan nếu cần phân tích dữ liệu cụ thể.</li><li class="flex gap-2"><span class="material-symbols-outlined text-primary">check_circle</span>Chuẩn bị một câu hỏi hoặc quyết định quan trọng cần làm rõ.</li></ul><a href={currentUser ? '#dat-lich-tu-van' : '/login?redirect=/dich-vu'} class="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary"><span class="material-symbols-outlined">calendar_month</span>{currentUser ? 'Gửi yêu cầu đặt lịch' : 'Đăng nhập để tiếp tục'}</a></div></div></section>
 
-      <article id="dong-hanh" class="relative flex scroll-mt-28 flex-col rounded-3xl border-2 border-primary/60 bg-gradient-to-b from-primary/10 to-surface-container-low p-6 shadow-xl shadow-primary/10 md:p-7">
-        <span class="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-black text-on-primary">Được khuyến nghị</span>
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300"><span class="material-symbols-outlined">handshake</span></div>
-          <span class="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">Có đồng hành</span>
-        </div>
-        <h3 class="mt-5 text-2xl font-black text-on-surface">Đồng hành tư vấn</h3>
-        <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Dành cho phòng khám cần người cùng chẩn đoán, ưu tiên vấn đề và giữ nhịp thực hiện trong quá trình thay đổi.</p>
-        <ul class="mt-6 space-y-3 text-sm text-on-surface-variant">
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Toàn bộ nền tảng tri thức, công cụ và tài nguyên Premium trong thời hạn gói.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Phản biện kế hoạch, thứ tự ưu tiên và chỉ số theo dõi.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-primary">check_circle</span>Đồng hành tháo gỡ vướng mắc khi đội ngũ triển khai.</li>
-        </ul>
-        <div class="mt-7 border-t border-primary/20 pt-5">
-          {guidedProducts.length > 0 ? (
-            <div class="space-y-4">
-              {guidedProducts.map((product) => (
-                <div class="rounded-2xl border border-primary/25 bg-surface-container-lowest/70 p-4">
-                  <p class="text-sm font-bold text-on-surface">{product.name}</p>
-                  <p class="mt-1 text-xl font-black text-on-surface">{product.price.toLocaleString('vi-VN')}₫</p>
-                  <p class="mt-1 text-xs text-on-surface-variant">{formatDuration(product.duration_days)}</p>
-                  {product.description && <p class="mt-2 text-xs leading-relaxed text-on-surface-variant">{product.description}</p>}
-                  <PaymentButton productId={product.id} productName={product.name} price={product.price} class="mt-4 w-full" />
-                </div>
-              ))}
-              <a href={consultationHref('guided')} class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 px-5 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10"><span class="material-symbols-outlined text-[18px]">mail</span>Trao đổi trước khi mua</a>
-            </div>
-          ) : (
-            <a href={consultationHref('guided')} class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition-colors hover:brightness-110"><span class="material-symbols-outlined text-[18px]">mail</span>Đăng ký buổi tư vấn</a>
-          )}
-        </div>
-      </article>
-
-      <article id="tron-goi" class="flex scroll-mt-28 flex-col rounded-3xl border border-outline-variant/30 bg-surface-container-low p-6 md:p-7">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-700 dark:text-violet-300"><span class="material-symbols-outlined">precision_manufacturing</span></div>
-          <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-bold text-violet-700 dark:text-violet-300">Theo dự án</span>
-        </div>
-        <h3 class="mt-5 text-2xl font-black text-on-surface">Triển khai trọn gói</h3>
-        <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Dành cho phòng khám cần thiết kế hệ thống, chuyển hóa thành tài liệu và đưa vào nhịp vận hành với mức can thiệp sâu hơn.</p>
-        <ul class="mt-6 space-y-3 text-sm text-on-surface-variant">
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-violet-600 dark:text-violet-300">check_circle</span>Khảo sát, chẩn đoán và xác định phạm vi dự án.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-violet-600 dark:text-violet-300">check_circle</span>Thiết kế quy trình, vai trò, chỉ số và tài liệu cần thiết.</li>
-          <li class="flex gap-2"><span class="material-symbols-outlined text-[19px] text-violet-600 dark:text-violet-300">check_circle</span>Hỗ trợ đào tạo, thử nghiệm và điều chỉnh theo thực tế.</li>
-        </ul>
-        <div class="mt-7 border-t border-outline-variant/25 pt-5">
-           <p class="text-sm leading-relaxed text-on-surface-variant">Phạm vi, nhân sự tham gia và chi phí được xác định sau buổi trao đổi thực trạng.</p>
-            <a href={consultationHref('implementation')} class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-on-surface px-5 py-3 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5"><span class="material-symbols-outlined text-[18px]">calendar_month</span>Đăng ký tư vấn dự án</a>
-            {fullImplementationProduct && fullImplementationProduct.price > 0 && (
-              <div class="mt-4 rounded-2xl border border-violet-500/25 bg-surface-container-lowest/70 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">Hoặc chọn gói giá cố định</p>
-                <p class="text-sm font-bold text-on-surface">{fullImplementationProduct.name}</p>
-                <p class="mt-1 text-xl font-black text-on-surface">{fullImplementationProduct.price.toLocaleString('vi-VN')}₫</p>
-               <p class="mt-1 text-xs text-on-surface-variant">{formatDuration(fullImplementationProduct.duration_days)}</p>
-               {fullImplementationProduct.description && <p class="mt-2 text-xs leading-relaxed text-on-surface-variant">{fullImplementationProduct.description}</p>}
-               <PaymentButton productId={fullImplementationProduct.id} productName={fullImplementationProduct.name} price={fullImplementationProduct.price} class="mt-4 w-full" />
-             </div>
-           )}
-         </div>
-      </article>
-    </div>
-  </section>
-
-  {additionalServiceProducts.length > 0 && (
-    <section id="dich-vu-bo-sung" class="border-y border-outline-variant/20 bg-surface-container-low">
-      <div class="mx-auto max-w-6xl px-4 py-16 md:py-20">
-        <div class="max-w-3xl">
-          <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Dịch vụ bổ sung</p>
-          <h2 class="mt-2 text-3xl font-black text-on-surface md:text-4xl">Các gói chuyên biệt theo nhu cầu</h2>
-          <p class="mt-3 leading-relaxed text-on-surface-variant">Các sản phẩm dưới đây không thuộc ba mức độ triển khai chính. Đây là những gói có phạm vi riêng, có thể mua độc lập hoặc kết hợp với lộ trình phù hợp.</p>
-        </div>
-        <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {additionalServiceProducts.map((product) => (
-            <article class="flex flex-col rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5">
-              <div class="flex items-start justify-between gap-3">
-                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><span class="material-symbols-outlined">extension</span></span>
-                <span class="rounded-full bg-surface-container-high px-2.5 py-1 text-[11px] font-bold text-on-surface-variant">Gói bổ sung</span>
-              </div>
-              <h3 class="mt-5 text-lg font-black text-on-surface">{product.name}</h3>
-              <p class="mt-2 flex-1 text-sm leading-relaxed text-on-surface-variant">{product.description ?? 'Một gói dịch vụ chuyên biệt trong hệ sinh thái Dental Empire OS.'}</p>
-              <div class="mt-5 border-t border-outline-variant/20 pt-4">
-                {product.price > 0 ? (
-                  <>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Giá gói</p>
-                    <p class="mt-1 text-xl font-black text-on-surface">{product.price.toLocaleString('vi-VN')}₫</p>
-                    <p class="mt-1 text-xs text-on-surface-variant">{formatDuration(product.duration_days)}</p>
-                    <PaymentButton productId={product.id} productName={product.name} price={product.price} class="mt-4 w-full" />
-                  </>
-                ) : (
-                  <a href={consultationHref('guided')} class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 px-4 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10"><span class="material-symbols-outlined text-[18px]">mail</span>Trao đổi về gói này</a>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  )}
-
-  <section class="border-y border-outline-variant/20 bg-surface-container-low">
-    <div class="mx-auto max-w-6xl px-4 py-20 md:py-24">
-      <div class="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-        <div>
-          <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Nền tảng chung</p>
-          <h2 class="mt-2 text-3xl font-black text-on-surface">Một hệ sinh thái để học, đo lường và làm</h2>
-          <p class="mt-4 leading-relaxed text-on-surface-variant">Các gói tự triển khai và đồng hành bao gồm toàn bộ hệ sinh thái Dental Empire OS để đưa kiến thức đến gần công việc thực tế hơn. Phạm vi của dự án triển khai trọn gói được xác định trong buổi tư vấn.</p>
-          <a href="/ai-tools" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">Khám phá AI Tools và Scanner <span class="material-symbols-outlined text-[18px]">arrow_forward</span></a>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2">
-          {foundationBenefits.map((benefit) => (
-            <div class="rounded-2xl border border-outline-variant/25 bg-surface-container-lowest p-4">
-              <span class="material-symbols-outlined text-primary">{benefit.icon}</span>
-              <h3 class="mt-3 font-bold text-on-surface">{benefit.title}</h3>
-              <p class="mt-1 text-sm leading-relaxed text-on-surface-variant">{benefit.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="mx-auto max-w-6xl px-4 py-20 md:py-24" aria-labelledby="comparison-title">
-    <div class="max-w-3xl">
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Khác biệt nằm ở cách làm cùng nhau</p>
-      <h2 id="comparison-title" class="mt-2 text-3xl font-black text-on-surface">Tư vấn không chỉ là thêm nội dung</h2>
-      <p class="mt-3 leading-relaxed text-on-surface-variant">Tự triển khai cung cấp đường đi. Đồng hành tư vấn và triển khai trọn gói bổ sung khả năng nhìn đúng vấn đề, đưa ra quyết định phù hợp bối cảnh và biến quyết định thành thói quen vận hành.</p>
-    </div>
-    <div class="mt-8 grid gap-4 md:grid-cols-3">
-      <div class="rounded-2xl border border-outline-variant/25 p-5"><span class="text-sm font-black text-primary">Tự triển khai</span><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Bạn chủ động học, chọn công cụ và tự tổ chức việc áp dụng. Phù hợp khi đã có người chịu trách nhiệm triển khai nội bộ.</p></div>
-      <div class="rounded-2xl border border-primary/30 bg-primary/5 p-5"><span class="text-sm font-black text-primary">Đồng hành tư vấn</span><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Có chuyên gia cùng chẩn đoán, phản biện lựa chọn và giúp duy trì ưu tiên. Phần triển khai chính vẫn do đội ngũ phòng khám sở hữu.</p></div>
-      <div class="rounded-2xl border border-outline-variant/25 p-5"><span class="text-sm font-black text-primary">Triển khai trọn gói</span><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Đội ngũ cùng thiết kế hệ thống, chuẩn bị đầu ra và hỗ trợ đưa vào vận hành. Phù hợp cho bài toán cần thay đổi sâu và liên phòng ban.</p></div>
-    </div>
-  </section>
-
-  <section id="dang-ky-tu-van" class="scroll-mt-20 border-t border-outline-variant/20 bg-gradient-to-br from-primary/10 via-surface to-amber-500/5">
-    <div class="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:py-24 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-      <div>
-      <h2 class="text-3xl font-black text-on-surface md:text-4xl">Chưa chắc nên bắt đầu từ đâu?</h2>
-      <p class="mt-4 leading-relaxed text-on-surface-variant">Gửi bối cảnh hiện tại của phòng khám. Buổi trao đổi sẽ giúp xác định mức độ đồng hành phù hợp trước khi bạn đầu tư thời gian hoặc ngân sách.</p>
-      <div class="mt-7 flex items-center gap-3 text-sm text-on-surface-variant"><span class="material-symbols-outlined text-primary">schedule</span>Phản hồi trong giờ làm việc, không cần đăng nhập.</div>
-      </div>
-      <form id="consultation-form" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 text-left shadow-lg shadow-primary/5 md:p-7">
-        <div class="grid gap-5 sm:grid-cols-2">
-          <label class="block text-sm font-semibold text-on-surface">Họ và tên <span class="text-error" aria-hidden="true">*</span><input required name="name" maxlength="100" autocomplete="name" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
-          <label class="block text-sm font-semibold text-on-surface">Số điện thoại <span class="text-error" aria-hidden="true">*</span><input required name="phone" maxlength="24" autocomplete="tel" inputmode="tel" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
-          <label class="block text-sm font-semibold text-on-surface">Email <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input type="email" name="email" maxlength="254" autocomplete="email" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
-          <label class="block text-sm font-semibold text-on-surface">Tên phòng khám <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input name="clinic_name" maxlength="160" autocomplete="organization" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
-          <label class="block text-sm font-semibold text-on-surface">Quy mô nhân sự <span class="font-normal text-on-surface-variant">(không bắt buộc)</span><input name="team_size" maxlength="80" placeholder="Ví dụ: 10-20 người" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>
-          <label class="block text-sm font-semibold text-on-surface">Nhu cầu chính <span class="text-error" aria-hidden="true">*</span><select required name="service_interest" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="guided">Đồng hành tư vấn</option><option value="implementation">Triển khai trọn gói</option><option value="general">Chưa xác định</option></select></label>
-          <label class="block text-sm font-semibold text-on-surface sm:col-span-2">Bạn muốn được tư vấn điều gì? <span class="text-error" aria-hidden="true">*</span><textarea required name="message" minlength="10" maxlength="2000" rows="4" class="mt-2 w-full resize-y rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea></label>
-        </div>
-        <label class="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
-        <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60"><span class="material-symbols-outlined text-[19px]">send</span>Gửi yêu cầu tư vấn</button><p id="consultation-status" class="text-sm text-on-surface-variant" role="status" aria-live="polite"></p></div>
-      </form>
-    </div>
-  </section>
+  <section id="dat-lich-tu-van" class="scroll-mt-20 bg-gradient-to-br from-primary/10 via-surface to-amber-500/5"><div class="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:py-24 lg:grid-cols-[0.8fr_1.2fr] lg:items-start"><div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Yêu cầu tư vấn</p><h2 class="mt-2 text-3xl font-black text-on-surface md:text-4xl">Gửi bối cảnh của bạn</h2><p class="mt-4 leading-relaxed text-on-surface-variant">Chúng tôi kiểm tra thông tin, liên hệ xác nhận và đề xuất thời gian phù hợp. Đây chưa phải xác nhận lịch hay thanh toán.</p></div>{currentUser ? <form id="consultation-form" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 text-left shadow-lg shadow-primary/5 md:p-7"><div class="grid gap-5 sm:grid-cols-2"><label class="block text-sm font-semibold text-on-surface">Họ và tên <span class="text-error">*</span><input required name="name" maxlength="100" autocomplete="name" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary" /></label><label class="block text-sm font-semibold text-on-surface">Số điện thoại <span class="text-error">*</span><input required name="phone" maxlength="24" autocomplete="tel" inputmode="tel" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary" /></label><label class="block text-sm font-semibold text-on-surface">Tên phòng khám<input name="clinic_name" maxlength="160" autocomplete="organization" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary" /></label><label class="block text-sm font-semibold text-on-surface">Số block 30 phút<select name="requested_blocks" class="mt-2 w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary"><option value="1">1 block · 30 phút</option><option value="2">2 block · 60 phút</option><option value="3">3 block · 90 phút</option></select></label><label class="block text-sm font-semibold text-on-surface sm:col-span-2">Bạn muốn tư vấn điều gì? <span class="text-error">*</span><textarea required name="message" minlength="10" maxlength="2000" rows="4" class="mt-2 w-full resize-y rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-normal text-on-surface outline-none focus:border-primary"></textarea></label></div><label class="absolute -left-[9999px] h-px w-px overflow-hidden">Website<input name="website" tabindex="-1" autocomplete="off" /></label><div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-bold text-on-primary disabled:cursor-wait disabled:opacity-60"><span class="material-symbols-outlined">send</span>Gửi yêu cầu</button><p id="consultation-status" class="text-sm text-on-surface-variant" role="status"></p></div></form> : <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-8 text-center"><span class="material-symbols-outlined text-4xl text-primary">lock</span><h3 class="mt-4 text-xl font-black text-on-surface">Đăng nhập để gửi yêu cầu tư vấn</h3><p class="mt-3 text-sm leading-relaxed text-on-surface-variant">Tài khoản giúp liên kết yêu cầu với ví Credits, lịch hẹn và kết quả Scanner của bạn.</p><a href="/login?redirect=/dich-vu" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary"><span class="material-symbols-outlined">login</span>Đăng nhập</a></div>}</div></section>
 </BaseLayout>
 
 <script>
   const form = document.querySelector<HTMLFormElement>('#consultation-form');
   const status = document.querySelector<HTMLElement>('#consultation-status');
-  const interest = form?.elements.namedItem('service_interest');
-  const selectedInterest = new URLSearchParams(window.location.search).get('service_interest');
-  if (
-    interest instanceof HTMLSelectElement
-    && (selectedInterest === 'guided' || selectedInterest === 'implementation' || selectedInterest === 'general')
-  ) {
-    interest.value = selectedInterest;
-  }
-
-  document.querySelectorAll<HTMLAnchorElement>('a[href^="#dang-ky-tu-van?"]').forEach((link) => {
-    link.addEventListener('click', () => {
-      const selected = new URL(link.href).searchParams.get('service_interest');
-      if (interest instanceof HTMLSelectElement && selected) interest.value = selected;
-    });
-  });
-
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     if (!button || !status) return;
-    button.disabled = true;
-    status.textContent = 'Đang gửi thông tin...';
-    status.className = 'text-sm text-on-surface-variant';
+    button.disabled = true; status.textContent = 'Đang gửi thông tin...';
     try {
       const response = await fetch('/api/consultation-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
       const data = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) throw new Error(data?.error ?? 'Không thể gửi yêu cầu.');
-      form.reset();
-      status.textContent = 'Đã nhận yêu cầu. Chúng tôi sẽ liên hệ lại sớm.';
-      status.className = 'text-sm text-emerald-600 dark:text-emerald-400';
-    } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'Không thể gửi yêu cầu. Vui lòng thử lại.';
-      status.className = 'text-sm text-error';
-    } finally {
-      button.disabled = false;
-    }
+      form.reset(); status.textContent = 'Đã nhận yêu cầu. Chúng tôi sẽ liên hệ để xác nhận lịch.'; status.className = 'text-sm text-emerald-600 dark:text-emerald-400';
+    } catch (error) { status.textContent = error instanceof Error ? error.message : 'Không thể gửi yêu cầu.'; status.className = 'text-sm text-error'; } finally { button.disabled = false; }
   });
 </script>
