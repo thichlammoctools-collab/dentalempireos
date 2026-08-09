@@ -394,7 +394,7 @@ const avatarColors = [
       fetch('/api/admin/ai-models', { method: 'POST' })
         .then((response) => response.ok ? response.json() : null)
         .then((payload) => {
-          const models = payload?.models as Array<{ id: string; name: string; provider: string; category: string }> | undefined;
+          const models = payload?.models;
           if (!models?.length) return;
           const populate = (select, defaultLabel, availableModels) => {
             if (!select) return;
