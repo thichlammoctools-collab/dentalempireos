@@ -24,11 +24,12 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .bind(key)
     .first<BookMediaAccess>();
 
-  // Images/files attached to a free-preview section remain public even when
-  // the surrounding chapter is premium. Only premium sections require access.
-  // Files not attached to a book block remain public to preserve existing media behavior.
-  if (!block || block.is_premium !== 1 || block.is_free === 1) return true;
-  return !!userId && canAccessBook(env.DB, userId, block.chapter_id);
+  // Book reading requires a signed-in account, including free chapters. Files
+  // not attached to a book block retain their existing public media behavior.
+  if (!block) return true;
+  if (!userId) return false;
+  if (block.is_premium !== 1 || block.is_free === 1) return true;
+  return canAccessBook(env.DB, userId, block.chapter_id);
 }
 
 async function canAccessResourceMedia(key: string, userId?: string): Promise<boolean> {

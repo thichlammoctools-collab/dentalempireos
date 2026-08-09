@@ -25,7 +25,7 @@ const tiers = [1, 2, 3];
 
 <BaseLayout
   title="Thư Viện Tài Liệu - Dental Empire OS"
-  description="Đọc miễn phí toàn bộ nội dung Dental Empire OS — 6 tầng quản trị nha khoa toàn diện."
+  description="Thư viện tài liệu quản trị nha khoa Dental Empire OS dành cho thành viên đã đăng nhập."
   ogImage="/images/book-og.svg"
   ogImageAlt="Thư viện tài liệu quản trị nha khoa - Dental Empire OS"
 >
@@ -35,7 +35,7 @@ const tiers = [1, 2, 3];
     <div class="px-6 max-w-[1200px] mx-auto text-center">
       <h1 class="text-headline-lg text-on-surface mb-4">Thư Viện Tài Liệu</h1>
       <p class="text-on-surface-variant max-w-2xl mx-auto">
-        Đọc miễn phí toàn bộ nội dung Dental Empire OS. Lộ trình từ nền tảng đến hệ điều hành quản trị toàn diện.
+        Đăng nhập để đọc thư viện Dental Empire OS. Lộ trình từ nền tảng đến hệ điều hành quản trị toàn diện.
       </p>
     </div>
   </section>
@@ -56,16 +56,18 @@ const tiers = [1, 2, 3];
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tierChapters.map((ch) => (
                 <a
-                  href={`/book/${ch.id}`}
+                  href={Astro.locals.user ? `/book/${ch.id}` : `/login?redirect=${encodeURIComponent(`/book/${ch.id}`)}`}
                   class="group p-6 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300"
                 >
                   <div class="flex items-start justify-between">
                     <div>
                       <div class="flex items-center gap-2 mb-1">
                         <p class="text-xs text-on-surface-variant">Chương {ch.chapter_no}</p>
-                        {ch.has_premium && !premiumChapterIds.has(ch.id) && (
-                          <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
-                        )}
+                         {!Astro.locals.user ? (
+                           <span class="material-symbols-outlined text-primary text-[14px]" title="Đăng nhập để đọc">lock</span>
+                         ) : ch.has_premium && !premiumChapterIds.has(ch.id) && (
+                           <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
+                         )}
                       </div>
                       <h3 class="font-bold text-on-surface group-hover:text-primary transition-colors">{ch.title}</h3>
                       <p class="text-sm text-on-surface-variant mt-2 line-clamp-2">{ch.description}</p>

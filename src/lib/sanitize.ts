@@ -20,8 +20,9 @@ export const RICH_CONFIG = {
   ALLOWED_ATTR: [
     'href', 'target', 'rel',
     'src', 'alt', 'title',
-    'class', 'width', 'height',
-    'id', 'style',
+     'class', 'width', 'height',
+     'id',
+
     'colspan', 'rowspan',
   ],
 };

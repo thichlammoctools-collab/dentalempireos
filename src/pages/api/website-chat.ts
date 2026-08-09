@@ -12,7 +12,6 @@ import type { ChatMessage } from '../../lib/ai-client';
 import { getAiGatewayConfigs } from '../../lib/ai-gateway';
 import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, buildSearchQueryWithHistory, summarizeHistory, type WebsiteChunk } from '../../lib/rag-website-search';
 import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
-import { generateFollowupSuggestions } from '../../lib/ai-followup';
 import { createAuth } from '../../lib/auth';
 import { logAiUsage } from '../../lib/ai-usage-log';
 import { reserveAiQuota, requestId } from '../../lib/ai-operations';
@@ -77,8 +76,17 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  if (!body.message?.trim()) {
-    return new Response(JSON.stringify({ error: 'message is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (typeof body.message !== 'string' || !body.message.trim() || body.message.trim().length > 4_000) {
+    return new Response(JSON.stringify({ error: 'message must contain 1-4,000 characters' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (body.session_id !== undefined && (typeof body.session_id !== 'string' || body.session_id.length > 128)) {
+    return new Response(JSON.stringify({ error: 'session_id is invalid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (body.page_type !== undefined && (typeof body.page_type !== 'string' || !['book', 'blog', 'resource', 'home'].includes(body.page_type))) {
+    return new Response(JSON.stringify({ error: 'page_type is invalid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (body.page_slug !== undefined && (typeof body.page_slug !== 'string' || body.page_slug.length > 160)) {
+    return new Response(JSON.stringify({ error: 'page_slug is invalid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Check if user is authenticated
@@ -186,21 +194,6 @@ export const POST: APIRoute = async (ctx) => {
     request_id: request,
   }).catch((err) => console.warn('[website-chat] usage log failed:', err));
 
-  // Generate follow-up suggestions (chạy song song với streaming)
-  let followupSuggestions: string[] = [];
-  if (aiResponse && !aiError) {
-    try {
-      followupSuggestions = await generateFollowupSuggestions(
-        modelCfg,
-        body.message.trim(),
-        aiResponse,
-        ragContext,
-      );
-    } catch (err) {
-      console.warn('[website-chat] Followup generation failed:', err);
-    }
-  }
-
   // Save conversation to DB
   if (!aiError) {
     try {
@@ -252,16 +245,6 @@ export const POST: APIRoute = async (ctx) => {
           );
         }
         return;
-      }
-
-      // Before done: send followup suggestions if available
-      if (followupSuggestions.length > 0 && wordIndex === words.length) {
-        controller.enqueue(
-          textEncoder.encode(
-            `data: ${JSON.stringify({ event: 'followup_suggestions', suggestions: followupSuggestions })}\n\n`
-          )
-        );
-        wordIndex++; // Prevent re-sending
       }
 
       // Done

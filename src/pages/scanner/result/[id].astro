@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../../lib/sanitize';
 import {
   getSurveyDefinitionFull,
   parseScoringRules,
@@ -85,14 +85,13 @@ if (scoringRules) {
 
 const totalLevel = getScoreLevel(totalScore, scoringRules ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } }, lang);
 
-// Pre-render analysis and plan
-marked.setOptions({ gfm: true, breaks: true });
+// Pre-render analysis and plan. AI output is untrusted and must be sanitized.
 const analysisText = response.ai_analysis?.trim() ?? '';
 const planText = response.ai_plan?.trim() ?? '';
-const analysisHtml = analysisText ? (marked.parse(analysisText) as string) : '';
+const analysisHtml = analysisText ? renderSafeMarkdown(analysisText) : '';
 const hasAnalysis = !!analysisHtml;
 const hasPlan = !!planText;
-const planHtml = planText ? (marked.parse(planText) as string) : '';
+const planHtml = planText ? renderSafeMarkdown(planText) : '';
 
 // AI status (from DB, defaults to 'pending' for old responses)
 const planStatus = (response as any).ai_plan_status ?? 'pending';

@@ -90,26 +90,47 @@ const uniqueId = `review-list-${chapterId}`;
           return;
         }
 
-        // Append new cards (simplified — just show raw HTML)
+        // Build cards through DOM APIs so review data is never interpreted as HTML.
         for (const review of newReviews) {
-          const card = document.createElement('div');
-          card.innerHTML = `
-            <article class="review-card bg-surface-container rounded-2xl border border-outline-variant/40 p-5">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm">
-                  ${(review.user_name || review.author_name || 'Ẩn danh').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p class="font-semibold text-white text-sm">${review.user_name || review.author_name || 'Ẩn danh'}</p>
-                  ${review.chapter_title ? `<a href="/book/${review.chapter_id}" class="text-xs text-primary hover:underline">${review.chapter_title}</a>` : ''}
-                </div>
-              </div>
-              <p class="text-sm text-on-surface-variant mb-1">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p>
-              ${review.title ? `<p class="font-semibold text-white text-sm mb-1">${review.title}</p>` : ''}
-              <p class="text-sm text-on-surface-variant leading-relaxed whitespace-pre-line">${review.content}</p>
-            </article>
-          `;
-          listEl.appendChild(card.firstElementChild!);
+          const article = document.createElement('article');
+          article.className = 'review-card bg-surface-container rounded-2xl border border-outline-variant/40 p-5';
+          const name = String(review.user_name || review.author_name || 'Ẩn danh');
+          const header = document.createElement('div');
+          header.className = 'flex items-center gap-3 mb-3';
+          const avatar = document.createElement('div');
+          avatar.className = 'w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm';
+          avatar.textContent = name.charAt(0).toUpperCase();
+          const identity = document.createElement('div');
+          const nameEl = document.createElement('p');
+          nameEl.className = 'font-semibold text-white text-sm';
+          nameEl.textContent = name;
+          identity.appendChild(nameEl);
+          if (review.chapter_title && typeof review.chapter_id === 'string') {
+            const chapter = document.createElement('a');
+            chapter.href = `/book/${encodeURIComponent(review.chapter_id)}`;
+            chapter.className = 'text-xs text-primary hover:underline';
+            chapter.textContent = String(review.chapter_title);
+            identity.appendChild(chapter);
+          }
+          header.appendChild(avatar);
+          header.appendChild(identity);
+          article.appendChild(header);
+          const rating = Math.min(5, Math.max(1, Number(review.rating) || 1));
+          const stars = document.createElement('p');
+          stars.className = 'text-sm text-on-surface-variant mb-1';
+          stars.textContent = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+          article.appendChild(stars);
+          if (review.title) {
+            const title = document.createElement('p');
+            title.className = 'font-semibold text-white text-sm mb-1';
+            title.textContent = String(review.title);
+            article.appendChild(title);
+          }
+          const content = document.createElement('p');
+          content.className = 'text-sm text-on-surface-variant leading-relaxed whitespace-pre-line';
+          content.textContent = String(review.content || '');
+          article.appendChild(content);
+          listEl.appendChild(article);
         }
 
         btn.setAttribute('data-offset', String(offset + newReviews.length));

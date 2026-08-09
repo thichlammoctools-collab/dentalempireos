@@ -31,6 +31,7 @@ export interface ReviewInput {
   content: string;
   author_name?: string | null;
   user_id?: string | null;
+  ip_hash?: string | null;
 }
 
 function now(): string {
@@ -114,6 +115,17 @@ export async function getReviewStats(
 
 // ── Create ────────────────────────────────────────────────
 
+export async function checkReviewRateLimit(
+  db: D1Database,
+  ipHash: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { count = 0 } = await db.prepare(
+    `SELECT COUNT(*) AS "count" FROM "review" WHERE "ip_hash" = ? AND "createdAt" > ?`,
+  ).bind(ipHash, cutoff).first<{ count: number }>() ?? {};
+  return count < 3;
+}
+
 export async function createReview(
   db: D1Database,
   input: ReviewInput,
@@ -123,9 +135,9 @@ export async function createReview(
 
   await db
     .prepare(
-      `INSERT INTO "review"
-         ("id","user_id","chapter_id","rating","title","content","author_name","status","createdAt","updatedAt")
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+       `INSERT INTO "review"
+          ("id","user_id","chapter_id","rating","title","content","author_name","status","ip_hash","createdAt","updatedAt")
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .bind(
       id,
@@ -134,9 +146,10 @@ export async function createReview(
       input.rating,
       input.title ?? null,
       input.content,
-      input.author_name ?? null,
-      'published',
-      ts,
+       input.author_name ?? null,
+       input.user_id ? 'published' : 'pending',
+       input.ip_hash ?? null,
+       ts,
       ts,
     )
     .run();

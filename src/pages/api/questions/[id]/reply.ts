@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
-import { replyToQuestion, getQuestion } from '../../../../lib/question-db';
+import { checkQuestionWriteRateLimit, replyToQuestion, getQuestion } from '../../../../lib/question-db';
 
 export const prerender = false;
 
@@ -21,10 +21,15 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   if (!body) return badRequest('Invalid JSON body');
 
   const { body: content } = body as { body?: string };
-  if (!content) return badRequest('body is required');
+  if (typeof content !== 'string' || !content.trim() || content.trim().length > 8_000) {
+    return badRequest('Nội dung trả lời tối đa 8.000 ký tự.');
+  }
+  if (!(await checkQuestionWriteRateLimit(env.DB, user.id, true))) {
+    return json({ error: 'Bạn đã gửi quá nhiều phản hồi. Vui lòng thử lại sau ít phút.' }, 429);
+  }
 
   try {
-    const reply = await replyToQuestion(env.DB, id, user.id, content, false);
+    const reply = await replyToQuestion(env.DB, id, user.id, content.trim(), false);
     return json(reply, 201);
   } catch (err) {
     console.error('[POST /api/questions/:id/reply] DB error:', err);

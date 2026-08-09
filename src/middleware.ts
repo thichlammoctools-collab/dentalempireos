@@ -22,6 +22,16 @@ function getAdminEmails() {
 export const onRequest = defineMiddleware(async (context, next) => {
   const { locals, request, url } = context;
 
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && !url.pathname.startsWith('/api/auth/') && !url.pathname.startsWith('/api/payos/webhook')) {
+    const origin = request.headers.get('Origin');
+    if (origin && origin !== url.origin) {
+      return new Response(JSON.stringify({ error: 'cross_origin_request_blocked' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   locals.user = null;
   locals.session = null;
 
@@ -124,9 +134,21 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const newResponse = new Response(response.body, response);
     newResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     newResponse.headers.set('Pragma', 'no-cache');
-    newResponse.headers.set('Expires', '0');
-    return newResponse;
+     newResponse.headers.set('Expires', '0');
+     newResponse.headers.set('X-Content-Type-Options', 'nosniff');
+     newResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+     newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+     newResponse.headers.set('X-Frame-Options', 'SAMEORIGIN');
+     newResponse.headers.set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
+     return newResponse;
   }
 
-  return next();
+  const response = await next();
+  const secured = new Response(response.body, response);
+  secured.headers.set('X-Content-Type-Options', 'nosniff');
+  secured.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  secured.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  secured.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  secured.headers.set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
+  return secured;
 });

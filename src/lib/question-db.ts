@@ -52,6 +52,19 @@ function now(): string {
 
 // ── Questions ──────────────────────────────────────────────
 
+export async function checkQuestionWriteRateLimit(
+  db: D1Database,
+  userId: string,
+  isReply: boolean,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const table = isReply ? 'question_reply' : 'question';
+  const { count = 0 } = await db.prepare(
+    `SELECT COUNT(*) AS "count" FROM "${table}" WHERE "user_id" = ? AND "createdAt" > ?`,
+  ).bind(userId, cutoff).first<{ count: number }>() ?? {};
+  return count < 5;
+}
+
 export async function createQuestion(
   db: D1Database,
   userId: string,
@@ -61,8 +74,7 @@ export async function createQuestion(
   body: string,
 ): Promise<QuestionRow> {
   const ts = now();
-  // Generate a simple ID using timestamp + random hex
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const id = crypto.randomUUID();
 
   await db
     .prepare(

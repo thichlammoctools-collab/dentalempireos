@@ -1,11 +1,10 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { getAiSettings } from '../../../lib/ai-settings-db';
+
 import { hasMotapisApiKey } from '../../../lib/ai-gateway';
 
 export const POST: APIRoute = async () => {
   try {
-    const settings = await getAiSettings(env.DB);
     // Keep the full catalog available in the editor even when Cloudflare is
     // not the active provider. Per-tool routing determines the actual provider.
     const models = [

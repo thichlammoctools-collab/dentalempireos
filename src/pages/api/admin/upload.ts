@@ -10,7 +10,6 @@ const ALLOWED_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
-  'image/svg+xml': 'svg',
   // Documents
   'application/pdf': 'pdf',
   'application/msword': 'doc',

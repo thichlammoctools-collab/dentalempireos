@@ -361,8 +361,8 @@ function getInitials(name: string) {
         prompt_en: fd.get('prompt_en')?.toString() || undefined,
         model_override: fd.get('model_override')?.toString() || undefined,
         model_provider: (() => {
-          const select = document.getElementById('tool-model-select') as HTMLSelectElement | null;
-          return select?.value ? 'motapis' : undefined;
+          const select = document.getElementById('tool-model-select');
+          return select && 'value' in select && select.value ? 'motapis' : undefined;
         })(),
         fallback_model_override: fd.get('fallback_model_override')?.toString() || undefined,
         max_tokens_override: (() => {

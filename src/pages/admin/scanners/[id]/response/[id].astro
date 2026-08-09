@@ -11,7 +11,7 @@ import {
   parseScores,
   maskEmail,
 } from '../../../../../lib/scanner-response-db';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -54,8 +54,7 @@ function formatDate(s: string) {
   });
 }
 
-marked.setOptions({ gfm: true, breaks: true });
-const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) as string) : '';
+const analysisHtml = response.ai_analysis ? renderSafeMarkdown(response.ai_analysis) : '';
 ---
 
 <AdminLayout title={`Response #${response.id} | ${def.title_vi}`}>

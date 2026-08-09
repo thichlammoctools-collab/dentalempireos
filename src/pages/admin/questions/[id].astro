@@ -3,7 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getQuestion, getReplies, updateQuestionStatus } from '../../../lib/question-db';
 import { listChapters } from '../../../lib/book-db';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -27,9 +27,8 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-marked.use({ breaks: true });
 function renderMd(text: string): string {
-  return marked.parse(text) as string;
+  return renderSafeMarkdown(text);
 }
 
 function statusBadge(status: string) {
