@@ -20,8 +20,7 @@ import {
 import { createAuth } from '../../../lib/auth';
 import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
-import { canAccessScanner, hasActiveScannerProduct } from '../../../lib/entitlement-check';
-import { deductScannerCredit } from '../../../lib/entitlement-db';
+import { getActiveCreditPricingRule, startScannerCreditRun, completeScannerCreditRun, failScannerCreditRun, InsufficientCreditsError } from '../../../lib/credit-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 
 export const prerender = false;
@@ -64,25 +63,19 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  const hasAccess = await canAccessScanner(env.DB, session.user.id, surveyId);
-  if (!hasAccess) {
-    return json({
-      error: 'Bạn cần mở khóa Scanner này trước khi thực hiện.',
-      requiresPayment: true,
-      upgradeUrl: '/dich-vu',
-      upgrade_url: '/dich-vu',
-    }, 402);
-  }
-  const isPaidScanner = await hasActiveScannerProduct(env.DB, surveyId);
-  const usage = await getScannerUsage(env.DB, session.user.id, surveyId, !isPaidScanner);
-  console.log('[scanner/submit] usage:', usage);
-  if (usage.remaining <= 0) {
-    return json({
-      error: !isPaidScanner
-        ? 'Scanner miễn phí này đã dùng hết 3 lượt. Mỗi lượt đã bao gồm Phân tích AI và Kế hoạch AI.'
-        : 'Bạn đã dùng hết credits cho scanner này.',
-      quota: usage,
-    }, 429);
+  // A Scanner is paid only when it has an active Credit pricing rule. Legacy
+  // product entitlements are deliberately not consulted after the Credits cutover.
+  const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', surveyId);
+  const isPaidScanner = pricingRule?.credit_amount != null && pricingRule.credit_amount > 0;
+  if (!isPaidScanner) {
+    const usage = await getScannerUsage(env.DB, session.user.id, surveyId, true);
+    console.log('[scanner/submit] usage:', usage);
+    if (usage.remaining <= 0) {
+      return json({
+        error: 'Scanner miễn phí này đã dùng hết 3 lượt. Mỗi lượt đã bao gồm Phân tích AI và Kế hoạch AI.',
+        quota: usage,
+      }, 429);
+    }
   }
 
   // Unmapped scanners collect a per-response contact snapshot. Paid scanners
@@ -128,18 +121,63 @@ export const POST: APIRoute = async (ctx) => {
   // Calculate scores
   const scoringRules = parseScoringRules(def.scoring_rules);
 
-  // Insert response (scoring happens inside)
-  const { id } = await createScannerResponse(env.DB, {
-    survey_id: surveyId,
-    lang,
-    owner_name: isPaidScanner ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
-    clinic_name: clinicName,
-    clinic_address: isPaidScanner ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
-    email,
-    years_in_operation: asInt(body.years_in_operation),
-    staff_count: asInt(body.staff_count),
-    responses: responsesMap,
-  }, scoringRules);
+  const clientIdempotencyKey = asString(ctx.request.headers.get('Idempotency-Key')) ?? asString(body.idempotency_key);
+  const idempotencyKey = clientIdempotencyKey ?? crypto.randomUUID();
+  let creditRun: Awaited<ReturnType<typeof startScannerCreditRun>>['run'] | null = null;
+
+  if (isPaidScanner && pricingRule?.credit_amount != null) {
+    try {
+      const started = await startScannerCreditRun(env.DB, {
+        userId: session.user.id,
+        surveyId,
+        idempotencyKey,
+        credits: pricingRule.credit_amount,
+        pricingRuleId: pricingRule.id,
+      });
+      creditRun = started.run;
+      if (!started.created && creditRun.status === 'completed' && creditRun.response_id != null) {
+        return json({ success: true, id: creditRun.response_id, redirect: `/scanner/result/${creditRun.response_id}` });
+      }
+      if (!started.created && creditRun.status === 'reserved') {
+        return json({ error: 'Yêu cầu đang được xử lý. Vui lòng thử lại sau ít phút.' }, 409);
+      }
+      if (!started.created && creditRun.status === 'failed') {
+        return json({ error: 'Yêu cầu trước đó không hoàn tất. Hãy gửi lại với một Idempotency-Key mới.' }, 409);
+      }
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        return json({
+          error: 'Bạn không đủ Credits để thực hiện Scanner này.',
+          requiresPayment: true,
+          upgradeUrl: '/account/wallet',
+          upgrade_url: '/account/wallet',
+        }, 402);
+      }
+      console.error('[submit] reserve Scanner Credits failed:', err);
+      return json({ error: 'Không thể giữ Credits cho Scanner. Vui lòng thử lại.' }, 500);
+    }
+  }
+
+  // Insert response only after a paid run has atomically reserved its Credits.
+  let id: number;
+  try {
+    ({ id } = await createScannerResponse(env.DB, {
+      survey_id: surveyId,
+      lang,
+      owner_name: isPaidScanner ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
+      clinic_name: clinicName,
+      clinic_address: isPaidScanner ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
+      email,
+      years_in_operation: asInt(body.years_in_operation),
+      staff_count: asInt(body.staff_count),
+      responses: responsesMap,
+    }, scoringRules));
+  } catch (err) {
+    if (creditRun) await failScannerCreditRun(env.DB, {
+      userId: session.user.id, runId: creditRun.id, reason: 'scanner_response_creation_failed',
+    });
+    throw err;
+  }
 
   // Add to scanner history
   const scoringResult = await env.DB
@@ -176,17 +214,29 @@ export const POST: APIRoute = async (ctx) => {
       score_label: level.label_vi,
     });
   } catch (err) {
+    if (creditRun) await failScannerCreditRun(env.DB, {
+      userId: session.user.id, runId: creditRun.id, reason: 'scanner_history_creation_failed',
+    });
     console.error('[submit] addToHistory failed:', err);
     return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại.' }, 500);
   }
 
-  // Trừ 1 credit sau khi scan thành công (chỉ áp dụng cho scanner trả phí).
-  if (isPaidScanner) {
+  if (creditRun && pricingRule?.credit_amount != null) {
     try {
-      await deductScannerCredit(env.DB, session.user.id, surveyId);
+      await completeScannerCreditRun(env.DB, {
+        userId: session.user.id,
+        runId: creditRun.id,
+        responseId: id,
+        credits: pricingRule.credit_amount,
+        priceSnapshot: {
+          ruleId: pricingRule.id,
+          ruleVersion: pricingRule.rule_version,
+          credits: pricingRule.credit_amount,
+        },
+      });
     } catch (err) {
-      console.error('[submit] deductScannerCredit failed:', err);
-      return json({ error: 'Không thể cập nhật credits. Vui lòng thử lại.' }, 500);
+      console.error('[submit] settle Scanner Credits failed:', err);
+      return json({ error: 'Kết quả đã được lưu nhưng không thể hoàn tất thanh toán Credits. Vui lòng liên hệ quản trị viên.' }, 500);
     }
   }
 

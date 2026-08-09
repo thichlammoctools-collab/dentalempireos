@@ -1,7 +1,8 @@
 import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
-import { hasActiveEntitlementForContent, hasActiveScannerEntitlement } from './entitlement-db';
+import { hasActiveEntitlementForContent } from './entitlement-db';
+import { getActiveCreditPricingRule, hasUserContentGrant } from './credit-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
 
@@ -49,7 +50,7 @@ export async function canAccessBook(
   if (chapter.is_premium !== 1) return true;
   if (!userId) return false;
 
-  return hasPaidAccess(db, userId, 'book', chapterId);
+  return hasUserContentGrant(db, userId, 'book', '*');
 }
 
 export async function canAccessAiApp(
@@ -76,13 +77,10 @@ export async function canAccessScanner(
 ): Promise<boolean> {
   const scanner = await getSurveyDefinitionById(db, scannerId);
   if (!scanner || scanner.status !== 'active') return false;
-  const hasConfiguredProduct = await hasActiveScannerProduct(db, scannerId);
-  // A Scanner's access tier is determined by whether it has a retail product.
-  // The is_free flag is legacy metadata and does not override product setup.
-  if (!hasConfiguredProduct) return true;
-  if (!userId) return false;
-
-  return hasActiveScannerEntitlement(db, userId, scannerId);
+  // A Scanner with an active Credit rule is paid at submit time. Its result
+  // ownership is recorded separately, so no product entitlement is required.
+  const rule = await getActiveCreditPricingRule(db, 'scanner', scannerId);
+  return !rule || rule.credit_amount == null || rule.credit_amount <= 0 || Boolean(userId);
 }
 
 export async function canAccessCourse(
@@ -93,7 +91,7 @@ export async function canAccessCourse(
   const course = await getCourse(db, courseId);
   if (!course) return false;
   if (course.access_tier === 'free') return true;
-  return hasPaidAccess(db, userId, 'course', courseId);
+  return hasUserContentGrant(db, userId, 'course', courseId);
 }
 
 export async function canAccessBlogPost(
@@ -104,9 +102,7 @@ export async function canAccessBlogPost(
   const post = await getPostById(db, postId);
   if (!post) return false;
   if (post.access_tier === 'free') return true;
-  // Blog access is subscription-based: one active blog:* entitlement unlocks
-  // every post that is explicitly marked Premium.
-  return hasPaidAccess(db, userId, 'blog', '*');
+  return hasUserContentGrant(db, userId, 'blog', '*');
 }
 
 export async function canAccessResource(
@@ -117,5 +113,5 @@ export async function canAccessResource(
   const resource = await getResource(db, resourceId);
   if (!resource) return false;
   if (resource.tier !== 'premium') return true;
-  return hasPaidAccess(db, userId, 'resource', resourceId);
+  return hasUserContentGrant(db, userId, 'resource', resourceId);
 }

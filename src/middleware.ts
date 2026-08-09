@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { createAuth } from './lib/auth';
+import { ensureCreditAccount, grantCredits } from './lib/credit-db';
 
 // Memoize auth instance per isolate (persists across requests in the same Worker instance)
 let _cachedAuth: ReturnType<typeof createAuth> | null = null;
@@ -46,6 +47,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
       .first<{ is_active: number }>();
 
     const user = { ...result.user, is_active: dbUser?.is_active ?? 0 };
+    // The new-wallet welcome grant is lazy but exactly-once. Only users created
+    // after the Credits Economy migration are eligible; existing accounts are
+    // intentionally not backfilled.
+    const createdAt = new Date(result.user.createdAt).getTime();
+    const creditGoLive = Date.parse('2026-08-09T00:00:00.000Z');
+    if (Number.isFinite(createdAt) && createdAt >= creditGoLive) {
+      await ensureCreditAccount(env.DB, result.user.id);
+      await grantCredits(env.DB, {
+        userId: result.user.id,
+        amount: 50,
+        kind: 'welcome_grant',
+        sourceType: 'welcome',
+        sourceId: result.user.id,
+        idempotencyKey: `welcome:${result.user.id}`,
+        reason: 'Credits chào mừng thành viên mới',
+      });
+    }
     locals.user = user;
     locals.session = result.session;
 

@@ -5,6 +5,7 @@ import {
   getOrderByCode,
   markOrderPaidIfPending,
   fulfillPaidOrder,
+  updateOrderStatus,
   logWebhook,
   getPayosSettings,
   getPayosEnv,
