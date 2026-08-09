@@ -85,6 +85,38 @@ export interface CreditPricingRule {
   updated_at: string;
 }
 
+export interface CreditPackage {
+  id: string;
+  name: string;
+  price: number;
+  credit_amount: number;
+  bonus_credits: number;
+  is_active: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditOrder {
+  id: string;
+  user_id: string;
+  credit_package_id: string | null;
+  order_code: number | null;
+  amount: number;
+  credits_to_grant: number;
+  package_snapshot_json: string;
+  status: 'pending' | 'processing' | 'paid' | 'cancelled' | 'expired';
+  payment_method: 'payos' | 'manual';
+  payment_link_id: string | null;
+  checkout_url: string | null;
+  idempotency_key: string;
+  fulfilled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  manual_confirmed_by_user_id?: string | null;
+  manual_confirmed_at?: string | null;
+}
+
 export class InsufficientCreditsError extends Error {
   constructor() {
     super('Insufficient Credits');
@@ -152,6 +184,126 @@ export async function listCreditLedger(
      LIMIT ? OFFSET ?`,
   ).bind(account.id, options.limit ?? 50, options.offset ?? 0).all<CreditLedgerEntry>();
   return results;
+}
+
+export async function getActiveCreditPackage(db: D1Database, packageId: string): Promise<CreditPackage | null> {
+  return db.prepare(
+    'SELECT * FROM "credit_package" WHERE "id" = ? AND "is_active" = 1',
+  ).bind(packageId).first<CreditPackage>();
+}
+
+export async function getCreditOrder(db: D1Database, orderId: string): Promise<CreditOrder | null> {
+  return db.prepare('SELECT * FROM "credit_order" WHERE "id" = ?').bind(orderId).first<CreditOrder>();
+}
+
+export async function getCreditOrderByCode(db: D1Database, orderCode: number): Promise<CreditOrder | null> {
+  return db.prepare('SELECT * FROM "credit_order" WHERE "order_code" = ?').bind(orderCode).first<CreditOrder>();
+}
+
+export async function getRecentPendingCreditOrder(
+  db: D1Database,
+  userId: string,
+  packageId: string,
+  paymentMethod: 'payos' | 'manual',
+): Promise<CreditOrder | null> {
+  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  return db.prepare(
+    `SELECT * FROM "credit_order"
+     WHERE "user_id" = ? AND "credit_package_id" = ? AND "payment_method" = ?
+       AND "status" = 'pending' AND "created_at" >= ?
+       AND (? = 'manual' OR "payment_link_id" IS NOT NULL)
+     ORDER BY "created_at" DESC LIMIT 1`,
+  ).bind(userId, packageId, paymentMethod, cutoff, paymentMethod).first<CreditOrder>();
+}
+
+export async function reserveCreditOrder(
+  db: D1Database,
+  input: {
+    userId: string;
+    creditPackage: CreditPackage;
+    paymentMethod: 'payos' | 'manual';
+    orderCode: number | null;
+    idempotencyKey: string;
+  },
+): Promise<CreditOrder> {
+  const timestamp = now();
+  const orderId = id();
+  const creditsToGrant = input.creditPackage.credit_amount + input.creditPackage.bonus_credits;
+  positiveInteger(creditsToGrant, 'credits_to_grant');
+  const snapshot = {
+    id: input.creditPackage.id,
+    name: input.creditPackage.name,
+    price: input.creditPackage.price,
+    creditAmount: input.creditPackage.credit_amount,
+    bonusCredits: input.creditPackage.bonus_credits,
+    totalCredits: creditsToGrant,
+  };
+  const statements: D1PreparedStatement[] = [
+    db.prepare(
+      `INSERT INTO "credit_order"
+       ("id","user_id","credit_package_id","order_code","amount","credits_to_grant","package_snapshot_json","status","payment_method","payment_link_id","checkout_url","idempotency_key","fulfilled_at","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,'pending',?,NULL,NULL,?,NULL,?,?)`,
+    ).bind(orderId, input.userId, input.creditPackage.id, input.orderCode, input.creditPackage.price,
+      creditsToGrant, json(snapshot), input.paymentMethod, input.idempotencyKey, timestamp, timestamp),
+  ];
+  if (input.paymentMethod === 'payos' && input.orderCode !== null) {
+    statements.push(db.prepare(
+      `INSERT INTO "payment_order_code" ("order_code","order_type","order_id","created_at")
+       VALUES (?,'credit',?,?)`,
+    ).bind(input.orderCode, orderId, timestamp));
+  }
+  await db.batch(statements);
+  return (await getCreditOrder(db, orderId))!;
+}
+
+export async function attachCreditOrderPaymentLink(
+  db: D1Database,
+  input: { orderId: string; paymentLinkId: string; checkoutUrl: string },
+): Promise<void> {
+  const result = await db.prepare(
+    `UPDATE "credit_order" SET "payment_link_id" = ?, "checkout_url" = ?, "updated_at" = ?
+     WHERE "id" = ? AND "status" = 'pending' AND "payment_link_id" IS NULL`,
+  ).bind(input.paymentLinkId, input.checkoutUrl, now(), input.orderId).run();
+  if (result.meta.changes !== 1) throw new Error('Unable to attach payment link to Credit order');
+}
+
+export async function cancelCreditOrder(
+  db: D1Database,
+  orderId: string,
+): Promise<void> {
+  await db.prepare(
+    `UPDATE "credit_order" SET "status" = 'cancelled', "updated_at" = ?
+     WHERE "id" = ? AND "status" = 'pending'`,
+  ).bind(now(), orderId).run();
+}
+
+export async function fulfillCreditOrder(
+  db: D1Database,
+  order: CreditOrder,
+  actorUserId?: string | null,
+): Promise<{ order: CreditOrder; created: boolean }> {
+  if (order.status === 'cancelled' || order.status === 'expired') {
+    throw new Error(`Credit order is ${order.status}`);
+  }
+  const result = await grantCredits(db, {
+    userId: order.user_id,
+    amount: order.credits_to_grant,
+    kind: 'purchase_grant',
+    sourceType: 'credit_order',
+    sourceId: order.id,
+    idempotencyKey: `purchase:credit-order:${order.id}`,
+    actorUserId,
+    reason: 'Nạp Credits',
+    metadata: { orderCode: order.order_code, amount: order.amount, package: JSON.parse(order.package_snapshot_json) },
+  });
+  const timestamp = now();
+  await db.prepare(
+    `UPDATE "credit_order"
+     SET "status" = 'paid', "fulfilled_at" = COALESCE("fulfilled_at", ?), "updated_at" = ?
+     WHERE "id" = ? AND "status" IN ('pending','processing','paid')`,
+  ).bind(timestamp, timestamp, order.id).run();
+  const fulfilled = (await getCreditOrder(db, order.id))!;
+  return { order: fulfilled, created: result.created };
 }
 
 export async function grantCredits(

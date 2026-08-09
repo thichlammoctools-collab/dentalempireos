@@ -233,8 +233,8 @@ export async function reservePayosOrder(
   },
 ): Promise<Order> {
   const ts = now();
-  await db
-    .prepare(
+  await db.batch([
+    db.prepare(
        `INSERT INTO "order" ("id","user_id","product_id","order_code","amount","status","payment_link_id","checkout_url","created_at","selected_scanner_id","order_kind","upgrade_from_product_id","upgrade_from_access_id","upgrade_original_amount","upgrade_credit_amount","upgrade_credit_days")
         VALUES (?,?,?,?,?,'pending',NULL,NULL,?,?,?,?,?,?,?,?)`,
     )
@@ -252,8 +252,12 @@ export async function reservePayosOrder(
       input.upgrade?.original_amount ?? null,
       input.upgrade?.credit_amount ?? null,
       input.upgrade?.credit_days ?? null,
-    )
-    .run();
+    ),
+    db.prepare(
+      `INSERT INTO "payment_order_code" ("order_code","order_type","order_id","created_at")
+       VALUES (?,'product',?,?)`,
+    ).bind(input.order_code, input.id, ts),
+  ]);
   return getOrder(db, input.id) as Promise<Order>;
 }
 
