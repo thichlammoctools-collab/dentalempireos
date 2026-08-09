@@ -51,8 +51,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   } else if (contentType === 'course') {
     const course = await getCourse(env.DB, contentId);
     if (!course || course.is_published !== 1 || course.access_tier !== 'premium') return json({ error: 'Khóa học Premium không tồn tại.' }, 404);
-    pricingRule = await getActiveCreditPricingRule(env.DB, 'course', contentId);
-    credits = pricingRule?.credit_amount ?? 0;
+    durationDays = asInteger(body?.days);
+    if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
+    credits = durationDays;
   } else {
     const resource = await getResource(env.DB, contentId);
     if (!resource || resource.tier !== 'premium') return json({ error: 'Tài liệu Premium không tồn tại.' }, 404);

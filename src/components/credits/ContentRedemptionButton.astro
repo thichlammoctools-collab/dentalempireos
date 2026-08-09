@@ -18,6 +18,7 @@ const {
 } = Astro.props;
 const user = Astro.locals.user;
 const redirect = Astro.url.pathname + Astro.url.search;
+const redemptionDays = days ?? (contentType === 'book' || contentType === 'blog' || contentType === 'course' ? 1 : undefined);
 ---
 
 {user ? (
@@ -26,7 +27,7 @@ const redirect = Astro.url.pathname + Astro.url.search;
     class={`credit-redemption-trigger inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     data-content-type={contentType}
     data-content-id={contentId}
-    data-days={days ?? ''}
+    data-days={redemptionDays ?? ''}
     data-success-url={successUrl ?? ''}
   >
     <span class="material-symbols-outlined text-base">account_balance_wallet</span>

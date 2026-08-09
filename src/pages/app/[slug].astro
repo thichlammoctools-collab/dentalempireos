@@ -28,7 +28,7 @@ if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
 }
 
 const config = parseAppConfig(app.config_json);
-const promptVi = (config.prompt_vi as string) ?? '';
+const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
 ---
 
 <!doctype html>
