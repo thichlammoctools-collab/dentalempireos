@@ -63,37 +63,19 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  // A Scanner is paid only when it has an active Credit pricing rule. Legacy
-  // product entitlements are deliberately not consulted after the Credits cutover.
   const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', surveyId);
-  const isPaidScanner = pricingRule?.credit_amount != null && pricingRule.credit_amount > 0;
-  if (!isPaidScanner) {
-    const usage = await getScannerUsage(env.DB, session.user.id, surveyId, true);
-    console.log('[scanner/submit] usage:', usage);
-    if (usage.remaining <= 0) {
-      return json({
-        error: 'Scanner miễn phí này đã dùng hết 3 lượt. Mỗi lượt đã bao gồm Phân tích AI và Kế hoạch AI.',
-        quota: usage,
-      }, 429);
-    }
+  const usage = await getScannerUsage(env.DB, session.user.id, surveyId);
+  const requiresCredits = usage.remaining === 0;
+  if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
+    return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
   }
 
-  // Unmapped scanners collect a per-response contact snapshot. Paid scanners
-  // use the account's clinic profile so reports stay consistent and verified.
-  // Premium AI analysis is gated on the result page, not before scoring.
-  const profile = isPaidScanner
-    ? await getClinicProfile(env.DB, session.user.id)
-    : null;
-  const clinicName = isPaidScanner
-    ? profile?.clinic_name ?? null
-    : asString(body.clinic_name);
+  const clinicName = asString(body.clinic_name);
   if (!clinicName) {
-    return badRequest(isPaidScanner
-      ? 'Vui lòng hoàn thiện Hồ sơ phòng khám trước khi làm scanner premium.'
-      : 'clinic_name is required');
+    return badRequest('clinic_name is required');
   }
 
-  const email = isPaidScanner ? session.user.email : asString(body.email);
+  const email = asString(body.email) ?? session.user.email;
   if (email && !email.includes('@')) return badRequest('Invalid email');
 
   // Load all questions for this survey (across all sections)
@@ -125,7 +107,7 @@ export const POST: APIRoute = async (ctx) => {
   const idempotencyKey = clientIdempotencyKey ?? crypto.randomUUID();
   let creditRun: Awaited<ReturnType<typeof startScannerCreditRun>>['run'] | null = null;
 
-  if (isPaidScanner && pricingRule?.credit_amount != null) {
+  if (requiresCredits && pricingRule?.credit_amount != null) {
     try {
       const started = await startScannerCreditRun(env.DB, {
         userId: session.user.id,
@@ -158,15 +140,15 @@ export const POST: APIRoute = async (ctx) => {
     }
   }
 
-  // Insert response only after a paid run has atomically reserved its Credits.
+  // Insert the response only after a paid run has atomically reserved its Credits.
   let id: number;
   try {
     ({ id } = await createScannerResponse(env.DB, {
       survey_id: surveyId,
       lang,
-      owner_name: isPaidScanner ? (profile?.name ?? session.user.name ?? null) : asString(body.owner_name),
-      clinic_name: clinicName,
-      clinic_address: isPaidScanner ? (profile?.clinic_address ?? null) : asString(body.clinic_address),
+       owner_name: asString(body.owner_name) ?? session.user.name ?? null,
+       clinic_name: clinicName,
+       clinic_address: asString(body.clinic_address),
       email,
       years_in_operation: asInt(body.years_in_operation),
       staff_count: asInt(body.staff_count),
@@ -193,7 +175,7 @@ export const POST: APIRoute = async (ctx) => {
   }, lang);
 
   // Upsert clinic profile if user wants to save — non-critical
-  const saveProfile = !isPaidScanner && body.save_profile === true;
+  const saveProfile = body.save_profile === true;
   if (saveProfile) {
     upsertClinicProfile(env.DB, {
       id: session.user.id,

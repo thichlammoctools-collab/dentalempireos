@@ -38,20 +38,19 @@ const { definition, sections } = full;
 
 const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', definition.id);
 const scannerPrice = pricingRule?.credit_amount ?? 0;
-const isPaidScanner = scannerPrice > 0;
 const [usage, creditBalance] = await Promise.all([
-  isPaidScanner
-    ? Promise.resolve({ used: 0, limit: 0, remaining: 0 })
-    : getScannerUsage(env.DB, currentUser.id, definition.id, true),
+  getScannerUsage(env.DB, currentUser.id, definition.id),
   getCreditBalance(env.DB, currentUser.id),
 ]);
-const quotaExhausted = isPaidScanner ? creditBalance.available < scannerPrice : usage.remaining === 0;
-const scannerUnavailable = quotaExhausted;
-const scannerNotice = !isPaidScanner
-  ? `Scanner miễn phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt bao gồm phân tích AI và kế hoạch AI cho kết quả của bạn.`
-  : quotaExhausted
-    ? `Bạn cần ${scannerPrice} Credits để thực hiện Scanner này. Số dư khả dụng hiện tại: ${creditBalance.available} Credits.`
-    : `Scanner này tốn ${scannerPrice} Credits. Số dư khả dụng của bạn: ${creditBalance.available} Credits. Mỗi lượt gồm điểm số, 1 phân tích AI, 1 kế hoạch AI và PDF.`;
+const requiresCredits = usage.remaining === 0;
+const scannerUnavailable = requiresCredits && (scannerPrice <= 0 || creditBalance.available < scannerPrice);
+const scannerNotice = !requiresCredits
+  ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Mỗi lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.`
+  : scannerPrice <= 0
+    ? 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.'
+    : scannerUnavailable
+      ? `Lượt miễn phí đã dùng hết. Bạn cần ${scannerPrice} Credits để thực hiện lượt tiếp theo; số dư hiện tại là ${creditBalance.available} Credits.`
+      : `3 lượt miễn phí đã dùng hết. Lượt này sẽ dùng ${scannerPrice} Credits; số dư hiện tại là ${creditBalance.available} Credits.`;
 
 let clinicProfile: any = null;
 try {
@@ -133,7 +132,6 @@ const defaultScaleEn: Record<string, string> = {
           ...(clinicProfile || {}),
           email: currentUser.email,
         }) : ''}
-        data-is-free={isPaidScanner ? 0 : 1}
         data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
@@ -142,38 +140,24 @@ const defaultScaleEn: Record<string, string> = {
           class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
           role="status"
           data-notice-vi={scannerNotice}
-          data-notice-en={!isPaidScanner ? `Free Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each attempt includes AI analysis and an AI action plan for your result.` : quotaExhausted ? `You need ${scannerPrice} Credits to run this Scanner. Your available balance is ${creditBalance.available} Credits.` : `This Scanner costs ${scannerPrice} Credits. Your available balance is ${creditBalance.available} Credits.`}
+          data-notice-en={!requiresCredits ? `${usage.remaining}/${usage.limit} free attempts remain for this Scanner. Each attempt includes scoring, AI analysis, an AI action plan, and a PDF.` : scannerPrice <= 0 ? 'This Scanner does not have a Credits price configured. Please contact an administrator.' : scannerUnavailable ? `Your free attempts are used. You need ${scannerPrice} Credits for the next attempt; your available balance is ${creditBalance.available} Credits.` : `Your free attempts are used. This attempt will use ${scannerPrice} Credits; your available balance is ${creditBalance.available} Credits.`}
         >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">
             <strong class="scanner-quota-notice__title">{scannerNotice}</strong>
-            {quotaExhausted && isPaidScanner && (
+            {scannerUnavailable && scannerPrice > 0 && (
               <span class="scanner-quota-notice__hint">Nạp thêm Credits trong ví để tiếp tục.</span>
             )}
           </div>
-          {quotaExhausted && <a href={isPaidScanner ? '/account/wallet' : '/account/scanner-history'}>{isPaidScanner ? 'Mở ví Credits' : 'Xem lịch sử'}</a>}
+          {scannerUnavailable && <a href={scannerPrice > 0 ? '/account/wallet' : '/account/scanner-history'}>{scannerPrice > 0 ? 'Mở ví Credits' : 'Xem lịch sử'}</a>}
         </div>
 
-        {!quotaExhausted && (
+        {!scannerUnavailable && (
           <>
             <div class="lang-toggle">
               <button type="button" class="lang-btn active" data-lang="vi">Tiếng Việt</button>
               <button type="button" class="lang-btn" data-lang="en">English</button>
             </div>
-
-            {quotaExhausted && isPaidScanner && (
-              <section class="scanner-unlock-card" aria-labelledby="scanner-unlock-title">
-                <div class="scanner-unlock-card__icon">
-                  <span class="material-symbols-outlined">lock_open</span>
-                </div>
-                <div class="scanner-unlock-card__content">
-                  <p class="scanner-unlock-card__eyebrow">Ví Credits</p>
-                  <h2 id="scanner-unlock-title">Bạn cần thêm {scannerPrice - creditBalance.available} Credits</h2>
-                  <p>Scanner này được thanh toán theo từng lượt. Một lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF kết quả.</p>
-                  <a href="/account/wallet" class="scanner-unlock-card__button">Mở ví Credits</a>
-                </div>
-              </section>
-            )}
 
             <!-- Stepper -->
             <div class="stepper">
@@ -193,10 +177,10 @@ const defaultScaleEn: Record<string, string> = {
               <div class="credit-reminder">
                 <span class="material-symbols-outlined">campaign</span>
                 <p
-                  data-vi="Số lượt scan miễn phí của bạn có hạn — hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất có thể. Mỗi lượt bao gồm cả Phân tích AI và Kế hoạch AI; càng nhiều thông tin, kết quả càng chính xác và hữu ích để bạn sử dụng về sau."
-                  data-en="Your scan credits are limited — please provide the most <strong>accurate and complete</strong> information possible. The more information you share, the more accurate and actionable your results will be."
+                  data-vi="Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất."
+                  data-en="The first three attempts for each Scanner are free; later attempts use Credits. Please provide the most <strong>accurate and complete</strong> information for the most useful result."
                 >
-                  Số lượt scan miễn phí của bạn có hạn — hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất có thể. Mỗi lượt bao gồm cả Phân tích AI và Kế hoạch AI; càng nhiều thông tin, kết quả càng chính xác và hữu ích để bạn sử dụng về sau.
+                  Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất.
                 </p>
               </div>
               <div class="intro-info">
@@ -243,7 +227,7 @@ const defaultScaleEn: Record<string, string> = {
 </BaseLayout>
 
 <!-- External script to avoid SSR stream truncation with inline <script> tags -->
- {!quotaExhausted && <script src="/scripts/scanner-form-client.js?v=20260809-credits" is:inline></script>}
+  {!scannerUnavailable && <script src="/scripts/scanner-form-client.js?v=20260809-unified" is:inline></script>}
 
 <style is:global>
   .survey-wrap {

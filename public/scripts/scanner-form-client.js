@@ -8,7 +8,6 @@
   var surveyData = JSON.parse(wrap.dataset.survey || '{}');
   var rawProfile = wrap.dataset.clinic;
   var clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
-  var isFreeScanner = wrap.dataset.isFree === '1';
   var scannerUnavailable = wrap.dataset.scannerUnavailable === 'true';
   var defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
   var defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
@@ -33,9 +32,7 @@
 
   function showUnavailableMessage() {
     if (!submitError) return;
-    submitError.textContent = isFreeScanner
-      ? 'Bạn đã dùng hết lượt cho Scanner miễn phí này. Xem lại kết quả trong Lịch sử Scanner.'
-      : 'Bạn chưa thể thực hiện Scanner này. Vui lòng mở khóa Scanner hoặc kiểm tra hạn mức tháng trong Lịch sử Scanner.';
+    submitError.textContent = 'Bạn chưa đủ Credits để thực hiện lượt Scanner tiếp theo. Nạp Credits trong Ví để tiếp tục.';
     submitError.classList.remove('hidden');
   }
 
@@ -63,22 +60,9 @@
     var lead = surveyData.lead_fields || {};
     var order = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
 
-    if (!isFreeScanner) {
-      var profileSummary = document.createElement('div');
-      profileSummary.className = 'premium-profile-summary';
-      if (clinicProfile && clinicProfile.clinic_name) {
-        profileSummary.innerHTML = '<span class="material-symbols-outlined">verified</span><div><strong>' + escapeHtml(clinicProfile.clinic_name) + '</strong><p>' + escapeHtml(clinicProfile.name || (currentLang === 'vi' ? 'Hồ sơ phòng khám premium' : 'Premium clinic profile')) + (clinicProfile.clinic_address ? ' · ' + escapeHtml(clinicProfile.clinic_address) : '') + '</p><p class="premium-profile-note">' + (currentLang === 'vi' ? 'Hồ sơ này dùng để điền thông tin cho khảo sát. Bạn vẫn có thể làm khảo sát miễn phí; Phân tích AI sẽ cần mở khóa riêng sau khi có kết quả.' : 'This profile fills in your survey details. You can still take the survey for free; AI Analysis requires a separate unlock after viewing your result.') + '</p></div><a href="/account/clinic">' + (currentLang === 'vi' ? 'Cập nhật' : 'Update') + '</a>';
-      } else {
-        profileSummary.innerHTML = '<span class="material-symbols-outlined">warning</span><div><strong>' + (currentLang === 'vi' ? 'Hồ sơ phòng khám chưa hoàn chỉnh' : 'Clinic profile is incomplete') + '</strong><p>' + (currentLang === 'vi' ? 'Hoàn thiện hồ sơ trước khi gửi scanner premium.' : 'Complete your clinic profile before submitting this premium scanner.') + '</p></div><a href="/account/clinic">' + (currentLang === 'vi' ? 'Cập nhật hồ sơ' : 'Update profile') + '</a>';
-      }
-      container.appendChild(profileSummary);
-    }
-
     order.forEach(function (fieldName) {
       var cfg = lead[fieldName];
-      // Premium scanners use the verified clinic profile server-side.
-      // Free scanners collect a fresh contact snapshot with each response.
-      if (!cfg || !isFreeScanner) return;
+      if (!cfg) return;
       var label = t(cfg.label_vi, cfg.label_en);
       var placeholder = t(cfg.placeholder_vi, cfg.placeholder_en);
       var type = cfg.type || (fieldName === 'email' ? 'email' : (fieldName.indexOf('_operation') !== -1 || fieldName.indexOf('_count') !== -1) ? 'number' : 'text');
@@ -90,7 +74,7 @@
       container.appendChild(div);
     });
 
-    if (isFreeScanner && clinicProfile) {
+    if (clinicProfile) {
       var saveDiv = document.createElement('div');
       saveDiv.className = 'form-row';
       saveDiv.innerHTML = '<div class="form-col" style="grid-column:1/-1"><label class="save-profile-row"><input type="checkbox" id="save-profile-check" checked style="accent-color:var(--primary);width:16px;height:16px;" /><span class="form-label" style="margin:0;font-weight:400;color:var(--on-surface-variant);cursor:pointer;">' + (currentLang === 'vi' ? 'Lưu thông tin này cho lần sau' : 'Save this info for next time') + '</span></label></div>';
@@ -240,20 +224,6 @@
     return false;
   }
 
-  function syncClinicProfileAnswers() {
-    if (!clinicProfile) return;
-    var profileValues = {
-      owner_name: clinicProfile.name,
-      clinic_name: clinicProfile.clinic_name,
-      clinic_address: clinicProfile.clinic_address,
-      email: clinicProfile.email,
-    };
-    Object.keys(profileValues).forEach(function (key) {
-      var value = profileValues[key];
-      if (value != null && String(value).trim() !== '') answers[key] = String(value).trim();
-    });
-  }
-
   function validateSubmission() {
     for (var i = 0; i < surveyData.sections.length; i++) {
       if (!validateSection(i)) {
@@ -276,21 +246,17 @@
     if (currentStep >= 0 && step > currentStep && !validateSection(currentStep)) return;
 
     if (currentStep === -1 && step >= 0) {
-      // Premium scanners use the verified profile in the submission API, not lead inputs.
-      if (!isFreeScanner) syncClinicProfileAnswers();
       var lead = surveyData.lead_fields || {};
       var fields = Object.keys(lead);
-      if (isFreeScanner) {
-        for (var i = 0; i < fields.length; i++) {
-          var fieldName = fields[i];
-          var cfg = lead[fieldName];
-          if (cfg && cfg.required) {
-            var el = document.querySelector('[name="' + fieldName + '"]');
-            var value = el && el.value ? el.value : answers[fieldName];
-            if (!value || !String(value).trim()) {
-              alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
-              return;
-            }
+      for (var i = 0; i < fields.length; i++) {
+        var fieldName = fields[i];
+        var cfg = lead[fieldName];
+        if (cfg && cfg.required) {
+          var el = document.querySelector('[name="' + fieldName + '"]');
+          var value = el && el.value ? el.value : answers[fieldName];
+          if (!value || !String(value).trim()) {
+            alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
+            return;
           }
         }
       }
@@ -413,7 +379,7 @@
     var original = btnSubmit ? btnSubmit.innerHTML : '';
     if (btnSubmit) btnSubmit.innerHTML = '<span>' + getTrans('submitting', 'Đang xử lý...', 'Processing...') + '</span>';
 
-    var saveChecked = isFreeScanner;
+    var saveChecked = false;
     var saveCheckEl = document.getElementById('save-profile-check');
     if (saveCheckEl) saveChecked = saveCheckEl.checked;
 
@@ -452,9 +418,7 @@
       if (submitError) {
         if (err.status === 429 && err.quota) {
           var quota = err.quota;
-          submitError.textContent = isFreeScanner
-            ? 'Bạn đã dùng hết lượt Scanner miễn phí này (' + quota.used + '/' + quota.limit + '). Xem lại kết quả trong Lịch sử Scanner.'
-            : 'Bạn đã dùng hết hạn mức Scanner tháng này (' + quota.used + '/' + quota.limit + '). Xem lại kết quả trong Lịch sử Scanner.';
+          submitError.textContent = 'Ba lượt miễn phí đã dùng hết. Vui lòng nạp Credits để thực hiện lượt tiếp theo.';
           scannerUnavailable = true;
         } else {
           submitError.textContent = err.message || 'Submit failed';
@@ -500,7 +464,6 @@
 
   // Init
   var hasDraft = loadDraft();
-  syncClinicProfileAnswers();
   buildIntroFields();
   buildParts();
   buildStepLabels();

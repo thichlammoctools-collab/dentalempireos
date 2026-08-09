@@ -79,8 +79,13 @@ function forceSOPComplete(reply: string): { reply: string; full_sop: string; com
 async function getModelConfig(db: D1Database, app: ReturnType<typeof parseAppConfig>): Promise<ModelConfig | null> {
   const config = parseAppConfig(app.config_json);
   const modelOverride = config.model_override as string | undefined;
+  const maxTokensOverride = config.max_tokens_override;
+  const maxTokens = typeof maxTokensOverride === 'number' && Number.isInteger(maxTokensOverride) && maxTokensOverride > 0
+    ? maxTokensOverride
+    : undefined;
+  const modelConfig = await getAiGatewayConfig(db, 'default', modelOverride);
 
-  return getAiGatewayConfig(db, 'default', modelOverride);
+  return modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
 }
 
 export const POST: APIRoute = async ({ request, params }) => {

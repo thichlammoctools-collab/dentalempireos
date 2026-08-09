@@ -3,21 +3,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listSurveyDefinitions } from '../../lib/survey-config-db';
 import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-db';
+import { getScannerUsage } from '../../lib/scanner-history-db';
 
 export const prerender = false;
 
 const scanners = await listSurveyDefinitions(env.DB, { status: 'active' });
 const currentUser = Astro.locals.user;
-const [creditBalance, rules] = await Promise.all([
+const [creditBalance, scannerDetails] = await Promise.all([
   currentUser ? getCreditBalance(env.DB, currentUser.id) : Promise.resolve(null),
-  Promise.all(scanners.map(async (scanner) => [
-    scanner.id,
-    await getActiveCreditPricingRule(env.DB, 'scanner', scanner.id),
-  ] as const)),
+  Promise.all(scanners.map(async (scanner) => {
+    const [pricing, usage] = await Promise.all([
+      getActiveCreditPricingRule(env.DB, 'scanner', scanner.id),
+      currentUser ? getScannerUsage(env.DB, currentUser.id, scanner.id) : Promise.resolve(null),
+    ]);
+    return [scanner.id, { pricing, usage }] as const;
+  })),
 ]);
-const pricingByScanner = new Map(rules);
-const freeScanners = scanners.filter((scanner) => (pricingByScanner.get(scanner.id)?.credit_amount ?? 0) <= 0);
-const paidScanners = scanners.filter((scanner) => (pricingByScanner.get(scanner.id)?.credit_amount ?? 0) > 0);
+const detailsByScanner = new Map(scannerDetails);
 
 const typeLabels: Record<string, string> = { mini: 'Mini', full: 'Full', checklist: 'Checklist' };
 const typeColors: Record<string, string> = {
@@ -32,30 +34,26 @@ const typeColors: Record<string, string> = {
     <header class="mx-auto mb-12 max-w-3xl text-center">
       <p class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-500">Công cụ Scanner</p>
       <h1 class="text-4xl font-bold text-on-surface md:text-5xl">Tự chẩn đoán phòng khám của bạn</h1>
-      <p class="mx-auto mt-4 max-w-2xl text-lg text-on-surface-variant">Mỗi lượt Scanner trả phí dùng Credits và bao gồm điểm số, một Phân tích AI, một Kế hoạch AI cùng PDF kết quả. Xem lại kết quả đã làm luôn miễn phí.</p>
+      <p class="mx-auto mt-4 max-w-2xl text-lg text-on-surface-variant">Mỗi Scanner có 3 lượt miễn phí cho bạn. Từ lượt thứ 4, bạn dùng Credits theo giá hiển thị. Mỗi lượt gồm điểm số, Phân tích AI, Kế hoạch AI và PDF kết quả.</p>
       {currentUser && creditBalance && <a href="/account/wallet" class="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/20"><span class="material-symbols-outlined">account_balance_wallet</span>Ví của bạn: {creditBalance.available} Credits</a>}
       {!currentUser && <a href="/login?redirect=/scanner" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary"><span class="material-symbols-outlined">login</span>Đăng nhập để dùng Credits</a>}
     </header>
 
     {scanners.length === 0 && <div class="glass-card rounded-2xl py-16 text-center text-on-surface-variant"><span class="material-symbols-outlined text-6xl">fact_check</span><p class="mt-4 font-semibold">Chưa có Scanner nào đang hoạt động.</p></div>}
 
-    <section class="mb-12" aria-labelledby="free-scanners-title">
-      <div class="mb-5"><p class="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-500">Bắt đầu miễn phí</p><h2 id="free-scanners-title" class="text-2xl font-bold text-on-surface md:text-3xl">Scanner miễn phí</h2><p class="mt-2 text-sm text-on-surface-variant">Mỗi Scanner miễn phí có 3 lượt, bao gồm Phân tích AI và Kế hoạch AI.</p></div>
+    <section aria-labelledby="scanners-title">
+      <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-500">Khảo sát & hành động</p><h2 id="scanners-title" class="text-2xl font-bold text-on-surface md:text-3xl">Chọn Scanner phù hợp</h2><p class="mt-2 text-sm text-on-surface-variant">Bạn không cần mua quyền truy cập theo từng Scanner.</p></div>{currentUser && <a href="/account/wallet" class="text-sm font-bold text-primary hover:underline">Nạp Credits</a>}</div>
       <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {freeScanners.map((scanner) => <a href={`/scanner/${scanner.slug}`} class="glass-card group rounded-2xl border border-emerald-500/25 p-6 transition hover:-translate-y-0.5 hover:border-emerald-400/60"><div class="mb-3 flex items-center justify-between"><span class={`rounded-md border px-2.5 py-0.5 text-xs font-bold ${typeColors[scanner.survey_type] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant'}`}>{typeLabels[scanner.survey_type] ?? scanner.survey_type}</span><span class="text-xs font-bold text-emerald-500">3 lượt miễn phí</span></div><h3 class="text-xl font-bold text-on-surface transition group-hover:text-primary">{scanner.title_vi}</h3><p class="mt-2 min-h-[3.6em] text-sm text-on-surface-variant line-clamp-3">{scanner.description_vi ?? 'Khám phá điểm mạnh và điểm cần ưu tiên của phòng khám.'}</p><p class="mt-5 text-sm font-bold text-emerald-500">Bắt đầu kiểm tra <span class="material-symbols-outlined align-middle text-base">arrow_forward</span></p></a>)}
-      </div>
-    </section>
-
-    <section aria-labelledby="paid-scanners-title">
-      <div class="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-500">Phân tích chuyên sâu</p><h2 id="paid-scanners-title" class="text-2xl font-bold text-on-surface md:text-3xl">Scanner dùng Credits</h2><p class="mt-2 text-sm text-on-surface-variant">Giá được hiển thị theo từng Scanner và do quản trị viên cấu hình.</p></div>{currentUser && <a href="/account/wallet" class="text-sm font-bold text-primary hover:underline">Nạp Credits</a>}</div>
-      <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {paidScanners.map((scanner) => {
-          const price = pricingByScanner.get(scanner.id)?.credit_amount ?? 0;
-          const sufficient = !!creditBalance && creditBalance.available >= price;
-          return <article class="glass-card flex flex-col rounded-2xl border border-amber-500/25 p-6 transition hover:-translate-y-0.5 hover:border-amber-400/60"><div class="mb-3 flex items-center justify-between"><span class={`rounded-md border px-2.5 py-0.5 text-xs font-bold ${typeColors[scanner.survey_type] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant'}`}>{typeLabels[scanner.survey_type] ?? scanner.survey_type}</span><span class="inline-flex items-center gap-1 text-xs font-bold text-amber-500"><span class="material-symbols-outlined text-[15px]">toll</span>{price} Credits</span></div><h3 class="text-xl font-bold text-on-surface">{scanner.title_vi}</h3><p class="mt-2 min-h-[3.6em] flex-1 text-sm text-on-surface-variant line-clamp-3">{scanner.description_vi ?? 'Đánh giá chuyên sâu và nhận khuyến nghị AI cho phòng khám.'}</p><div class="mt-5 border-t border-outline-variant/15 pt-4"><p class="mb-3 text-xs text-on-surface-variant">Bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.</p>{!currentUser ? <a href={`/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`} class="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Đăng nhập để dùng Credits</a> : sufficient ? <a href={`/scanner/${scanner.slug}`} class="inline-flex w-full items-center justify-center rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-black">Thực hiện Scanner</a> : <a href="/account/wallet" class="inline-flex w-full items-center justify-center rounded-xl border border-amber-500/40 px-4 py-2.5 text-sm font-bold text-amber-500">Nạp thêm Credits</a>}</div></article>;
+        {scanners.map((scanner) => {
+          const detail = detailsByScanner.get(scanner.id);
+          const price = detail?.pricing?.credit_amount ?? 0;
+          const usage = detail?.usage;
+          const needsCredits = !!usage && usage.remaining === 0;
+          const sufficient = !needsCredits || (!!creditBalance && creditBalance.available >= price);
+          const status = !currentUser ? '3 lượt miễn phí' : !needsCredits ? `Còn ${usage!.remaining}/3 lượt miễn phí` : `${price} Credits / lượt`;
+          return <article class="glass-card flex flex-col rounded-2xl border border-outline-variant/20 p-6 transition hover:-translate-y-0.5 hover:border-primary/50"><div class="mb-3 flex items-center justify-between gap-3"><span class={`rounded-md border px-2.5 py-0.5 text-xs font-bold ${typeColors[scanner.survey_type] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant'}`}>{typeLabels[scanner.survey_type] ?? scanner.survey_type}</span><span class:list={['inline-flex items-center gap-1 text-xs font-bold', needsCredits ? 'text-amber-500' : 'text-emerald-500']}><span class="material-symbols-outlined text-[15px]">{needsCredits ? 'toll' : 'redeem'}</span>{status}</span></div><h3 class="text-xl font-bold text-on-surface">{scanner.title_vi}</h3><p class="mt-2 min-h-[3.6em] flex-1 text-sm text-on-surface-variant line-clamp-3">{scanner.description_vi ?? 'Khám phá điểm mạnh và điểm cần ưu tiên của phòng khám.'}</p><div class="mt-5 border-t border-outline-variant/15 pt-4"><p class="mb-3 text-xs text-on-surface-variant">Bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.</p>{!currentUser ? <a href={`/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`} class="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Đăng nhập để bắt đầu</a> : sufficient ? <a href={`/scanner/${scanner.slug}`} class="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thực hiện Scanner</a> : <a href="/account/wallet" class="inline-flex w-full items-center justify-center rounded-xl border border-amber-500/40 px-4 py-2.5 text-sm font-bold text-amber-500">Nạp thêm Credits</a>}</div></article>;
         })}
       </div>
-      {paidScanners.length === 0 && <p class="text-sm text-on-surface-variant">Hiện chưa có Scanner dùng Credits.</p>}
     </section>
   </section>
 </BaseLayout>

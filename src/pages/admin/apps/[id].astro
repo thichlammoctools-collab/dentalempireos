@@ -194,7 +194,7 @@ const avatarColors = [
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider mb-1.5">Max tokens override</label>
-                  <input type="number" name="max_tokens_override" value={maxTokensOverride} placeholder="4096" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30" />
+                  <input type="number" name="max_tokens_override" value={maxTokensOverride} min="1" step="1" placeholder="4096" class="w-full px-3.5 py-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/30" />
                   <p class="text-[11px] text-on-surface-variant/40 mt-1.5">Giới hạn token tối đa cho response</p>
                 </div>
               </div>
@@ -344,9 +344,10 @@ const avatarColors = [
         prompt_vi: fd.get('prompt_vi')?.toString() || undefined,
         prompt_en: fd.get('prompt_en')?.toString() || undefined,
         model_override: fd.get('model_override')?.toString() || undefined,
-        max_tokens_override: fd.get('max_tokens_override')?.toString()
-          ? parseInt(fd.get('max_tokens_override').toString(), 10)
-          : undefined,
+        max_tokens_override: (() => {
+          const value = Number(fd.get('max_tokens_override'));
+          return Number.isInteger(value) && value > 0 ? value : undefined;
+        })(),
       };
       Object.keys(config).forEach((k) => config[k] === undefined && delete config[k]);
       try {

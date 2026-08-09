@@ -13,8 +13,13 @@ export const prerender = false;
 async function getModelConfig(db: D1Database, configJson: string | null): Promise<ModelConfig | null> {
   const config = parseAppConfig(configJson);
   const modelOverride = config.model_override as string | undefined;
+  const maxTokensOverride = config.max_tokens_override;
+  const maxTokens = typeof maxTokensOverride === 'number' && Number.isInteger(maxTokensOverride) && maxTokensOverride > 0
+    ? maxTokensOverride
+    : undefined;
+  const modelConfig = await getAiGatewayConfig(db, 'default', modelOverride);
 
-  return getAiGatewayConfig(db, 'default', modelOverride);
+  return modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
 }
 
 export const POST: APIRoute = async ({ request, params }) => {

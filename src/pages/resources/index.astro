@@ -200,13 +200,13 @@ function resourceUrl(fileUrl: string): string {
           </div>
         ) : (
           <>
-            <div class="space-y-3">
+            <div class="space-y-4">
               {paginated.map((res) => (
                 <article class="glass-card rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300">
-                  <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:p-6">
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-5 p-6 sm:p-7">
                     <!-- Icon -->
                     <div
-                      class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
                       style={`background: ${getExtColor(res.file_ext)}22; border: 1px solid ${getExtColor(res.file_ext)}33;`}
                     >
                       <span
@@ -218,8 +218,8 @@ function resourceUrl(fileUrl: string): string {
                     </div>
 
                     <!-- Info -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <div class="flex-1 min-w-0 space-y-1.5">
+                      <div class="flex items-center gap-2 flex-wrap">
                         <span
                           class={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`}
                         >
@@ -235,9 +235,9 @@ function resourceUrl(fileUrl: string): string {
                           </span>
                         )}
                       </div>
-                      <h3 class="font-bold text-white text-sm leading-snug line-clamp-1">{res.title}</h3>
+                      <h3 class="font-bold text-white text-sm leading-relaxed line-clamp-1">{res.title}</h3>
                       {res.description && (
-                        <p class="text-xs text-on-surface-variant mt-1 line-clamp-1">{res.description}</p>
+                        <p class="text-xs leading-relaxed text-on-surface-variant line-clamp-1">{res.description}</p>
                       )}
                     </div>
 

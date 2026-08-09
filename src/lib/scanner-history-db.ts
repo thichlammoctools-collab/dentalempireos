@@ -16,18 +16,6 @@ export interface HistoryWithSurvey extends ScannerHistoryRow {
   scanner_slug: string | null;
 }
 
-export interface PurchasedPaidScanner {
-  scanner_id: string;
-  scanner_title_vi: string;
-  scanner_slug: string;
-  product_name: string;
-  purchased_at: string;
-  expires_at: string | null;
-  used: number;
-  limit: number;
-  remaining: number;
-}
-
 export const FREE_SCANNER_ATTEMPT_LIMIT = 3;
 
 export async function addToHistory(
@@ -76,45 +64,6 @@ export async function getUserHistory(
   return results ?? [];
 }
 
-/** List paid scanners the user can currently access, with pooled credit balance. */
-export async function getPurchasedPaidScanners(
-  db: D1Database,
-  userId: string,
-): Promise<PurchasedPaidScanner[]> {
-  const now = new Date().toISOString();
-  const { results } = await db
-    .prepare(
-      `SELECT d."id" AS "scanner_id",
-              d."title_vi" AS "scanner_title_vi",
-              d."slug" AS "scanner_slug",
-              GROUP_CONCAT(DISTINCT p."name") AS "product_name",
-              MAX(COALESCE(o."paid_at", a."granted_at")) AS "purchased_at",
-              CASE WHEN SUM(CASE WHEN a."expires_at" IS NULL THEN 1 ELSE 0 END) > 0
-                THEN NULL ELSE MAX(a."expires_at") END AS "expires_at",
-              SUM(a."scans_used") AS "used",
-              SUM(a."credits") AS "limit",
-              (SUM(a."credits") - SUM(a."scans_used")) AS "remaining"
-       FROM "access" a
-       INNER JOIN "product" p ON p."id" = a."product_id"
-       INNER JOIN "product_entitlement" pe
-         ON pe."product_id" = a."product_id" AND pe."content_type" = 'scanner'
-       INNER JOIN "survey_definition" d
-         ON d."id" = CASE
-           WHEN a."selected_scanner_id" IS NOT NULL THEN a."selected_scanner_id"
-           ELSE pe."content_id"
-         END
-         OR (a."selected_scanner_id" IS NULL AND pe."content_id" = '*')
-       LEFT JOIN "order" o ON o."id" = a."order_id"
-       WHERE a."user_id" = ? AND a."is_active" = 1
-         AND (a."expires_at" IS NULL OR a."expires_at" > ?)
-       GROUP BY d."id", d."title_vi", d."slug"
-       ORDER BY "purchased_at" DESC, d."title_vi" ASC`,
-    )
-    .bind(userId, now)
-    .all<PurchasedPaidScanner>();
-  return results ?? [];
-}
-
 export async function getHistoryByResponseId(
   db: D1Database,
   responseId: number,
@@ -152,27 +101,12 @@ export async function getScannerUsage(
   db: D1Database,
   userId: string,
   surveyId: string,
-  isFree: boolean,
 ): Promise<{ used: number; limit: number; remaining: number }> {
-  if (isFree) {
-    const row = await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>();
-    const used = row?.used ?? 0;
-    return {
-      used,
-      limit: FREE_SCANNER_ATTEMPT_LIMIT,
-      remaining: Math.max(0, FREE_SCANNER_ATTEMPT_LIMIT - used),
-    };
-  }
-  // Credit-based: query from access table
-  const row = await db.prepare(`
-    SELECT (a."credits" - a."scans_used") AS remaining, a."credits" AS "limit"
-    FROM "access" a
-    LEFT JOIN "product_entitlement" pe ON pe."product_id" = a."product_id" AND pe."content_type" = 'scanner'
-    WHERE a."user_id" = ?
-      AND a."is_active" = 1
-      AND a."credits" > a."scans_used"
-      AND (a."selected_scanner_id" = ? OR (a."selected_scanner_id" IS NULL AND pe."content_id" IN (?, '*')))
-    LIMIT 1
-  `).bind(userId, surveyId, surveyId).first<{ remaining: number; limit: number }>();
-  return { used: (row?.limit ?? 0) - (row?.remaining ?? 0), limit: row?.limit ?? 0, remaining: row?.remaining ?? 0 };
+  const row = await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>();
+  const used = row?.used ?? 0;
+  return {
+    used,
+    limit: FREE_SCANNER_ATTEMPT_LIMIT,
+    remaining: Math.max(0, FREE_SCANNER_ATTEMPT_LIMIT - used),
+  };
 }
