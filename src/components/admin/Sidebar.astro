@@ -3,11 +3,14 @@ import { adminNav, type AdminNavItem } from '../../data/admin-nav';
 
 const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
 
+const activeMatch = adminNav
+  .flatMap((section) => section.items)
+  .map((item) => item.match)
+  .filter((match): match is string => Boolean(match) && (match === '/admin' ? currentPath === match : currentPath === match || currentPath.startsWith(match + '/')))
+  .sort((a, b) => b.length - a.length)[0];
+
 function isActive(item: AdminNavItem): boolean {
-  if (!item.match) return false;
-  // Exact cho /admin (Dashboard), prefix-match cho các mục con
-  if (item.match === '/admin') return currentPath === '/admin';
-  return currentPath === item.match || currentPath.startsWith(item.match + '/');
+  return item.match === activeMatch;
 }
 ---
 
