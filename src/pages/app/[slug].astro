@@ -20,7 +20,7 @@ const app = await getAppBySlug(env.DB, slug);
 if (!app) return new Response('Không tìm thấy ứng dụng', { status: 404 });
 if (app.status !== 'active') return new Response('Ứng dụng chưa kích hoạt', { status: 404 });
 if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
-  return Astro.redirect('/dich-vu');
+  return Astro.redirect('/ai-tools');
 }
 
 const config = parseAppConfig(app.config_json);
@@ -86,9 +86,23 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     }
     .header-reset:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 
+    .workflow-shell {
+      width: min(100% - 32px, 768px); margin: 0 auto; padding-top: 20px;
+    }
+    .workflow-back { color: #8edcf5; font-size: 12px; text-decoration: none; }
+    .workflow-notice {
+      display: flex; gap: 9px; margin-top: 18px; padding: 12px 14px;
+      border: 1px solid rgba(111, 207, 240, 0.35); background: rgba(34, 96, 122, 0.22);
+      color: #b8d3de; font-size: 12px; line-height: 1.5;
+    }
+    .workflow-notice strong { color: #76d9ad; }
+    .workflow-progress { height: 3px; margin-top: 22px; background: #1a3949; }
+    .workflow-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #66cfee, #74d8ac); transition: width .25s ease; }
+    .workflow-steps { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0 2px; color: #7693a1; font-size: 10px; }
+    .workflow-steps span.active { color: #73d7ab; font-weight: 700; }
     .chat-area {
       width: min(100% - 32px, 768px); min-height: 100%; margin: 0 auto;
-      padding: 28px 0 calc(188px + env(safe-area-inset-bottom));
+      padding: 22px 0 calc(188px + env(safe-area-inset-bottom));
     }
     .msg-wrap {
       display: flex; align-items: flex-start; gap: 10px; width: 100%; margin-bottom: 20px;
@@ -107,6 +121,10 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       background: rgba(37, 39, 44, 0.88); border: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 5px 18px 18px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
     }
+    .workflow-intro { max-width: 100%; padding: 22px; }
+    .workflow-intro .workflow-kicker { color: #78d6f2; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; }
+    .workflow-intro h1 { margin: 9px 0; color: #fff; font-size: clamp(24px, 4vw, 32px); line-height: 1.2; }
+    .workflow-intro p { color: #b4c8d1; font-size: 13px; line-height: 1.65; }
     .user-bubble { margin-left: auto; background: #353a46; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 18px 5px 18px 18px; color: #f4f5f7; }
     .msg-bubble p { margin-bottom: 8px; }
     .msg-bubble p:last-child { margin-bottom: 0; }
@@ -160,7 +178,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     .send-btn:disabled { cursor: not-allowed; opacity: 0.42; }
     .input-hint { display: flex; justify-content: space-between; gap: 12px; padding: 7px 2px 0; }
     .input-hint span, .reset-link { color: #858a94; font-size: 11px; line-height: 1.4; }
-    .turn-counter { color: #a5b4fc !important; font-weight: 600; }
+    .turn-counter { color: #74d7ad !important; font-weight: 600; }
     .turn-counter.is-final { color: #fbbf24 !important; }
     .reset-link { padding: 0; text-decoration: underline; text-underline-offset: 2px; }
     .reset-link:hover { color: #d7d9df; }
@@ -609,6 +627,16 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     </div>
   </div>
 
+  <div class="workflow-shell">
+    <a class="workflow-back" href="/ai-tools">← Tất cả AI Tools</a>
+    <div class="workflow-notice">
+      <span class="material-symbols-outlined" style="font-size:17px;color:#72d7ac" aria-hidden="true">auto_awesome</span>
+      <span>AI sẽ dẫn dắt theo từng bước để hiểu đúng bối cảnh và tạo <strong>đầu ra có thể triển khai</strong> cho phòng khám của bạn.</span>
+    </div>
+    <div class="workflow-progress"><div id="workflow-progress-fill" class="workflow-progress-fill"></div></div>
+    <div class="workflow-steps" id="workflow-steps"><span class="active">Bối cảnh</span><span>Chi tiết</span><span>Ưu tiên</span><span>Kết quả</span></div>
+  </div>
+
   <!-- Chat area -->
   <div id="chat-view" class="chat-area" role="log" aria-live="polite" aria-atomic="false" aria-label="Lịch sử trò chuyện">
     <!-- Welcome message -->
@@ -616,9 +644,11 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       <div class="msg-avatar ai-avatar">
         <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
       </div>
-      <div class="msg-bubble ai-bubble">
-         Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> trong tối đa 6 lượt trả lời.<br><br>
-         Mỗi lượt chỉ tập trung vào một nhóm thông tin. <strong>Quy trình bạn muốn chuẩn hóa là gì và kết quả cuối cùng cần đạt là gì?</strong>
+      <div class="msg-bubble ai-bubble workflow-intro">
+         <div class="workflow-kicker">AI WORKFLOW / BƯỚC 1</div>
+         <h1>{app.name}</h1>
+         <p>{app.description ?? 'Cung cấp bối cảnh chính xác nhất để AI chuẩn bị đầu ra phù hợp.'}</p>
+         <p>Hãy bắt đầu bằng việc mô tả vấn đề bạn muốn làm rõ và kết quả bạn cần đạt.</p>
       </div>
     </div>
   </div>
@@ -693,6 +723,17 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     let generation = 0;
     let activeRequest = null;
     let userTurn = 0;
+    const draftKey = `dentalempire-ai-workflow-${appId}`;
+
+    function saveDraft() {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({ conversationHistory, userTurn }));
+      } catch {}
+    }
+
+    function clearDraft() {
+      try { localStorage.removeItem(draftKey); } catch {}
+    }
 
     function escapeHtml(text) {
       const d = document.createElement('div');
@@ -874,9 +915,10 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
 
       userInput.value = '';
       autoResize(userInput);
-      addMsg('user', escapeHtml(text), []);
-      conversationHistory.push({ role: 'user', content: text });
-      userTurn++;
+       addMsg('user', escapeHtml(text), []);
+       conversationHistory.push({ role: 'user', content: text });
+       userTurn++;
+       saveDraft();
       updateTurnCounter();
       setLoading(true);
       responseStatus.textContent = 'Đang tạo câu trả lời.';
@@ -932,6 +974,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
           if (requestGeneration !== generation) return;
 
           conversationHistory.push({ role: 'assistant', content: reply });
+          saveDraft();
 
           if (data.sop_complete && data.full_sop_text) {
             fullSopText = data.full_sop_text;
@@ -1274,7 +1317,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     }
 
     function resetChat() {
-      if (!confirm('Bắt đầu lại SOP? Mọi thông tin sẽ bị xóa.')) return;
+      if (!confirm('Bắt đầu lại hành trình AI? Mọi thông tin đã nhập sẽ bị xóa.')) return;
       generation++;
       activeRequest?.abort();
       activeRequest = null;
@@ -1283,6 +1326,7 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       userTurn = 0;
       setLoading(false);
       fullSopText = '';
+      clearDraft();
       sopView.classList.remove('visible');
       sopContent.innerHTML = '';
       sopPrintRoot.innerHTML = '';
@@ -1294,11 +1338,12 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       chatView.innerHTML = `
         <div class="msg-wrap">
           <div class="msg-avatar ai-avatar">
-            <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
+            <span class="material-symbols-outlined" style="font-size:16px;color:#72d7ac" aria-hidden="true">auto_awesome</span>
           </div>
-          <div class="msg-bubble ai-bubble">
-             Xin chào! Tôi sẽ giúp bạn xây dựng <strong>SOP (Quy trình vận hành chuẩn)</strong> trong tối đa 6 lượt trả lời.<br><br>
-             Mỗi lượt chỉ tập trung vào một nhóm thông tin. <strong>Quy trình bạn muốn chuẩn hóa là gì và kết quả cuối cùng cần đạt là gì?</strong>
+          <div class="msg-bubble ai-bubble workflow-intro">
+             <div class="workflow-kicker">AI WORKFLOW / BƯỚC 1</div>
+             <h1>${escapeHtml(appName)}</h1>
+             <p>Hãy mô tả vấn đề bạn muốn làm rõ và kết quả bạn cần đạt.</p>
           </div>
       </div>`;
       updateTurnCounter();
@@ -1308,8 +1353,13 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     function updateTurnCounter() {
       const counter = document.getElementById('turn-counter');
       if (!counter) return;
-      counter.textContent = `Lượt ${userTurn}/${maxTurns}`;
+      counter.textContent = `Bước ${Math.min(userTurn + 1, maxTurns)}/${maxTurns}`;
       counter.classList.toggle('is-final', userTurn >= maxTurns - 1);
+      const progress = document.getElementById('workflow-progress-fill');
+      const steps = document.querySelectorAll('#workflow-steps span');
+      const stage = Math.min(3, Math.floor((userTurn / maxTurns) * 4));
+      if (progress) progress.style.width = `${Math.min(100, (userTurn / maxTurns) * 100)}%`;
+      steps.forEach((step, index) => step.classList.toggle('active', index <= stage));
       if (userTurn >= maxTurns) {
         userInput.disabled = true;
         sendBtn.disabled = true;
@@ -1347,6 +1397,21 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
     headerResetBtn.addEventListener('click', resetChat);
     newChatBtn.addEventListener('click', resetChat);
 
+    try {
+      const rawDraft = localStorage.getItem(draftKey);
+      const draft = rawDraft ? JSON.parse(rawDraft) : null;
+      if (Array.isArray(draft?.conversationHistory) && draft.conversationHistory.length) {
+        conversationHistory = draft.conversationHistory.filter(message =>
+          message && (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string',
+        );
+        userTurn = conversationHistory.filter(message => message.role === 'user').length;
+        chatView.querySelector('#welcome-msg')?.remove();
+        conversationHistory.forEach(message => {
+          addMsg(message.role, message.role === 'assistant' ? renderMarkdown(message.content) : escapeHtml(message.content), []);
+        });
+      }
+    } catch {}
+    updateTurnCounter();
     userInput.focus();
   </script>
 </body>

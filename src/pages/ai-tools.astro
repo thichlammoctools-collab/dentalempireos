@@ -86,40 +86,22 @@ const appGroups = [
       </svg>
     </div>
 
-    <div class="relative max-w-5xl mx-auto px-4 pt-16 pb-20">
+    <div class="relative max-w-6xl mx-auto px-4 pt-12 pb-20 md:pt-16">
       <!-- Hero -->
-      <header class="text-center mb-10">
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold mb-6">
-          <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-          Công cụ AI
-        </div>
-        <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-on-surface mb-6 leading-tight">
-          Trí tuệ AI<br />
-          <span class="bg-gradient-to-r from-primary to-cyan-600 dark:from-primary dark:to-cyan-400 bg-clip-text text-transparent">cho phòng khám</span>
-          <br />của bạn
+      <header class="mx-auto mb-10 max-w-3xl text-center md:mb-12">
+        <p class="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">AI Scanner</p>
+        <h1 class="text-4xl font-bold leading-[1.02] tracking-tight text-on-surface md:text-5xl lg:text-6xl">
+          Đưa bối cảnh vào.<br />
+          <span class="text-primary">Nhận hướng đi ra.</span>
         </h1>
-        <p class="text-on-surface-variant text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">Biến dữ liệu, ý tưởng và kiến thức thành đầu ra có thể triển khai cho phòng khám của bạn.</p>
+        <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-on-surface-variant md:text-lg">Mỗi AI Tool là một hành trình có cấu trúc: bạn cung cấp thông tin theo từng bước, AI phân tích và tạo đầu ra để đội ngũ có thể triển khai.</p>
       </header>
 
-      <!-- This concise overview is intentionally suitable for OG screenshots. -->
-      <section class="mb-16 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/10 via-surface-container to-amber-500/5 p-6 md:p-8">
-        <div class="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
-          <div class="max-w-2xl">
-            <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Dental Empire OS · AI Workspace</p>
-            <h2 class="mt-2 text-2xl font-black text-on-surface md:text-3xl">Từ “đang rối ở đâu?” đến hành động rõ ràng.</h2>
-            <p class="mt-3 leading-relaxed text-on-surface-variant">AI Tools giúp biến dữ liệu, ý tưởng và kiến thức thành nội dung hoặc quyết định có thể triển khai.</p>
-          </div>
-          <div class="grid shrink-0 grid-cols-3 gap-2 text-center text-xs">
-            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">fact_check</span><b class="mt-1 block text-on-surface">Đánh giá</b><span class="text-on-surface-variant">điểm nghẽn</span></div>
-            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">psychology</span><b class="mt-1 block text-on-surface">Phân tích</b><span class="text-on-surface-variant">cùng AI</span></div>
-            <div class="rounded-2xl bg-surface-container-lowest/80 px-3 py-3"><span class="material-symbols-outlined block text-primary">route</span><b class="mt-1 block text-on-surface">Hành động</b><span class="text-on-surface-variant">có ưu tiên</span></div>
-          </div>
-        </div>
-          <div class="mt-6 flex flex-wrap gap-3 text-sm">
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 font-semibold text-emerald-700 dark:text-emerald-300"><span class="material-symbols-outlined text-[16px]">check_circle</span> Miễn phí: bắt đầu tạo và hoàn thiện công việc</span>
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 font-semibold text-amber-700 dark:text-amber-300"><span class="material-symbols-outlined text-[16px]">lock</span> Chuyên sâu: cần mua hoặc mở khóa để dùng</span>
-          </div>
-        </section>
+      <section class="mb-14 grid overflow-hidden border border-outline-variant/30 sm:grid-cols-3">
+        <div class="border-b border-outline-variant/30 p-5 sm:border-b-0 sm:border-r"><span class="mb-3 block text-xs font-bold text-primary">01 / CUNG CẤP BỐI CẢNH</span><h2 class="font-bold text-on-surface">Trả lời theo từng bước</h2><p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Tập trung vào những thông tin AI cần để hiểu đúng vấn đề.</p></div>
+        <div class="border-b border-outline-variant/30 p-5 sm:border-b-0 sm:border-r"><span class="mb-3 block text-xs font-bold text-primary">02 / AI PHÂN TÍCH</span><h2 class="font-bold text-on-surface">Làm rõ ưu tiên</h2><p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Hệ thống tổng hợp bối cảnh và đặt các câu hỏi cần thiết.</p></div>
+        <div class="p-5"><span class="mb-3 block text-xs font-bold text-primary">03 / NHẬN ĐẦU RA</span><h2 class="font-bold text-on-surface">Chuyển thành hành động</h2><p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Nhận phân tích, tài liệu hoặc kế hoạch để tiếp tục triển khai.</p></div>
+      </section>
 
       <!-- AI Apps -->
       {apps.length > 0 && (
@@ -129,8 +111,8 @@ const appGroups = [
               <span class="material-symbols-outlined text-purple-600 dark:text-purple-400 text-[20px]">smart_toy</span>
             </div>
             <div>
-              <h2 class="text-xl font-bold text-on-surface">Ứng dụng AI khác</h2>
-              <p class="text-sm text-on-surface-variant">Tài liệu, khóa học, công cụ và generator</p>
+              <h2 class="text-xl font-bold text-on-surface">Chọn hành trình AI</h2>
+              <p class="text-sm text-on-surface-variant">Mỗi công cụ bắt đầu bằng bối cảnh của phòng khám bạn.</p>
             </div>
           </div>
 
@@ -173,10 +155,10 @@ const appGroups = [
                       {app.description}
                     </p>
                    )}
-                   <p class="mt-3 text-xs font-semibold text-primary">Kết quả: đầu ra AI để bạn tiếp tục chỉnh sửa hoặc triển khai.</p>
+                   <p class="mt-3 text-xs font-semibold text-primary">Bao gồm: đối thoại theo bước và đầu ra AI để triển khai.</p>
 
                   <div class="flex items-center justify-end mt-3">
-                    <span class="material-symbols-outlined text-primary text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                    <span class="text-xs font-bold text-primary">Bắt đầu hành trình <span class="material-symbols-outlined align-middle text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span></span>
                   </div>
                 </a>
               );

@@ -122,15 +122,15 @@ function formatDate(iso: string | null): string {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-5">
           {featured.slice(1, 4).map((post) => (
             <a href={`/blog/${post.slug}`} class="group">
-              <article class="relative h-full min-h-[150px] rounded-2xl overflow-hidden glass-card flex">
+              <article class="relative h-full min-h-[150px] rounded-2xl overflow-hidden glass-card bg-surface-container-lowest flex flex-col lg:flex-row">
                 {post.cover_url ? (
                   <img
                     src={post.cover_url}
                     alt={post.cover_alt}
-                    class="w-28 lg:w-32 object-cover shrink-0 group-hover:scale-105 transition-transform duration-500"
+                    class="w-full h-32 lg:w-32 lg:h-auto object-cover shrink-0 group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
-                  <div class="w-28 lg:w-32 shrink-0 bg-gradient-to-br from-primary/40 to-tertiary/30"></div>
+                  <div class="w-full h-32 lg:w-32 lg:h-auto shrink-0 bg-gradient-to-br from-primary/40 to-tertiary/30"></div>
                 )}
                 <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
                   <div>
@@ -142,11 +142,11 @@ function formatDate(iso: string | null): string {
                         {post.category.name}
                       </span>
                     )}
-                    <h3 class="text-sm font-bold text-white mt-1 line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                    <h3 class="text-sm font-bold text-on-surface mt-1 line-clamp-2 group-hover:text-primary transition-colors leading-snug">
                       {post.title}
                     </h3>
                   </div>
-                  <div class="flex items-center gap-2 text-[11px] text-white/50 mt-2">
+                  <div class="flex items-center gap-2 text-[11px] text-on-surface-variant mt-3">
                     <time datetime={post.published_at ?? ''}>{formatDate(post.published_at)}</time>
                     <span>·</span>
                     <span>{post.read_time_minutes} phút</span>
