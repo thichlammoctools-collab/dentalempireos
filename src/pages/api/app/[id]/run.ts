@@ -28,6 +28,8 @@ async function getModelConfigs(db: D1Database, configJson: string | null): Promi
           model_id: modelOverride || '',
         }
       : null
+    : modelProvider === 'cloudflare'
+      ? await getCloudflareAiGatewayConfig(db, modelOverride)
     : await getAiGatewayConfig(db, 'default', modelOverride);
   const primary = modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
   const fallback = fallbackModelOverride

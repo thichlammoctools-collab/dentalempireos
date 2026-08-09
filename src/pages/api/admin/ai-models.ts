@@ -6,9 +6,8 @@ import { hasMotapisApiKey } from '../../../lib/ai-gateway';
 export const POST: APIRoute = async () => {
   try {
     const settings = await getAiSettings(env.DB);
-    const accountId = settings.gateway_account_id;
-
-    // Danh sách model phổ biến trên Cloudflare AI
+    // Keep the full catalog available in the editor even when Cloudflare is
+    // not the active provider. Per-tool routing determines the actual provider.
     const models = [
       // Chat/Text Generation models
       { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI', category: 'chat' },
@@ -18,6 +17,7 @@ export const POST: APIRoute = async () => {
       { id: 'anthropic/claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', provider: 'Anthropic', category: 'chat' },
       { id: 'anthropic/claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', category: 'chat' },
       { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic', category: 'chat' },
+      { id: 'anthropic/claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', provider: 'Anthropic', category: 'chat' },
       { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash', provider: 'Google', category: 'chat' },
       { id: 'google/gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash', provider: 'Google', category: 'chat' },
       { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B', provider: 'Meta', category: 'chat' },
@@ -52,13 +52,6 @@ export const POST: APIRoute = async () => {
       } catch {
         // Cloudflare models remain available when Motapis cannot be reached.
       }
-    }
-
-    if (!accountId) {
-      return new Response(JSON.stringify({ models: motapisModels, motapis_available: hasMotapisApiKey() }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
     }
 
     return new Response(JSON.stringify({ models: [...models, ...motapisModels], motapis_available: hasMotapisApiKey() }), {

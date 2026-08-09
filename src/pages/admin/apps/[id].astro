@@ -362,7 +362,8 @@ function getInitials(name: string) {
         model_override: fd.get('model_override')?.toString() || undefined,
         model_provider: (() => {
           const select = document.getElementById('tool-model-select') as HTMLSelectElement | null;
-          return select?.selectedOptions[0]?.textContent?.trim().startsWith('Motapis') ? 'motapis' : undefined;
+          const provider = select?.selectedOptions[0]?.textContent?.trim().split(' · ')[0];
+          return provider === 'Motapis' ? 'motapis' : provider ? 'cloudflare' : undefined;
         })(),
         fallback_model_override: fd.get('fallback_model_override')?.toString() || undefined,
         max_tokens_override: (() => {
