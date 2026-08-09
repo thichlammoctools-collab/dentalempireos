@@ -56,3 +56,15 @@ export const POST: APIRoute = async ({ request }) => {
 
   return json({ id }, 201);
 };
+
+export const DELETE: APIRoute = async ({ request }) => {
+  const input = await request.json().catch(() => null) as { id?: unknown } | null;
+  const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : null;
+  if (!id) return badRequest('id is required');
+
+  const existing = await env.DB.prepare('SELECT "id" FROM "credit_package" WHERE "id" = ?').bind(id).first();
+  if (!existing) return badRequest('Package not found');
+
+  await env.DB.prepare('DELETE FROM "credit_package" WHERE "id" = ?').bind(id).run();
+  return json({ success: true });
+};

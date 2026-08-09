@@ -1,0 +1,296 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listSurveyDefinitions } from '../../../lib/survey-config-db';
+
+export const prerender = false;
+
+const [rulesResult, scanners] = await Promise.all([
+  env.DB.prepare('SELECT * FROM "credit_pricing_rule" ORDER BY "feature_type", "target_id", "rule_version" DESC').all<{
+    id: string; feature_type: string; target_id: string; model: string; credit_amount: number | null; tokens_per_credit: number | null; minutes_per_credit: number | null; max_tokens: number | null; is_active: number; rule_version: number;
+  }>(),
+  listSurveyDefinitions(env.DB, { status: 'active' }),
+]);
+const rules = rulesResult.results ?? [];
+
+const featureLabels: Record<string, string> = {
+  scanner: 'Scanner',
+  ai: 'AI',
+  course: 'Khóa học',
+  resource: 'Tài liệu',
+  book: 'Sách',
+  blog: 'Blog',
+  consultation: 'Tư vấn',
+};
+---
+
+<AdminLayout title="Bảng giá tính năng | Admin">
+  <!-- Header -->
+  <section class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Credits Economy</p>
+      <h2 class="mt-1 text-3xl font-bold text-on-surface">Bảng giá tính năng</h2>
+      <p class="mt-2 text-sm text-on-surface-variant">Thiết lập giá Credits cho từng tính năng. Mỗi lần thay đổi sẽ tạo một phiên bản giá mới.</p>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <nav class="flex gap-1 rounded-xl bg-surface-container-low p-1 text-sm font-semibold w-fit">
+    <a href="/admin/credits/packages" class="flex items-center gap-2 rounded-lg px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined text-base">add_card</span> Gói nạp
+    </a>
+    <a href="/admin/credits/pricing" class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-on-primary">
+      <span class="material-symbols-outlined text-base">tune</span> Bảng giá
+    </a>
+    <a href="/admin/credits/orders" class="flex items-center gap-2 rounded-lg px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined text-base">receipt_long</span> Đơn nạp
+    </a>
+  </nav>
+
+  <div class="grid gap-6 xl:grid-cols-[1fr_380px]">
+
+    <!-- Rules List -->
+    <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6">
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-on-surface">Danh sách rule giá</h3>
+          <p class="mt-1 text-xs text-on-surface-variant">Chỉ rule đang hoạt động được áp dụng cho khách hàng.</p>
+        </div>
+        <span class="px-2 py-0.5 text-xs font-bold bg-primary/10 text-primary rounded-full">{rules.length}</span>
+      </div>
+
+      {rules.length === 0 ? (
+        <div class="text-center py-8">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant/20 block mb-3">tune</span>
+          <p class="text-sm text-on-surface-variant">Chưa có rule giá nào.</p>
+          <p class="text-xs text-on-surface-variant/70 mt-1">Scanner chưa có rule sẽ được xem là miễn phí.</p>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-2">
+          {rules.map((rule) => (
+            <div
+              class="rule-row flex items-center gap-4 rounded-xl border border-outline-variant/20 bg-white/[0.02] p-4 hover:border-primary/30 transition-colors cursor-pointer"
+              data-id={rule.id}
+              data-feature-type={rule.feature_type}
+              data-target-id={rule.target_id}
+              data-credit-amount={rule.credit_amount ?? ''}
+              data-tokens-per-credit={rule.tokens_per_credit ?? ''}
+              data-minutes-per-credit={rule.minutes_per_credit ?? ''}
+              data-max-tokens={rule.max_tokens ?? ''}
+              data-is-active={rule.is_active}
+            >
+              <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-base text-primary">
+                  {rule.feature_type === 'scanner' ? 'analytics' : rule.feature_type === 'ai' ? 'psychology' : rule.feature_type === 'course' ? 'school' : rule.feature_type === 'resource' ? 'description' : rule.feature_type === 'book' ? 'menu_book' : rule.feature_type === 'blog' ? 'article' : 'support_agent'}
+                </span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-on-surface">{featureLabels[rule.feature_type] ?? rule.feature_type}</p>
+                  <span class="text-xs text-on-surface-variant">· {rule.target_id === '*' ? 'Áp dụng cho tất cả' : rule.target_id}</span>
+                  <span class:list={[
+                    'rounded-full px-2 py-0.5 text-[10px] font-bold flex-shrink-0',
+                    rule.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-surface-container-high text-on-surface-variant'
+                  ]}>
+                    {rule.is_active ? 'Hoạt động' : 'Tắt'}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-on-surface-variant">
+                  {rule.credit_amount ? `${rule.credit_amount} Credits` : ''}
+                  {rule.tokens_per_credit ? ` · ${rule.tokens_per_credit} tokens/Credit` : ''}
+                  {rule.minutes_per_credit ? ` · ${rule.minutes_per_credit} phút/Credit` : ''}
+                  {rule.max_tokens ? ` · Giới hạn ${rule.max_tokens} tokens` : ''}
+                  <span class="ml-2 text-primary font-bold">v{rule.rule_version}</span>
+                </p>
+              </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button class="edit-rule-btn rounded-lg p-2 text-on-surface-variant hover:bg-white/10 hover:text-primary transition-colors" title="Chỉnh sửa">
+                  <span class="material-symbols-outlined text-base">edit</span>
+                </button>
+                <button class="delete-rule-btn rounded-lg p-2 text-on-surface-variant hover:bg-rose-500/15 hover:text-rose-400 transition-colors" title="Xóa" data-id={rule.id}>
+                  <span class="material-symbols-outlined text-base">delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- Rule Form -->
+    <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6 xl:sticky xl:top-24 xl:self-start">
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-on-surface" id="form-title">Thêm rule giá</h3>
+          <p class="mt-1 text-xs text-on-surface-variant" id="form-subtitle">Điền thông tin bên dưới.</p>
+        </div>
+        <button id="cancel-edit-btn" class="hidden text-xs font-semibold text-primary hover:underline">Hủy chỉnh sửa</button>
+      </div>
+
+      <form id="rule-form" class="grid gap-3">
+        <input type="hidden" name="id" id="rule-id" />
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Tính năng
+            <select name="feature_type" id="rule-feature-type" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface">
+              <option value="scanner">Scanner</option>
+              <option value="ai">AI</option>
+              <option value="course">Khóa học</option>
+              <option value="resource">Tài liệu</option>
+              <option value="book">Sách</option>
+              <option value="blog">Blog</option>
+              <option value="consultation">Tư vấn</option>
+            </select>
+          </label>
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Áp dụng cho
+            <input name="target_id" id="rule-target-id" list="credit-pricing-targets" value="*" placeholder="* = tất cả" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <span class="text-xs font-normal text-on-surface-variant"><code>*</code> tất cả; nhập ID để đặt giá riêng.</span>
+          </label>
+        </div>
+        <datalist id="credit-pricing-targets">
+          <option value="*">Mặc định cho toàn bộ nội dung</option>
+          {scanners.map((s) => <option value={s.id}>{s.title_vi}</option>)}
+        </datalist>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Giá cố định (Credits)
+            <input name="credit_amount" id="rule-credit-amount" min="1" type="number" placeholder="Ví dụ: 5" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <span class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu...</span>
+          </label>
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Tokens đổi 1 Credit (AI)
+            <input name="tokens_per_credit" id="rule-tokens-per-credit" min="1" type="number" placeholder="Ví dụ: 1000" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <span class="text-xs font-normal text-on-surface-variant">Chỉ cho AI. 1.000 tokens = 1 Credit.</span>
+          </label>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Phút đổi 1 Credit (Tư vấn)
+            <input name="minutes_per_credit" id="rule-minutes-per-credit" min="1" type="number" placeholder="Ví dụ: 15" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <span class="text-xs font-normal text-on-surface-variant">Chỉ cho tư vấn. 15 phút = 1 Credit.</span>
+          </label>
+          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
+            Giới hạn tokens mỗi lần dùng
+            <input name="max_tokens" id="rule-max-tokens" min="1" type="number" placeholder="Ví dụ: 8000" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <span class="text-xs font-normal text-on-surface-variant">Tùy chọn cho AI. Để trống nếu không cần.</span>
+          </label>
+        </div>
+
+        <p id="rule-pricing-guide" class="rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface">
+          <span class="font-bold">Scanner:</span> điền Giá cố định, ví dụ <strong>5 Credits</strong> mỗi lần quét.
+        </p>
+
+        <button id="submit-btn" class="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary mt-1">Thêm phiên bản giá</button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    // ── Pricing guide ──
+    const form = document.getElementById('rule-form') as HTMLFormElement;
+    const guideEl = document.getElementById('rule-pricing-guide');
+    const guides: Record<string, string> = {
+      scanner: '<span class="font-bold">Scanner:</span> điền Giá cố định, ví dụ <strong>5 Credits</strong> mỗi lần quét.',
+      ai: '<span class="font-bold">AI:</span> điền Tokens đổi 1 Credit, ví dụ <strong>1.000 tokens = 1 Credit</strong>.',
+      consultation: '<span class="font-bold">Tư vấn:</span> điền Phút đổi 1 Credit, ví dụ <strong>15 phút = 1 Credit</strong>.',
+      course: '<span class="font-bold">Khóa học:</span> điền Giá cố định, ví dụ <strong>20 Credits</strong> để mở khóa.',
+      resource: '<span class="font-bold">Tài liệu:</span> điền Giá cố định, ví dụ <strong>3 Credits</strong> để tải.',
+      book: '<span class="font-bold">Sách:</span> điền Giá cố định, ví dụ <strong>10 Credits</strong> để đọc.',
+      blog: '<span class="font-bold">Blog:</span> điền Giá cố định nếu cần thu phí.',
+    };
+    const updateGuide = () => {
+      const ft = (form?.elements.namedItem('feature_type') as HTMLSelectElement)?.value || 'scanner';
+      if (guideEl) guideEl.innerHTML = guides[ft];
+    };
+    form?.addEventListener('change', updateGuide);
+    updateGuide();
+
+    // ── Edit mode ──
+    const formTitle = document.getElementById('form-title')!;
+    const formSubtitle = document.getElementById('form-subtitle')!;
+    const cancelBtn = document.getElementById('cancel-edit-btn')!;
+    const submitBtn = document.getElementById('submit-btn')!;
+
+    function resetForm() {
+      form.reset();
+      (document.getElementById('rule-id') as HTMLInputElement).value = '';
+      (document.getElementById('rule-target-id') as HTMLInputElement).value = '*';
+      formTitle.textContent = 'Thêm rule giá';
+      formSubtitle.textContent = 'Điền thông tin bên dưới.';
+      submitBtn.textContent = 'Thêm phiên bản giá';
+      cancelBtn.classList.add('hidden');
+      updateGuide();
+    }
+
+    cancelBtn.addEventListener('click', resetForm);
+
+    document.querySelectorAll('.rule-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.delete-rule-btn')) return;
+
+        const el = row as HTMLElement;
+        (document.getElementById('rule-id') as HTMLInputElement).value = el.dataset.id!;
+        (document.getElementById('rule-feature-type') as HTMLSelectElement).value = el.dataset.featureType!;
+        (document.getElementById('rule-target-id') as HTMLInputElement).value = el.dataset.targetId!;
+        (document.getElementById('rule-credit-amount') as HTMLInputElement).value = el.dataset.creditAmount!;
+        (document.getElementById('rule-tokens-per-credit') as HTMLInputElement).value = el.dataset.tokensPerCredit!;
+        (document.getElementById('rule-minutes-per-credit') as HTMLInputElement).value = el.dataset.minutesPerCredit!;
+        (document.getElementById('rule-max-tokens') as HTMLInputElement).value = el.dataset.maxTokens!;
+        formTitle.textContent = 'Chỉnh sửa rule';
+        formSubtitle.textContent = `Đang sửa: ${el.dataset.featureType} · ${el.dataset.targetId}`;
+        submitBtn.textContent = 'Cập nhật rule';
+        cancelBtn.classList.remove('hidden');
+        updateGuide();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // ── Delete ──
+    document.querySelectorAll('.delete-rule-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = (btn as HTMLElement).dataset.id;
+        if (!id || !window.confirm('Xác nhận xóa rule giá này?')) return;
+
+        const res = await fetch('/api/admin/credit-pricing-rules', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Không thể xóa rule.');
+          return;
+        }
+        window.location.reload();
+      });
+    });
+
+    // ── Submit ──
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const body: Record<string, unknown> = {};
+      for (const [key, value] of data.entries()) body[key] = value;
+      for (const key of ['credit_amount', 'tokens_per_credit', 'minutes_per_credit', 'max_tokens']) {
+        body[key] = body[key] === '' || body[key] === undefined ? null : Number(body[key]);
+      }
+
+      const res = await fetch('/api/admin/credit-pricing-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const result = await res.json().catch(() => ({}));
+        alert(result.error || 'Không thể lưu rule giá.');
+        return;
+      }
+      window.location.reload();
+    });
+  </script>
+</AdminLayout>
