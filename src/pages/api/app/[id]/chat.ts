@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { getApp, parseAppConfig } from '../../../../lib/app-db';
-import { getAiGatewayConfig, getCloudflareAiGatewayConfig, hasMotapisApiKey } from '../../../../lib/ai-gateway';
+import { getCloudflareAiGatewayConfig, hasMotapisApiKey } from '../../../../lib/ai-gateway';
 import { chatCompletionWithFallback } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
 import { createAuth } from '../../../../lib/auth';
@@ -95,24 +95,19 @@ function forceSOPComplete(reply: string): { reply: string; full_sop: string; com
 async function getModelConfigs(db: D1Database, configJson: string | null): Promise<ModelConfig[]> {
   const config = parseAppConfig(configJson);
   const modelOverride = config.model_override as string | undefined;
-  const modelProvider = config.model_provider as string | undefined;
   const fallbackModelOverride = config.fallback_model_override as string | undefined;
   const maxTokensOverride = config.max_tokens_override;
-  const maxTokens = typeof maxTokensOverride === 'number' && Number.isInteger(maxTokensOverride) && maxTokensOverride > 0
+  const maxTokens = typeof maxTokensOverride === 'number' && Number.isInteger(maxTokensOverride) && maxTokensOverride >= 256 && maxTokensOverride <= 32_768
     ? maxTokensOverride
     : undefined;
-  const modelConfig = modelProvider === 'motapis'
-    ? hasMotapisApiKey()
-      ? {
-          provider_id: 'motapis',
-          base_url: 'https://motapis.com/v1',
-          api_key: env.MOTAPIS_API_KEY,
-          model_id: modelOverride || '',
-        }
-      : null
-    : modelProvider === 'cloudflare'
-      ? await getCloudflareAiGatewayConfig(db, modelOverride)
-    : await getAiGatewayConfig(db, 'default', modelOverride);
+  const modelConfig = modelOverride && hasMotapisApiKey()
+    ? {
+        provider_id: 'motapis',
+        base_url: 'https://motapis.com/v1',
+        api_key: env.MOTAPIS_API_KEY,
+        model_id: modelOverride,
+      }
+    : null;
   const primary = modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
   const fallback = fallbackModelOverride
     ? await getCloudflareAiGatewayConfig(db, fallbackModelOverride)

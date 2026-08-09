@@ -1,6 +1,7 @@
 // HTML sanitization for rich text block content.
 // Works without DOM Purify in Cloudflare Workers / Vite SSR.
 // Whitelist-based: keeps allowed tags & attrs, strips everything else.
+import { marked } from 'marked';
 
 // Shared DOMPurify config — matches the whitelist used by sanitizeRichHtml()
 // below. Kept as a const so client-side bundles (e.g. richtext-editor.ts)
@@ -57,6 +58,10 @@ function isSafeAttr(name: string, value: string): boolean {
     }
   }
   return true;
+}
+
+export function renderSafeMarkdown(markdown: string): string {
+  return sanitizeRichHtml(marked.parse(markdown, { gfm: true, breaks: true }) as string);
 }
 
 export function sanitizeRichHtml(html: string): string {

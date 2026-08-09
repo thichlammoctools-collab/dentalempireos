@@ -1,6 +1,6 @@
 ---
 // QuestionThread - displays original question + replies + reply form
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../lib/sanitize';
 
 interface Reply {
   id: string;
