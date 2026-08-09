@@ -64,7 +64,9 @@ export const POST: APIRoute = async ({ request }) => {
     return badRequest('At least one pricing value is required');
   }
 
-  const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : crypto.randomUUID();
+  // Editing a rule creates an immutable price version. The client sends the
+  // previous id only to prefill the form, never as the id of the new record.
+  const id = crypto.randomUUID();
   const timestamp = new Date().toISOString();
   const current = await env.DB.prepare(
     `SELECT COALESCE(MAX("rule_version"), 0) AS "version" FROM "credit_pricing_rule"
