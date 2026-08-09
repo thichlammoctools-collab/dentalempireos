@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
     tokensPerCredit = null;
     minutesPerCredit = null;
     maxTokens = null;
-    if (['scanner', 'course', 'book', 'blog'].includes(featureType)) creditAmount = 1;
+    if (creditAmount === null) return badRequest('Giá Credits là bắt buộc cho tính năng này');
   }
   if (creditAmount === null && tokensPerCredit === null && minutesPerCredit === null) {
     return badRequest('At least one pricing value is required');

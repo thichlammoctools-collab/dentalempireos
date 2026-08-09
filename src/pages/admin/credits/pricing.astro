@@ -194,7 +194,7 @@ const featureLabels: Record<string, string> = {
         </label>
 
         <p id="rule-pricing-guide" class="rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface">
-          <span class="font-bold">Scanner:</span> cố định <strong>1 Credit</strong> cho mỗi lần scan full.
+          <span class="font-bold">Scanner:</span> đặt số Credits dùng cho mỗi lượt sau 3 lượt miễn phí.
         </p>
 
         <button id="submit-btn" class="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thêm phiên bản giá</button>
@@ -207,7 +207,7 @@ const featureLabels: Record<string, string> = {
     const form = document.getElementById('rule-form') as HTMLFormElement;
     const guideEl = document.getElementById('rule-pricing-guide');
     const guides: Record<string, string> = {
-      scanner: '<span class="font-bold">Scanner:</span> cố định <strong>1 Credit</strong> cho mỗi lần scan full.',
+      scanner: '<span class="font-bold">Scanner:</span> đặt số Credits dùng cho mỗi lượt sau <strong>3 lượt miễn phí</strong>.',
       ai: '<span class="font-bold">AI:</span> điền Tokens đổi 1 Credit, ví dụ <strong>1.000 tokens = 1 Credit</strong>.',
       consultation: '<span class="font-bold">Tư vấn:</span> cố định <strong>1 Credit = 1 phút</strong> tư vấn.',
       course: '<span class="font-bold">Khóa học:</span> cố định <strong>1 Credit = 1 ngày</strong> sử dụng.',
@@ -215,7 +215,6 @@ const featureLabels: Record<string, string> = {
       book: '<span class="font-bold">Sách:</span> cố định <strong>1 Credit = 1 ngày</strong> đọc sách.',
       blog: '<span class="font-bold">Blog:</span> cố định <strong>1 Credit = 1 ngày</strong> sử dụng.',
     };
-    const fixedOneCreditFeatures = new Set(['scanner', 'course', 'book', 'blog']);
     const updateGuide = () => {
       const ft = (form?.elements.namedItem('feature_type') as HTMLSelectElement)?.value || 'scanner';
       if (guideEl) guideEl.innerHTML = guides[ft];
@@ -227,20 +226,15 @@ const featureLabels: Record<string, string> = {
       const minuteInput = document.getElementById('rule-minutes-per-credit') as HTMLInputElement;
       const isAI = ft === 'ai';
       const isConsultation = ft === 'consultation';
-      const isFixedOneCredit = fixedOneCreditFeatures.has(ft);
 
       creditField.classList.toggle('hidden', isAI || isConsultation);
       tokenField.classList.toggle('hidden', !isAI);
       maxTokenField.classList.toggle('hidden', !isAI);
       minuteField.classList.toggle('hidden', !isConsultation);
-      if (isFixedOneCredit) {
-        creditInput.value = '1';
-        creditInput.readOnly = true;
-        document.getElementById('credit-amount-help')!.textContent = 'Cố định: 1 Credit cho mỗi lượt scan full hoặc 1 ngày sử dụng.';
-      } else {
-        creditInput.readOnly = false;
-        document.getElementById('credit-amount-help')!.textContent = 'Dùng cho tài liệu tải xuống.';
-      }
+      creditInput.readOnly = false;
+      document.getElementById('credit-amount-help')!.textContent = ft === 'scanner'
+        ? 'Số Credits trừ cho mỗi lượt sau 3 lượt miễn phí.'
+        : 'Nhập số Credits áp dụng cho mỗi lần sử dụng.';
       if (isConsultation) minuteInput.value = '1';
     };
     form?.addEventListener('change', updateGuide);
