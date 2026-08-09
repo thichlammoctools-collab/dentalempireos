@@ -146,9 +146,9 @@ export const POST: APIRoute = async (ctx) => {
     ({ id } = await createScannerResponse(env.DB, {
       survey_id: surveyId,
       lang,
-       owner_name: asString(body.owner_name) ?? session.user.name ?? null,
-       clinic_name: clinicName,
-       clinic_address: asString(body.clinic_address),
+      owner_name: asString(body.owner_name) ?? session.user.name ?? null,
+      clinic_name: clinicName,
+      clinic_address: asString(body.clinic_address),
       email,
       years_in_operation: asInt(body.years_in_operation),
       staff_count: asInt(body.staff_count),

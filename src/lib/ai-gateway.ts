@@ -61,6 +61,29 @@ export async function getAiGatewayConfig(
   };
 }
 
+/** Build a Cloudflare AI Gateway config even when another primary provider is selected. */
+export async function getCloudflareAiGatewayConfig(
+  db: D1Database,
+  modelOverride?: string,
+): Promise<ModelConfig | null> {
+  const settings = await getAiSettings(db);
+  if (!settings.gateway_enabled || !settings.gateway_account_id || !hasAiGatewayToken()) {
+    return null;
+  }
+
+  const model = modelOverride?.trim() || settings.gateway_default_model;
+  if (!model) return null;
+
+  return {
+    provider_id: 'cloudflare-ai-gateway',
+    base_url: `https://api.cloudflare.com/client/v4/accounts/${settings.gateway_account_id}/ai/v1`,
+    api_key: env.CF_AI_GATEWAY_TOKEN,
+    gateway_id: settings.gateway_id || 'default',
+    model_id: model,
+    max_tokens: settings.max_tokens,
+  };
+}
+
 /** Return the configured primary followed by distinct active D1 fallbacks. */
 export async function getAiGatewayConfigs(
   db: D1Database,

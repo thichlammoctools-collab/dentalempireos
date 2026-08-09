@@ -2,7 +2,7 @@ import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
 import { hasActiveEntitlementForContent } from './entitlement-db';
-import { getActiveCreditPricingRule, hasUserContentGrant } from './credit-db';
+import { hasUserContentGrant } from './credit-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
 
@@ -77,10 +77,9 @@ export async function canAccessScanner(
 ): Promise<boolean> {
   const scanner = await getSurveyDefinitionById(db, scannerId);
   if (!scanner || scanner.status !== 'active') return false;
-  // A Scanner with an active Credit rule is paid at submit time. Its result
-  // ownership is recorded separately, so no product entitlement is required.
-  const rule = await getActiveCreditPricingRule(db, 'scanner', scannerId);
-  return !rule || rule.credit_amount == null || rule.credit_amount <= 0 || Boolean(userId);
+  // Scanner attempts are authorized and charged at submission time. Results
+  // remain available to their authenticated owner after creation.
+  return Boolean(userId);
 }
 
 export async function canAccessCourse(

@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { getApp, parseAppConfig } from '../../../../lib/app-db';
-import { getAiGatewayConfig } from '../../../../lib/ai-gateway';
-import { chatCompletion } from '../../../../lib/ai-client';
+import { getAiGatewayConfig, getCloudflareAiGatewayConfig } from '../../../../lib/ai-gateway';
+import { chatCompletionWithFallback } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
 import { createAuth } from '../../../../lib/auth';
 import { canAccessAiApp } from '../../../../lib/entitlement-check';
@@ -76,16 +76,22 @@ function forceSOPComplete(reply: string): { reply: string; full_sop: string; com
   };
 }
 
-async function getModelConfig(db: D1Database, app: ReturnType<typeof parseAppConfig>): Promise<ModelConfig | null> {
+async function getModelConfigs(db: D1Database, app: ReturnType<typeof parseAppConfig>): Promise<ModelConfig[]> {
   const config = parseAppConfig(app.config_json);
   const modelOverride = config.model_override as string | undefined;
+  const fallbackModelOverride = config.fallback_model_override as string | undefined;
   const maxTokensOverride = config.max_tokens_override;
   const maxTokens = typeof maxTokensOverride === 'number' && Number.isInteger(maxTokensOverride) && maxTokensOverride > 0
     ? maxTokensOverride
     : undefined;
   const modelConfig = await getAiGatewayConfig(db, 'default', modelOverride);
+  const primary = modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
+  const fallback = fallbackModelOverride
+    ? await getCloudflareAiGatewayConfig(db, fallbackModelOverride)
+    : null;
 
-  return modelConfig && maxTokens ? { ...modelConfig, max_tokens: maxTokens } : modelConfig;
+  const fallbackConfig = fallback && maxTokens ? { ...fallback, max_tokens: maxTokens } : fallback;
+  return [primary, fallbackConfig].filter((item): item is ModelConfig => Boolean(item) && !(item.provider_id === primary?.provider_id && item.model_id === primary.model_id));
 }
 
 export const POST: APIRoute = async ({ request, params }) => {
@@ -121,9 +127,9 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
 
   const config = parseAppConfig(app.config_json);
-  const modelCfg = await getModelConfig(env.DB, app);
+  const modelConfigs = await getModelConfigs(env.DB, app);
 
-  if (!modelCfg) {
+  if (!modelConfigs.length) {
     return json({ error: 'Cloudflare AI Gateway chưa được cấu hình. Vui lòng vào AI Settings.' }, 503);
   }
 
@@ -156,7 +162,8 @@ export const POST: APIRoute = async ({ request, params }) => {
     }));
 
   try {
-    const reply = await chatCompletion(modelCfg, messages, systemPrompt);
+    const completion = await chatCompletionWithFallback(modelConfigs, messages, systemPrompt);
+    const reply = completion.content;
     if (!reply) return json({ reply: 'Không có phản hồi.', full_sop_text: '', sop_complete: false });
 
     const result = userTurn >= MAX_SOP_TURNS
