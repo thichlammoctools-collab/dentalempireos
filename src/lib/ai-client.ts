@@ -42,6 +42,10 @@ function isMotapisEndpoint(url: string): boolean {
   return url.toLowerCase().includes('motapis.com');
 }
 
+function isCloudflareWorkersModel(model: string): boolean {
+  return model.startsWith('@cf/');
+}
+
 function cloudflareGatewayHeaders(baseUrl: string, gatewayId?: string): Record<string, string> {
   if (!isCloudflareOpenAIEndpoint(baseUrl) && !baseUrl.toLowerCase().includes('gateway.ai.cloudflare.com')) {
     return {};
@@ -161,6 +165,7 @@ export async function chatCompletion(
   const cleanBase = isCloudflareOpenAIEndpoint(baseUrl) || isMotapisEndpoint(baseUrl) ? baseUrl : baseUrl.replace(/\/v1$/, '');
   try {
     const result = await withRetry(() => {
+      if (isCloudflareWorkersModel(config.model_id)) return chatCloudflareWorkers(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.timeout_ms);
       if (isOpenAIUrl(cleanBase)) return chatOpenAI(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
       if (isGeminiUrl(cleanBase)) return chatGemini(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.timeout_ms);
       return chatAnthropic(cleanBase, config.api_key, config.model_id, messages, systemPrompt, config.max_tokens, config.gateway_id, config.timeout_ms);
@@ -215,6 +220,45 @@ async function chatOpenAI(
   const data = (await resp.json()) as { choices: Array<{ message: { content: string | null } }> };
   const content = data.choices[0]?.message?.content;
   if (content === null || content === undefined) throw new AiError('Empty response from OpenAI API', 200, 'openai');
+  return content;
+}
+
+async function chatCloudflareWorkers(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  systemPrompt?: string,
+  maxTokens?: number,
+  timeoutMs?: number,
+): Promise<string> {
+  const allMessages: ChatMessage[] = [];
+  if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
+  allMessages.push(...messages);
+
+  // Workers AI native endpoint uses /ai/run/{model}, not /ai/v1/chat/completions.
+  const runUrl = baseUrl.replace(/\/v1$/, '').replace(/\/+$/, '') + '/run/' + encodeURIComponent(model);
+
+  const body: Record<string, unknown> = { messages: allMessages };
+  if (maxTokens) body.max_tokens = maxTokens;
+
+  const resp = await aiFetch(runUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  }, timeoutMs);
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new AiError(`Cloudflare Workers AI error (${resp.status}): ${err}`, resp.status, 'cloudflare-workers');
+  }
+
+  const data = (await resp.json()) as { result?: { response?: string } };
+  const content = data.result?.response;
+  if (!content) throw new AiError('Empty response from Cloudflare Workers AI', 200, 'cloudflare-workers');
   return content;
 }
 

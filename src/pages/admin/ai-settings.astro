@@ -77,7 +77,7 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
               <div class="flex items-start justify-between gap-3">
                 <div class="flex gap-3">
                   <span class="material-symbols-outlined text-sky-300">cloud</span>
-                  <div><strong class="block text-sm text-white">Cloudflare AI Gateway</strong><span class="mt-1 block text-xs text-on-surface-variant">Unified Billing hoặc BYOK, có routing tới nhiều model.</span></div>
+                  <div><strong class="block text-sm text-white">Cloudflare AI Gateway</strong><span class="mt-1 block text-xs text-on-surface-variant">Unified Billing, BYOK, hoặc model Workers AI miễn phí (ID bắt đầu bằng @cf/).</span></div>
                 </div>
                 <span class={`provider-secret-status text-[11px] font-bold ${gatewayTokenSet ? 'text-emerald-300' : 'text-amber-300'}`}>{gatewayTokenSet ? 'Secret OK' : 'Thiếu secret'}</span>
               </div>

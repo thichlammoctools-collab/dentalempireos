@@ -23,6 +23,12 @@ export const POST: APIRoute = async () => {
       { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick 17B', provider: 'Meta', category: 'chat' },
       { id: 'deepseek/deepseek-r1-distill-qwen-32b', name: 'DeepSeek R1 32B', provider: 'DeepSeek', category: 'chat' },
 
+      // Cloudflare Workers AI — free tier, no Unified Billing required.
+      { id: '@cf/meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B Instruct', provider: 'Cloudflare Workers AI (Miễn phí)', category: 'chat' },
+      { id: '@cf/meta/llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct', provider: 'Cloudflare Workers AI (Miễn phí)', category: 'chat' },
+      { id: '@cf/mistral/mistral-7b-instruct-v0.2', name: 'Mistral 7B Instruct v0.2', provider: 'Cloudflare Workers AI (Miễn phí)', category: 'chat' },
+      { id: '@cf/qwen/qwen1.5-7b-chat-awq', name: 'Qwen 1.5 7B Chat AWQ', provider: 'Cloudflare Workers AI (Miễn phí)', category: 'chat' },
+
       // Embedding models
       { id: 'openai/text-embedding-3-small', name: 'Text Embedding 3 Small', provider: 'OpenAI', category: 'embedding' },
       { id: 'openai/text-embedding-3-large', name: 'Text Embedding 3 Large', provider: 'OpenAI', category: 'embedding' },
