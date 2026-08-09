@@ -20,9 +20,8 @@ export const RICH_CONFIG = {
   ALLOWED_ATTR: [
     'href', 'target', 'rel',
     'src', 'alt', 'title',
-     'class', 'width', 'height',
-     'id',
-
+    'class', 'width', 'height',
+    'id',
     'colspan', 'rowspan',
   ],
 };
@@ -41,7 +40,7 @@ const ALLOWED_ATTR = new Set([
   'href', 'target', 'rel',
   'src', 'alt', 'title',
   'class', 'width', 'height',
-  'id', 'style',
+  'id',
   'colspan', 'rowspan',
 ]);
 
