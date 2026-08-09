@@ -53,15 +53,34 @@ const rules = rulesResult.results ?? [];
     </section>
 
     <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6">
-      <div class="mb-5 flex items-center justify-between"><div><h3 class="font-bold text-on-surface">Bảng giá tính năng</h3><p class="mt-1 text-xs text-on-surface-variant">Scanner dùng giá cố định. AI có thể dùng tokens/Credit.</p></div><span class="material-symbols-outlined text-primary">tune</span></div>
+      <div class="mb-5 flex items-center justify-between"><div><h3 class="font-bold text-on-surface">Bảng giá tính năng</h3><p class="mt-1 text-xs text-on-surface-variant">Chỉ cần điền một cách tính giá phù hợp cho từng tính năng.</p></div><span class="material-symbols-outlined text-primary">tune</span></div>
       <form id="rule-form" class="grid gap-3 sm:grid-cols-2">
-        <select name="feature_type" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface"><option value="scanner">Scanner</option><option value="ai">AI</option><option value="course">Khóa học</option><option value="resource">Tài liệu</option><option value="book">Sách</option><option value="blog">Blog</option><option value="consultation">Tư vấn</option></select>
-        <input name="target_id" list="credit-pricing-targets" value="*" placeholder="ID nội dung hoặc *" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Tính năng
+          <select name="feature_type" aria-describedby="rule-feature-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface"><option value="scanner">Scanner</option><option value="ai">AI</option><option value="course">Khóa học</option><option value="resource">Tài liệu</option><option value="book">Sách</option><option value="blog">Blog</option><option value="consultation">Tư vấn</option></select>
+          <span id="rule-feature-help" class="text-xs font-normal text-on-surface-variant">Chọn loại nội dung hoặc dịch vụ cần thu Credits.</span>
+        </label>
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Áp dụng cho
+          <input name="target_id" list="credit-pricing-targets" value="*" placeholder="* = tất cả nội dung" aria-describedby="rule-target-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="rule-target-help" class="text-xs font-normal text-on-surface-variant"><code>*</code> áp dụng cho tất cả; nhập ID để đặt giá riêng cho một nội dung.</span>
+        </label>
         <datalist id="credit-pricing-targets"><option value="*">Mặc định cho toàn bộ nội dung</option>{scanners.map((scanner) => <option value={scanner.id}>{scanner.title_vi}</option>)}</datalist>
-        <input name="credit_amount" min="1" type="number" placeholder="Credits cố định" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-        <input name="tokens_per_credit" min="1" type="number" placeholder="Tokens / Credit (AI)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-        <input name="minutes_per_credit" min="1" type="number" placeholder="Phút / Credit (tư vấn)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-        <input name="max_tokens" min="1" type="number" placeholder="Token cap (AI)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Giá cố định (Credits)
+          <input name="credit_amount" min="1" type="number" placeholder="Ví dụ: 5" aria-describedby="fixed-credit-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="fixed-credit-help" class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu... Ví dụ: mỗi lần dùng tốn 5 Credits.</span>
+        </label>
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Tokens đổi 1 Credit (AI)
+          <input name="tokens_per_credit" min="1" type="number" placeholder="Ví dụ: 1000" aria-describedby="token-credit-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="token-credit-help" class="text-xs font-normal text-on-surface-variant">Chỉ cho AI. Ví dụ: 1.000 tokens tốn 1 Credit.</span>
+        </label>
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Phút đổi 1 Credit (Tư vấn)
+          <input name="minutes_per_credit" min="1" type="number" placeholder="Ví dụ: 15" aria-describedby="minute-credit-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="minute-credit-help" class="text-xs font-normal text-on-surface-variant">Chỉ cho tư vấn. Ví dụ: 15 phút tốn 1 Credit.</span>
+        </label>
+        <label class="grid gap-1.5 text-sm font-semibold text-on-surface">Giới hạn tokens mỗi lần dùng
+          <input name="max_tokens" min="1" type="number" placeholder="Ví dụ: 8000" aria-describedby="max-token-help" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span id="max-token-help" class="text-xs font-normal text-on-surface-variant">Tùy chọn cho AI. Để trống nếu không cần giới hạn.</span>
+        </label>
+        <p id="rule-pricing-guide" class="sm:col-span-2 rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface"><span class="font-bold">Scanner:</span> điền Giá cố định, ví dụ <strong>5 Credits</strong> mỗi lần quét. Để trống các ô AI và tư vấn.</p>
         <button class="sm:col-span-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thêm phiên bản giá</button>
       </form>
       <div class="mt-5 divide-y divide-outline-variant/15">
@@ -102,6 +121,23 @@ const rules = rulesResult.results ?? [];
     };
     packageForm?.addEventListener('input', updatePackageCreditTotal);
     updatePackageCreditTotal();
+    const ruleForm = document.getElementById('rule-form') as HTMLFormElement | null;
+    const rulePricingGuide = document.getElementById('rule-pricing-guide');
+    const pricingGuides: Record<string, string> = {
+      scanner: '<span class="font-bold">Scanner:</span> điền Giá cố định, ví dụ <strong>5 Credits</strong> mỗi lần quét. Để trống các ô AI và tư vấn.',
+      ai: '<span class="font-bold">AI:</span> điền Tokens đổi 1 Credit, ví dụ <strong>1.000 tokens = 1 Credit</strong>. Có thể thêm giới hạn tokens mỗi lần dùng.',
+      consultation: '<span class="font-bold">Tư vấn:</span> điền Phút đổi 1 Credit, ví dụ <strong>15 phút = 1 Credit</strong>.',
+      course: '<span class="font-bold">Khóa học:</span> điền Giá cố định, ví dụ <strong>20 Credits</strong> để mở khóa.',
+      resource: '<span class="font-bold">Tài liệu:</span> điền Giá cố định, ví dụ <strong>3 Credits</strong> để tải.',
+      book: '<span class="font-bold">Sách:</span> điền Giá cố định, ví dụ <strong>10 Credits</strong> để đọc hoặc mở khóa.',
+      blog: '<span class="font-bold">Blog:</span> điền Giá cố định nếu cần thu phí; nếu để trống, nội dung không có rule giá sẽ miễn phí.',
+    };
+    const updateRulePricingGuide = () => {
+      const featureType = (ruleForm?.elements.namedItem('feature_type') as HTMLSelectElement | null)?.value || 'scanner';
+      if (rulePricingGuide) rulePricingGuide.innerHTML = pricingGuides[featureType];
+    };
+    ruleForm?.addEventListener('change', updateRulePricingGuide);
+    updateRulePricingGuide();
     submitForm('package-form', '/api/admin/credit-packages');
     submitForm('rule-form', '/api/admin/credit-pricing-rules');
   </script>
