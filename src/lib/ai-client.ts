@@ -202,6 +202,13 @@ async function chatOpenAI(
 
   if (!resp.ok) {
     const err = await resp.text();
+    if (resp.status === 402 && /insufficient balance|add money to your gateway|use BYOK/i.test(err)) {
+      throw new AiError(
+        'Cloudflare AI Gateway chưa có số dư Unified Billing hoặc chưa cấu hình BYOK cho model này. Vào Cloudflare Dashboard > AI > AI Gateway để nạp tiền hoặc kết nối API key của provider.',
+        402,
+        'cloudflare-billing',
+      );
+    }
     throw new AiError(`OpenAI API error (${resp.status}): ${err}`, resp.status, 'openai');
   }
 

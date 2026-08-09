@@ -360,6 +360,10 @@ function getInitials(name: string) {
         prompt_vi: fd.get('prompt_vi')?.toString() || undefined,
         prompt_en: fd.get('prompt_en')?.toString() || undefined,
         model_override: fd.get('model_override')?.toString() || undefined,
+        model_provider: (() => {
+          const select = document.getElementById('tool-model-select') as HTMLSelectElement | null;
+          return select?.selectedOptions[0]?.textContent?.trim().startsWith('Motapis') ? 'motapis' : undefined;
+        })(),
         fallback_model_override: fd.get('fallback_model_override')?.toString() || undefined,
         max_tokens_override: (() => {
           const value = Number(fd.get('max_tokens_override'));
