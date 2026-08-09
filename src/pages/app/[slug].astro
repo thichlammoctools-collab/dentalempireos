@@ -1,6 +1,7 @@
 ---
 import { env } from 'cloudflare:workers';
 import { getAppBySlug, parseAppConfig } from '../../lib/app-db';
+import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-db';
 import { canAccessAiApp } from '../../lib/entitlement-check';
 import '../../styles/global.css';
 
@@ -25,6 +26,14 @@ if (!(await canAccessAiApp(env.DB, Astro.locals.user?.id, app.id))) {
 
 const config = parseAppConfig(app.config_json);
 const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
+const modelOverride = typeof config.model_override === 'string' ? config.model_override : '*';
+const pricingRule = await getActiveCreditPricingRule(env.DB, 'ai_app', app.id, modelOverride);
+const creditBalance = Astro.locals.user ? await getCreditBalance(env.DB, Astro.locals.user.id) : null;
+const creditNotice = pricingRule?.tokens_per_credit
+  ? `Quy đổi: 1 Credit / ${pricingRule.tokens_per_credit.toLocaleString('vi-VN')} token.`
+  : pricingRule?.credit_amount
+    ? `Chi phí: ${pricingRule.credit_amount} Credits mỗi lượt AI.`
+    : 'Công cụ hiện chưa tính Credits.';
 ---
 
 <!doctype html>
@@ -100,6 +109,11 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       border: 1px solid rgba(111, 207, 240, 0.35); background: rgba(34, 96, 122, 0.22);
       color: #b8d3de; font-size: 12px; line-height: 1.5;
     }
+    .credit-status {
+      display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px;
+      color: #a9c1cb; font-size: 11px; line-height: 1.5;
+    }
+    .credit-status b { color: #f6c453; }
     .workflow-notice strong { color: #76d9ad; }
     .workflow-progress { height: 3px; margin-top: 22px; background: #1a3949; }
     .workflow-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #66cfee, #74d8ac); transition: width .25s ease; }
@@ -638,6 +652,11 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
       <span class="material-symbols-outlined" style="font-size:17px;color:#72d7ac" aria-hidden="true">auto_awesome</span>
       <span>AI sẽ dẫn dắt theo từng bước để hiểu đúng bối cảnh và tạo <strong>đầu ra có thể triển khai</strong> cho phòng khám của bạn.</span>
     </div>
+    <div class="credit-status" aria-live="polite">
+      <span>{creditNotice}</span>
+      {creditBalance && <span>Số dư: <b id="credit-balance">{creditBalance.available}</b> Credits</span>}
+    </div>
+    <p id="credit-usage" class="credit-status" aria-live="polite"></p>
     <div class="workflow-progress"><div id="workflow-progress-fill" class="workflow-progress-fill"></div></div>
     <div class="workflow-steps" id="workflow-steps"><span class="active">Bối cảnh</span><span>Chi tiết</span><span>Ưu tiên</span><span>Kết quả</span></div>
   </div>
@@ -958,6 +977,16 @@ const promptVi = typeof config.prompt_vi === 'string' ? config.prompt_vi : '';
           const data = await resp.json();
           if (requestGeneration !== generation) return;
           const reply = data.reply || '';
+          const creditBalance = document.getElementById('credit-balance');
+          if (creditBalance && data.balance?.available != null) {
+            creditBalance.textContent = String(data.balance.available);
+          }
+          const creditUsage = document.getElementById('credit-usage');
+          if (creditUsage && data.usage) {
+            const tokens = Number(data.usage.total_tokens || 0).toLocaleString('vi-VN');
+            const credits = Number(data.usage.credits_charged || 0).toLocaleString('vi-VN');
+            creditUsage.textContent = `Lượt vừa dùng: ${tokens} token, quy đổi ${credits} Credits.`;
+          }
 
           // Extract options from [data]...[/data] blocks
           let options = [];

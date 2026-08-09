@@ -6,6 +6,14 @@ import { getAiGatewayConfig, getCloudflareAiGatewayConfig } from '../../../../li
 import { chatCompletionWithFallback } from '../../../../lib/ai-client';
 import type { ModelConfig } from '../../../../lib/ai-client';
 import { createAuth } from '../../../../lib/auth';
+import {
+  getActiveCreditPricingRule,
+  getCreditBalance,
+  InsufficientCreditsError,
+  releaseReservation,
+  reserveCredits,
+  settleReservation,
+} from '../../../../lib/credit-db';
 import { canAccessAiApp } from '../../../../lib/entitlement-check';
 
 export const prerender = false;
@@ -16,6 +24,14 @@ interface Message {
 }
 
 const MAX_SOP_TURNS = 6;
+
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function creditsForTokens(tokens: number, tokensPerCredit: number): number {
+  return Math.max(1, Math.ceil(tokens / tokensPerCredit));
+}
 
 function buildSystemPrompt(appName: string, promptVi: string, userTurn: number, isFinalTurn: boolean): string {
   const customContext = promptVi
@@ -163,6 +179,36 @@ export const POST: APIRoute = async ({ request, params }) => {
       content: truncate(stripTags(m.content)),
     }));
 
+  const primaryModel = modelConfigs[0];
+  const pricingRule = await getActiveCreditPricingRule(env.DB, 'ai_app', app.id, primaryModel.model_id);
+  const requestId = crypto.randomUUID();
+  const inputTokens = estimateTokens(
+    systemPrompt + messages.map((message) => message.content).join('\n'),
+  );
+  const creditsToReserve = pricingRule?.tokens_per_credit
+    ? creditsForTokens(inputTokens + (primaryModel.max_tokens ?? 4096), pricingRule.tokens_per_credit)
+    : pricingRule?.credit_amount ?? 0;
+  let reservationId: string | null = null;
+
+  if (creditsToReserve > 0) {
+    try {
+      const reservation = await reserveCredits(env.DB, {
+        userId: session.user.id,
+        amount: creditsToReserve,
+        featureType: 'ai_app',
+        businessObjectId: requestId,
+        idempotencyKey: `ai-app:${requestId}`,
+        metadata: { appId: app.id, model: primaryModel.model_id, ruleId: pricingRule?.id },
+      });
+      reservationId = reservation.reservation.id;
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return json({ error: 'Bạn không đủ Credits để tạo phản hồi AI này.', code: 'insufficient_credits' }, 402);
+      }
+      throw error;
+    }
+  }
+
   try {
     const completion = await chatCompletionWithFallback(modelConfigs, messages, systemPrompt);
     const reply = completion.content;
@@ -171,14 +217,47 @@ export const POST: APIRoute = async ({ request, params }) => {
     const result = userTurn >= MAX_SOP_TURNS
       ? forceSOPComplete(reply)
       : extractSOPComplete(reply);
+    const outputTokens = estimateTokens(reply);
+    const totalTokens = inputTokens + outputTokens;
+    const creditsCharged = pricingRule?.tokens_per_credit
+      ? creditsForTokens(totalTokens, pricingRule.tokens_per_credit)
+      : pricingRule?.credit_amount ?? 0;
+
+    if (reservationId) {
+      await settleReservation(env.DB, {
+        userId: session.user.id,
+        reservationId,
+        featureType: 'ai_app',
+        businessObjectId: requestId,
+        chargeType: 'chat_turn',
+        credits: creditsCharged,
+        priceSnapshot: {
+          ruleId: pricingRule?.id,
+          ruleVersion: pricingRule?.rule_version,
+          tokensPerCredit: pricingRule?.tokens_per_credit,
+          fixedCredits: pricingRule?.credit_amount,
+          model: completion.config.model_id,
+        },
+        quantitySnapshot: { inputTokens, outputTokens, totalTokens },
+      });
+    }
     return json({
       reply: result.reply,
       full_sop_text: result.complete ? result.full_sop : '',
       sop_complete: result.complete,
       turn: userTurn,
       max_turns: MAX_SOP_TURNS,
+      usage: { input_tokens: inputTokens, output_tokens: outputTokens, total_tokens: totalTokens, credits_charged: creditsCharged },
+      balance: await getCreditBalance(env.DB, session.user.id),
     });
   } catch (err) {
+    if (reservationId) {
+      await releaseReservation(env.DB, {
+        userId: session.user.id,
+        reservationId,
+        reason: 'ai_app_request_failed',
+      }).catch(() => undefined);
+    }
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return json({ error: msg }, 500);
   }
