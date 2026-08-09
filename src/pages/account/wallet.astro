@@ -10,7 +10,9 @@ const auth = createAuth(env);
 const session = await auth.api.getSession({ headers: Astro.request.headers });
 if (!session?.user) return Astro.redirect('/login?redirect=/account/wallet');
 
-const [balance, entries, packageResult] = await Promise.all([
+await expireOldPendingCreditOrders(env.DB, session.user.id);
+
+const [balance, entries, packageResult, creditOrders] = await Promise.all([
   getCreditBalance(env.DB, session.user.id),
   listCreditLedger(env.DB, session.user.id, { limit: 50 }),
   env.DB.prepare(
@@ -18,6 +20,7 @@ const [balance, entries, packageResult] = await Promise.all([
      FROM "credit_package" WHERE "is_active" = 1
      ORDER BY "sort_order" ASC, "created_at" ASC`,
   ).all<{ id: string; name: string; price: number; credit_amount: number; bonus_credits: number }>(),
+  listUserCreditOrders(env.DB, session.user.id, { limit: 20 }),
 ]);
 const packages = packageResult.results ?? [];
 const payosSettings = await env.DB.prepare('SELECT "is_active" FROM "payos_settings" WHERE "id" = 1').first<{ is_active: number }>().catch(() => null);
@@ -43,6 +46,37 @@ function formatDate(value: string): string {
 
 function formatPrice(value: number): string {
   return `${value.toLocaleString('vi-VN')}đ`;
+}
+
+const orderStatusLabels: Record<string, string> = {
+  pending: 'Chờ thanh toán',
+  processing: 'Đang xử lý',
+  paid: 'Đã thanh toán',
+  cancelled: 'Đã hủy',
+  expired: 'Hết hạn',
+};
+
+const orderStatusClasses: Record<string, string> = {
+  pending: 'bg-amber-500/10 text-amber-500',
+  processing: 'bg-primary/10 text-primary',
+  paid: 'bg-emerald-500/10 text-emerald-500',
+  cancelled: 'bg-surface-container-high text-on-surface-variant',
+  expired: 'bg-rose-500/10 text-rose-400',
+};
+
+function orderPackageName(order: CreditOrder): string {
+  try {
+    const snapshot = JSON.parse(order.package_snapshot_json) as { name?: string };
+    return snapshot.name ?? 'Gói Credits';
+  } catch {
+    return 'Gói Credits';
+  }
+}
+
+function orderRetryHref(order: CreditOrder): string | null {
+  if (order.status !== 'pending') return null;
+  if (order.payment_method === 'manual') return `/payment/credits-manual?order=${encodeURIComponent(order.id)}`;
+  return order.checkout_url;
 }
 ---
 
@@ -101,6 +135,31 @@ function formatPrice(value: number): string {
                 <button class="credit-package-checkout mt-4 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-60" data-package-id={creditPackage.id} data-name={creditPackage.name} data-payos={payosEnabled ? '1' : '0'} data-manual={manualEnabled ? '1' : '0'}>Nạp Credits</button>
               </article>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section class="mt-8 rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5 md:p-6">
+        <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><h2 class="text-lg font-bold text-on-surface">Đơn nạp Credits</h2><span class="text-xs text-on-surface-variant">Đơn chưa thanh toán tự hủy sau 15 phút (PayOS) hoặc 24 giờ (chuyển khoản)</span></div>
+        {creditOrders.length === 0 ? (
+          <div class="py-8 text-center text-sm text-on-surface-variant">Chưa có đơn nạp Credits nào.</div>
+        ) : (
+          <div class="divide-y divide-outline-variant/15">
+            {creditOrders.map((order) => {
+              const retryHref = orderRetryHref(order);
+              return (
+                <div class="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center">
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-semibold text-on-surface">{orderPackageName(order)} · {order.credits_to_grant} Credits</p>
+                    <p class="mt-0.5 truncate text-xs text-on-surface-variant">#{order.order_code ?? order.id.slice(0, 8)} · {formatPrice(order.amount)} · {order.payment_method === 'manual' ? 'Chuyển khoản' : 'PayOS'} · {formatDate(order.created_at)}</p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-3">
+                    <span class:list={['rounded-full px-2.5 py-1 text-xs font-bold', orderStatusClasses[order.status] ?? 'bg-surface-container-high text-on-surface-variant']}>{orderStatusLabels[order.status] ?? order.status}</span>
+                    {retryHref && <a href={retryHref} class="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary transition hover:brightness-110">Thanh toán ngay</a>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
