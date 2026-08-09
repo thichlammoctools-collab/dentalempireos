@@ -817,11 +817,31 @@ const creditNotice = pricingRule?.tokens_per_credit
       return blocks.join('');
     }
 
-    function addMsg(role, html, options) {
+    function addOptions(msgWrap, options) {
+      if (!options || !options.length) return;
+
+      const suggestions = document.createElement('div');
+      suggestions.className = 'sug-wrap';
+      options.forEach(option => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sug-opt';
+        button.textContent = option;
+        button.addEventListener('click', () => {
+          userInput.value = option;
+          autoResize(userInput);
+          sendMessage();
+        });
+        suggestions.appendChild(button);
+      });
+      msgWrap.querySelector('.ai-bubble')?.appendChild(suggestions);
+      scrollMessageIntoView(msgWrap);
+    }
+
+    function addMsg(role, html) {
       const wrap = document.createElement('div');
       wrap.className = 'msg-wrap' + (role === 'user' ? ' user' : '');
       if (role === 'ai') {
-        // Text goes into .msg-text, options go outside so streaming doesn't wipe them
         wrap.innerHTML = `
           <div class="msg-avatar ai-avatar">
             <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8" aria-hidden="true">smart_toy</span>
@@ -829,24 +849,6 @@ const creditNotice = pricingRule?.tokens_per_credit
           <div class="msg-bubble ai-bubble">
             <div class="msg-text">${html}</div>
           </div>`;
-
-        if (options && options.length) {
-          const suggestions = document.createElement('div');
-          suggestions.className = 'sug-wrap';
-          options.forEach(option => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'sug-opt';
-            button.textContent = option;
-            button.addEventListener('click', () => {
-              userInput.value = option;
-              autoResize(userInput);
-              sendMessage();
-            });
-            suggestions.appendChild(button);
-          });
-          wrap.querySelector('.ai-bubble').appendChild(suggestions);
-        }
       } else {
         wrap.innerHTML = `
           <div class="msg-avatar user-avatar">
@@ -939,7 +941,7 @@ const creditNotice = pricingRule?.tokens_per_credit
 
       userInput.value = '';
       autoResize(userInput);
-       addMsg('user', escapeHtml(text), []);
+        addMsg('user', escapeHtml(text));
        conversationHistory.push({ role: 'user', content: text });
        userTurn++;
        saveDraft();
@@ -968,7 +970,7 @@ const creditNotice = pricingRule?.tokens_per_credit
           const data = await resp.json().catch(() => ({}));
           if (requestGeneration !== generation) return;
            const errorMessage = data.error || 'Không thể kết nối AI.';
-          addMsg('ai', `<p><span style="color:#f87171">Lỗi: ${escapeHtml(errorMessage)}</span></p>`, []);
+          addMsg('ai', `<p><span style="color:#f87171">Lỗi: ${escapeHtml(errorMessage)}</span></p>`);
            conversationHistory.pop();
            userTurn = Math.max(0, userTurn - 1);
            updateTurnCounter();
@@ -1003,9 +1005,10 @@ const creditNotice = pricingRule?.tokens_per_credit
           }
 
           // Stream the reply
-          const msgWrap = addMsg('ai', '', options);
+          const msgWrap = addMsg('ai', '');
           await streamText(msgWrap, cleanReply, requestGeneration);
           if (requestGeneration !== generation) return;
+          addOptions(msgWrap, options);
 
           conversationHistory.push({ role: 'assistant', content: reply });
           saveDraft();
@@ -1017,7 +1020,7 @@ const creditNotice = pricingRule?.tokens_per_credit
       } catch (err) {
         if (err.name === 'AbortError' || requestGeneration !== generation) return;
         removeTyping();
-        addMsg('ai', '<p><span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span></p>', []);
+        addMsg('ai', '<p><span style="color:#f87171">Lỗi kết nối. Vui lòng thử lại.</span></p>');
         conversationHistory.pop();
         userTurn = Math.max(0, userTurn - 1);
         updateTurnCounter();
@@ -1439,7 +1442,7 @@ const creditNotice = pricingRule?.tokens_per_credit
         userTurn = conversationHistory.filter(message => message.role === 'user').length;
         chatView.querySelector('#welcome-msg')?.remove();
         conversationHistory.forEach(message => {
-          addMsg(message.role, message.role === 'assistant' ? renderMarkdown(message.content) : escapeHtml(message.content), []);
+          addMsg(message.role, message.role === 'assistant' ? renderMarkdown(message.content) : escapeHtml(message.content));
         });
       }
     } catch {}
