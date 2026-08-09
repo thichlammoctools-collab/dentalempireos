@@ -12,7 +12,7 @@ export interface R2SaveResult {
  * Returns the accumulated text.
  */
 export async function streamAndSaveToR2(
-  env: Env,
+  env: Cloudflare.Env,
   key: string,
   stream: ReadableStream,
   options?: { contentType?: string },
@@ -47,7 +47,7 @@ export async function streamAndSaveToR2(
  * Save text directly to R2 (no streaming).
  */
 export async function saveTextToR2(
-  env: Env,
+  env: Cloudflare.Env,
   key: string,
   text: string,
   contentType = 'text/plain; charset=utf-8',
@@ -61,7 +61,7 @@ export async function saveTextToR2(
 /**
  * Read text from R2.
  */
-export async function readTextFromR2(env: Env, key: string): Promise<string | null> {
+export async function readTextFromR2(env: Cloudflare.Env, key: string): Promise<string | null> {
   const obj = await env.MEDIA.get(key);
   if (!obj) return null;
   return await obj.text();

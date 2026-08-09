@@ -86,7 +86,7 @@ async function keywordSearch(
 
 async function vectorSearch(
   db: D1Database,
-  env: Env,
+  vectorize: VectorizeIndex,
   query: string,
   limit: number,
   opts: { chapterId?: string },
@@ -96,10 +96,10 @@ async function vectorSearch(
     const { getEmbedding } = await import('./embedding');
     const embedding = await getEmbedding(db, query);
 
-    const vecResults = await env.VECTORIZE.query(embedding, { topK: limit * 2 });
+    const vecResults = await vectorize.query(embedding, { topK: limit * 2 });
     if (!vecResults.matches?.length) return [];
 
-    const ids = vecResults.matches.map(m => {
+    const ids = vecResults.matches.map((m) => {
       const meta = m.metadata as Record<string, string> | undefined;
       return meta?.chunk_id ?? m.id;
     });
@@ -147,11 +147,12 @@ export async function searchChunks(
   query: string,
   limit = 4,
   opts: { chapterId?: string } = {},
-  env?: Env,
+  env?: Cloudflare.Env,
 ): Promise<RagChunk[]> {
-  if (env?.VECTORIZE) {
+  const vectorize = env?.VECTORIZE;
+  if (env && vectorize) {
     const [vectorResults, keywordResults] = await Promise.all([
-      vectorSearch(db, env, query, limit, opts),
+      vectorSearch(db, vectorize, query, limit, opts),
       keywordSearch(db, query, limit * 2, opts),
     ]);
     return hybridMerge(vectorResults, keywordResults, limit);

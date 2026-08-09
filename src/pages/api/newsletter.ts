@@ -7,7 +7,7 @@ import { sendWelcomeEmail } from '../../lib/resend';
 export const prerender = false;
 
 // POST /api/newsletter — subscribe + send welcome email
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   let body: { email?: string; source?: string; post_slug?: string; post_title?: string };
   try {
     body = (await request.json()) as typeof body;
@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ipHash = await hashIp(ip);
 
   if (ipHash) {
-    const { allowed, retryAfterMs } = await checkRateLimit(env.DB, ipHash);
+    const { allowed } = await checkRateLimit(env.DB, ipHash);
     if (!allowed) {
       return json(
         { error: 'Quá nhiều lần đăng ký. Vui lòng thử lại sau.' },
@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const result = await subscribe(env.DB, {
-    email: body.email,
+    email: body.email!,
     source: body.source ?? 'blog',
     postSlug: body.post_slug,
     ip: ipHash ?? undefined,
@@ -46,10 +46,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!result.alreadySubscribed) {
     // Fire welcome email async — don't block the response
-    const waitUntil = (env.ctx as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
+    const waitUntil = locals.cfContext?.waitUntil?.bind(locals.cfContext);
     waitUntil?.(
       sendWelcomeEmail({
-        email: body.email,
+        email: body.email!,
         postSlug: body.post_slug,
         postTitle: body.post_title,
       }).catch((err: unknown) => {

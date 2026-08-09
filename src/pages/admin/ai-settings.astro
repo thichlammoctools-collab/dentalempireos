@@ -184,6 +184,12 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
 
 <script>
   type AiModel = { id: string; name: string; provider: string; category: 'chat' | 'embedding' };
+  type SelectControl = HTMLElement & Pick<HTMLSelectElement, 'value' | 'options' | 'selectedIndex'>;
+  function requiredSelect(id: string): SelectControl {
+    const element = document.getElementById(id);
+    if (!element || element.tagName !== 'SELECT') throw new Error(`Missing select #${id}`);
+    return element as unknown as SelectControl;
+  }
   const page = document.getElementById('ai-settings-page');
   const value = (name: string) => page?.dataset[name] || '';
   const configured = {
@@ -203,10 +209,10 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
   const providerTest = document.getElementById('provider-test') as HTMLButtonElement;
   const providerMsg = document.getElementById('provider-msg') as HTMLElement;
   const routingMsg = document.getElementById('routing-msg') as HTMLElement;
-  const defaultModel = document.getElementById('default-model') as HTMLSelectElement;
-  const chatModel = document.getElementById('chat-model') as HTMLSelectElement;
-  const scannerModel = document.getElementById('scanner-model') as HTMLSelectElement;
-  const embeddingModel = document.getElementById('embedding-model') as HTMLSelectElement;
+  const defaultModel = requiredSelect('default-model');
+  const chatModel = requiredSelect('chat-model');
+  const scannerModel = requiredSelect('scanner-model');
+  const embeddingModel = requiredSelect('embedding-model');
   const maxTokens = document.getElementById('max-tokens') as HTMLInputElement;
   const embeddingCurrent = document.getElementById('embedding-current') as HTMLElement;
   const knowledgeMsg = document.getElementById('knowledge-msg') as HTMLElement;
@@ -218,7 +224,7 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
     target.className = `mt-4 text-sm ${type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-on-surface-variant'}`;
   }
   function activeProvider() { return document.querySelector<HTMLInputElement>('input[name="provider"]:checked')?.value as 'cloudflare' | 'motapis'; }
-  function selectOptions(select: HTMLSelectElement, items: AiModel[], value: string, empty: string) {
+  function selectOptions(select: SelectControl, items: AiModel[], value: string, empty: string) {
     select.innerHTML = '';
     const blank = new Option(empty, ''); select.appendChild(blank);
     const groups = new Map<string, AiModel[]>();

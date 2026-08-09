@@ -45,8 +45,7 @@ export const POST: APIRoute = async () => {
     let questionsAdded = 0;
 
     for (const sec of def.sections) {
-      await addSection(env.DB, {
-        id: sec.id!,
+      const section = await addSection(env.DB, {
         survey_id: def.id!,
         title_vi: sec.title_vi,
         title_en: sec.title_en ?? sec.title_vi,
@@ -54,15 +53,13 @@ export const POST: APIRoute = async () => {
         subtitle_en: sec.subtitle_en ?? null,
         ref: sec.ref ?? null,
         icon: sec.icon ?? null,
-        order_index: sec.order_index ?? 0,
+        order_idx: sec.order_idx,
       });
       sectionsAdded++;
 
       for (const q of sec.questions) {
         await addQuestion(env.DB, {
-          id: q.id!,
-          section_id: sec.id!,
-          survey_id: def.id!,
+          section_id: section.id,
           question_id: q.question_id,
           type: q.type,
           label_vi: q.label_vi,
@@ -74,9 +71,9 @@ export const POST: APIRoute = async () => {
           scale_labels_vi: q.scale_labels_vi ?? null,
           scale_labels_en: q.scale_labels_en ?? null,
           dimension: q.dimension ?? null,
-          anchor: q.anchor ?? false,
-          required: q.required ?? false,
-          order_index: q.order_index ?? 0,
+          anchor: q.anchor ?? 0,
+          required: q.required ?? 0,
+          order_idx: q.order_idx,
         });
         questionsAdded++;
       }

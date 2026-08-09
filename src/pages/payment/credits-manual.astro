@@ -8,7 +8,7 @@ export const prerender = false;
 
 const orderId = Astro.url.searchParams.get('order') ?? '';
 const [order, settings] = await Promise.all([orderId ? getCreditOrder(env.DB, orderId) : null, getManualPaymentSettings(env.DB)]);
-const isOwner = order?.user_id === Astro.locals.user?.id && order.payment_method === 'manual';
+const isOwner = order?.user_id === Astro.locals.user?.id && order?.payment_method === 'manual';
 const transferContent = order?.order_code ? `CRED ${order.order_code}` : '';
 const qrUrl = isOwner && settings?.bank_bin && settings.account_number && order
   ? `https://img.vietqr.io/image/${encodeURIComponent(settings.bank_bin)}-${encodeURIComponent(settings.account_number)}-compact2.png?amount=${order.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(settings.account_name)}`

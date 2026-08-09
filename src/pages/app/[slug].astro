@@ -2,11 +2,7 @@
 import { env } from 'cloudflare:workers';
 import { getAppBySlug, parseAppConfig } from '../../lib/app-db';
 import { canAccessAiApp } from '../../lib/entitlement-check';
-import '@fontsource/be-vietnam-pro/300.css';
-import '@fontsource/be-vietnam-pro/400.css';
-import '@fontsource/be-vietnam-pro/500.css';
-import '@fontsource/be-vietnam-pro/600.css';
-import '@fontsource/be-vietnam-pro/700.css';
+import '../../styles/global.css';
 
 export const prerender = false;
 

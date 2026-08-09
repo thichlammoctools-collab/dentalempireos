@@ -6,11 +6,8 @@ import {
   getCategoryBySlug,
   listCategories,
   listPosts,
-  getPopularPosts,
   listTags,
   buildCategoryTree,
-  type BlogPostWithMeta,
-  type BlogCategory,
 } from '../../../../lib/blog-db';
 
 export const prerender = false;
@@ -23,11 +20,10 @@ const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10)
 const perPage = 12;
 const sort = (Astro.url.searchParams.get('sort') ?? 'recent') as 'recent' | 'popular' | 'featured';
 
-const [category, flatCategories, tags, popular] = await Promise.all([
+const [category, flatCategories, tags] = await Promise.all([
   getCategoryBySlug(db, categorySlug),
   listCategories(db),
   listTags(db),
-  getPopularPosts(db, 5),
 ]);
 
 if (!category) {
@@ -45,7 +41,7 @@ if (currentNode) {
   }
 }
 
-const [{ posts, total }, popularInCategory] = await Promise.all([
+const [{ posts, total }, { posts: popularInCategory }] = await Promise.all([
   listPosts(db, {
     limit: perPage,
     offset: (page - 1) * perPage,

@@ -729,11 +729,11 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
         const res = await fetch('/api/account/avatar', { method: 'POST', body: fd });
 
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
+          const body = await res.json().catch((): { error?: string } => ({})) as { error?: string };
           throw new Error(body.error || 'Upload failed');
         }
 
-        const { url } = await res.json();
+        const { url } = await res.json() as { url: string };
 
         const { error } = await authClient.updateUser({ image: url });
         if (error) throw new Error(error.message || 'Failed to update user');

@@ -175,6 +175,18 @@ const activeCount = Math.max(0, total - bannedCount);
 
 <script>
 declare function showToast(msg: string, type?: string): void;
+type UserDetailResponse = {
+  sessions?: unknown[];
+  accounts?: unknown[];
+  products?: unknown[];
+  accesses?: unknown[];
+  name?: string;
+  email?: string;
+  banned?: boolean;
+  emailVerified?: boolean;
+  createdAt?: string;
+  lastActiveAt?: string;
+};
 
 const userActions = document.querySelector('.user-admin-page')!;
 const modal = document.getElementById('user-modal')!;
@@ -219,7 +231,7 @@ async function fetchUserDetail(userId: string) {
 
   try {
     const res = await fetch(`/api/admin/auth/users/${encodeURIComponent(userId)}`);
-    const data = await res.json();
+    const data = await res.json() as UserDetailResponse;
 
     const sessions = data.sessions ?? [];
     const accounts = data.accounts ?? [];
@@ -252,7 +264,7 @@ async function fetchUserDetail(userId: string) {
         </div>
         <div class="space-y-1">
           <div class="text-xs text-on-surface-variant uppercase tracking-wider">Đăng ký</div>
-          <div class="font-semibold text-on-surface">${new Date(data.createdAt).toLocaleDateString('vi-VN')}</div>
+          <div class="font-semibold text-on-surface">${data.createdAt ? new Date(data.createdAt).toLocaleDateString('vi-VN') : '-'}</div>
         </div>
         <div class="space-y-1">
           <div class="text-xs text-on-surface-variant uppercase tracking-wider">Hoạt động cuối</div>
@@ -361,7 +373,7 @@ userActions.addEventListener('click', async (e) => {
       showToast(banned ? 'Đã bỏ cấm người dùng' : 'Đã cấm người dùng');
       window.location.reload();
     } else {
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       showToast(data.error || 'Lỗi', 'error');
     }
   } catch {
@@ -390,7 +402,7 @@ userActions.addEventListener('click', async (e) => {
       showToast('Đã xóa người dùng');
       window.location.reload();
     } else {
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({})) as { error?: string };
       showToast(data.error || 'Lỗi khi xóa', 'error');
     }
   } catch {
@@ -428,7 +440,7 @@ modalContent.addEventListener('click', async (e) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       if (!res.ok) {
         showToast(data.error || 'Không thể kích hoạt sản phẩm', 'error');
         return;
@@ -455,7 +467,7 @@ modalContent.addEventListener('click', async (e) => {
       modal.classList.remove('is-open');
       window.location.reload();
     } else {
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       showToast(data.error || 'Lỗi', 'error');
     }
   } catch {

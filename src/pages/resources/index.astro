@@ -1,6 +1,5 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
 import { canAccessResource } from '../../lib/entitlement-check';
@@ -40,7 +39,7 @@ const creditPriceByResourceId = new Map(
       .map(async (resource) => {
         const rule = await getActiveCreditPricingRule(db, 'resource', resource.id);
         const credits = rule?.credit_amount;
-        return [resource.id, Number.isSafeInteger(credits) && credits > 0 ? credits : null] as const;
+        return [resource.id, typeof credits === 'number' && Number.isSafeInteger(credits) && credits > 0 ? credits : null] as const;
       }),
   ),
 );

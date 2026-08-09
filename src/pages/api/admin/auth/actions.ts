@@ -38,17 +38,17 @@ export const POST: APIRoute = async ({ request }) => {
         return json({ success: true });
 
       case 'revoke-sessions':
-        await auth.api.revokeUserSessions({ userId, headers: request.headers });
+        await auth.api.revokeUserSessions({ body: { userId }, headers: request.headers });
         return json({ success: true });
 
       case 'send-verification':
         // Resolve the recipient server-side so the action only targets the selected user.
-        const user = await auth.api.getUser({ id: userId, headers: request.headers });
-        await auth.api.sendVerificationEmail({ email: user.email });
+        const user = await auth.api.getUser({ query: { id: userId }, headers: request.headers });
+        await auth.api.sendVerificationEmail({ body: { email: user.email }, headers: request.headers });
         return json({ success: true });
 
       case 'delete':
-        await auth.api.removeUser({ userId, headers: request.headers });
+        await auth.api.removeUser({ body: { userId }, headers: request.headers });
         return json({ success: true });
 
       default:

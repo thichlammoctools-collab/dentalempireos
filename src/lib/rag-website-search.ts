@@ -104,7 +104,7 @@ async function keywordSearch(
 
 async function vectorSearch(
   db: D1Database,
-  env: Env,
+  vectorize: VectorizeIndex,
   query: string,
   limit: number,
   opts: { contentType?: string; sourceId?: string } = {},
@@ -113,10 +113,10 @@ async function vectorSearch(
     const { getEmbedding } = await import('./embedding');
     const embedding = await getEmbedding(db, query);
 
-    const vecResults = await env.VECTORIZE.query(embedding, { topK: limit * 4 });
+    const vecResults = await vectorize.query(embedding, { topK: limit * 4 });
     if (!vecResults.matches?.length) return [];
 
-    const ids = vecResults.matches.map(m => {
+    const ids = vecResults.matches.map((m) => {
       const meta = m.metadata as Record<string, string> | undefined;
       return meta?.chunk_id ?? m.id;
     });
@@ -148,7 +148,7 @@ async function vectorSearch(
         heading_path: string | null; content: string; url: string;
       }>();
 
-    const matchesById = new Map(ids.map((id, index) => [id, index]));
+    const matchesById = new Map(ids.map((id: string, index: number) => [id, index]));
     return (results ?? [])
       .map(row => ({ ...row, text: row.content, score: -(matchesById.get(row.id) ?? ids.length) }))
       .sort((a, b) => b.score - a.score);
@@ -177,11 +177,12 @@ export async function searchWebsite(
   query: string,
   limit = 4,
   opts: { contentType?: string; sourceId?: string } = {},
-  env?: Env,
+  env?: Cloudflare.Env,
 ): Promise<WebsiteChunk[]> {
-  if (env?.VECTORIZE) {
+  const vectorize = env?.VECTORIZE;
+  if (env && vectorize) {
     const [vectorResults, keywordResults] = await Promise.all([
-      vectorSearch(db, env, query, limit, opts),
+      vectorSearch(db, vectorize, query, limit, opts),
       keywordSearch(db, query, limit * 2, opts),
     ]);
     return hybridMerge(vectorResults, keywordResults, limit);

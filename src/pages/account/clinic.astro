@@ -287,7 +287,7 @@ const initial = {
       fd.append('file', file);
       const res = await fetch('/api/account/logo-upload', { method: 'POST', body: fd });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch((): { error?: string } => ({})) as { error?: string };
         throw new Error(body.error || 'Upload failed');
       }
       currentLogoUrl = previewUrl;
@@ -382,7 +382,7 @@ const initial = {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch((): { error?: string } => ({})) as { error?: string };
         throw new Error(body.error || 'Save failed');
       }
 

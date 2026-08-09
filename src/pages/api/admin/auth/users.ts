@@ -15,11 +15,13 @@ export const GET: APIRoute = async ({ url, request }) => {
 
     const result = await auth.api.listUsers({
       headers: request.headers,
-      limit,
-      offset,
-      sortBy: 'createdAt',
-      sortDirection: 'desc',
-      ...(search ? { searchValue: search, searchField: 'email' } : {}),
+      query: {
+        limit,
+        offset,
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
+        ...(search ? { searchValue: search, searchField: 'email' as const } : {}),
+      },
     });
     return json(result);
   } catch (err) {

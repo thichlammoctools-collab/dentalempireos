@@ -6,9 +6,12 @@ declare namespace Cloudflare {
     DB: D1Database;
     SESSION: KVNamespace;
     MEDIA: R2Bucket;
+    VECTORIZE?: VectorizeIndex;
     BETTER_AUTH_SECRET: string;
     BETTER_AUTH_URL: string;
+    BETTER_AUTH_API_KEY?: string;
     RESEND_API_KEY: string;
+    RESEND_FROM_EMAIL?: string;
     ADMIN_EMAILS: string;
     CF_API_TOKEN: string;
     CF_AI_GATEWAY_TOKEN: string;

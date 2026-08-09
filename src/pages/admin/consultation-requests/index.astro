@@ -47,7 +47,9 @@ const statusClasses: Record<ConsultationStatus, string> = {
 </AdminLayout>
 
 <script>
-  document.querySelectorAll<HTMLSelectElement>('.consultation-status').forEach((select) => {
+  document.querySelectorAll('.consultation-status').forEach((element) => {
+    if (!(element instanceof HTMLElement) || element.tagName !== 'SELECT') return;
+    const select = element as unknown as HTMLElement & Pick<HTMLSelectElement, 'value' | 'disabled'>;
     select.addEventListener('change', async () => {
       const previous = select.dataset.previous ?? select.value;
       select.disabled = true;

@@ -12,7 +12,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   try {
     const auth = createAuth(env);
-    const user = await auth.api.getUser({ id, headers: request.headers });
+    const user = await auth.api.getUser({ query: { id }, headers: request.headers });
     const [products, accessResult] = await Promise.all([
       listProducts(env.DB),
       env.DB
@@ -85,8 +85,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 
   try {
     const auth = createAuth(env);
-    const body = await request.json();
-    const user = await auth.api.updateUser({ id, ...body, headers: request.headers });
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    if (!body || Array.isArray(body)) return badRequest('Invalid JSON body');
+    const user = await auth.api.adminUpdateUser({ body: { userId: id, data: body }, headers: request.headers });
     return json(user);
   } catch (err) {
     console.error('[auth/users/[id] PATCH]', err);
@@ -100,7 +101,7 @@ export const DELETE: APIRoute = async ({ params, request }) => {
 
   try {
     const auth = createAuth(env);
-    await auth.api.removeUser({ userId: id, headers: request.headers });
+    await auth.api.removeUser({ body: { userId: id }, headers: request.headers });
     return json({ success: true });
   } catch (err) {
     console.error('[auth/users/[id] DELETE]', err);

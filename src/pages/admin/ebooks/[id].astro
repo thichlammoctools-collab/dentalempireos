@@ -691,7 +691,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           });
           if (res.ok) {
             const { id: newId } = await res.json() as { id: string };
-            const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: null, level: 2, title, slug: '', order: treeUl!.children.length, keywords: '[]', children: [], blocks: [] };
+            const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: null, level: 2, title, slug: '', order: treeUl!.children.length, keywords: '[]', is_free: 0, children: [], blocks: [] };
             const newLi = buildSectionLi(node, 0);
             treeUl!.insertBefore(newLi, li);
             flashAndScroll(newLi);
@@ -1783,7 +1783,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             });
             if (res.ok) {
               const { id: newId } = await res.json() as { id: string };
-              const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: id, level: 3, title, slug: '', order: childUl!.querySelectorAll(':scope > [data-section-item]').length, keywords: '[]', children: [], blocks: [] };
+              const node: SectionNode = { id: newId, chapter_id: chapterId, parent_id: id, level: 3, title, slug: '', order: childUl!.querySelectorAll(':scope > [data-section-item]').length, keywords: '[]', is_free: 0, children: [], blocks: [] };
               const newLi = buildSectionLi(node, parentDepth + 1);
               childUl!.insertBefore(newLi, li);
               flashAndScroll(newLi);

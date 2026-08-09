@@ -99,4 +99,4 @@ export const GET: APIRoute = async () => {
   }
 };
 
-export const POST: APIRoute = async () => GET();
+export const POST: APIRoute = async (context) => GET(context);

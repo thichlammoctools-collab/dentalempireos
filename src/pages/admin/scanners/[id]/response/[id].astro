@@ -135,7 +135,7 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
       <div>
         <p class="text-xs text-on-surface-variant">Email</p>
-        <p class="text-on-surface font-semibold font-mono">{maskEmail(response.email)}</p>
+        <p class="text-on-surface font-semibold font-mono">{maskEmail(response.email ?? '')}</p>
       </div>
       <div>
         <p class="text-xs text-on-surface-variant">Số năm hoạt động</p>
@@ -215,6 +215,7 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
 <script>
   document.getElementById('btn-reanalyze')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
+    if (!(btn instanceof HTMLButtonElement)) return;
     const responseId = btn.dataset.responseId;
     if (!responseId) return;
     if (!confirm('Re-run AI analysis cho response này?')) return;
@@ -227,7 +228,7 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
       // Use the AI endpoint if it exists, otherwise just trigger via fetch
       const res = await fetch(`/api/admin/scanner/regenerate-ai?id=${responseId}`, { method: 'POST' });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(data.error || 'Re-analyze thất bại');
       }
       window.showToast?.('Đã tạo AI analysis mới', 'success');

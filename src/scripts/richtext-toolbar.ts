@@ -89,8 +89,7 @@ function handleAction(action: string, opts: ToolbarOptions): void {
     case 'code': chain.toggleCode().run(); break;
     case 'codeBlock': chain.toggleCodeBlock().run(); break;
     case 'callout': {
-      const container = (opts as unknown as { toolbar: HTMLElement }).toolbar;
-      const picker = container?.querySelector<HTMLSelectElement>('#callout-type-picker');
+      const picker = opts.toolbar?.querySelector('#callout-type-picker') as HTMLSelectElement | null;
       if (picker) {
         const type = picker.value;
         editor.chain().focus().insertCallout(type as 'tip' | 'warning' | 'info' | 'note').run();

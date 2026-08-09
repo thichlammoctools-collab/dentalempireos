@@ -86,7 +86,9 @@ export const prerender = false;
   <script>
     const filterFrom = document.getElementById('filter-from') as HTMLInputElement;
     const filterTo = document.getElementById('filter-to') as HTMLInputElement;
-    const filterGroup = document.getElementById('filter-group') as HTMLSelectElement;
+    const filterGroupElement = document.getElementById('filter-group');
+    if (!filterGroupElement || filterGroupElement.tagName !== 'SELECT') throw new Error('Missing usage grouping select.');
+    const filterGroup = filterGroupElement as unknown as HTMLElement & Pick<HTMLSelectElement, 'value'>;
     const btnApply = document.getElementById('btn-apply');
     const btnExport = document.getElementById('btn-export');
     const tableHeader = document.getElementById('table-header') as HTMLElement;

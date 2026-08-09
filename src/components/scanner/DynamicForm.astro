@@ -56,7 +56,7 @@ interface Props {
   clinicProfile?: ClinicProfile | null;
 }
 
-const { surveyData } = Astro.props;
+const { surveyData, clinicProfile } = Astro.props;
 
 const defaultScaleVi: Record<string, string> = {
   '1': 'Chưa có',
@@ -126,34 +126,93 @@ const defaultScaleEn: Record<string, string> = {
 <script>
   // Read ALL data from data attributes — define:vars causes SSR stream truncation in Astro
   const wrap = document.getElementById('survey-form');
-  const surveyData = JSON.parse(wrap.dataset.survey || '{}');
+  if (!(wrap instanceof HTMLElement)) throw new Error('Survey form container is missing.');
+
+  type LeadField = {
+    label_vi?: string;
+    label_en?: string;
+    placeholder_vi?: string;
+    placeholder_en?: string;
+    type?: string;
+    required?: boolean | number;
+  };
+  type Question = {
+    id: number;
+    question_id: string;
+    type: 'textarea' | 'select' | 'radio' | 'yesno';
+    label_vi: string;
+    label_en: string;
+    placeholder_vi?: string | null;
+    placeholder_en?: string | null;
+    options_vi?: string[] | null;
+    options_en?: string[] | null;
+    scale_labels_vi?: Record<string, string> | null;
+    scale_labels_en?: Record<string, string> | null;
+    required?: number;
+    anchor?: number;
+  };
+  type Section = {
+    id: number;
+    title_vi: string;
+    title_en: string;
+    subtitle_vi?: string | null;
+    subtitle_en?: string | null;
+    ref?: string | null;
+    questions: Question[];
+  };
+  type SurveyData = {
+    id: string;
+    title_vi: string;
+    title_en: string;
+    description_vi?: string | null;
+    description_en?: string | null;
+    lead_fields?: Record<string, LeadField>;
+    translations_vi?: Record<string, string>;
+    translations_en?: Record<string, string>;
+    sections: Section[];
+  };
+  type AnswerRecord = Record<string, string | null> & { lang: string; survey_id: string };
+  type SubmitResponse = { error?: string; requiresAuth?: boolean; redirect?: string };
+
+  function requiredElement<T extends HTMLElement>(id: string): T {
+    const element = document.getElementById(id);
+    if (!(element instanceof HTMLElement)) throw new Error(`Required element #${id} is missing.`);
+    return element as T;
+  }
+
+  function formControl(selector: string): HTMLInputElement | HTMLTextAreaElement | null {
+    const element = document.querySelector(selector);
+    return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element : null;
+  }
+
+  const surveyData = JSON.parse(wrap.dataset.survey || '{}') as SurveyData;
   const rawProfile = wrap.dataset.clinic;
-  const clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
-  const defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
-  const defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
+  const clinicProfile = rawProfile ? JSON.parse(rawProfile) as Record<string, string | null> : null;
+  const defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}') as Record<string, string>;
+  const defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}') as Record<string, string>;
 
   const STORAGE_KEY = `dentalempire-scanner-draft-${surveyData.id}`;
 
-  const partsContainer = document.getElementById('parts-container');
-  const stepperFill = document.getElementById('stepper-fill');
-  const stepLabels = document.getElementById('step-labels');
-  const cardIntro = document.getElementById('card-intro');
-  const cardSubmit = document.getElementById('card-submit');
-  const btnStart = document.getElementById('btn-start');
-  const btnSubmit = document.getElementById('btn-submit');
-  const btnBackSubmit = document.getElementById('btn-back-submit');
-  const submitError = document.getElementById('submit-error');
+  const partsContainer = requiredElement<HTMLDivElement>('parts-container');
+  const stepperFill = requiredElement<HTMLDivElement>('stepper-fill');
+  const stepLabels = requiredElement<HTMLDivElement>('step-labels');
+  const cardIntro = requiredElement<HTMLDivElement>('card-intro');
+  const cardSubmit = requiredElement<HTMLDivElement>('card-submit');
+  const btnStart = requiredElement<HTMLButtonElement>('btn-start');
+  const btnSubmit = requiredElement<HTMLButtonElement>('btn-submit');
+  const btnBackSubmit = requiredElement<HTMLButtonElement>('btn-back-submit');
+  const submitError = requiredElement<HTMLParagraphElement>('submit-error');
 
   let currentLang = 'vi';
   let currentStep = -1;
-  const answers = { lang: 'vi', survey_id: surveyData.id };
-  const partEls = [];
+  const answers: AnswerRecord = { lang: 'vi', survey_id: surveyData.id };
+  const partEls: HTMLDivElement[] = [];
 
-  function t(vi, en) {
+  function t(vi: string | null | undefined, en: string | null | undefined): string {
     return currentLang === 'vi' ? (vi ?? en ?? '') : (en ?? vi ?? '');
   }
 
-  function getTrans(key, fallbackVi, fallbackEn) {
+  function getTrans(key: string, fallbackVi: string, fallbackEn: string): string {
     const t = currentLang === 'vi'
       ? (surveyData.translations_vi?.[key] ?? fallbackVi)
       : (surveyData.translations_en?.[key] ?? fallbackEn);
@@ -162,7 +221,7 @@ const defaultScaleEn: Record<string, string> = {
 
   // ── Lead fields rendering ────────────────────────
   function buildIntroFields() {
-    const container = document.getElementById('intro-fields');
+    const container = requiredElement<HTMLDivElement>('intro-fields');
     container.innerHTML = '';
     const lead = surveyData.lead_fields ?? {};
     const order = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
@@ -243,7 +302,7 @@ const defaultScaleEn: Record<string, string> = {
     partsContainer.innerHTML = '';
     partEls.length = 0;
 
-    surveyData.sections.forEach((section, idx) => {
+    surveyData.sections.forEach((section: Section, idx: number) => {
       const card = document.createElement('div');
       card.className = 'card part-card hidden';
       card.dataset.step = String(idx);
@@ -261,7 +320,7 @@ const defaultScaleEn: Record<string, string> = {
         </div>
       `;
 
-      section.questions.forEach((q) => {
+      section.questions.forEach((q: Question) => {
         const block = document.createElement('div');
         block.className = 'question' + (q.anchor ? ' anchor' : '');
         const anchorBadge = q.anchor
@@ -292,7 +351,7 @@ const defaultScaleEn: Record<string, string> = {
         } else if (q.type === 'radio') {
           const opts = q.options_vi ?? [];
           const enOpts = q.options_en ?? [];
-          const options = opts.map((opt, i) => {
+          const options = opts.map((opt: string, i: number) => {
             const enOpt = enOpts[i] ?? opt;
             const display = currentLang === 'en' ? enOpt : opt;
             return `
@@ -350,23 +409,21 @@ const defaultScaleEn: Record<string, string> = {
     applyAnswersToDom();
   }
 
-  function saveFromEvent(e) {
+  function saveFromEvent(e: Event) {
     const target = e.target;
-    if (!target.name) return;
-    if (target.type === 'radio') {
-      answers[target.name] = target.value;
-    } else {
-      answers[target.name] = target.value;
-    }
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.name) return;
+    answers[target.name] = target.value;
   }
 
   function applyAnswersToDom() {
-    document.querySelectorAll('input, textarea').forEach((el) => {
+    document.querySelectorAll('input, textarea').forEach((element) => {
+      const el = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element : null;
+      if (!el) return;
       if (!el.name) return;
       const val = answers[el.name];
       if (val == null || val === '') return;
-      if (el.type === 'radio') {
-        if (el.checked !== undefined && el.value === String(val)) el.checked = true;
+      if (el instanceof HTMLInputElement && el.type === 'radio') {
+        if (el.value === String(val)) el.checked = true;
       } else {
         el.value = String(val);
       }
@@ -375,7 +432,7 @@ const defaultScaleEn: Record<string, string> = {
 
   // ── Step labels ─────────────────────────────────
   function buildStepLabels() {
-    const labels = surveyData.sections.map((section, idx) => {
+    const labels = surveyData.sections.map((section: Section, idx: number) => {
       const title = t(section.title_vi, section.title_en);
       const num = title.match(/^\s*(?:PHẦN|PART)\s*(\d+)/i);
       const n = num ? num[1] : String(idx + 1);
@@ -386,15 +443,15 @@ const defaultScaleEn: Record<string, string> = {
   }
 
   // ── Navigation ──────────────────────────────────
-  function goTo(step) {
+  function goTo(step: number) {
     if (step < -1 || step > surveyData.sections.length) return;
 
     // Validate intro required fields when leaving intro
     if (currentStep === -1 && step >= 0) {
       const lead = surveyData.lead_fields ?? {};
       for (const [fieldName, cfg] of Object.entries(lead)) {
-        if (cfg && cfg.required) {
-          const el = document.querySelector(`[name="${fieldName}"]`);
+        if (cfg?.required) {
+          const el = formControl(`[name="${fieldName}"]`);
           if (!el?.value?.trim()) {
             alert(currentLang === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc.' : 'Please fill all required fields.');
             return;
@@ -403,7 +460,7 @@ const defaultScaleEn: Record<string, string> = {
       }
       // Save intro fields
       ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'].forEach((k) => {
-        const el = document.querySelector(`[name="${k}"]`);
+        const el = formControl(`[name="${k}"]`);
         if (el) answers[k] = el.value || null;
       });
     }
@@ -414,7 +471,6 @@ const defaultScaleEn: Record<string, string> = {
     partEls.forEach((el, i) => el.classList.toggle('hidden', i !== step));
 
     // Stepper
-    const total = surveyData.sections.length + 1;
     const progress = step < 0 ? 0 : step >= surveyData.sections.length ? 100 : Math.round((step / surveyData.sections.length) * 100);
     stepperFill.style.width = `${progress}%`;
 
@@ -435,7 +491,9 @@ const defaultScaleEn: Record<string, string> = {
     btnSubmit.innerHTML = `<span>${getTrans('submitting', 'Đang xử lý...', 'Processing...')}</span>`;
 
     // Final read of all fields
-    document.querySelectorAll('input, textarea').forEach((el) => {
+    document.querySelectorAll('input, textarea').forEach((element) => {
+      const el = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element : null;
+      if (!el) return;
       if (el.name && (el.type === 'text' || el.type === 'email' || el.type === 'number' || el.tagName === 'TEXTAREA')) {
         if (el.value) answers[el.name] = el.value;
       }
@@ -450,7 +508,8 @@ const defaultScaleEn: Record<string, string> = {
     }
 
     // Show save checkbox if clinicProfile exists
-    const saveChecked = document.getElementById('save-profile-check')?.checked ?? false;
+    const saveProfileCheck = document.getElementById('save-profile-check');
+    const saveChecked = saveProfileCheck instanceof HTMLInputElement && saveProfileCheck.checked;
 
     try {
       const res = await fetch('/api/scanner/submit', {
@@ -458,7 +517,7 @@ const defaultScaleEn: Record<string, string> = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...answers, save_profile: saveChecked }),
       });
-      const data = await res.json();
+      const data = await res.json() as SubmitResponse;
 
       if (!res.ok) {
         if (data.requiresAuth) {
@@ -480,25 +539,28 @@ const defaultScaleEn: Record<string, string> = {
   }
 
   // ── Language switching ──────────────────────────
-  function setLang(lang, skipNav) {
+  function setLang(lang: string | undefined, skipNav = false) {
+    if (lang !== 'vi' && lang !== 'en') return;
     currentLang = lang;
     answers.lang = lang;
 
-    document.querySelectorAll('.lang-btn').forEach((b) => {
-      b.classList.toggle('active', b.dataset.lang === lang);
+    document.querySelectorAll('.lang-btn').forEach((button) => {
+      if (button instanceof HTMLButtonElement) {
+        button.classList.toggle('active', button.dataset.lang === lang);
+      }
     });
 
     // Update intro
     buildIntroFields();
-    (document.getElementById('intro-title')).textContent = t(surveyData.title_vi, surveyData.title_en);
-    (document.getElementById('intro-desc') ).textContent = t(surveyData.description_vi, surveyData.description_en) || '';
-    (document.getElementById('intro-info-title') ).textContent =
+    requiredElement<HTMLElement>('intro-title').textContent = t(surveyData.title_vi, surveyData.title_en);
+    requiredElement<HTMLElement>('intro-desc').textContent = t(surveyData.description_vi, surveyData.description_en) || '';
+    requiredElement<HTMLElement>('intro-info-title').textContent =
       currentLang === 'vi' ? 'Thông tin cơ bản' : 'Basic Information';
-    (document.getElementById('submit-title') ).textContent =
+    requiredElement<HTMLElement>('submit-title').textContent =
       getTrans('submit_title', 'Sẵn sàng gửi?', 'Ready to submit?');
-    (document.getElementById('submit-desc') ).textContent =
+    requiredElement<HTMLElement>('submit-desc').textContent =
       getTrans('submit_desc', 'Hệ thống sẽ lưu hồ sơ và bắt đầu phân tích...', 'We will save your profile and begin the AI analysis...');
-    (document.getElementById('submit-btn-label') ).textContent =
+    requiredElement<HTMLElement>('submit-btn-label').textContent =
       getTrans('submitButton', 'Gửi Hồ Sơ', 'Submit Profile');
     btnStart.textContent = getTrans('start', 'Bắt đầu →', 'Start →');
     btnBackSubmit.textContent = getTrans('back', '← Quay lại', '← Back');
@@ -508,18 +570,19 @@ const defaultScaleEn: Record<string, string> = {
     if (!skipNav) goTo(currentStep);
   }
 
-  function escapeHtml(s) {
+  function escapeHtml(s: string): string {
     return s.replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c] ?? c));
+    } as Record<string, string>)[c] ?? c);
   }
 
   // ── Init ────────────────────────────────────────
   const hasDraft = loadDraft();
   setLang(currentLang, true);
 
-  document.querySelectorAll('.lang-btn').forEach((b) => {
-    b.addEventListener('click', () => { setLang(b.dataset.lang); saveDraft(); });
+  document.querySelectorAll('.lang-btn').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener('click', () => { setLang(button.dataset.lang); saveDraft(); });
   });
   btnStart.addEventListener('click', () => goTo(0));
   btnSubmit.addEventListener('click', () => submit());
@@ -527,7 +590,9 @@ const defaultScaleEn: Record<string, string> = {
 
   // Populate intro from draft, then clinicProfile
   buildIntroFields();
-  document.querySelectorAll('.intro-card input[name]').forEach((el) => {
+  document.querySelectorAll('.intro-card input[name]').forEach((element) => {
+    if (!(element instanceof HTMLInputElement)) return;
+    const el = element;
     const v = answers[el.name];
     if (v != null && v !== '') {
       el.value = String(v);

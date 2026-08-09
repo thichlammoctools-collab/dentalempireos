@@ -7,7 +7,7 @@ export interface SSEMessage {
   data: unknown;
 }
 
-function encodeEvent(event?: string, data: unknown): Uint8Array {
+function encodeEvent(data: unknown, event?: string): Uint8Array {
   const encoder = new TextEncoder();
   let str = '';
   if (event) str += `event: ${event}\n`;
@@ -28,7 +28,7 @@ export function createSSEStream(
         controller.close();
         return;
       }
-      controller.enqueue(encodeEvent(value.event, value.data));
+      controller.enqueue(encodeEvent(value.data, value.event));
     },
   });
 }
@@ -39,7 +39,7 @@ export function createSSEStream(
 export function singleSSEStream(event: string, data: unknown): ReadableStream {
   return new ReadableStream({
     start(controller) {
-      controller.enqueue(encodeEvent(event, data));
+      controller.enqueue(encodeEvent(data, event));
       controller.close();
     },
   });
@@ -69,5 +69,5 @@ export function sseEnqueue(
   event: string,
   data: unknown,
 ) {
-  controller.enqueue(encodeEvent(event, data));
+  controller.enqueue(encodeEvent(data, event));
 }

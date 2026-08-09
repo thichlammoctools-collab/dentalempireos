@@ -15,6 +15,7 @@ export interface App {
   status: AppStatus;
   is_free: number;
   config_json: string | null;
+  linked_scanner_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,7 +39,7 @@ function now(): string {
 }
 
 /** Parse config_json safely — returns empty object on null or invalid JSON. */
-export function parseAppConfig(raw: string | null): Record<string, unknown> {
+export function parseAppConfig(raw: string | null | undefined): Record<string, unknown> {
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return {}; }
 }

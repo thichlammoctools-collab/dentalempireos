@@ -17,6 +17,8 @@ interface ContentChunk {
 }
 
 export const POST: APIRoute = async (ctx) => {
+  const vectorize = env.VECTORIZE;
+  if (!vectorize) return json({ error: 'Vectorize not configured' }, 503);
   const auth = createAuth(env);
   const session = await auth.api.getSession({ headers: ctx.request.headers });
   if (!session?.user) {
@@ -62,7 +64,7 @@ export const POST: APIRoute = async (ctx) => {
       const embedding = await getEmbedding(env.DB, chunk.text);
       const vecId = `chunk_${chunk.id}`;
 
-      await env.VECTORIZE.insertOrUpdate([
+      await vectorize.upsert([
         { id: vecId, values: embedding, metadata: { chunk_id: chunk.id } },
       ]);
 

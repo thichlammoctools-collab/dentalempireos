@@ -107,7 +107,7 @@ export function createRichTextEditor(opts: RichTextOptions): RichTextHandle {
       }),
       BubbleMenu.configure({
         element: bubbleEl,
-        tippyOptions: { duration: 150, placement: 'top' },
+        options: { placement: 'top' },
       }),
       Callout,
       EditorShortcuts,

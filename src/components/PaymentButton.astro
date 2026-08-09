@@ -159,8 +159,9 @@ const effectiveSingleMethod = upgrade ? null : singleMethod;
 <script>
   document.querySelectorAll('.payment-method-trigger').forEach((trigger) => {
     const button = trigger as HTMLButtonElement;
-    const dialog = button.nextElementSibling as HTMLDialogElement | null;
-    if (!dialog) return;
+    const dialogCandidate = button.nextElementSibling;
+    if (!(dialogCandidate instanceof HTMLDialogElement)) return;
+    const dialog: HTMLDialogElement = dialogCandidate;
 
     const singleMethod = button.dataset.singleMethod;
     const productId = button.dataset.productId;
@@ -171,18 +172,20 @@ const effectiveSingleMethod = upgrade ? null : singleMethod;
 
     // Helper: tạo thanh toán theo phương thức
     async function createPayment(method: string) {
-      const error = dialog.querySelector('.payment-dialog-error') as HTMLElement;
+      const error = dialog.querySelector('.payment-dialog-error');
       if (!productId || !method || isCreatingPayment) return;
 
       const showError = (message: string) => {
         if (!dialog.open) dialog.showModal();
-        error.textContent = message;
-        error.classList.remove('hidden');
+        if (error instanceof HTMLElement) {
+          error.textContent = message;
+          error.classList.remove('hidden');
+        }
       };
 
       isCreatingPayment = true;
       button.disabled = true;
-      error.classList.add('hidden');
+      error?.classList.add('hidden');
       try {
         const resp = await fetch(method === 'manual' ? '/api/manual-payment/create-payment' : '/api/payos/create-payment', {
           method: 'POST',

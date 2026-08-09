@@ -479,13 +479,16 @@ const avatarColors = [
   const seedLabel = document.getElementById('seed-label');
 
   if (seedToggle && seedGrid && seedChevron && seedLabel) {
+    const seedGridElement = seedGrid;
+    const seedChevronElement = seedChevron;
+    const seedLabelElement = seedLabel;
     const STORAGE_KEY = 'seedPanelCollapsed';
     let collapsed = localStorage.getItem(STORAGE_KEY) === 'true';
 
     function applyState() {
-      seedGrid.classList.toggle('hidden', collapsed);
-      seedChevron.textContent = collapsed ? 'expand_less' : 'expand_more';
-      seedLabel.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
+      seedGridElement.classList.toggle('hidden', collapsed);
+      seedChevronElement.textContent = collapsed ? 'expand_less' : 'expand_more';
+      seedLabelElement.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
     }
 
     applyState();
@@ -497,11 +500,20 @@ const avatarColors = [
   }
 
   // Modal logic
-  const modal = document.getElementById('create-modal');
-  const backdrop = document.getElementById('create-modal-backdrop');
-  const panel = document.getElementById('create-modal-panel');
-  const form = document.getElementById('create-form');
-  const formError = document.getElementById('form-error');
+  const modalElement = document.getElementById('create-modal');
+  const backdropElement = document.getElementById('create-modal-backdrop');
+  const panelElement = document.getElementById('create-modal-panel');
+  const formElement = document.getElementById('create-form');
+  const formErrorElement = document.getElementById('form-error');
+
+  if (!(modalElement instanceof HTMLElement) || !(backdropElement instanceof HTMLElement) || !(panelElement instanceof HTMLElement) || !(formElement instanceof HTMLFormElement) || !(formErrorElement instanceof HTMLElement)) {
+    throw new Error('Scanner creation modal is missing required elements.');
+  }
+  const modal = modalElement;
+  const backdrop = backdropElement;
+  const panel = panelElement;
+  const form = formElement;
+  const formError = formErrorElement;
 
   function openModal() {
     modal.classList.remove('hidden');
@@ -548,7 +560,7 @@ const avatarColors = [
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json() as { id?: string; error?: string };
       if (!res.ok || !data.id) {
         throw new Error(data.error || 'Tạo thất bại');
       }
@@ -563,7 +575,7 @@ const avatarColors = [
   });
 
   // Delete handlers
-  document.querySelectorAll('.btn-delete').forEach((btn) => {
+  document.querySelectorAll<HTMLButtonElement>('.btn-delete').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       const name = btn.dataset.name;
@@ -574,7 +586,7 @@ const avatarColors = [
       try {
         const res = await fetch(`/api/admin/scanner-definitions/${id}`, { method: 'DELETE' });
         if (!res.ok) {
-          const data = await res.json();
+          const data = await res.json() as { error?: string };
           throw new Error(data.error || 'Xóa thất bại');
         }
         (window).showToast?.('Đã xóa scanner', 'success');
@@ -586,7 +598,7 @@ const avatarColors = [
   });
 
   // Seed handlers
-  document.querySelectorAll('.btn-seed').forEach((btn) => {
+  document.querySelectorAll<HTMLButtonElement>('.btn-seed').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.seedId;
       const name = btn.dataset.seedName;
@@ -598,18 +610,17 @@ const avatarColors = [
       if (!confirm(confirmMsg)) return;
 
       btn.setAttribute('disabled', 'true');
-      (window).showToast?.('Đang import...', 'info', 2000);
+      (window).showToast?.('Đang import...', 'info');
 
       try {
         const res = await fetch(`/api/admin/seed-scanner/${id}`, { method: 'POST' });
-        const data = await res.json();
+        const data = await res.json() as { success?: boolean; error?: string; sections_added?: number; questions_added?: number };
         if (!res.ok || !data.success) {
           throw new Error(data.error || 'Import thất bại');
         }
         (window).showToast?.(
           `Đã import ${data.sections_added} phần, ${data.questions_added} câu hỏi`,
           'success',
-          3000,
         );
         setTimeout(() => window.location.reload(), 800);
       } catch (err) {

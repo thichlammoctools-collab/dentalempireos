@@ -420,6 +420,29 @@ export interface TierStats {
   sectionCount: number;
 }
 
+/** Return published chapter and section counts for every tier in one query. */
+export async function getAllTierStats(db: D1Database): Promise<Record<number, TierStats>> {
+  const { results } = await db
+    .prepare(
+      `SELECT c."tier" AS "tier",
+              COUNT(DISTINCT c."id") AS "chapterCount",
+              COUNT(s."id") AS "sectionCount"
+       FROM "chapter" c
+       LEFT JOIN "section" s ON s."chapter_id" = c."id"
+       WHERE c."status" = 'published'
+       GROUP BY c."tier"`,
+    )
+    .all<{ tier: number; chapterCount: number; sectionCount: number }>();
+
+  return results.reduce<Record<number, TierStats>>((stats, row) => {
+    stats[row.tier] = {
+      chapterCount: row.chapterCount ?? 0,
+      sectionCount: row.sectionCount ?? 0,
+    };
+    return stats;
+  }, {});
+}
+
 export async function getTierStats(db: D1Database, tier: number): Promise<TierStats> {
   const chapterRow = await db
     .prepare('SELECT COUNT(*) as cnt FROM "chapter" WHERE "tier" = ? AND "status" = ?')

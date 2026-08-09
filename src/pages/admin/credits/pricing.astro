@@ -216,7 +216,8 @@ const featureLabels: Record<string, string> = {
       blog: '<span class="font-bold">Blog:</span> cố định <strong>1 Credit = 1 ngày</strong> sử dụng.',
     };
     const updateGuide = () => {
-      const ft = (form?.elements.namedItem('feature_type') as HTMLSelectElement)?.value || 'scanner';
+      const featureType = form?.elements.namedItem('feature_type');
+      const ft = featureType instanceof HTMLSelectElement ? featureType.value : 'scanner';
       if (guideEl) guideEl.innerHTML = guides[ft];
       const creditField = document.getElementById('credit-amount-field')!;
       const tokenField = document.getElementById('tokens-per-credit-field')!;
@@ -289,7 +290,9 @@ const featureLabels: Record<string, string> = {
 
         const el = row as HTMLElement;
         (document.getElementById('rule-id') as HTMLInputElement).value = el.dataset.id!;
-        (document.getElementById('rule-feature-type') as HTMLSelectElement).value = el.dataset.featureType!;
+        const featureTypeInput = document.getElementById('rule-feature-type');
+        if (!(featureTypeInput instanceof HTMLSelectElement)) return;
+        featureTypeInput.value = el.dataset.featureType!;
         (document.getElementById('rule-target-id') as HTMLInputElement).value = el.dataset.targetId!;
         (document.getElementById('rule-credit-amount') as HTMLInputElement).value = el.dataset.creditAmount!;
         (document.getElementById('rule-tokens-per-credit') as HTMLInputElement).value = el.dataset.tokensPerCredit!;
@@ -317,7 +320,7 @@ const featureLabels: Record<string, string> = {
           body: JSON.stringify({ id }),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+          const data = await res.json().catch(() => ({})) as { error?: string };
           alert(data.error || 'Không thể xóa rule.');
           return;
         }
@@ -341,7 +344,7 @@ const featureLabels: Record<string, string> = {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const result = await res.json().catch(() => ({}));
+        const result = await res.json().catch(() => ({})) as { error?: string };
         alert(result.error || 'Không thể lưu rule giá.');
         return;
       }

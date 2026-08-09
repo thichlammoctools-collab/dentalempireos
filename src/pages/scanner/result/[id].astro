@@ -1045,7 +1045,7 @@ try {
         // Stop polling when nothing running
         const running = (data.ai_plan_status === 'running') || (data.ai_analysis_status === 'running');
         if (!running) {
-          clearInterval(pollInterval);
+          if (pollInterval !== null) clearInterval(pollInterval);
           pollInterval = null;
         }
       } catch { /* ignore */ }
@@ -1269,18 +1269,10 @@ try {
   const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;
 
   async function copyPlanText(text: string) {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('Clipboard API is unavailable.');
     }
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.append(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    textarea.remove();
+    await navigator.clipboard.writeText(text);
   }
 
   btnCopyPlan?.addEventListener('click', async () => {

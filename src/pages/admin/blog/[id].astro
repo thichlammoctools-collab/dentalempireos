@@ -284,7 +284,7 @@ function formatDate(iso: string | null): string {
   // ── Rich Text Editor ────────────────────────────────────────
   const richEditorContainer = document.getElementById('rich-editor-container') as HTMLDivElement;
   const blocksJsonInput = document.getElementById('blocks-json') as HTMLInputElement;
-  let richHandle: { destroy: () => void; getHTML: () => string } | null = null;
+  let richHandle: import('../../../scripts/richtext-editor').RichTextHandle | null = null;
 
   (async () => {
     try {
@@ -322,14 +322,19 @@ function formatDate(iso: string | null): string {
     const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
     const coverUrl = (form.elements.namedItem('cover_url') as HTMLInputElement).value;
     const coverAlt = (form.elements.namedItem('cover_alt') as HTMLInputElement).value;
-    const categoryId = (form.elements.namedItem('category_id') as unknown as HTMLSelectElement).value || null;
-    const accessTier = (form.elements.namedItem('access_tier') as HTMLSelectElement).value;
+    const categoryInput = form.elements.namedItem('category_id');
+    const accessTierInput = form.elements.namedItem('access_tier');
+    const chapterInput = form.elements.namedItem('chapter_id');
+    const scannerInput = form.elements.namedItem('scanner_id');
+    if (!(categoryInput instanceof HTMLSelectElement) || !(accessTierInput instanceof HTMLSelectElement) || !(chapterInput instanceof HTMLSelectElement) || !(scannerInput instanceof HTMLSelectElement)) return;
+    const categoryId = categoryInput.value || null;
+    const accessTier = accessTierInput.value;
     const isFeatured = (form.elements.namedItem('is_featured') as HTMLInputElement).checked;
     const isPinned = (form.elements.namedItem('is_pinned') as HTMLInputElement).checked;
     const isRecommended = (form.elements.namedItem('is_recommended') as HTMLInputElement).checked;
     const statusPublished = (form.elements.namedItem('status_published') as HTMLInputElement).checked;
-    const chapterId = (form.elements.namedItem('chapter_id') as HTMLSelectElement).value || null;
-    const scannerId = (form.elements.namedItem('scanner_id') as HTMLSelectElement).value || null;
+    const chapterId = chapterInput.value || null;
+    const scannerId = scannerInput.value || null;
 
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Đang lưu...';

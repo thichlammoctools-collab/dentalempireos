@@ -101,11 +101,11 @@ for (let i = 13; i >= 0; i--) {
 </AdminLayout>
 
 <script>
-const data = JSON.parse('{JSON.stringify(graph14)}');
+const data: Array<{ label: string; newUsers: number }> = JSON.parse('{JSON.stringify(graph14)}');
 const chart = document.getElementById('chart')!;
 const labels = document.getElementById('chart-labels')!;
 
-const max = Math.max(...data.map(d => d.newUsers), 1);
+const max = Math.max(...data.map((d) => d.newUsers), 1);
 
 data.forEach((d: any) => {
   const pct = (d.newUsers / max) * 100;

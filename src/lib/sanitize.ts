@@ -23,7 +23,7 @@ export const RICH_CONFIG = {
     'id', 'style',
     'colspan', 'rowspan',
   ],
-} as const;
+};
 
 const ALLOWED_TAGS = new Set([
   'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',

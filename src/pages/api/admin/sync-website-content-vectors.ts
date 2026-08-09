@@ -14,7 +14,8 @@ export const POST: APIRoute = async (ctx) => {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-  if (!env.VECTORIZE) {
+  const vectorize = env.VECTORIZE;
+  if (!vectorize) {
     return new Response(JSON.stringify({ error: 'Vectorize not configured' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -48,7 +49,7 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   if (vectors.length) {
-    await env.VECTORIZE.upsert(vectors);
+    await vectorize.upsert(vectors);
     const ids = vectors.map((vector) => vector.id);
     const placeholders = ids.map(() => '?').join(',');
     await env.DB

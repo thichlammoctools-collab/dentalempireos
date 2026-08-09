@@ -27,8 +27,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const id = params.id;
   if (!id) return badRequest('Missing id');
 
-  const body = await request.json().catch(() => null);
-  if (!body) return badRequest('Invalid JSON body');
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body || Array.isArray(body)) return badRequest('Invalid JSON body');
 
   // The access toggle is intentionally a small, independent update. It must
   // not depend on the editor having a fully loaded copy of the section tree.

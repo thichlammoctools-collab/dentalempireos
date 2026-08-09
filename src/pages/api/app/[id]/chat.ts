@@ -76,8 +76,8 @@ function forceSOPComplete(reply: string): { reply: string; full_sop: string; com
   };
 }
 
-async function getModelConfigs(db: D1Database, app: ReturnType<typeof parseAppConfig>): Promise<ModelConfig[]> {
-  const config = parseAppConfig(app.config_json);
+async function getModelConfigs(db: D1Database, configJson: string | null): Promise<ModelConfig[]> {
+  const config = parseAppConfig(configJson);
   const modelOverride = config.model_override as string | undefined;
   const fallbackModelOverride = config.fallback_model_override as string | undefined;
   const maxTokensOverride = config.max_tokens_override;
@@ -91,7 +91,9 @@ async function getModelConfigs(db: D1Database, app: ReturnType<typeof parseAppCo
     : null;
 
   const fallbackConfig = fallback && maxTokens ? { ...fallback, max_tokens: maxTokens } : fallback;
-  return [primary, fallbackConfig].filter((item): item is ModelConfig => Boolean(item) && !(item.provider_id === primary?.provider_id && item.model_id === primary.model_id));
+  return [primary, fallbackConfig].filter((item): item is ModelConfig =>
+    item !== null && !(item.provider_id === primary?.provider_id && item.model_id === primary?.model_id),
+  );
 }
 
 export const POST: APIRoute = async ({ request, params }) => {
@@ -127,7 +129,7 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
 
   const config = parseAppConfig(app.config_json);
-  const modelConfigs = await getModelConfigs(env.DB, app);
+  const modelConfigs = await getModelConfigs(env.DB, app.config_json);
 
   if (!modelConfigs.length) {
     return json({ error: 'Cloudflare AI Gateway chưa được cấu hình. Vui lòng vào AI Settings.' }, 503);

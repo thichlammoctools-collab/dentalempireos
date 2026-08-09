@@ -266,7 +266,7 @@ function formatPrice(vnd: number): string {
           body: JSON.stringify({ id }),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+          const data = await res.json().catch(() => ({})) as { error?: string };
           alert(data.error || 'Không thể xóa gói.');
           return;
         }
@@ -291,7 +291,7 @@ function formatPrice(vnd: number): string {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const result = await res.json().catch(() => ({}));
+        const result = await res.json().catch(() => ({})) as { error?: string };
         alert(result.error || 'Không thể lưu gói Credits.');
         return;
       }

@@ -37,21 +37,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (contentType === 'book') {
     const chapter = await env.DB.prepare('SELECT "is_premium" FROM "chapter" WHERE "id" = ?').bind(contentId).first<{ is_premium: number }>();
     if (!chapter || chapter.is_premium !== 1) return json({ error: 'Chương Premium không tồn tại.' }, 404);
-    durationDays = asInteger(body?.days);
+    durationDays = asInteger(body?.days) ?? undefined;
     if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
     canonicalContentId = '*';
     credits = durationDays;
   } else if (contentType === 'blog') {
     const post = await getPostById(env.DB, contentId);
     if (!post || post.access_tier !== 'premium') return json({ error: 'Bài viết Premium không tồn tại.' }, 404);
-    durationDays = asInteger(body?.days);
+    durationDays = asInteger(body?.days) ?? undefined;
     if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
     canonicalContentId = '*';
     credits = durationDays;
   } else if (contentType === 'course') {
     const course = await getCourse(env.DB, contentId);
     if (!course || course.is_published !== 1 || course.access_tier !== 'premium') return json({ error: 'Khóa học Premium không tồn tại.' }, 404);
-    durationDays = asInteger(body?.days);
+    durationDays = asInteger(body?.days) ?? undefined;
     if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
     credits = durationDays;
   } else {

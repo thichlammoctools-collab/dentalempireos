@@ -10,18 +10,16 @@ import {
   getManualPaymentSettings,
   getPayosEnv,
 } from '../lib/payos-db';
-import { getTierStats } from '../lib/book-db';
+import { getAllTierStats } from '../lib/book-db';
 
 export const prerender = false;
 
-const [savedHomepage, activeBookProduct, payosSettings, manualPaymentSettings, tier1Stats, tier2Stats, tier3Stats] = await Promise.all([
+const [savedHomepage, activeBookProduct, payosSettings, manualPaymentSettings, tierStats] = await Promise.all([
   getHomepageSettings(env.DB),
   getActiveBookProduct(env.DB),
   getPayosSettings(env.DB),
   getManualPaymentSettings(env.DB),
-  getTierStats(env.DB, 1),
-  getTierStats(env.DB, 2),
-  getTierStats(env.DB, 3),
+  getAllTierStats(env.DB),
 ]);
 
 const homepage = savedHomepage ?? getDefaults();
@@ -45,9 +43,9 @@ const paymentCopy = payosPaymentAvailable && manualPaymentAvailable
       : 'Thanh toán hiện chưa được cấu hình. Bạn vẫn có thể xem trước nội dung tài liệu.';
 
 const tiers = [
-  { number: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, icon: homepage.tier1_icon, stats: tier1Stats },
-  { number: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, icon: homepage.tier2_icon, stats: tier2Stats },
-  { number: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, icon: homepage.tier3_icon, stats: tier3Stats },
+  { number: 1, name: homepage.tier1_name, subtitle: homepage.tier1_subtitle, icon: homepage.tier1_icon, stats: tierStats[1] ?? { chapterCount: 0, sectionCount: 0 } },
+  { number: 2, name: homepage.tier2_name, subtitle: homepage.tier2_subtitle, icon: homepage.tier2_icon, stats: tierStats[2] ?? { chapterCount: 0, sectionCount: 0 } },
+  { number: 3, name: homepage.tier3_name, subtitle: homepage.tier3_subtitle, icon: homepage.tier3_icon, stats: tierStats[3] ?? { chapterCount: 0, sectionCount: 0 } },
 ];
 
 const testimonials = [

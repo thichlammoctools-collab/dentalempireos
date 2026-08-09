@@ -25,7 +25,9 @@ async function getModelConfigs(db: D1Database, configJson: string | null): Promi
     : null;
 
   const fallbackConfig = fallback && maxTokens ? { ...fallback, max_tokens: maxTokens } : fallback;
-  return [primary, fallbackConfig].filter((item): item is ModelConfig => Boolean(item) && !(item.provider_id === primary?.provider_id && item.model_id === primary.model_id));
+  return [primary, fallbackConfig].filter((item): item is ModelConfig =>
+    item !== null && !(item.provider_id === primary?.provider_id && item.model_id === primary?.model_id),
+  );
 }
 
 export const POST: APIRoute = async ({ request, params }) => {
