@@ -116,22 +116,22 @@ function formatPrice(vnd: number): string {
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
             Tên gói
-            <input name="name" id="pkg-name" required placeholder="Ví dụ: Gói 100" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <input name="name" id="pkg-name" required placeholder="Ví dụ: Gói 100" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
           </label>
           <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
             Giá (VND)
-            <input name="price" id="pkg-price" required min="0" type="number" placeholder="100.000" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <input name="price" id="pkg-price" required min="0" type="number" placeholder="100.000" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
           </label>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
             Credits cơ bản
-            <input name="credit_amount" id="pkg-credit-amount" required min="1" type="number" placeholder="100" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <input name="credit_amount" id="pkg-credit-amount" required min="1" type="number" placeholder="100" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
           </label>
           <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
             Tặng thêm
-            <input name="bonus_credits" id="pkg-bonus-credits" min="0" type="number" value="0" placeholder="0" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+            <input name="bonus_credits" id="pkg-bonus-credits" min="0" type="number" value="0" placeholder="0" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
           </label>
         </div>
 
@@ -152,7 +152,7 @@ function formatPrice(vnd: number): string {
           </label>
         </div>
 
-        <button id="submit-btn" class="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Lưu gói Credits</button>
+        <button id="submit-btn" class="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Lưu gói Credits</button>
       </form>
     </section>
   </div>

@@ -127,64 +127,61 @@ const featureLabels: Record<string, string> = {
         <button id="cancel-edit-btn" class="hidden text-xs font-semibold text-primary hover:underline">Hủy</button>
       </div>
 
-      <form id="rule-form" class="grid gap-3">
+      <form id="rule-form" class="flex flex-col gap-4">
         <input type="hidden" name="id" id="rule-id" />
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Tính năng
-            <select name="feature_type" id="rule-feature-type" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface">
-              <option value="scanner">Scanner</option>
-              <option value="ai">AI</option>
-              <option value="course">Khóa học</option>
-              <option value="resource">Tài liệu</option>
-              <option value="book">Sách</option>
-              <option value="blog">Blog</option>
-              <option value="consultation">Tư vấn</option>
-            </select>
-          </label>
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Áp dụng cho
-            <input name="target_id" id="rule-target-id" list="credit-pricing-targets" value="*" placeholder="* = tất cả" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-            <span class="text-xs font-normal text-on-surface-variant"><code>*</code> tất cả; nhập ID để đặt giá riêng.</span>
-          </label>
-        </div>
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Tính năng
+          <select name="feature_type" id="rule-feature-type" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface">
+            <option value="scanner">Scanner</option>
+            <option value="ai">AI</option>
+            <option value="course">Khóa học</option>
+            <option value="resource">Tài liệu</option>
+            <option value="book">Sách</option>
+            <option value="blog">Blog</option>
+            <option value="consultation">Tư vấn</option>
+          </select>
+        </label>
+
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Áp dụng cho
+          <input name="target_id" id="rule-target-id" list="credit-pricing-targets" value="*" placeholder="* = tất cả" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span class="text-xs font-normal text-on-surface-variant"><code>*</code> tất cả; nhập ID để đặt giá riêng.</span>
+        </label>
         <datalist id="credit-pricing-targets">
           <option value="*">Mặc định cho toàn bộ nội dung</option>
           {scanners.map((s) => <option value={s.id}>{s.title_vi}</option>)}
         </datalist>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Giá cố định (Credits)
-            <input name="credit_amount" id="rule-credit-amount" min="1" type="number" placeholder="Ví dụ: 5" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-            <span class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu...</span>
-          </label>
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Tokens đổi 1 Credit (AI)
-            <input name="tokens_per_credit" id="rule-tokens-per-credit" min="1" type="number" placeholder="Ví dụ: 1000" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-            <span class="text-xs font-normal text-on-surface-variant">Chỉ cho AI. 1.000 tokens = 1 Credit.</span>
-          </label>
-        </div>
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Giá cố định (Credits)
+          <input name="credit_amount" id="rule-credit-amount" min="1" type="number" placeholder="Ví dụ: 5" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu...</span>
+        </label>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Phút đổi 1 Credit (Tư vấn)
-            <input name="minutes_per_credit" id="rule-minutes-per-credit" min="1" type="number" placeholder="Ví dụ: 15" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-            <span class="text-xs font-normal text-on-surface-variant">Chỉ cho tư vấn. 15 phút = 1 Credit.</span>
-          </label>
-          <label class="grid gap-1.5 text-sm font-semibold text-on-surface">
-            Giới hạn tokens mỗi lần dùng
-            <input name="max_tokens" id="rule-max-tokens" min="1" type="number" placeholder="Ví dụ: 8000" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
-            <span class="text-xs font-normal text-on-surface-variant">Tùy chọn cho AI. Để trống nếu không cần.</span>
-          </label>
-        </div>
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Tokens đổi 1 Credit (AI)
+          <input name="tokens_per_credit" id="rule-tokens-per-credit" min="1" type="number" placeholder="Ví dụ: 1000" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span class="text-xs font-normal text-on-surface-variant">Chỉ cho AI. 1.000 tokens = 1 Credit.</span>
+        </label>
+
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Phút đổi 1 Credit (Tư vấn)
+          <input name="minutes_per_credit" id="rule-minutes-per-credit" min="1" type="number" placeholder="Ví dụ: 15" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span class="text-xs font-normal text-on-surface-variant">Chỉ cho tư vấn. 15 phút = 1 Credit.</span>
+        </label>
+
+        <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
+          Giới hạn tokens mỗi lần dùng
+          <input name="max_tokens" id="rule-max-tokens" min="1" type="number" placeholder="Ví dụ: 8000" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
+          <span class="text-xs font-normal text-on-surface-variant">Tùy chọn cho AI. Để trống nếu không cần.</span>
+        </label>
 
         <p id="rule-pricing-guide" class="rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface">
           <span class="font-bold">Scanner:</span> điền Giá cố định, ví dụ <strong>5 Credits</strong> mỗi lần quét.
         </p>
 
-        <button id="submit-btn" class="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary mt-1">Thêm phiên bản giá</button>
+        <button id="submit-btn" class="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thêm phiên bản giá</button>
       </form>
     </section>
   </div>
