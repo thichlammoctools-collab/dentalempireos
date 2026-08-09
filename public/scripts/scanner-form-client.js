@@ -271,7 +271,6 @@
     if (cardSubmit) cardSubmit.classList.toggle('hidden', step !== surveyData.sections.length);
     partEls.forEach(function (el, i) { el.classList.toggle('hidden', i !== step); });
 
-    var total = surveyData.sections.length + 1;
     var progress = step < 0 ? 0 : step >= surveyData.sections.length ? 100 : Math.round((step / surveyData.sections.length) * 100);
     if (stepperFill) stepperFill.style.width = progress + '%';
 
@@ -346,7 +345,7 @@
     }
   });
 
-  function submit() {
+  async function submit() {
     if (!submitError || isSubmitting) return;
     submitError.classList.add('hidden');
     if (scannerUnavailable) {
@@ -387,25 +386,21 @@
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
 
     requestIdempotencyKey = requestIdempotencyKey || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + '-' + Math.random());
-    fetch('/api/scanner/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestIdempotencyKey },
-      body: JSON.stringify(payload),
-    })
-    .then(function (res) {
-      return res.json().catch(function () {
-        return { error: 'Máy chủ không trả về dữ liệu hợp lệ.' };
-      }).then(function (data) {
-        if (!res.ok) {
-          var error = new Error(data.error || data.message || 'Submit failed');
-          error.status = res.status;
-          error.quota = data.quota;
-          throw error;
-        }
-        return data;
+    try {
+      var res = await fetch('/api/scanner/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestIdempotencyKey },
+        body: JSON.stringify(payload),
       });
-    })
-    .then(function (data) {
+      var data = await res.json().catch(function () {
+        return { error: 'Máy chủ không trả về dữ liệu hợp lệ.' };
+      });
+      if (!res.ok) {
+        var error = new Error(data.error || data.message || 'Submit failed');
+        error.status = res.status;
+        error.quota = data.quota;
+        throw error;
+      }
       if (!data.id && data.requiresAuth) {
         window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
         return;
@@ -413,11 +408,9 @@
       if (!data.id) throw new Error(data.error || 'Submit failed');
       clearDraft();
       window.location.href = data.redirect || '/scanner/result/' + data.id;
-    })
-    .catch(function (err) {
+    } catch (err) {
       if (submitError) {
         if (err.status === 429 && err.quota) {
-          var quota = err.quota;
           submitError.textContent = 'Ba lượt miễn phí đã dùng hết. Vui lòng nạp Credits để thực hiện lượt tiếp theo.';
           scannerUnavailable = true;
         } else {
@@ -431,7 +424,7 @@
         btnSubmit.innerHTML = original;
       }
       if (stickyNext) stickyNext.disabled = scannerUnavailable;
-    });
+    }
   }
 
   function setLang(lang) {

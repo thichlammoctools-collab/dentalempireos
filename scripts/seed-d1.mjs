@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // Seed 3 new scanners into D1 using wrangler
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
-
 const DB = 'dentalempireos-db';
 const REMOTE = '--remote';
 

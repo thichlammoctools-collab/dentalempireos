@@ -66,16 +66,7 @@ export function sanitizeRichHtml(html: string): string {
   html = html.replace(/<!--[\s\S]*?-->/g, '');
 
   // Parse and rebuild using regex-based stack
-  const tagRe = /<\/?(\w+)((?:\s+[\w-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*\/?>/gi;
   let result = '';
-  let lastIndex = 0;
-
-  tagRe.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  // Use a copy and search sequentially
-  const text = html;
-  const re = /<(\/?)(\w+)((?:\s+[\w-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*(\/?)>/gi;
 
   // This approach: replace everything that isn't a tag, then check tags
   result = html.replace(/<[^>]*>/g, (fullTag) => {

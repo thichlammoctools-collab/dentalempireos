@@ -577,7 +577,6 @@ import { resourceCategories } from '../../../data/resources';
   });
 
   // ── Modal helpers ─────────────────────────────────────────
-  const _fields = ['id', 'title', 'description', 'category', 'tier', 'file_ext', 'tag', 'icon', 'file_url', 'sort_order'];
   const modalIcon = el('modal-icon') as HTMLElement | null;
   const iconPreview = el('icon-preview');
   const iconInput = el('f-icon') as HTMLInputElement | null;
@@ -596,18 +595,13 @@ import { resourceCategories } from '../../../data/resources';
     cong_cu: 'construction',
     tham_khao: 'menu_book',
   };
-  let _iconAutoFromCategory = true;
   const categorySelect = el('f-category') as HTMLSelectElement | null;
   categorySelect?.addEventListener('change', () => {
     const def = categoryDefaultIcons[categorySelect.value];
     if (def && iconInput) {
       iconInput.value = def;
       if (iconPreview) iconPreview.textContent = def;
-      _iconAutoFromCategory = true;
     }
-  });
-  iconInput?.addEventListener('input', () => {
-    _iconAutoFromCategory = false;
   });
 
   function resetForm() {

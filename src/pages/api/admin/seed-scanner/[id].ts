@@ -14,7 +14,6 @@ import {
   addSection,
   addQuestion,
   deleteSurveyDefinition,
-  type SurveyDefinitionInput,
 } from '../../../../lib/survey-config-db';
 import { SEED_REGISTRY, type SeedScanner } from '../../../../data/seeds/registry';
 

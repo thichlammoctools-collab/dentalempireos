@@ -267,12 +267,11 @@ export async function getPost(db: D1Database, slug: string): Promise<BlogPostWit
 
   if (!post) return null;
 
-  const [category, tags, readLog] = await Promise.all([
+  const [category, tags] = await Promise.all([
     post.category_id
       ? getCategory(db, post.category_id)
       : Promise.resolve(null),
     getPostTags(db, post.id),
-    Promise.resolve([] as BlogTag[]),
   ]);
 
   return { ...post, category: category ?? undefined, tags };

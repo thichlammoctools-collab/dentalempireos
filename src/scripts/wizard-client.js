@@ -9,8 +9,6 @@
   var totalSteps = 5;
   var selectedType = null;
   var generatedData = null;
-  var allAnswers = {};
-
   // ── Helpers ────────────────────────────────────────────
   function slugify(text) {
     if (!text) return '';
@@ -22,16 +20,6 @@
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-  }
-
-  function show(id) {
-    var el = document.getElementById(id);
-    if (el) el.classList.remove('hidden');
-  }
-
-  function _hide(id) {
-    var el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
   }
 
   function showEl(el) {
@@ -158,7 +146,7 @@
 
       var dims = [];
       var dimRows = document.querySelectorAll('.dim-row');
-      dimRows.forEach(function(row, idx) {
+      dimRows.forEach(function(row) {
         var nameInput = row.querySelector('input[name^="dim_name_"]');
         var formulaSelect = row.querySelector('select[name^="dim_formula_"]');
         if (nameInput?.value?.trim()) {
@@ -196,7 +184,6 @@
       answers.generator_formats = [genFormat];
     }
 
-    allAnswers = answers;
     return { type: type, answers: answers };
   }
 
@@ -325,8 +312,6 @@
     var promptViEl = document.getElementById('final-prompt-vi');
     var promptEnEl = document.getElementById('final-prompt-en');
     var statusEl = document.getElementById('final-status');
-    var promptLenEl = document.getElementById('prompt-vi-length');
-    var promptWarnEl = document.getElementById('prompt-vi-warning');
     var scannerSummaryEl = document.getElementById('scanner-summary');
     var scannerSummaryTextEl = document.getElementById('scanner-summary-text');
 

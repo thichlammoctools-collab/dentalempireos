@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { getAiSettings } from '../../../lib/ai-settings-db';
 import { hasMotapisApiKey } from '../../../lib/ai-gateway';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async () => {
   try {
     const settings = await getAiSettings(env.DB);
     const accountId = settings.gateway_account_id;

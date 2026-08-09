@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listPosts, listCategories, listTags } from '../../../lib/blog-db';
+import { listPosts, listCategories } from '../../../lib/blog-db';
 
 export const prerender = false;
 
@@ -12,7 +12,7 @@ const status = Astro.url.searchParams.get('status') ?? 'all';
 const categorySlug = Astro.url.searchParams.get('cat') ?? '';
 const search = Astro.url.searchParams.get('q') ?? '';
 
-const [{ posts, total }, categories, tags] = await Promise.all([
+const [{ posts, total }, categories] = await Promise.all([
   listPosts(db, {
     limit: perPage,
     offset: (page - 1) * perPage,
@@ -20,7 +20,6 @@ const [{ posts, total }, categories, tags] = await Promise.all([
     sort: 'recent',
   }),
   listCategories(db),
-  listTags(db),
 ]);
 
 const totalPages = Math.ceil(total / perPage);

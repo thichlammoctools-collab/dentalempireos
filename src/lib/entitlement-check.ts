@@ -8,15 +8,6 @@ import { getSurveyDefinitionById } from './survey-config-db';
 
 type UserId = string | null | undefined;
 
-async function hasPaidAccess(
-  db: D1Database,
-  userId: UserId,
-  contentType: 'book' | 'ai_app' | 'scanner' | 'course' | 'blog' | 'resource',
-  contentId: string,
-): Promise<boolean> {
-  return userId ? hasActiveEntitlementForContent(db, userId, contentType, contentId) : false;
-}
-
 export async function hasActiveScannerProduct(
   db: D1Database,
   scannerId: string,

@@ -104,7 +104,6 @@ export async function queryUsageStats(
   },
 ): Promise<UsageStats[]> {
   const conditions: string[] = ['1=1'];
-  const params: unknown[] = [];
 
   if (opts.from) {
     conditions.push(`created_at >= '${opts.from.replace(/'/g, "''")}'`);

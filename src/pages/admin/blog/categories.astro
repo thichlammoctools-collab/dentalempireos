@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
-import { listCategories, upsertCategory, deleteCategory, moveCategory, buildCategoryTree, flattenCategoryTree, type BlogCategoryNode } from '../../../lib/blog-db';
+import { listCategories, upsertCategory, deleteCategory, buildCategoryTree, flattenCategoryTree, type BlogCategoryNode } from '../../../lib/blog-db';
 
 export const prerender = false;
 
@@ -240,7 +240,7 @@ function countRoots(nodes: BlogCategoryNode[]): number {
                           >
                             <span class="material-symbols-outlined text-[16px]">edit</span>
                           </button>
-                          <form method="post" class="inline" onsubmit="return confirm('Xóa chuyên mục này? Bài viết sẽ không bị xóa.')">
+                          <form method="post" class="inline" data-delete-category-form>
                             <input type="hidden" name="_action" value="delete" />
                             <input type="hidden" name="id" value={child.id} />
                             <button type="submit" class="p-1.5 rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/10 transition-all" title="Xóa">
@@ -386,6 +386,12 @@ function countRoots(nodes: BlogCategoryNode[]): number {
     });
   });
 
+  document.querySelectorAll<HTMLFormElement>('[data-delete-category-form]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!confirm('Xóa chuyên mục này? Bài viết sẽ không bị xóa.')) event.preventDefault();
+    });
+  });
+
   // ── Drag and Drop ────────────────────────────────────────
   const rootList = document.getElementById('cat-tree-root');
   let dragSrc: HTMLElement | null = null;
@@ -489,7 +495,6 @@ function countRoots(nodes: BlogCategoryNode[]): number {
     const tgtId = item.dataset.catId!;
     const zone = getDropZone(e as DragEvent, item);
 
-    const srcList = getList(dragSrc);
     const tgtList = getList(item);
     const isTgtChild = item.closest('.cat-children') !== null;
 

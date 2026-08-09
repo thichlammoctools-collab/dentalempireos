@@ -216,7 +216,7 @@ export function parseAiConfig(raw: string | null | undefined): AiConfig {
   return parseJSON<AiConfig>(raw, {});
 }
 
-export function parseUiTranslations(raw: string | null | undefined, lang: 'vi' | 'en'): UiTranslations {
+export function parseUiTranslations(raw: string | null | undefined, _lang: 'vi' | 'en'): UiTranslations {
   return parseJSON<UiTranslations>(raw, {});
 }
 

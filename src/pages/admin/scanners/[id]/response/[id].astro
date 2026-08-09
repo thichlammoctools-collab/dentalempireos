@@ -4,13 +4,11 @@ import { env } from 'cloudflare:workers';
 import {
   getSurveyDefinitionFull,
   parseScaleLabels,
-  parseOptions,
 } from '../../../../../lib/survey-config-db';
 import {
   getScannerResponse,
   parseResponses,
   parseScores,
-  buildAiContext,
   maskEmail,
 } from '../../../../../lib/scanner-response-db';
 import { marked } from 'marked';
@@ -107,7 +105,6 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
       <p class="text-xs uppercase tracking-wider text-on-surface-variant/70 font-bold mb-3">Điểm từng dimension</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {Object.entries(scores).filter(([k]) => k !== 'total').map(([dimId, score]) => {
-          const dim = full?.sections.flatMap(s => []).find(() => false);
           // Find dimension name from scoring_rules
           let dimName = dimId;
           if (def.scoring_rules) {
@@ -185,7 +182,6 @@ const analysisHtml = response.ai_analysis ? (marked.parse(response.ai_analysis) 
             {section.questions.map((q) => {
               const val = responses[q.question_id];
               const labels = parseScaleLabels(q.scale_labels_vi);
-              const options = parseOptions(q.options_vi);
               return (
                 <div class="bg-surface-container/40 rounded-lg p-3 text-sm">
                   <p class="text-on-surface font-medium mb-1">{q.label_vi}</p>

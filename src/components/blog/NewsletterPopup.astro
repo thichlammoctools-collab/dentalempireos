@@ -101,8 +101,9 @@ const popupId = 'newsletter-popup';
   }
 </style>
 
-<script is:inline define:vars={{ popupId }}>
+<script is:inline>
   (function () {
+    const popupId = 'newsletter-popup';
     const STORAGE_KEY = 'popup_seen' + (typeof window !== 'undefined' && window.location.pathname ? window.location.pathname.replace(/\//g, '_') : '');
 
     const closeBtn = document.getElementById(popupId + '-close');

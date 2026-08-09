@@ -5,7 +5,6 @@ import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outIconsDir = join(__dirname, '..', 'public', 'icons');
 const rootDir = join(__dirname, '..', 'public');
 
 // Find source file (user may save as pwa-icon.jpg, .png, etc.)
@@ -45,7 +44,6 @@ for (const [name, size] of Object.entries(sizes)) {
 
 // favicon.ico — 32x32 multi-format
 const ico32 = await sharp(sourcePath).resize(32, 32, { fit: 'cover' }).png().toBuffer();
-const ico16 = await sharp(sourcePath).resize(16, 16, { fit: 'cover' }).png().toBuffer();
 await sharp(ico32).toFile(join(rootDir, 'favicon-32.png'));
 console.log('✓ favicon-32.png (32×32)');
 

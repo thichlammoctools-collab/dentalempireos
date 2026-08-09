@@ -50,7 +50,7 @@ function stripHeadings(text) {
   // Convert standalone heading blocks to bold
   // e.g., "**Anchor**\n" → "**Anchor**\n"  (already fine if short)
   // e.g., "### Anchor" → "**Anchor**"
-  let t = text.replace(/^(#{1,6})\s+(.+)$/gm, (m, hashes, content) => {
+  let t = text.replace(/^#{1,6}\s+(.+)$/gm, (_match, content) => {
     return `**${content.trim()}**`;
   });
 
@@ -61,10 +61,10 @@ function stripHeadings(text) {
   // Also fix: lines starting with bold that double as heading
   // e.g., "**Anchor**Anchor là..." → "**Anchor** là..."
   // This was caused by earlier manual beautify merging heading with content
-  t = t.replace(/^\*\*([^*]+)\*\*\s*\1\s/m, (m, word) => `**${word.trim()}** `);
+  t = t.replace(/^\*\*([^*]+)\*\*\s*\1\s/m, (_match, word) => `**${word.trim()}** `);
 
   // Fix doubled words: "AnchorAnchor là..." → "Anchor là..."
-  t = t.replace(/^([A-Z][a-zA-Z]{2,20})\1\s+/m, (m, word) => `${word} `);
+  t = t.replace(/^([A-Z][a-zA-Z]{2,20})\1\s+/m, (_match, word) => `${word} `);
 
   t = t.trim();
 

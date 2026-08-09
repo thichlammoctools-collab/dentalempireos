@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json } from '../../../lib/api-helpers';
-import { getReadingStats } from '../../../lib/reading-progress-db';
 import { hasAccess } from '../../../lib/payos-db';
 
 export const prerender = false;
@@ -9,8 +8,6 @@ export const prerender = false;
 // GET /api/reading-progress/unlock-check
 export const GET: APIRoute = async ({ locals }) => {
   if (!locals.user) return json({ qualified: false, reason: 'not_logged_in' });
-
-  const stats = await getReadingStats(env.DB, locals.user.id);
 
   // Tier 1 chapters (Ch.1-5)
   const { results: tier1 } = await env.DB

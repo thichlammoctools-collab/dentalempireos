@@ -37,11 +37,16 @@ const {
 
     <!-- Material Symbols -->
     <link
+      id="material-symbols-stylesheet"
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="preload"
-      as="style"
-      onload="this.onload=null;this.rel='stylesheet'"
+      rel="stylesheet"
+      media="print"
     />
+    <script is:inline>
+      document.getElementById('material-symbols-stylesheet')?.addEventListener('load', function () {
+        this.media = 'all';
+      });
+    </script>
     <noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" /></noscript>
 
     <meta name="theme-color" content="#f8f9fc" />

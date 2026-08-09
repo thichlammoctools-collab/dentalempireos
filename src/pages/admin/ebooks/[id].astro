@@ -1132,7 +1132,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     const moveBreadcrumb = document.getElementById('move-block-breadcrumb');
     const moveCancelBtn = document.getElementById('move-block-cancel');
     const moveConfirmBtn = document.getElementById('move-block-confirm') as HTMLButtonElement | null;
-    const moveTitleEl = document.getElementById('move-block-title');
     const moveCurrentPathEl = document.getElementById('move-block-current-path');
     const moveEmptyEl = document.getElementById('move-block-empty');
 
@@ -1141,7 +1140,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
     let moveSelectedId: string | null = null;
     let moveExpandedIds = new Set<string>();
     let moveSearchQuery = '';
-    let moveCurrentPath: string[] = []; // breadcrumb of selected section
 
     function normalizeVN(s: string): string {
       return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -1157,12 +1155,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
         return null;
       }
       return dfs(treeData, []);
-    }
-
-    function isDescendantOf(treeData: MoveSectionNode[], candidateId: string, ancestorId: string): boolean {
-      const path = getPathToRoot(treeData, candidateId);
-      if (!path) return false;
-      return path.some(n => n.id === ancestorId);
     }
 
     function sectionMatches(n: MoveSectionNode, q: string): boolean {
@@ -1315,10 +1307,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
       const targetPath = getPathToRoot(moveTreeData, moveSelectedId);
       const targetLabel = targetPath ? targetPath.map(n => n.title).join(' › ') : 'đề mục mới';
 
-      // Confirm if target has descendants — moving into a non-leaf will append at end
-      const targetSection = findSectionById(moveTreeData, moveSelectedId);
-      const isLeaf = !targetSection || targetSection.children.length === 0;
-
       if (!confirm(`Di chuyển block này sang "${targetLabel}"?`)) return;
 
       if (moveConfirmBtn) {
@@ -1353,15 +1341,6 @@ const selectedSectionId = flatSections[0]?.id ?? '';
           moveConfirmBtn.textContent = 'Chuyển đến đây';
         }
       }
-    }
-
-    function findSectionById(nodes: MoveSectionNode[], id: string): MoveSectionNode | null {
-      for (const n of nodes) {
-        if (n.id === id) return n;
-        const found = findSectionById(n.children, id);
-        if (found) return found;
-      }
-      return null;
     }
 
     function showMoveToast(msg: string, ok = true) {

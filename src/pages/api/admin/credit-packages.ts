@@ -14,7 +14,7 @@ interface CreditPackageInput {
   sort_order?: unknown;
 }
 
-function parseInteger(value: unknown, field: string, minimum = 0): number | null {
+function parseInteger(value: unknown, _field: string, minimum = 0): number | null {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) {
     return null;
   }

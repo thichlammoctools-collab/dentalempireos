@@ -34,7 +34,7 @@ async function getOrCreateSession(
   db: D1Database,
   sessionId: string | null,
   userId: string,
-  appSlug: string,
+  _appSlug: string,
 ): Promise<string> {
   if (sessionId) {
     const existing = await db

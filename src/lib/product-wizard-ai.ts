@@ -80,14 +80,6 @@ export interface GeneratedOutput {
   };
 }
 
-const DEFAULT_SCALE_LABELS_VI = {
-  '1': 'Chưa có / Rất yếu',
-  '2': 'Đang bắt đầu',
-  '3': 'Đã có / Trung bình',
-  '4': 'Ổn định',
-  '5': 'Đầu tàu / Xuất sắc',
-};
-
 function buildSystemPrompt(type: string): string {
   return `Bạn là chuyên gia cấu hình sản phẩm AI cho nền tảng "Dental Empire OS" — hệ thống quản lý phòng khám nha khoa.
 

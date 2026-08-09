@@ -4,7 +4,7 @@
 // Then apply: wrangler d1 execute DB --file=migrations/seed-books.sql
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 
 const BASE = 'src/content/book';
 const tiers = readdirSync(BASE).filter(d => d.startsWith('tier'));
@@ -47,8 +47,6 @@ for (const tierDir of tiers) {
 
     let sectionOrder = 0;
     let currentSectionId = null;
-    const parentMap = {}; // heading text -> section id for h2->h3 nesting
-
     for (const block of blocks) {
       if (block.type === 'heading') {
         const level = block.level;

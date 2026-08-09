@@ -22,10 +22,6 @@ if (!post) {
   return new Response('Không tìm thấy bài viết', { status: 404 });
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  return iso.slice(0, 16);
-}
 ---
 
 <AdminLayout title={`Sửa: ${post.title} | Blog Admin`}>

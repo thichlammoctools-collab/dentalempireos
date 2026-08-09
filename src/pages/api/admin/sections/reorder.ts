@@ -16,7 +16,6 @@ export const PUT: APIRoute = async ({ request }) => {
     return badRequest('ids[] is required');
   }
 
-  const ts = new Date().toISOString();
   try {
     await env.DB.batch(
       ids.map((id, index) =>

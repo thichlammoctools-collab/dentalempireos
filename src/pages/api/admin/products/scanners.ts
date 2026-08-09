@@ -6,7 +6,6 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import {
-  getProductScanners,
   setProductScanners,
   getScannerProductMapping,
   getAllProductScanners,
@@ -24,8 +23,6 @@ export const GET: APIRoute = async () => {
 
   // scannerId → productId map (active products only)
   const scannerProductMap = await getScannerProductMapping(env.DB);
-
-  const scannerMap = Object.fromEntries(scanners.map((s) => [s.id, s.title_vi]));
 
   // Group by product
   const byProduct: Record<string, { product_id: string; scanners: string[] }> = {};

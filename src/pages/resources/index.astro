@@ -100,46 +100,27 @@ function resourceUrl(fileUrl: string): string {
   title="Tài Nguyên | Dental Empire OS"
   description="Kho tài nguyên miễn phí và hữu ích dành cho quản trị phòng khám nha khoa — mẫu form, checklist, biểu mẫu, và nhiều hơn nữa."
 >
-  <!-- Hero + Search -->
-  <section class="relative py-16 overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest to-surface"></div>
-    <div class="relative z-10 px-6 max-w-[1200px] mx-auto text-center space-y-6">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider">
-        <span class="material-symbols-outlined text-[14px]">folder_open</span>
-        Tài Nguyên
+  <!-- Newsroom Hero -->
+  <section class="px-6 max-w-[1200px] mx-auto pt-12 pb-8 lg:pt-16 lg:pb-10">
+    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_19rem] gap-6 md:gap-12 items-end border-b border-outline-variant/50 pb-8 lg:pb-10">
+      <div>
+        <div class="flex items-center gap-2 text-primary text-[11px] font-bold uppercase tracking-[0.14em]">
+          <span class="w-6 h-px bg-primary"></span>
+          Dental Empire Resource Library
+        </div>
+        <h1 class="mt-4 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[0.98] text-white">
+          Tài nguyên cho<br class="hidden sm:block" />
+          <span class="text-primary">phòng khám của bạn.</span>
+        </h1>
       </div>
-      <h1 class="text-headline-large font-bold text-white">
-        Kho <span class="text-primary">Tài Nguyên</span><br />
-        cho quản trị nha khoa
-      </h1>
-      <p class="text-on-surface-variant max-w-xl mx-auto">
+      <p class="text-sm text-on-surface-variant leading-relaxed max-w-xs md:pb-1">
         Mẫu form, checklist SOPs, bảng tính Excel và vật liệu marketing giúp vận hành phòng khám hiệu quả hơn.
       </p>
-
-      <!-- Search -->
-      <form method="get" class="max-w-lg mx-auto">
-        {category && <input type="hidden" name="cat" value={category} />}
-        <div class="relative">
-          <input
-            type="text"
-            name="q"
-            value={search}
-            placeholder="Tìm kiếm tài nguyên..."
-            class="w-full pl-12 pr-4 py-3.5 bg-surface-container-high border border-outline-variant rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none text-on-surface placeholder:text-on-surface-variant/60"
-          />
-          <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-          {search && (
-            <a href="/resources" class="absolute right-12 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary">
-              <span class="material-symbols-outlined text-[20px]">close</span>
-            </a>
-          )}
-        </div>
-      </form>
     </div>
   </section>
 
   <!-- Featured portfolio downloads -->
-  <section class="px-6 max-w-[1200px] mx-auto -mt-2 pb-8">
+  <section class="px-6 max-w-[1200px] mx-auto pt-8 pb-8">
     <div class="rounded-2xl border border-amber-300 bg-amber-50/80 p-5 shadow-sm shadow-amber-900/5 dark:border-amber-500/30 dark:bg-amber-500/5 sm:p-6">
       <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div class="max-w-2xl">
@@ -171,16 +152,19 @@ function resourceUrl(fileUrl: string): string {
       <div class="flex-1 min-w-0">
 
         <!-- Category Filter -->
-        <div class="flex flex-wrap items-center gap-2 mb-6">
-          {categories.map((cat) => (
-            <a
-              href={cat.value ? `/resources?cat=${cat.value}` : '/resources'}
-              class={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${category === cat.value ? 'bg-primary text-white border-primary' : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary'}`}
-            >
-              {cat.label}
-              <span class="opacity-60 ml-1">({cat.count})</span>
-            </a>
-          ))}
+        <div class="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-outline-variant/50">
+          <h2 class="text-base font-bold text-white">Tài nguyên</h2>
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            {categories.map((cat) => (
+              <a
+                href={cat.value ? `/resources?cat=${cat.value}` : '/resources'}
+                class={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${category === cat.value ? 'bg-primary text-white border-primary' : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:border-primary'}`}
+              >
+                {cat.label}
+                <span class="opacity-60 ml-1">({cat.count})</span>
+              </a>
+            ))}
+          </div>
         </div>
 
         <!-- Search result label -->
@@ -322,6 +306,32 @@ function resourceUrl(fileUrl: string): string {
 
       <!-- Right: Sidebar -->
       <aside class="w-full xl:w-72 shrink-0 space-y-6">
+
+        <!-- Search -->
+        <div class="glass-card rounded-2xl p-5 border border-primary/20">
+          <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">search</span>
+            Tìm tài nguyên
+          </h3>
+          <form method="get">
+            {category && <input type="hidden" name="cat" value={category} />}
+            <div class="relative">
+              <input
+                type="text"
+                name="q"
+                value={search}
+                placeholder="Nhập từ khóa..."
+                class="w-full pl-10 pr-9 py-2.5 bg-surface-container-high border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:outline-none text-on-surface placeholder:text-on-surface-variant/60 text-sm"
+              />
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+              {search && (
+                <a href={category ? `/resources?cat=${category}` : '/resources'} class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary" aria-label="Xóa tìm kiếm">
+                  <span class="material-symbols-outlined text-[18px]">close</span>
+                </a>
+              )}
+            </div>
+          </form>
+        </div>
 
         <!-- Categories -->
         <div class="glass-card rounded-2xl p-5">

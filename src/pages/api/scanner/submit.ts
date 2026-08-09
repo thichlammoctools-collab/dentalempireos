@@ -18,7 +18,7 @@ import {
 } from '../../../lib/scanner-response-db';
 // AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
-import { getClinicProfile, upsertClinicProfile } from '../../../lib/clinic-profile-db';
+import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
 import { getActiveCreditPricingRule, startScannerCreditRun, completeScannerCreditRun, failScannerCreditRun, InsufficientCreditsError } from '../../../lib/credit-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';

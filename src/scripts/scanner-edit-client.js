@@ -1047,7 +1047,6 @@ function bindDimensionEvents() {
 // ── Threshold bar ──────────────────────────────────────
 
 function updateThresholdBar() {
-  var exc = parseInt(document.querySelector('input[name="threshold_excellent"]')?.value || '75', 10);
   var good = parseInt(document.querySelector('input[name="threshold_good"]')?.value || '55', 10);
   var needs = parseInt(document.querySelector('input[name="threshold_needs_work"]')?.value || '35', 10);
   var crit = parseInt(document.querySelector('input[name="threshold_critical"]')?.value || '0', 10);
@@ -1079,7 +1078,7 @@ function updateScoringPreview() {
   var total;
   if (tf === 'weighted_average') {
     var tw = 0, ts = 0;
-    dimensions.forEach(function(d, i) {
+    dimensions.forEach(function(d) {
       var w = d.weight || 1;
       tw += w;
       ts += (scores[d.id] || 0) * w;

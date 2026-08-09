@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, badRequest } from '../../../lib/api-helpers';
+import { json } from '../../../lib/api-helpers';
 import { markNotificationRead, markAllNotificationsRead } from '../../../lib/question-db';
 
 export const prerender = false;

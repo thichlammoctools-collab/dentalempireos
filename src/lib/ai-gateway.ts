@@ -13,10 +13,6 @@ export function hasMotapisApiKey(): boolean {
   return Boolean(env.MOTAPIS_API_KEY);
 }
 
-function isCloudflareModelId(model: string | undefined): model is string {
-  return Boolean(model && /^(openai|anthropic|google|@cf)\//.test(model));
-}
-
 export async function getAiGatewayConfig(
   db: D1Database,
   usage: AiGatewayUsage = 'default',

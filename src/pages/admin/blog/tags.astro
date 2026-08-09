@@ -58,7 +58,7 @@ const tags = await listTags(env.DB);
         </div>
         <div class="flex gap-2">
           <button type="submit" class="px-6 py-2.5 bg-primary-container text-white rounded-xl font-bold hover:opacity-90 transition-all">Lưu</button>
-          <button type="button" onclick="resetForm()" class="px-4 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl font-bold hover:border-primary hover:text-primary transition-all">Hủy</button>
+          <button type="button" id="reset-tag-form" class="px-4 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl font-bold hover:border-primary hover:text-primary transition-all">Hủy</button>
         </div>
       </form>
     </section>
@@ -75,8 +75,10 @@ const tags = await listTags(env.DB);
           <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
-              onclick={`editTag('${tag.id}','${tag.name}','${tag.slug}')`}
-              class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all"
+              data-tag-id={tag.id}
+              data-tag-name={tag.name}
+              data-tag-slug={tag.slug}
+              class="edit-tag-btn p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all"
             >
               <span class="material-symbols-outlined text-[16px]">edit</span>
             </button>
@@ -132,4 +134,11 @@ const tags = await listTags(env.DB);
     slugInput.value = '';
     slugInput.dataset.manual = '';
   }
+
+  document.getElementById('reset-tag-form')?.addEventListener('click', resetForm);
+  document.querySelectorAll<HTMLButtonElement>('.edit-tag-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      editTag(button.dataset.tagId ?? '', button.dataset.tagName ?? '', button.dataset.tagSlug ?? '');
+    });
+  });
 </script>

@@ -71,13 +71,6 @@ function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-const avatarColors = [
-  'from-blue-600 to-cyan-600',
-  'from-purple-600 to-pink-600',
-  'from-emerald-600 to-teal-600',
-  'from-amber-600 to-orange-600',
-  'from-rose-600 to-red-600',
-];
 ---
 
 <AdminLayout title={app.name}>
@@ -291,7 +284,7 @@ const avatarColors = [
     </div>
   </div>
 
-  <script define:vars={{ appId: app.id }}>
+  <script is:inline define:vars={{ appId: app.id }}>
     // ── Toast helper ──
     function showToast(msg, type) {
       if (typeof window !== 'undefined' && window.showToast) {
