@@ -223,7 +223,6 @@ function resourceUrl(fileUrl: string): string {
                         <span
                           class={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`}
                         >
-                          {res.tier === 'premium' && !accessByResourceId.get(res.id) && <span class="material-symbols-outlined text-[12px]">lock</span>}
                           {res.tier === 'premium' && !accessByResourceId.get(res.id) ? 'Cần mở khóa' : tierLabel[res.tier] ?? res.tier}
                         </span>
                         <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
