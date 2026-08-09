@@ -10,6 +10,7 @@ import {
   getPayosSettings,
   getPayosEnv,
 } from '../../../lib/payos-db';
+import { fulfillCreditOrder, getCreditOrder } from '../../../lib/credit-db';
 
 export const prerender = false;
 
@@ -80,20 +81,37 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response('Invalid signature', { status: 400 });
   }
 
-  // Look up the order
-  const order = await getOrderByCode(env.DB, data.orderCode);
-  if (!order) {
+  const paymentOrder = await env.DB.prepare(
+    'SELECT "order_type", "order_id" FROM "payment_order_code" WHERE "order_code" = ?',
+  ).bind(data.orderCode).first<{ order_type: 'product' | 'credit'; order_id: string }>();
+  if (!paymentOrder) {
     // Unknown order — still return 200 so PayOS doesn't retry
     return new Response('Order not found', { status: 200 });
   }
+
+  const isSuccess = data.status === 'PAID' || body.code === '00';
+  if (paymentOrder.order_type === 'credit') {
+    const creditOrder = await getCreditOrder(env.DB, paymentOrder.order_id);
+    if (!creditOrder || creditOrder.payment_method !== 'payos') return new Response('Order not found', { status: 200 });
+    if (data.amount !== creditOrder.amount || (data.paymentLinkId && data.paymentLinkId !== creditOrder.payment_link_id)) {
+      return new Response('Payment details mismatch', { status: 400 });
+    }
+    if (isSuccess) await fulfillCreditOrder(env.DB, creditOrder);
+    else await env.DB.prepare(
+      `UPDATE "credit_order" SET "status" = 'cancelled', "updated_at" = ?
+       WHERE "id" = ? AND "status" = 'pending'`,
+    ).bind(new Date().toISOString(), creditOrder.id).run();
+    return new Response('OK', { status: 200 });
+  }
+
+  // Look up the legacy product order only after the global code map identifies it.
+  const order = await getOrderByCode(env.DB, data.orderCode);
+  if (!order) return new Response('Order not found', { status: 200 });
 
   // Idempotent: already processed
   if (order.status === 'paid') {
     return new Response('Already processed', { status: 200 });
   }
-
-  // Determine payment success
-  const isSuccess = data.status === 'PAID' || body.code === '00';
 
   if (isSuccess) {
     await fulfillPaidOrder(env.DB, order);

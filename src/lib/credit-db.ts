@@ -627,33 +627,40 @@ export async function redeemContentWithCredits(
   positiveInteger(input.credits, 'credits');
   const existing = await getUserContentGrant(db, input.userId, input.contentType, input.contentId);
   const renewable = input.contentType === 'book' || input.contentType === 'blog';
+  const businessObjectId = `content:${input.userId}:${input.contentType}:${input.contentId}:${input.idempotencyKey}`;
+  const existingConsumption = await db.prepare(
+    `SELECT * FROM "credit_consumption"
+     WHERE "feature_type" = ? AND "business_object_id" = ? AND "charge_type" = 'unlock'`,
+  ).bind(input.contentType, businessObjectId).first<CreditConsumption>();
   if (existing && !renewable && (existing.expires_at === null || existing.expires_at > now())) {
     return { consumption: null, alreadyGranted: true, expiresAt: existing.expires_at };
   }
-
-  const businessObjectId = `content:${input.userId}:${input.contentType}:${input.contentId}:${input.idempotencyKey}`;
-  const reservation = await reserveCredits(db, {
-    userId: input.userId,
-    amount: input.credits,
-    featureType: input.contentType,
-    businessObjectId,
-    idempotencyKey: `content:${input.idempotencyKey}`,
-    metadata: { contentType: input.contentType, contentId: input.contentId },
-  });
-  const consumption = await settleReservation(db, {
-    userId: input.userId,
-    reservationId: reservation.reservation.id,
-    featureType: input.contentType,
-    businessObjectId,
-    chargeType: 'unlock',
-    credits: input.credits,
-    priceSnapshot: input.priceSnapshot,
-    quantitySnapshot: { durationDays: input.durationDays ?? null },
-  });
+  const consumption = existingConsumption ?? await (async () => {
+    const reservation = await reserveCredits(db, {
+      userId: input.userId,
+      amount: input.credits,
+      featureType: input.contentType,
+      businessObjectId,
+      idempotencyKey: `content:${input.idempotencyKey}`,
+      metadata: { contentType: input.contentType, contentId: input.contentId },
+    });
+    return settleReservation(db, {
+      userId: input.userId,
+      reservationId: reservation.reservation.id,
+      featureType: input.contentType,
+      businessObjectId,
+      chargeType: 'unlock',
+      credits: input.credits,
+      priceSnapshot: input.priceSnapshot,
+      quantitySnapshot: { durationDays: input.durationDays ?? null },
+    });
+  })();
 
   const timestamp = now();
   const currentExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
-  const base = Math.max(Date.now(), currentExpiry);
+  const base = existing?.credit_consumption_id === consumption.id
+    ? currentExpiry
+    : Math.max(Date.now(), currentExpiry);
   const expiresAt = renewable
     ? new Date(base + (input.durationDays ?? input.credits) * 24 * 60 * 60 * 1000).toISOString()
     : null;

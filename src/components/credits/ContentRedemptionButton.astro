@@ -1,0 +1,76 @@
+---
+interface Props {
+  contentType: 'book' | 'blog' | 'course' | 'resource';
+  contentId: string;
+  days?: number;
+  label?: string;
+  successUrl?: string;
+  class?: string;
+}
+
+const {
+  contentType,
+  contentId,
+  days,
+  label = 'Mở khóa bằng Credits',
+  successUrl,
+  class: className = '',
+} = Astro.props;
+const user = Astro.locals.user;
+const redirect = Astro.url.pathname + Astro.url.search;
+---
+
+{user ? (
+  <button
+    type="button"
+    class={`credit-redemption-trigger inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+    data-content-type={contentType}
+    data-content-id={contentId}
+    data-days={days ?? ''}
+    data-success-url={successUrl ?? ''}
+  >
+    <span class="material-symbols-outlined text-lg">account_balance_wallet</span>{label}
+  </button>
+) : (
+  <a href={`/login?redirect=${encodeURIComponent(redirect)}`} class={`inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary transition hover:brightness-110 ${className}`}><span class="material-symbols-outlined text-lg">login</span>Đăng nhập để mở khóa</a>
+)}
+
+<script>
+  document.querySelectorAll('.credit-redemption-trigger').forEach((element) => {
+    const button = element as HTMLButtonElement;
+    const idempotencyKey = crypto.randomUUID();
+    button.addEventListener('click', async () => {
+      const contentType = button.dataset.contentType;
+      const contentId = button.dataset.contentId;
+      if (!contentType || !contentId || button.disabled) return;
+      const days = button.dataset.days ? Number(button.dataset.days) : undefined;
+      const text = button.textContent;
+      const confirmation = days
+        ? `Mở khóa với ${days} Credits trong ${days} ngày?`
+        : 'Mở khóa nội dung này bằng Credits?';
+      if (!window.confirm(confirmation)) return;
+      button.disabled = true;
+      button.textContent = 'Đang mở khóa...';
+      try {
+        const response = await fetch('/api/credits/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content_type: contentType,
+            content_id: contentId,
+            days,
+            idempotency_key: idempotencyKey,
+          }),
+        });
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(data.error || 'Không thể mở khóa nội dung.');
+        const target = button.dataset.successUrl;
+        window.location.href = target || window.location.href;
+      } catch (error) {
+        window.showToast?.(error instanceof Error ? error.message : 'Không thể mở khóa nội dung.', 'error');
+        button.disabled = false;
+        button.textContent = text;
+      }
+    });
+  });
+</script>

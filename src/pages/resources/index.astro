@@ -4,6 +4,7 @@ import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
 import { canAccessResource } from '../../lib/entitlement-check';
+import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
 
 export const prerender = false;
 
@@ -240,13 +241,7 @@ function resourceUrl(fileUrl: string): string {
                   <!-- Download -->
                   <div class="px-0 pt-0 pb-0 mt-0 shrink-0 sm:w-44">
                     {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
-                      <a
-                        href="/account/wallet"
-                        class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black transition-all active:scale-95"
-                      >
-                        <span class="material-symbols-outlined text-[18px]">workspace_premium</span>
-                        Mở khóa bằng Credits
-                      </a>
+                      <ContentRedemptionButton contentType="resource" contentId={res.id} successUrl={resourceUrl(res.file_url)} label="Mở khóa bằng Credits" class="w-full bg-amber-500 text-black hover:bg-amber-400" />
                     ) : res.file_url ? (
                       <a
                         href={resourceUrl(res.file_url)}

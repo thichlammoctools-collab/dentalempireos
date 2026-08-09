@@ -8,6 +8,7 @@ import { env } from 'cloudflare:workers';
 import { getPost, getRelatedPosts, getPopularPosts, listCategories, incrementViewCount, getBlocksByPostId, type BlogPostWithMeta, type BlogCategory, type BlogBlock } from '../../lib/blog-db';
 import { sanitizeRichHtml } from '../../lib/sanitize';
 import { canAccessBlogPost } from '../../lib/entitlement-check';
+import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
 
 export const prerender = false;
 
@@ -397,10 +398,7 @@ const breadcrumbSchema = {
               <span class="material-symbols-outlined text-4xl text-amber-400 mb-3">workspace_premium</span>
               <h2 class="text-xl font-bold text-white">Nội dung Premium</h2>
               <p class="text-on-surface-variant mt-2">{post.description}</p>
-              <a href="/account/wallet" class="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors">
-                Mở ví Credits
-                <span class="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-              </a>
+              <div class="mt-5"><ContentRedemptionButton contentType="blog" contentId={post.id} days={30} label="Mở khóa 30 ngày · 30 Credits" /></div>
             </div>
           )}
         </div>
