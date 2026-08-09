@@ -2,7 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFull, parseScoringRules, parseAiConfig } from '../../../lib/survey-config-db';
-import { getProduct, getScannerProduct } from '../../../lib/payos-db';
+import { getActiveCreditPricingRule } from '../../../lib/credit-db';
 
 export const prerender = false;
 
@@ -60,8 +60,7 @@ const scoringRulesInitJson = JSON.stringify(scoringRules ?? {
   total_formula: 'average',
   thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 },
 });
-const scannerProductId = await getScannerProduct(env.DB, def.id);
-const scannerProduct = scannerProductId ? await getProduct(env.DB, scannerProductId) : null;
+const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', def.id);
 ---
 
 <AdminLayout title={`${def ? def.title_vi : 'Scanner'} | Admin`}>
@@ -121,15 +120,11 @@ const scannerProduct = scannerProductId ? await getProduct(env.DB, scannerProduc
               <span class="material-symbols-outlined text-primary">payments</span>
               <h2 class="text-lg font-bold text-on-surface">Cấu hình tính phí</h2>
             </div>
-            {scannerProduct ? (
-              <p class="mt-1 text-sm text-on-surface-variant">Đang thuộc sản phẩm <strong class="text-on-surface">{scannerProduct.name}</strong> · {scannerProduct.price.toLocaleString('vi-VN')}₫</p>
-            ) : (
-              <p class="mt-1 text-sm text-on-surface-variant">Chưa có sản phẩm riêng. Scanner vẫn có thể được mở khóa bởi gói toàn bộ Scanner.</p>
-            )}
+            <p class="mt-1 text-sm text-on-surface-variant">{scannerPricingRule?.credit_amount ? `Đang dùng ${scannerPricingRule.credit_amount} Credits mỗi lượt (rule v${scannerPricingRule.rule_version}).` : 'Chưa có giá Credits. Scanner này hiện dùng quota miễn phí.'}</p>
           </div>
-          <a href={`/admin/products?${scannerProduct ? `edit=${encodeURIComponent(scannerProduct.id)}` : `scanner=${encodeURIComponent(def.id)}`}`} class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-container px-4 py-2.5 text-sm font-bold text-white cyan-glow hover:opacity-90">
-            <span class="material-symbols-outlined text-[18px]">{scannerProduct ? 'edit' : 'add'}</span>
-            {scannerProduct ? 'Sửa sản phẩm' : 'Tạo sản phẩm tính phí'}
+          <a href="/admin/credits" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-container px-4 py-2.5 text-sm font-bold text-white cyan-glow hover:opacity-90">
+            <span class="material-symbols-outlined text-[18px]">tune</span>
+            Cấu hình giá Credits
           </a>
         </div>
       </section>
