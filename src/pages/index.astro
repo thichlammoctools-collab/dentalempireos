@@ -288,9 +288,9 @@ const faqs = [
           </figure>
         ))}
       </div>
-      <article class="mt-10 grid gap-7 rounded-3xl border border-primary/30 bg-surface-container p-8 md:grid-cols-[auto_1fr] md:items-stretch">
+      <article class="mt-10 grid gap-7 rounded-3xl border border-primary/30 bg-surface-container p-8 md:grid-cols-[10rem_minmax(0,1fr)] md:items-center">
         {homepage.founder_image_url ? (
-          <img src={homepage.founder_image_url} alt={homepage.founder_name} class="h-full w-auto aspect-square rounded-2xl object-cover border border-outline-variant/30" loading="lazy" />
+          <img src={homepage.founder_image_url} alt={homepage.founder_name} class="aspect-square size-40 rounded-2xl object-cover border border-outline-variant/30" loading="lazy" />
         ) : (
           <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary"><span class="material-symbols-outlined text-4xl">person</span></div>
         )}
