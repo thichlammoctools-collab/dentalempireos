@@ -20,8 +20,6 @@ const isOwner = order?.user_id === Astro.locals.user?.id;
   </section>
 
   <script is:inline define:vars={{ orderId, isOwner }}>
-    const orderId = orderId;
-    const isOwner = isOwner;
     const loading = document.getElementById('state-loading');
     const success = document.getElementById('state-success');
     const failed = document.getElementById('state-failed');
