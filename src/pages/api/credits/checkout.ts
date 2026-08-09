@@ -9,7 +9,7 @@ import {
   reserveCreditOrder,
 } from '../../../lib/credit-db';
 import { getManualPaymentSettings, getPayosEnv, getPayosSettings } from '../../../lib/payos-db';
-import { cancelPaymentLink, createPaymentLink } from '../../../lib/payos';
+import { createPaymentLink } from '../../../lib/payos';
 
 export const prerender = false;
 

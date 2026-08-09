@@ -632,6 +632,11 @@ export async function redeemContentWithCredits(
     `SELECT * FROM "credit_consumption"
      WHERE "feature_type" = ? AND "business_object_id" = ? AND "charge_type" = 'unlock'`,
   ).bind(input.contentType, businessObjectId).first<CreditConsumption>();
+  // The same request may be retried after its grant was persisted. Return the
+  // original result instead of extending a time-based grant a second time.
+  if (existingConsumption && existing?.credit_consumption_id === existingConsumption.id) {
+    return { consumption: existingConsumption, alreadyGranted: true, expiresAt: existing.expires_at };
+  }
   if (existing && !renewable && (existing.expires_at === null || existing.expires_at > now())) {
     return { consumption: null, alreadyGranted: true, expiresAt: existing.expires_at };
   }
@@ -658,9 +663,7 @@ export async function redeemContentWithCredits(
 
   const timestamp = now();
   const currentExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
-  const base = existing?.credit_consumption_id === consumption.id
-    ? currentExpiry
-    : Math.max(Date.now(), currentExpiry);
+  const base = Math.max(Date.now(), currentExpiry);
   const expiresAt = renewable
     ? new Date(base + (input.durationDays ?? input.credits) * 24 * 60 * 60 * 1000).toISOString()
     : null;
