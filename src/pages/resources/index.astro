@@ -190,20 +190,22 @@ function resourceUrl(fileUrl: string): string {
           <>
             <div class="space-y-3">
               {paginated.map((res) => (
-                <article class="glass-card rounded-2xl overflow-hidden flex flex-col sm:flex-row sm:items-center gap-6 p-5 sm:p-6 hover:-translate-y-0.5 transition-all duration-300">
-                  <!-- Header with icon -->
-                  <div class="relative p-0 flex items-start gap-4 sm:w-[34%] shrink-0">
+                <article class="glass-card rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300">
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:p-6">
+                    <!-- Icon -->
                     <div
-                      class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                      class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                       style={`background: ${getExtColor(res.file_ext)}22; border: 1px solid ${getExtColor(res.file_ext)}33;`}
                     >
                       <span
-                        class="material-symbols-outlined text-2xl"
+                        class="material-symbols-outlined text-xl"
                         style={`color: ${getExtColor(res.file_ext)}`}
                       >
                         {getFileIcon(res.icon, res.file_ext)}
                       </span>
                     </div>
+
+                    <!-- Info -->
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <span
@@ -215,53 +217,43 @@ function resourceUrl(fileUrl: string): string {
                         <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
                           .{res.file_ext}
                         </span>
+                        {res.tag && (
+                          <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                            {res.tag}
+                          </span>
+                        )}
                       </div>
-                      <h3 class="font-bold text-white text-sm leading-snug line-clamp-2">
-                        {res.title}
-                      </h3>
+                      <h3 class="font-bold text-white text-sm leading-snug line-clamp-1">{res.title}</h3>
+                      {res.description && (
+                        <p class="text-xs text-on-surface-variant mt-1 line-clamp-1">{res.description}</p>
+                      )}
                     </div>
-                  </div>
 
-                  <!-- Description -->
-                  <div class="px-0 pb-0 flex-1 min-w-0">
-                    <p class="text-xs text-on-surface-variant line-clamp-3">
-                      {res.description || 'Tài nguyên hữu ích dành cho quản trị phòng khám nha khoa.'}
-                    </p>
-                  </div>
-
-                  <!-- Tags -->
-                  {res.tag && (
-                    <div class="px-0 pt-0 shrink-0">
-                      <span class="px-2 py-1 text-[10px] font-semibold rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant">
-                        {res.tag}
-                      </span>
+                    <!-- Action -->
+                    <div class="shrink-0 sm:w-auto">
+                      {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
+                        <ContentRedemptionButton contentType="resource" contentId={res.id} successUrl={resourceUrl(res.file_url)} label="Mở khóa" class="bg-amber-500 text-black hover:bg-amber-400" />
+                      ) : res.file_url ? (
+                        <a
+                          href={resourceUrl(res.file_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                            res.tier === 'premium'
+                              ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                              : 'btn-primary-metallic'
+                          }`}
+                        >
+                          <span class="material-symbols-outlined text-[18px]">download</span>
+                          Tải về
+                        </a>
+                      ) : (
+                        <span class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-50">
+                          <span class="material-symbols-outlined text-[18px]">download</span>
+                          Sắp ra mắt
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  <!-- Download -->
-                  <div class="px-0 pt-0 pb-0 mt-0 shrink-0 sm:w-44">
-                    {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
-                      <ContentRedemptionButton contentType="resource" contentId={res.id} successUrl={resourceUrl(res.file_url)} label="Mở khóa bằng Credits" class="w-full bg-amber-500 text-black hover:bg-amber-400" />
-                    ) : res.file_url ? (
-                      <a
-                        href={resourceUrl(res.file_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                          res.tier === 'premium'
-                            ? 'bg-amber-500 hover:bg-amber-400 text-black'
-                            : 'btn-primary-metallic'
-                        }`}
-                      >
-                        <span class="material-symbols-outlined text-[18px]">download</span>
-                        Tải về
-                      </a>
-                    ) : (
-                      <span class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-50">
-                        <span class="material-symbols-outlined text-[18px]">download</span>
-                        Sắp ra mắt
-                      </span>
-                    )}
                   </div>
                 </article>
               ))}

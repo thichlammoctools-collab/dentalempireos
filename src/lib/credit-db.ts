@@ -200,13 +200,18 @@ export async function getCreditOrderByCode(db: D1Database, orderCode: number): P
   return db.prepare('SELECT * FROM "credit_order" WHERE "order_code" = ?').bind(orderCode).first<CreditOrder>();
 }
 
+export const CREDIT_ORDER_TTL_MS: Record<'payos' | 'manual', number> = {
+  payos: 15 * 60 * 1000,
+  manual: 24 * 60 * 60 * 1000,
+};
+
 export async function getRecentPendingCreditOrder(
   db: D1Database,
   userId: string,
   packageId: string,
   paymentMethod: 'payos' | 'manual',
 ): Promise<CreditOrder | null> {
-  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - CREDIT_ORDER_TTL_MS[paymentMethod]).toISOString();
   return db.prepare(
     `SELECT * FROM "credit_order"
      WHERE "user_id" = ? AND "credit_package_id" = ? AND "payment_method" = ?
@@ -214,6 +219,34 @@ export async function getRecentPendingCreditOrder(
        AND (? = 'manual' OR "payment_link_id" IS NOT NULL)
      ORDER BY "created_at" DESC LIMIT 1`,
   ).bind(userId, packageId, paymentMethod, cutoff, paymentMethod).first<CreditOrder>();
+}
+
+export async function expireOldPendingCreditOrders(db: D1Database, userId?: string): Promise<number> {
+  const timestamp = now();
+  const payosCutoff = new Date(Date.now() - CREDIT_ORDER_TTL_MS.payos).toISOString();
+  const manualCutoff = new Date(Date.now() - CREDIT_ORDER_TTL_MS.manual).toISOString();
+  const result = await db.prepare(
+    `UPDATE "credit_order" SET "status" = 'expired', "updated_at" = ?
+     WHERE "status" = 'pending'
+       AND (("payment_method" = 'payos' AND "created_at" < ?)
+         OR ("payment_method" = 'manual' AND "created_at" < ?))
+       ${userId ? 'AND "user_id" = ?' : ''}`,
+  ).bind(...(userId ? [timestamp, payosCutoff, manualCutoff, userId] : [timestamp, payosCutoff, manualCutoff])).run();
+  return result.meta.changes;
+}
+
+export async function listUserCreditOrders(
+  db: D1Database,
+  userId: string,
+  options: { limit?: number } = {},
+): Promise<CreditOrder[]> {
+  const { results } = await db.prepare(
+    `SELECT * FROM "credit_order"
+     WHERE "user_id" = ?
+     ORDER BY CASE "status" WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 WHEN 'paid' THEN 2 ELSE 3 END, "created_at" DESC
+     LIMIT ?`,
+  ).bind(userId, options.limit ?? 20).all<CreditOrder>();
+  return results;
 }
 
 export async function reserveCreditOrder(

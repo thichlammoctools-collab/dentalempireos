@@ -118,7 +118,7 @@ const activeCount = Math.max(0, total - bannedCount);
                 <td class="px-6 py-4"><span class:list={["status-chip", user.banned ? "status-chip--blocked" : "status-chip--active"]}><span class="material-symbols-outlined text-[15px]">{user.banned ? 'block' : 'check_circle'}</span>{user.banned ? 'Bị cấm' : 'Hoạt động'}</span>{user.emailVerified && <p class="mt-1.5 text-xs text-emerald-500">Email đã xác thực</p>}</td>
                 <td class="px-6 py-4 text-on-surface-variant">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</td>
                 <td class="px-6 py-4 text-on-surface-variant">{user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString('vi-VN') : 'Chưa có dữ liệu'}</td>
-                <td class="px-6 py-4"><div class="flex items-center justify-end gap-2"><button class="detail-btn user-action-btn" data-user-id={user.id}><span class="material-symbols-outlined text-[17px]">visibility</span>Hồ sơ</button><button class:list={["ban-btn user-icon-action", user.banned ? "user-icon-action--restore" : "user-icon-action--danger"]} data-user-id={user.id} data-banned={String(!!user.banned)} title={user.banned ? 'Bỏ cấm người dùng' : 'Cấm người dùng'}><span class="material-symbols-outlined text-[18px]">{user.banned ? 'person_check' : 'person_off'}</span></button></div></td>
+                <td class="px-6 py-4"><div class="flex items-center justify-end gap-2"><button class="detail-btn user-action-btn" data-user-id={user.id}><span class="material-symbols-outlined text-[17px]">visibility</span>Hồ sơ</button><button class:list={["ban-btn user-icon-action", user.banned ? "user-icon-action--restore" : "user-icon-action--danger"]} data-user-id={user.id} data-banned={String(!!user.banned)} title={user.banned ? 'Bỏ cấm người dùng' : 'Cấm người dùng'}><span class="material-symbols-outlined text-[18px]">{user.banned ? 'person_check' : 'person_off'}</span></button><button class="delete-btn user-icon-action user-icon-action--delete" data-user-id={user.id} data-user-name={user.name ?? user.email} title="Xóa người dùng"><span class="material-symbols-outlined text-[18px]">delete</span></button></div></td>
               </tr>
             ))}
           </tbody>
@@ -130,7 +130,7 @@ const activeCount = Math.max(0, total - bannedCount);
           <article class="user-card user-row" data-user-key={user.id} data-search={`${user.name ?? ''} ${user.email ?? ''}`.toLowerCase()} data-status={user.banned ? 'banned' : 'active'}>
             <div class="flex items-start gap-3"><div class="user-avatar">{user.name?.charAt(0)?.toUpperCase() ?? '?'}</div><div class="min-w-0 flex-1"><p class="truncate font-bold text-on-surface">{user.name || 'Chưa đặt tên'}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{user.email}</p></div><span class:list={["status-chip", user.banned ? "status-chip--blocked" : "status-chip--active"]}>{user.banned ? 'Bị cấm' : 'Hoạt động'}</span></div>
             <div class="mt-4 grid grid-cols-2 gap-3 border-t border-outline-variant/15 pt-3 text-xs"><p class="text-on-surface-variant">Tham gia<strong class="mt-1 block text-sm text-on-surface">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</strong></p><p class="text-on-surface-variant">Hoạt động cuối<strong class="mt-1 block text-sm text-on-surface">{user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString('vi-VN') : 'Chưa có'}</strong></p></div>
-            <div class="mt-4 flex gap-2"><button class="detail-btn user-action-btn flex-1 justify-center" data-user-id={user.id}><span class="material-symbols-outlined text-[17px]">visibility</span>Xem hồ sơ</button><button class:list={["ban-btn user-icon-action", user.banned ? "user-icon-action--restore" : "user-icon-action--danger"]} data-user-id={user.id} data-banned={String(!!user.banned)}><span class="material-symbols-outlined text-[18px]">{user.banned ? 'person_check' : 'person_off'}</span></button></div>
+            <div class="mt-4 flex gap-2"><button class="detail-btn user-action-btn flex-1 justify-center" data-user-id={user.id}><span class="material-symbols-outlined text-[17px]">visibility</span>Xem hồ sơ</button><button class:list={["ban-btn user-icon-action", user.banned ? "user-icon-action--restore" : "user-icon-action--danger"]} data-user-id={user.id} data-banned={String(!!user.banned)}><span class="material-symbols-outlined text-[18px]">{user.banned ? 'person_check' : 'person_off'}</span></button><button class="delete-btn user-icon-action user-icon-action--delete" data-user-id={user.id} data-user-name={user.name ?? user.email}><span class="material-symbols-outlined text-[18px]">delete</span></button></div>
           </article>
         ))}
       </div>
@@ -163,6 +163,8 @@ const activeCount = Math.max(0, total - bannedCount);
     .user-icon-action--danger:hover { background: color-mix(in srgb, #f43f5e 12%, transparent); }
     .user-icon-action--restore { border-color: color-mix(in srgb, #10b981 30%, transparent); color: #059669; }
     .user-icon-action--restore:hover { background: color-mix(in srgb, #10b981 12%, transparent); }
+    .user-icon-action--delete { border-color: color-mix(in srgb, #ef4444 35%, transparent); color: #dc2626; }
+    .user-icon-action--delete:hover { background: color-mix(in srgb, #ef4444 14%, transparent); }
     .user-card { border: 1px solid color-mix(in srgb, var(--color-outline-variant) 28%, transparent); border-radius: 1.15rem; background: var(--color-surface); padding: 1rem; }
     .user-row.is-filtered { display: none; }
     #user-modal.is-open { display: block; }
@@ -321,6 +323,10 @@ async function fetchUserDetail(userId: string) {
           class="modal-action-btn px-4 py-2 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary transition-all cursor-pointer">
           Gửi email xác thực
         </button>
+        <button data-action="delete" data-user-id="${userId}" data-user-name="${(data.name ?? data.email ?? '').replace(/"/g, '&quot;')}" data-modal="true"
+          class="modal-action-btn ml-auto px-4 py-2 rounded-xl text-sm font-bold bg-red-500/15 text-red-500 border border-red-500/30 hover:bg-red-500/25 transition-all cursor-pointer">
+          <span class="material-symbols-outlined text-[18px] align-middle mr-1">delete</span>Xóa người dùng
+        </button>
       </div>
     `;
   } catch {
@@ -365,6 +371,35 @@ userActions.addEventListener('click', async (e) => {
   }
 });
 
+// Delete user (row action)
+userActions.addEventListener('click', async (e) => {
+  const deleteBtn = (e.target as HTMLElement).closest('.delete-btn') as HTMLButtonElement | null;
+  if (!deleteBtn) return;
+  const userId = deleteBtn.dataset.userId!;
+  const userName = deleteBtn.dataset.userName || 'người dùng này';
+  if (!confirm(`Xóa vĩnh viễn "${userName}"?\nHành động này không thể hoàn tác.`)) return;
+
+  deleteBtn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/auth/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', userId }),
+    });
+    if (res.ok) {
+      showToast('Đã xóa người dùng');
+      window.location.reload();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.error || 'Lỗi khi xóa', 'error');
+    }
+  } catch {
+    showToast('Lỗi kết nối', 'error');
+  } finally {
+    deleteBtn.disabled = false;
+  }
+});
+
 // Modal actions
 modalContent.addEventListener('click', async (e) => {
   const btn = (e.target as HTMLElement).closest('.modal-action-btn') as HTMLButtonElement | null;
@@ -372,6 +407,11 @@ modalContent.addEventListener('click', async (e) => {
 
   const action = btn.dataset.action!;
   const userId = btn.dataset.userId!;
+
+  if (action === 'delete') {
+    const userName = btn.dataset.userName || 'người dùng này';
+    if (!confirm(`Xóa vĩnh viễn "${userName}"?\nHành động này không thể hoàn tác.`)) return;
+  }
 
   if (action === 'grant-product') {
     const select = document.getElementById('manual-product-select') as HTMLSelectElement | null;

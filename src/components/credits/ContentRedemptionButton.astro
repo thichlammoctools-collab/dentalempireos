@@ -23,16 +23,20 @@ const redirect = Astro.url.pathname + Astro.url.search;
 {user ? (
   <button
     type="button"
-    class={`credit-redemption-trigger inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+    class={`credit-redemption-trigger inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     data-content-type={contentType}
     data-content-id={contentId}
     data-days={days ?? ''}
     data-success-url={successUrl ?? ''}
   >
-    <span class="material-symbols-outlined text-lg">account_balance_wallet</span>{label}
+    <span class="material-symbols-outlined text-base">account_balance_wallet</span>
+    <span>{label}</span>
   </button>
 ) : (
-  <a href={`/login?redirect=${encodeURIComponent(redirect)}`} class={`inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary transition hover:brightness-110 ${className}`}><span class="material-symbols-outlined text-lg">login</span>Đăng nhập để mở khóa</a>
+  <a href={`/login?redirect=${encodeURIComponent(redirect)}`} class={`inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition hover:brightness-110 ${className}`}>
+    <span class="material-symbols-outlined text-base">login</span>
+    <span>Đăng nhập để mở khóa</span>
+  </a>
 )}
 
 <script>

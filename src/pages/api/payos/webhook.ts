@@ -96,6 +96,9 @@ export const POST: APIRoute = async ({ request }) => {
     if (data.amount !== creditOrder.amount || (data.paymentLinkId && data.paymentLinkId !== creditOrder.payment_link_id)) {
       return new Response('Payment details mismatch', { status: 400 });
     }
+    if (creditOrder.status === 'cancelled' || creditOrder.status === 'expired') {
+      return new Response('Order no longer active', { status: 200 });
+    }
     if (isSuccess) await fulfillCreditOrder(env.DB, creditOrder);
     else await env.DB.prepare(
       `UPDATE "credit_order" SET "status" = 'cancelled', "updated_at" = ?
