@@ -1,0 +1,34 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getCreditOrder } from '../../lib/credit-db';
+import { getManualPaymentSettings } from '../../lib/payos-db';
+
+export const prerender = false;
+
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const [order, settings] = await Promise.all([orderId ? getCreditOrder(env.DB, orderId) : null, getManualPaymentSettings(env.DB)]);
+const isOwner = order?.user_id === Astro.locals.user?.id && order.payment_method === 'manual';
+const transferContent = order?.order_code ? `CRED ${order.order_code}` : '';
+const qrUrl = isOwner && settings?.bank_bin && settings.account_number && order
+  ? `https://img.vietqr.io/image/${encodeURIComponent(settings.bank_bin)}-${encodeURIComponent(settings.account_number)}-compact2.png?amount=${order.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(settings.account_name)}`
+  : '';
+const zaloUrl = settings?.zalo_url && order
+  ? `${settings.zalo_url}${settings.zalo_url.includes('?') ? '&' : '?'}text=${encodeURIComponent(`Chào Dental Empire OS, tôi đã chuyển khoản nạp ${order.credits_to_grant} Credits cho đơn ${order.id}, nội dung ${transferContent}, số tiền ${order.amount.toLocaleString('vi-VN')}đ.`)}`
+  : '';
+---
+
+<BaseLayout title="Nạp Credits bằng chuyển khoản | Dental Empire OS" noindex={true}>
+  <section class="mx-auto max-w-[560px] px-6 py-12">
+    {isOwner && order && settings && qrUrl ? (
+      <div class="glass-card rounded-2xl border border-outline-variant/20 p-6 text-center sm:p-8">
+        <span class="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">NẠP CREDITS BẰNG CHUYỂN KHOẢN</span>
+        <h1 class="mt-4 text-2xl font-bold text-on-surface">Nạp {order.credits_to_grant} Credits</h1>
+        <p class="mt-2 text-sm text-on-surface-variant">Chuyển đúng số tiền và nội dung để quản trị viên xác nhận nhanh chóng.</p>
+        <img src={qrUrl} alt="Mã QR chuyển khoản" class="mx-auto my-6 w-full max-w-[320px] rounded-xl bg-white p-2" />
+        <dl class="divide-y divide-outline-variant/20 rounded-xl bg-surface-container/70 text-left text-sm"><div class="flex justify-between gap-4 p-4"><dt class="text-on-surface-variant">Số tiền</dt><dd class="font-bold text-primary">{order.amount.toLocaleString('vi-VN')}đ</dd></div><div class="flex justify-between gap-4 p-4"><dt class="text-on-surface-variant">Credits nhận được</dt><dd class="font-bold text-on-surface">{order.credits_to_grant}</dd></div><div class="flex justify-between gap-4 p-4"><dt class="text-on-surface-variant">Nội dung</dt><dd class="font-mono font-bold text-primary">{transferContent}</dd></div></dl>
+        <a href={zaloUrl} target="_blank" rel="noopener noreferrer" class="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary"><span class="material-symbols-outlined">chat</span>Nhắn Zalo để xác nhận</a>
+      </div>
+    ) : <div class="glass-card rounded-2xl border border-outline-variant/20 p-8 text-center"><h1 class="text-xl font-bold text-on-surface">Không tìm thấy đơn nạp Credits</h1><a href="/account/wallet" class="mt-5 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary">Quay lại ví</a></div>}
+  </section>
+</BaseLayout>

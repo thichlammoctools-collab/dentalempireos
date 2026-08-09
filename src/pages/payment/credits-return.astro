@@ -1,0 +1,45 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getCreditOrder } from '../../lib/credit-db';
+
+export const prerender = false;
+
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const order = orderId ? await getCreditOrder(env.DB, orderId) : null;
+const isOwner = order?.user_id === Astro.locals.user?.id;
+---
+
+<BaseLayout title="Nạp Credits | Dental Empire OS" noindex={true}>
+  <section class="mx-auto max-w-[480px] px-6 py-16 text-center">
+    <div class="glass-card rounded-2xl border border-outline-variant/20 p-8">
+      <div id="state-loading" class="flex flex-col items-center gap-4"><div class="h-12 w-12 animate-spin rounded-full border-4 border-primary/30 border-t-primary"></div><p class="text-sm text-on-surface-variant">Đang xác nhận thanh toán Credits...</p></div>
+      <div id="state-success" class="hidden flex-col items-center gap-4"><div class="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400"><span class="material-symbols-outlined text-3xl">check</span></div><h1 class="text-xl font-bold text-on-surface">Nạp Credits thành công</h1><p id="success-message" class="text-sm text-on-surface-variant">Credits đã sẵn sàng trong ví của bạn.</p><a href="/account/wallet" class="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary">Mở ví Credits</a></div>
+      <div id="state-failed" class="hidden flex-col items-center gap-4"><div class="flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/20 text-rose-400"><span class="material-symbols-outlined text-3xl">priority_high</span></div><h1 class="text-xl font-bold text-on-surface">Thanh toán chưa hoàn tất</h1><p class="text-sm text-on-surface-variant">Đơn nạp Credits đang chờ xử lý hoặc đã bị hủy.</p><a href="/account/wallet" class="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary">Quay lại ví</a></div>
+    </div>
+  </section>
+
+  <script is:inline define:vars={{ orderId, isOwner }}>
+    const orderId = orderId;
+    const isOwner = isOwner;
+    const loading = document.getElementById('state-loading');
+    const success = document.getElementById('state-success');
+    const failed = document.getElementById('state-failed');
+    let attempts = 0;
+    async function checkPayment() {
+      if (!isOwner || !orderId || attempts >= 30) { loading?.classList.add('hidden'); failed?.classList.remove('hidden'); return; }
+      attempts += 1;
+      try {
+        const response = await fetch('/api/credits/check-payment?order_id=' + encodeURIComponent(orderId));
+        const data = await response.json();
+        if (response.ok && data.status === 'paid') {
+          const message = document.getElementById('success-message');
+          if (message) message.textContent = `Đã cộng ${data.creditsGranted} Credits vào ví của bạn.`;
+          loading?.classList.add('hidden'); success?.classList.remove('hidden'); success?.classList.add('flex'); return;
+        }
+      } catch {}
+      setTimeout(checkPayment, 2000);
+    }
+    setTimeout(checkPayment, 1500);
+  </script>
+</BaseLayout>

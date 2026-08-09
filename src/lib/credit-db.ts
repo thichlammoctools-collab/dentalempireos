@@ -600,6 +600,75 @@ export async function hasUserContentGrant(
   return !!row;
 }
 
+export async function getUserContentGrant(
+  db: D1Database,
+  userId: string,
+  contentType: 'book' | 'blog' | 'course' | 'resource',
+  contentId: string,
+): Promise<{ id: string; expires_at: string | null; credit_consumption_id: string | null } | null> {
+  return db.prepare(
+    `SELECT "id", "expires_at", "credit_consumption_id" FROM "user_content_grant"
+     WHERE "user_id" = ? AND "content_type" = ? AND "content_id" = ?`,
+  ).bind(userId, contentType, contentId).first<{ id: string; expires_at: string | null; credit_consumption_id: string | null }>();
+}
+
+export async function redeemContentWithCredits(
+  db: D1Database,
+  input: {
+    userId: string;
+    contentType: 'book' | 'blog' | 'course' | 'resource';
+    contentId: string;
+    credits: number;
+    idempotencyKey: string;
+    priceSnapshot: unknown;
+    durationDays?: number;
+  },
+): Promise<{ consumption: CreditConsumption | null; alreadyGranted: boolean; expiresAt: string | null }> {
+  positiveInteger(input.credits, 'credits');
+  const existing = await getUserContentGrant(db, input.userId, input.contentType, input.contentId);
+  const renewable = input.contentType === 'book' || input.contentType === 'blog';
+  if (existing && !renewable && (existing.expires_at === null || existing.expires_at > now())) {
+    return { consumption: null, alreadyGranted: true, expiresAt: existing.expires_at };
+  }
+
+  const businessObjectId = `content:${input.userId}:${input.contentType}:${input.contentId}:${input.idempotencyKey}`;
+  const reservation = await reserveCredits(db, {
+    userId: input.userId,
+    amount: input.credits,
+    featureType: input.contentType,
+    businessObjectId,
+    idempotencyKey: `content:${input.idempotencyKey}`,
+    metadata: { contentType: input.contentType, contentId: input.contentId },
+  });
+  const consumption = await settleReservation(db, {
+    userId: input.userId,
+    reservationId: reservation.reservation.id,
+    featureType: input.contentType,
+    businessObjectId,
+    chargeType: 'unlock',
+    credits: input.credits,
+    priceSnapshot: input.priceSnapshot,
+    quantitySnapshot: { durationDays: input.durationDays ?? null },
+  });
+
+  const timestamp = now();
+  const currentExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
+  const base = Math.max(Date.now(), currentExpiry);
+  const expiresAt = renewable
+    ? new Date(base + (input.durationDays ?? input.credits) * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+  await db.prepare(
+    `INSERT INTO "user_content_grant"
+     ("id","user_id","content_type","content_id","granted_at","expires_at","credit_consumption_id","updated_at")
+     VALUES (?,?,?,?,?,?,?,?)
+     ON CONFLICT("user_id","content_type","content_id") DO UPDATE SET
+       "expires_at" = excluded."expires_at",
+       "credit_consumption_id" = COALESCE("user_content_grant"."credit_consumption_id", excluded."credit_consumption_id"),
+       "updated_at" = excluded."updated_at"`,
+  ).bind(id(), input.userId, input.contentType, input.contentId, timestamp, expiresAt, consumption.id, timestamp).run();
+  return { consumption, alreadyGranted: false, expiresAt };
+}
+
 export interface ScannerCreditRun {
   id: string;
   user_id: string;
