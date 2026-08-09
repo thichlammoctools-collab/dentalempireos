@@ -4,10 +4,7 @@ import { env } from 'cloudflare:workers';
 import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, parseJSON } from '../../lib/survey-config-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
-import { getActiveProducts, type Product } from '../../lib/payos-db';
-import { listProductEntitlements } from '../../lib/entitlement-db';
-import { canAccessScanner, hasActiveScannerProduct } from '../../lib/entitlement-check';
-import PaymentButton from '../../components/PaymentButton.astro';
+import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-db';
 
 export const prerender = false;
 
@@ -39,28 +36,22 @@ if (full.definition.status !== 'active') {
 
 const { definition, sections } = full;
 
-const hasConfiguredProduct = await hasActiveScannerProduct(env.DB, definition.id);
-const isPaidScanner = hasConfiguredProduct;
-const hasPaidAccess = isPaidScanner ? await canAccessScanner(env.DB, currentUser.id, definition.id) : true;
-const usage = await getScannerUsage(env.DB, currentUser.id, definition.id, !isPaidScanner);
-const scannerProducts = hasConfiguredProduct ? await getActiveProducts(env.DB).then(async (products) => {
-  const withEntitlements = await Promise.all(products.map(async (product) => ({
-    product,
-    entitlements: await listProductEntitlements(env.DB, product.id),
-  })));
-  return withEntitlements
-    .filter(({ entitlements }) => entitlements.some((entitlement) => entitlement.content_type === 'scanner' && entitlement.content_id === definition.id))
-    .map(({ product }) => product)
-    .sort((a, b) => a.price - b.price);
-}) : [];
-const scannerProduct: Product | null = scannerProducts[0] ?? null;
-const quotaExhausted = usage.remaining === 0;
-const scannerUnavailable = !hasPaidAccess || quotaExhausted;
-const scannerNotice = !hasPaidAccess
-  ? 'Bạn cần mở khóa Scanner này trước khi thực hiện.'
-  : !isPaidScanner
+const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', definition.id);
+const scannerPrice = pricingRule?.credit_amount ?? 0;
+const isPaidScanner = scannerPrice > 0;
+const [usage, creditBalance] = await Promise.all([
+  isPaidScanner
+    ? Promise.resolve({ used: 0, limit: 0, remaining: 0 })
+    : getScannerUsage(env.DB, currentUser.id, definition.id, true),
+  getCreditBalance(env.DB, currentUser.id),
+]);
+const quotaExhausted = isPaidScanner ? creditBalance.available < scannerPrice : usage.remaining === 0;
+const scannerUnavailable = quotaExhausted;
+const scannerNotice = !isPaidScanner
   ? `Scanner miễn phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt bao gồm phân tích AI và kế hoạch AI cho kết quả của bạn.`
-  : `Scanner trả phí: bạn còn ${usage.remaining}/${usage.limit} lượt. Mỗi lượt scan AI tốn 1 credit.`;
+  : quotaExhausted
+    ? `Bạn cần ${scannerPrice} Credits để thực hiện Scanner này. Số dư khả dụng hiện tại: ${creditBalance.available} Credits.`
+    : `Scanner này tốn ${scannerPrice} Credits. Số dư khả dụng của bạn: ${creditBalance.available} Credits. Mỗi lượt gồm điểm số, 1 phân tích AI, 1 kế hoạch AI và PDF.`;
 
 let clinicProfile: any = null;
 try {
@@ -151,19 +142,16 @@ const defaultScaleEn: Record<string, string> = {
           class:list={['scanner-quota-notice', scannerUnavailable && 'scanner-quota-notice--blocked']}
           role="status"
           data-notice-vi={scannerNotice}
-          data-notice-en={!hasPaidAccess ? 'You need to unlock this Scanner before you can use it.' : !isPaidScanner ? `Free Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each attempt includes AI analysis and an AI action plan for your result.` : `Paid Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each AI scan costs 1 credit.`}
+          data-notice-en={!isPaidScanner ? `Free Scanner: ${usage.remaining}/${usage.limit} attempts remaining. Each attempt includes AI analysis and an AI action plan for your result.` : quotaExhausted ? `You need ${scannerPrice} Credits to run this Scanner. Your available balance is ${creditBalance.available} Credits.` : `This Scanner costs ${scannerPrice} Credits. Your available balance is ${creditBalance.available} Credits.`}
         >
           <span class="material-symbols-outlined">{scannerUnavailable ? 'lock' : 'info'}</span>
           <div class="scanner-quota-notice__content">
             <strong class="scanner-quota-notice__title">{scannerNotice}</strong>
-            {(!hasPaidAccess && scannerProduct) && (
-              <span class="scanner-quota-notice__hint" data-vi="Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này." data-en="To unlock it: scroll down to “Unlock Scanner”, click <b>Buy now</b>, complete payment, then return to this page.">Để mở khóa: kéo xuống phần “Mở khóa Scanner”, chọn <b>Mua ngay</b>, hoàn tất thanh toán rồi quay lại trang này.</span>
-            )}
-            {(!hasPaidAccess && !scannerProduct) && (
-              <span class="scanner-quota-notice__hint" data-vi="Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa." data-en="This Scanner has no payment product assigned. Please contact an administrator to request access.">Scanner này chưa có sản phẩm thanh toán. Vui lòng liên hệ quản trị viên để được gán quyền mở khóa.</span>
+            {quotaExhausted && isPaidScanner && (
+              <span class="scanner-quota-notice__hint">Nạp thêm Credits trong ví để tiếp tục.</span>
             )}
           </div>
-          {quotaExhausted && <a href="/account/scanner-history">Xem lịch sử</a>}
+          {quotaExhausted && <a href={isPaidScanner ? '/account/wallet' : '/account/scanner-history'}>{isPaidScanner ? 'Mở ví Credits' : 'Xem lịch sử'}</a>}
         </div>
 
         {!quotaExhausted && (
@@ -173,27 +161,16 @@ const defaultScaleEn: Record<string, string> = {
               <button type="button" class="lang-btn" data-lang="en">English</button>
             </div>
 
-            {!hasPaidAccess && (
+            {quotaExhausted && isPaidScanner && (
               <section class="scanner-unlock-card" aria-labelledby="scanner-unlock-title">
                 <div class="scanner-unlock-card__icon">
                   <span class="material-symbols-outlined">lock_open</span>
                 </div>
                 <div class="scanner-unlock-card__content">
-                  <p class="scanner-unlock-card__eyebrow" data-vi="Mở khóa Scanner" data-en="Unlock Scanner">Mở khóa Scanner</p>
-                  <h2 id="scanner-unlock-title">{scannerProduct?.name ?? `Mở khóa ${definition.title_vi}`}</h2>
-                  <p data-vi={scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'} data-en="Purchase access to start the assessment and receive analysis tailored to your clinic.">{scannerProduct?.description ?? 'Mua quyền truy cập để bắt đầu đánh giá và nhận phân tích dành riêng cho phòng khám của bạn.'}</p>
-                  {scannerProduct && (
-                    <ol class="scanner-unlock-card__steps" data-vi="Nhấn|Mua ngay|bên dưới.;Chọn thanh toán tự động hoặc chuyển khoản QR.;Sau khi kích hoạt, quay lại trang này để bắt đầu." data-en="Click|Buy now|below.;Choose automatic payment or QR bank transfer.;After activation, return to this page to get started.">
-                      <li data-vi="Nhấn|Mua ngay| bên dưới." data-en="Click|Buy now| below.">Nhấn <strong>Mua ngay</strong> bên dưới.</li>
-                      <li data-vi="Chọn thanh toán tự động hoặc chuyển khoản QR." data-en="Choose automatic payment or QR bank transfer.">Chọn thanh toán tự động hoặc chuyển khoản QR.</li>
-                      <li data-vi="Sau khi kích hoạt, quay lại trang này để bắt đầu." data-en="After activation, return to this page to get started.">Sau khi kích hoạt, quay lại trang này để bắt đầu.</li>
-                    </ol>
-                  )}
-                  {scannerProduct ? (
-                    <PaymentButton productId={scannerProduct.id} productName={scannerProduct.name} price={scannerProduct.price} scannerId={definition.id} class="scanner-unlock-card__button" />
-                  ) : (
-                    <p class="scanner-unlock-card__unavailable">Scanner này chưa được gán sản phẩm thanh toán. Vui lòng liên hệ quản trị viên.</p>
-                  )}
+                  <p class="scanner-unlock-card__eyebrow">Ví Credits</p>
+                  <h2 id="scanner-unlock-title">Bạn cần thêm {scannerPrice - creditBalance.available} Credits</h2>
+                  <p>Scanner này được thanh toán theo từng lượt. Một lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF kết quả.</p>
+                  <a href="/account/wallet" class="scanner-unlock-card__button">Mở ví Credits</a>
                 </div>
               </section>
             )}
@@ -266,7 +243,7 @@ const defaultScaleEn: Record<string, string> = {
 </BaseLayout>
 
 <!-- External script to avoid SSR stream truncation with inline <script> tags -->
-{!quotaExhausted && <script src="/scripts/scanner-form-client.js?v=20260803-premium-profile" is:inline></script>}
+ {!quotaExhausted && <script src="/scripts/scanner-form-client.js?v=20260809-credits" is:inline></script>}
 
 <style is:global>
   .survey-wrap {

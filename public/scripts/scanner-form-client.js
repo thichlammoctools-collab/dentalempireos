@@ -29,6 +29,7 @@
   var answers = { lang: 'vi', survey_id: surveyData.id };
   var partEls = [];
   var isSubmitting = false;
+  var requestIdempotencyKey = null;
 
   function showUnavailableMessage() {
     if (!submitError) return;
@@ -419,9 +420,10 @@
     var payload = Object.assign({}, answers, { save_profile: saveChecked });
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
 
+    requestIdempotencyKey = requestIdempotencyKey || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + '-' + Math.random());
     fetch('/api/scanner/submit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestIdempotencyKey },
       body: JSON.stringify(payload),
     })
     .then(function (res) {

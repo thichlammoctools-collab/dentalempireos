@@ -1,0 +1,127 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../lib/auth';
+import { getCreditBalance, listCreditLedger } from '../../lib/credit-db';
+
+export const prerender = false;
+
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session?.user) return Astro.redirect('/login?redirect=/account/wallet');
+
+const [balance, entries, packageResult] = await Promise.all([
+  getCreditBalance(env.DB, session.user.id),
+  listCreditLedger(env.DB, session.user.id, { limit: 50 }),
+  env.DB.prepare(
+    `SELECT "id", "name", "price", "credit_amount", "bonus_credits"
+     FROM "credit_package" WHERE "is_active" = 1
+     ORDER BY "sort_order" ASC, "created_at" ASC`,
+  ).all<{ id: string; name: string; price: number; credit_amount: number; bonus_credits: number }>(),
+]);
+const packages = packageResult.results ?? [];
+
+const kindLabels: Record<string, string> = {
+  welcome_grant: 'Credits chào mừng',
+  purchase_grant: 'Nạp Credits',
+  challenge_grant: 'Thưởng thử thách',
+  admin_adjustment: 'Điều chỉnh bởi quản trị viên',
+  reservation: 'Tạm giữ Credits',
+  settlement: 'Hoàn tất sử dụng',
+  release: 'Hoàn Credits tạm giữ',
+  refund: 'Hoàn Credits',
+  reversal: 'Đảo giao dịch',
+};
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatPrice(value: number): string {
+  return `${value.toLocaleString('vi-VN')}đ`;
+}
+---
+
+<BaseLayout title="Ví Credits | Dental Empire OS" description="Theo dõi số dư Credits, lịch sử sử dụng và gói nạp." noindex={true}>
+  <section class="min-h-screen bg-surface py-8 md:py-12">
+    <div class="mx-auto max-w-5xl px-4 md:px-6">
+      <a href="/account/profile" class="mb-6 inline-flex items-center gap-1 text-sm text-on-surface-variant transition-colors hover:text-primary">
+        <span class="material-symbols-outlined text-lg">arrow_back</span> Hồ sơ cá nhân
+      </a>
+
+      <div class="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-primary">Dental Empire OS</p>
+          <h1 class="text-2xl font-bold text-on-surface md:text-3xl">Ví Credits</h1>
+          <p class="mt-2 text-sm text-on-surface-variant">Credits không hết hạn. Credits đang tạm giữ sẽ được hoàn lại khi một yêu cầu không hoàn tất.</p>
+        </div>
+        <a href="#top-up" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition hover:brightness-110">
+          <span class="material-symbols-outlined text-lg">add_card</span> Nạp Credits
+        </a>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-primary/30 bg-primary/10 p-5">
+          <div class="flex items-center justify-between text-primary"><span class="text-sm font-semibold">Khả dụng</span><span class="material-symbols-outlined">account_balance_wallet</span></div>
+          <p class="mt-4 text-4xl font-black text-on-surface">{balance.available}</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Credits sẵn sàng sử dụng</p>
+        </div>
+        <div class="rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5">
+          <div class="flex items-center justify-between text-on-surface-variant"><span class="text-sm font-semibold">Tạm giữ</span><span class="material-symbols-outlined">hourglass_top</span></div>
+          <p class="mt-4 text-4xl font-black text-on-surface">{balance.reserved}</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Đang xử lý trong yêu cầu của bạn</p>
+        </div>
+        <div class="rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5">
+          <div class="flex items-center justify-between text-on-surface-variant"><span class="text-sm font-semibold">Tổng sở hữu</span><span class="material-symbols-outlined">toll</span></div>
+          <p class="mt-4 text-4xl font-black text-on-surface">{balance.total}</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Khả dụng và tạm giữ</p>
+        </div>
+      </div>
+
+      <section id="top-up" class="mt-8">
+        <div class="mb-4 flex items-center justify-between"><h2 class="text-lg font-bold text-on-surface">Gói nạp Credits</h2><span class="text-xs text-on-surface-variant">Giá được cấu hình bởi quản trị viên</span></div>
+        {packages.length === 0 ? (
+          <div class="rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container-low p-8 text-center">
+            <span class="material-symbols-outlined text-4xl text-on-surface-variant/50">credit_card_off</span>
+            <p class="mt-3 font-semibold text-on-surface">Chưa có gói nạp đang hoạt động</p>
+            <p class="mt-1 text-sm text-on-surface-variant">Quản trị viên cần tạo gói Credits trước khi bạn có thể nạp.</p>
+          </div>
+        ) : (
+          <div class="grid gap-4 md:grid-cols-3">
+            {packages.map((creditPackage) => (
+              <article class="rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5">
+                <h3 class="font-bold text-on-surface">{creditPackage.name}</h3>
+                <p class="mt-4 text-3xl font-black text-primary">{creditPackage.credit_amount + creditPackage.bonus_credits} Credits</p>
+                {creditPackage.bonus_credits > 0 && <p class="mt-1 text-xs font-semibold text-emerald-500">Bao gồm {creditPackage.bonus_credits} Credits tặng thêm</p>}
+                <p class="mt-4 text-sm text-on-surface-variant">{formatPrice(creditPackage.price)}</p>
+                <p class="mt-3 text-xs text-on-surface-variant">Thanh toán gói Credits sẽ được kích hoạt khi luồng checkout Credits hoàn tất.</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section class="mt-8 rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5 md:p-6">
+        <div class="mb-5 flex items-center justify-between"><h2 class="text-lg font-bold text-on-surface">Lịch sử Credits</h2><span class="text-xs text-on-surface-variant">{entries.length} giao dịch gần nhất</span></div>
+        {entries.length === 0 ? (
+          <div class="py-8 text-center text-sm text-on-surface-variant">Chưa có giao dịch Credits nào.</div>
+        ) : (
+          <div class="divide-y divide-outline-variant/15">
+            {entries.map((entry) => (
+              <div class="flex items-center gap-3 py-3.5">
+                <div class:list={[
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                  entry.amount > 0 ? 'bg-emerald-500/10 text-emerald-500' : entry.amount < 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary',
+                ]}>
+                  <span class="material-symbols-outlined text-lg">{entry.amount > 0 ? 'add_circle' : entry.amount < 0 ? 'remove_circle' : 'check_circle'}</span>
+                </div>
+                <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-on-surface">{kindLabels[entry.kind] ?? entry.kind}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{entry.reason ?? entry.source_type} · {formatDate(entry.created_at)}</p></div>
+                <p class:list={['text-sm font-black tabular-nums', entry.amount > 0 ? 'text-emerald-500' : entry.amount < 0 ? 'text-amber-500' : 'text-on-surface-variant']}>{entry.amount > 0 ? '+' : ''}{entry.amount}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  </section>
+</BaseLayout>

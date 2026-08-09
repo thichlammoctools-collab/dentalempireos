@@ -238,19 +238,21 @@ export async function adjustCredits(
   if (existing) return getCreditBalance(db, input.userId);
 
   const timestamp = now();
-  const update = await db.prepare(
-    `UPDATE "credit_account"
-     SET "available_credits" = "available_credits" - ?, "updated_at" = ?
-     WHERE "id" = ? AND "available_credits" >= ?`,
-  ).bind(debit, timestamp, account.id, debit).run();
-  if (update.meta.changes !== 1) throw new InsufficientCreditsError();
   try {
-    await db.prepare(
-      `INSERT INTO "credit_ledger_entry"
-       ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    ).bind(id(), account.id, 'admin_adjustment', -debit, 'admin_adjustment', input.sourceId ?? input.actorUserId,
-      input.idempotencyKey, input.actorUserId, input.reason, json(input.metadata), timestamp).run();
+    const result = await db.batch([
+      db.prepare(
+        `UPDATE "credit_account"
+         SET "available_credits" = "available_credits" - ?, "updated_at" = ?
+         WHERE "id" = ? AND "available_credits" >= ?`,
+      ).bind(debit, timestamp, account.id, debit),
+      db.prepare(
+        `INSERT INTO "credit_ledger_entry"
+         ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
+         SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE changes() = 1`,
+      ).bind(id(), account.id, 'admin_adjustment', -debit, 'admin_adjustment', input.sourceId ?? input.actorUserId,
+        input.idempotencyKey, input.actorUserId, input.reason, json(input.metadata), timestamp),
+    ]);
+    if (result[0].meta.changes !== 1) throw new InsufficientCreditsError();
   } catch (error) {
     const duplicate = await db.prepare(
       'SELECT 1 FROM "credit_ledger_entry" WHERE "account_id" = ? AND "idempotency_key" = ?',
@@ -287,28 +289,27 @@ export async function reserveCredits(
   };
 
   try {
-    const update = await db.prepare(
-      `UPDATE "credit_account"
-       SET "available_credits" = "available_credits" - ?, "reserved_credits" = "reserved_credits" + ?, "updated_at" = ?
-       WHERE "id" = ? AND "available_credits" >= ?`,
-    ).bind(input.amount, input.amount, timestamp, account.id, input.amount).run();
-    if (update.meta.changes !== 1) throw new InsufficientCreditsError();
-
-    await db.batch([
+    const result = await db.batch([
+      db.prepare(
+        `UPDATE "credit_account"
+         SET "available_credits" = "available_credits" - ?, "reserved_credits" = "reserved_credits" + ?, "updated_at" = ?
+         WHERE "id" = ? AND "available_credits" >= ?`,
+      ).bind(input.amount, input.amount, timestamp, account.id, input.amount),
       db.prepare(
         `INSERT INTO "credit_reservation"
          ("id","account_id","feature_type","business_object_id","reserved_credits","status","idempotency_key","expires_at","released_at","created_at","updated_at")
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+         SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE changes() = 1`,
       ).bind(reservation.id, reservation.account_id, reservation.feature_type, reservation.business_object_id,
         reservation.reserved_credits, reservation.status, reservation.idempotency_key, reservation.expires_at,
         null, reservation.created_at, reservation.updated_at),
       db.prepare(
         `INSERT INTO "credit_ledger_entry"
          ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
-         VALUES (?,?,'reservation',?,?,?,?,NULL,NULL,?,?)`,
+         SELECT ?,?,'reservation',?,?,?,?,NULL,NULL,?,? WHERE changes() = 1`,
       ).bind(id(), account.id, -input.amount, input.featureType, input.businessObjectId,
         `reservation:${input.idempotencyKey}`, json(input.metadata), timestamp),
     ]);
+    if (result[0].meta.changes !== 1) throw new InsufficientCreditsError();
   } catch (error) {
     const duplicate = await db.prepare(
       'SELECT * FROM "credit_reservation" WHERE "account_id" = ? AND "idempotency_key" = ?',
@@ -356,25 +357,25 @@ export async function settleReservation(
   const unused = reservation.reserved_credits - input.credits;
   const statements: D1PreparedStatement[] = [
     db.prepare(
-      `UPDATE "credit_account"
-       SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
-       WHERE "id" = ? AND "reserved_credits" >= ?`,
-    ).bind(reservation.reserved_credits, unused, timestamp, account.id, reservation.reserved_credits),
-    db.prepare(
       `UPDATE "credit_reservation" SET "status" = 'settled', "updated_at" = ?
        WHERE "id" = ? AND "status" = 'reserved'`,
     ).bind(timestamp, reservation.id),
     db.prepare(
+      `UPDATE "credit_account"
+       SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
+       WHERE "id" = ? AND "reserved_credits" >= ? AND changes() = 1`,
+    ).bind(reservation.reserved_credits, unused, timestamp, account.id, reservation.reserved_credits),
+    db.prepare(
       `INSERT INTO "credit_consumption"
        ("id","account_id","reservation_id","feature_type","business_object_id","charge_type","credits","price_snapshot_json","quantity_snapshot_json","created_at")
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+       SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes() = 1`,
     ).bind(consumption.id, consumption.account_id, consumption.reservation_id, consumption.feature_type,
       consumption.business_object_id, consumption.charge_type, consumption.credits, consumption.price_snapshot_json,
       consumption.quantity_snapshot_json, consumption.created_at),
     db.prepare(
       `INSERT INTO "credit_ledger_entry"
        ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
-       VALUES (?,?,'settlement',?,?,?,?,NULL,NULL,?,?)`,
+       SELECT ?,?,'settlement',?,?,?,?,NULL,NULL,?,? WHERE changes() = 1`,
     // The reservation already moved the charged Credits out of available balance.
     // Settlement records the immutable event without debiting the projection again.
     ).bind(id(), account.id, 0, input.featureType, input.businessObjectId,
@@ -384,11 +385,12 @@ export async function settleReservation(
     statements.push(db.prepare(
       `INSERT INTO "credit_ledger_entry"
        ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
-       VALUES (?,?,'release',?,?,?,?,NULL,NULL,?,?)`,
+       SELECT ?,?,'release',?,?,?,?,NULL,NULL,?,? WHERE changes() = 1`,
     ).bind(id(), account.id, unused, input.featureType, input.businessObjectId,
       `release:${reservation.id}`, json({ reservationId: reservation.id, reason: 'unused_reservation' }), timestamp));
   }
-  await db.batch(statements);
+  const result = await db.batch(statements);
+  if (result[0].meta.changes !== 1) throw new Error('Reservation is no longer available for settlement');
   return consumption;
 }
 
@@ -407,23 +409,23 @@ export async function releaseReservation(
   const status = input.status ?? 'released';
   const result = await db.batch([
     db.prepare(
-      `UPDATE "credit_account"
-       SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
-       WHERE "id" = ? AND "reserved_credits" >= ?`,
-    ).bind(reservation.reserved_credits, reservation.reserved_credits, timestamp, account.id, reservation.reserved_credits),
-    db.prepare(
       `UPDATE "credit_reservation"
        SET "status" = ?, "released_at" = ?, "updated_at" = ?
        WHERE "id" = ? AND "status" = 'reserved'`,
     ).bind(status, timestamp, timestamp, reservation.id),
     db.prepare(
+      `UPDATE "credit_account"
+       SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
+       WHERE "id" = ? AND "reserved_credits" >= ? AND changes() = 1`,
+    ).bind(reservation.reserved_credits, reservation.reserved_credits, timestamp, account.id, reservation.reserved_credits),
+    db.prepare(
       `INSERT INTO "credit_ledger_entry"
        ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
-       VALUES (?,?,'release',?,?,?,?,NULL,?, '{}',?)`,
+       SELECT ?,?,'release',?,?,?,?,NULL,?, '{}',? WHERE changes() = 1`,
     ).bind(id(), account.id, reservation.reserved_credits, reservation.feature_type, reservation.business_object_id,
       `release:${reservation.id}`, input.reason ?? null, timestamp),
   ]);
-  if ((result[1].meta.changes ?? 0) !== 1) {
+  if ((result[0].meta.changes ?? 0) !== 1) {
     return (await db.prepare('SELECT * FROM "credit_reservation" WHERE "id" = ?').bind(reservation.id).first<CreditReservation>())!;
   }
   return (await db.prepare('SELECT * FROM "credit_reservation" WHERE "id" = ?').bind(reservation.id).first<CreditReservation>())!;

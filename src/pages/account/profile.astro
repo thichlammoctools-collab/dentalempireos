@@ -251,6 +251,11 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
               <h2 class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Quản lý</h2>
             </div>
             <div class="flex flex-col">
+              <a href="/account/wallet" class="flex items-center gap-3 px-5 py-3 text-sm text-on-surface-variant hover:bg-white/5 hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+                Ví Credits
+                <span class="material-symbols-outlined ml-auto text-base">chevron_right</span>
+              </a>
               <a href="/account/payments" class="flex items-center gap-3 px-5 py-3 text-sm text-on-surface-variant hover:bg-white/5 hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-primary">receipt_long</span>
                 Lịch sử thanh toán

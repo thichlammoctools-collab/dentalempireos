@@ -4,9 +4,6 @@ import DevNotice from '../../components/ui/DevNotice.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
 import { canAccessResource } from '../../lib/entitlement-check';
-import { getActiveProducts, type Product } from '../../lib/payos-db';
-import { listProductEntitlements } from '../../lib/entitlement-db';
-import PaymentButton from '../../components/PaymentButton.astro';
 
 export const prerender = false;
 
@@ -26,24 +23,6 @@ const [resources, total] = await Promise.all([
 const paginated = resources.slice((page - 1) * perPage, page * perPage);
 const totalPages = Math.ceil(total / perPage);
 const user = Astro.locals.user;
-let resourcePackages: Array<{ product: Product; resourceIds: string[]; includesAll: boolean }> = [];
-try {
-  const products = await getActiveProducts(db);
-  const withEntitlements = await Promise.all(products.map(async (product) => ({
-    product,
-    entitlements: await listProductEntitlements(db, product.id),
-  })));
-    resourcePackages = withEntitlements
-      .filter(({ entitlements }) => entitlements.length > 0 && entitlements.every((item) => item.content_type === 'resource'))
-      .map(({ product, entitlements }) => ({
-        product,
-        resourceIds: entitlements.filter((item) => item.content_id !== '*').map((item) => item.content_id),
-        includesAll: entitlements.some((item) => item.content_id === '*'),
-      }))
-      .sort((a, b) => a.product.price - b.product.price);
-} catch {
-  resourcePackages = [];
-}
 const accessByResourceId = new Map(
   await Promise.all(
     paginated.map(async (resource) => [
@@ -146,39 +125,6 @@ function resourceUrl(fileUrl: string): string {
       </form>
     </div>
   </section>
-
-  {resourcePackages.length > 0 && (
-    <section id="resource-packages" class="px-6 max-w-[1200px] mx-auto pb-8" aria-labelledby="resource-packages-title">
-      <div class="border-t border-outline-variant/25 pt-8">
-        <p class="text-xs uppercase tracking-wider text-amber-500 font-bold mb-2">Quyền truy cập tài liệu</p>
-        <h2 id="resource-packages-title" class="text-2xl md:text-3xl font-bold text-white">Các gói tài liệu</h2>
-        <p class="mt-2 text-sm text-on-surface-variant max-w-2xl">Một gói có thể bao gồm nhiều tài liệu. Giá được hiển thị ở cấp gói để bạn dễ lựa chọn quyền lợi phù hợp.</p>
-        <div class="mt-6 flex flex-col gap-5">
-          {resourcePackages.map(({ product, resourceIds, includesAll }) => (
-            <article class="glass-card rounded-2xl border border-outline-variant/20 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
-              <div class="flex items-start gap-4 md:w-[30%] shrink-0">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-                  <span class="material-symbols-outlined">folder_special</span>
-                </div>
-                <div>
-                  <h3 class="text-lg font-bold text-white">{product.name}</h3>
-                  <span class="mt-1 block text-lg font-bold text-amber-300 tabular-nums">{product.price.toLocaleString('vi-VN')}₫</span>
-                </div>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm text-on-surface-variant">{product.description ?? 'Gói quyền truy cập tài liệu chuyên sâu của Dental Empire OS.'}</p>
-                <div class="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-on-surface-variant/80">
-                  <span>{includesAll ? 'Mở khóa toàn bộ tài liệu Premium' : `Mở khóa ${resourceIds.length} tài liệu được chọn`}</span>
-                  <span>{product.duration_days ? `Thời hạn truy cập: ${product.duration_days} ngày` : 'Thời hạn truy cập: không giới hạn'}</span>
-                </div>
-              </div>
-              <PaymentButton productId={product.id} productName={product.name} price={product.price} class="w-full md:w-48 shrink-0" />
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  )}
 
   <!-- Featured portfolio downloads -->
   <section class="px-6 max-w-[1200px] mx-auto -mt-2 pb-8">
@@ -295,11 +241,11 @@ function resourceUrl(fileUrl: string): string {
                   <div class="px-0 pt-0 pb-0 mt-0 shrink-0 sm:w-44">
                     {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
                       <a
-                        href={resourcePackages.length > 0 ? '#resource-packages-title' : '/dich-vu'}
+                        href="/account/wallet"
                         class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black transition-all active:scale-95"
                       >
                         <span class="material-symbols-outlined text-[18px]">workspace_premium</span>
-                        Nâng cấp để tải
+                        Mở khóa bằng Credits
                       </a>
                     ) : res.file_url ? (
                       <a
@@ -401,7 +347,7 @@ function resourceUrl(fileUrl: string): string {
             </div>
             <div class="grid grid-cols-[max-content_1fr] items-center gap-2.5 rounded-xl border border-amber-500/15 bg-amber-500/5 px-2.5 py-2">
               <span class="inline-flex min-w-[68px] items-center justify-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-[10px] font-black tracking-wide text-amber-800 dark:text-amber-300">Premium</span>
-              <p class="text-xs leading-4 text-slate-600 dark:text-on-surface-variant">Dành cho thành viên Academy, đăng nhập để tải.</p>
+               <p class="text-xs leading-4 text-slate-600 dark:text-on-surface-variant">Mở khóa một lần bằng Credits, sau đó tải lại miễn phí.</p>
             </div>
           </div>
         </div>

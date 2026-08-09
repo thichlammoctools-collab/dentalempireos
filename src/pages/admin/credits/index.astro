@@ -1,0 +1,90 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { env } from 'cloudflare:workers';
+import { listSurveyDefinitions } from '../../../lib/survey-config-db';
+
+export const prerender = false;
+
+const [packagesResult, rulesResult, scanners] = await Promise.all([
+  env.DB.prepare('SELECT * FROM "credit_package" ORDER BY "sort_order" ASC, "created_at" ASC').all<{
+    id: string; name: string; price: number; credit_amount: number; bonus_credits: number; is_active: number; sort_order: number;
+  }>(),
+  env.DB.prepare('SELECT * FROM "credit_pricing_rule" ORDER BY "feature_type", "target_id", "rule_version" DESC').all<{
+    id: string; feature_type: string; target_id: string; credit_amount: number | null; tokens_per_credit: number | null; minutes_per_credit: number | null; max_tokens: number | null; is_active: number; rule_version: number;
+  }>(),
+  listSurveyDefinitions(env.DB, { status: 'active' }),
+]);
+const packages = packagesResult.results ?? [];
+const rules = rulesResult.results ?? [];
+---
+
+<AdminLayout title="Credits | Admin">
+  <section class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Credits Economy</p>
+      <h2 class="mt-1 text-3xl font-bold text-on-surface">Gói nạp và bảng giá</h2>
+      <p class="mt-2 text-sm text-on-surface-variant">Thiết lập Credits nạp vào ví và giá sử dụng theo từng tính năng. Lịch sử giao dịch luôn lưu snapshot của rule áp dụng.</p>
+    </div>
+  </section>
+
+  <div class="grid gap-6 xl:grid-cols-2">
+    <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6">
+      <div class="mb-5 flex items-center justify-between"><div><h3 class="font-bold text-on-surface">Gói nạp Credits</h3><p class="mt-1 text-xs text-on-surface-variant">Hiển thị trong Ví Credits của thành viên.</p></div><span class="material-symbols-outlined text-primary">add_card</span></div>
+      <form id="package-form" class="grid gap-3 sm:grid-cols-2">
+        <input name="name" required placeholder="Tên gói" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="price" required min="0" type="number" placeholder="Giá VND" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="credit_amount" required min="1" type="number" placeholder="Credits cơ bản" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="bonus_credits" min="0" type="number" value="0" placeholder="Credits tặng" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="sort_order" min="0" type="number" value="0" placeholder="Thứ tự" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <label class="flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface"><input name="is_active" checked type="checkbox" class="accent-primary" /> Đang bán</label>
+        <button class="sm:col-span-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Lưu gói Credits</button>
+      </form>
+      <div class="mt-5 divide-y divide-outline-variant/15">
+        {packages.length === 0 ? <p class="py-4 text-sm text-on-surface-variant">Chưa có gói Credits.</p> : packages.map((item) => <div class="flex items-center justify-between gap-3 py-3"><div><p class="font-semibold text-on-surface">{item.name}</p><p class="text-xs text-on-surface-variant">{item.credit_amount} + {item.bonus_credits} thưởng · {item.price.toLocaleString('vi-VN')}đ</p></div><span class:list={['rounded-full px-2 py-1 text-xs font-bold', item.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-surface-container-high text-on-surface-variant']}>{item.is_active ? 'Đang bán' : 'Tạm dừng'}</span></div>)}
+      </div>
+    </section>
+
+    <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6">
+      <div class="mb-5 flex items-center justify-between"><div><h3 class="font-bold text-on-surface">Bảng giá tính năng</h3><p class="mt-1 text-xs text-on-surface-variant">Scanner dùng giá cố định. AI có thể dùng tokens/Credit.</p></div><span class="material-symbols-outlined text-primary">tune</span></div>
+      <form id="rule-form" class="grid gap-3 sm:grid-cols-2">
+        <select name="feature_type" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface"><option value="scanner">Scanner</option><option value="ai">AI</option><option value="course">Khóa học</option><option value="resource">Tài liệu</option><option value="book">Sách</option><option value="blog">Blog</option><option value="consultation">Tư vấn</option></select>
+        <select name="target_id" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface"><option value="*">Mặc định (*)</option>{scanners.map((scanner) => <option value={scanner.id}>{scanner.title_vi}</option>)}</select>
+        <input name="credit_amount" min="1" type="number" placeholder="Credits cố định" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="tokens_per_credit" min="1" type="number" placeholder="Tokens / Credit (AI)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="minutes_per_credit" min="1" type="number" placeholder="Phút / Credit (tư vấn)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <input name="max_tokens" min="1" type="number" placeholder="Token cap (AI)" class="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm text-on-surface" />
+        <button class="sm:col-span-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thêm phiên bản giá</button>
+      </form>
+      <div class="mt-5 divide-y divide-outline-variant/15">
+        {rules.length === 0 ? <p class="py-4 text-sm text-on-surface-variant">Chưa có rule giá. Scanner chưa có rule sẽ được xem là miễn phí.</p> : rules.map((rule) => <div class="flex items-center justify-between gap-3 py-3"><div><p class="font-semibold text-on-surface">{rule.feature_type}: {rule.target_id}</p><p class="text-xs text-on-surface-variant">{rule.credit_amount ? `${rule.credit_amount} Credits` : ''}{rule.tokens_per_credit ? ` · ${rule.tokens_per_credit} tokens/Credit` : ''}{rule.minutes_per_credit ? ` · ${rule.minutes_per_credit} phút/Credit` : ''}</p></div><span class="text-xs font-bold text-primary">v{rule.rule_version}</span></div>)}
+      </div>
+    </section>
+  </div>
+
+  <script>
+    async function submitForm(formId: string, endpoint: string) {
+      const form = document.getElementById(formId) as HTMLFormElement | null;
+      form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const data = new FormData(form);
+        const numeric = ['price', 'credit_amount', 'bonus_credits', 'sort_order', 'tokens_per_credit', 'minutes_per_credit', 'max_tokens'];
+        const body: Record<string, unknown> = {};
+        for (const [key, value] of data.entries()) body[key] = value;
+        for (const key of numeric) {
+          const value = body[key];
+          body[key] = value === '' || value === undefined ? null : Number(value);
+        }
+        body.is_active = data.get('is_active') === 'on' ? 1 : 0;
+        const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          alert(result.error || 'Không thể lưu cấu hình Credits.');
+          return;
+        }
+        window.location.reload();
+      });
+    }
+    submitForm('package-form', '/api/admin/credit-packages');
+    submitForm('rule-form', '/api/admin/credit-pricing-rules');
+  </script>
+</AdminLayout>

@@ -107,7 +107,7 @@ const currentHash = Astro.url.hash;
         <span id="desktop-theme-icon" class="material-symbols-outlined text-[20px]">light_mode</span>
       </button>
       <!-- Auth state: keep a stable slot while the session is loading. -->
-      <div id="auth-slot" class="min-w-[190px] invisible" aria-busy="true">
+      <div id="auth-slot" class="min-w-[280px] invisible" aria-busy="true">
         <!-- Auth: logged-out state -->
         <div id="auth-logged-out" class="hidden items-center justify-end gap-2">
           <a
@@ -126,6 +126,15 @@ const currentHash = Astro.url.hash;
 
         <!-- Auth: logged-in state -->
         <div id="auth-logged-in" class="hidden items-center justify-end gap-3">
+          <a
+            id="auth-wallet-link"
+            href="/account/wallet"
+            class="hidden items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary/20"
+            aria-label="Ví Credits"
+          >
+            <span class="material-symbols-outlined text-base">account_balance_wallet</span>
+            <span id="auth-credit-balance">0</span>
+          </a>
           <a
             id="auth-profile-link"
             href="/account/profile"
@@ -168,6 +177,17 @@ const currentHash = Astro.url.hash;
 
       if (loggedIn) {
         show('auth-logged-in', 'flex');
+        try {
+          const walletResponse = await fetch('/api/credits/wallet');
+          if (walletResponse.ok) {
+            const wallet = await walletResponse.json() as { balance?: { available?: number } };
+            const balance = document.getElementById('auth-credit-balance');
+            if (balance) balance.textContent = String(wallet.balance?.available ?? 0);
+            show('auth-wallet-link', 'inline-flex');
+          }
+        } catch {
+          // The account area remains usable if a migration is not deployed yet.
+        }
       } else {
         show('auth-logged-out', 'flex');
       }
