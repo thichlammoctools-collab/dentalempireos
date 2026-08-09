@@ -38,16 +38,21 @@ function formatPrice(vnd: number): string {
     </a>
   </nav>
 
-  <div class="grid gap-6 xl:grid-cols-[1fr_400px]">
+  <div>
 
     <!-- Package List -->
     <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6">
-      <div class="mb-5 flex items-center justify-between">
+      <div class="mb-5 flex items-center justify-between gap-4">
         <div>
           <h3 class="font-bold text-on-surface">Danh sách gói</h3>
           <p class="mt-1 text-xs text-on-surface-variant">Nhấn vào gói để chỉnh sửa.</p>
         </div>
-        <span class="px-2 py-0.5 text-xs font-bold bg-primary/10 text-primary rounded-full">{packages.length}</span>
+        <div class="flex items-center gap-3">
+          <span class="px-2 py-0.5 text-xs font-bold bg-primary/10 text-primary rounded-full">{packages.length}</span>
+          <button id="create-package-btn" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary transition hover:brightness-110">
+            <span class="material-symbols-outlined text-base">add</span> Thêm gói
+          </button>
+        </div>
       </div>
 
       {packages.length === 0 ? (
@@ -100,14 +105,22 @@ function formatPrice(vnd: number): string {
       )}
     </section>
 
-    <!-- Package Form (Create / Edit) -->
-    <section class="glass-card rounded-2xl border border-outline-variant/20 p-5 sm:p-6 xl:sticky xl:top-24 xl:self-start">
-      <div class="mb-5 flex items-center justify-between">
+  </div>
+
+  <div id="package-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <button class="absolute inset-0 cursor-default bg-black/65 backdrop-blur-sm" type="button" aria-label="Đóng" data-modal-close></button>
+    <section class="relative z-10 max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-2xl sm:p-6">
+      <div class="mb-5 flex items-start justify-between gap-4">
         <div>
           <h3 class="font-bold text-on-surface" id="form-title">Thêm gói mới</h3>
           <p class="mt-1 text-xs text-on-surface-variant" id="form-subtitle">Điền thông tin để tạo gói.</p>
         </div>
-        <button id="cancel-edit-btn" class="hidden text-xs font-semibold text-primary hover:underline">Hủy</button>
+        <div class="flex items-center gap-3">
+          <button id="cancel-edit-btn" class="hidden text-xs font-semibold text-primary hover:underline">Hủy</button>
+          <button class="rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface" type="button" aria-label="Đóng" data-modal-close>
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
       </div>
 
       <form id="package-form" class="grid gap-4">
@@ -174,6 +187,19 @@ function formatPrice(vnd: number): string {
     const formSubtitle = document.getElementById('form-subtitle')!;
     const cancelBtn = document.getElementById('cancel-edit-btn')!;
     const submitBtn = document.getElementById('submit-btn')!;
+    const modal = document.getElementById('package-modal')!;
+
+    function openModal() {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.classList.remove('overflow-hidden');
+    }
 
     function resetForm() {
       form.reset();
@@ -188,7 +214,18 @@ function formatPrice(vnd: number): string {
       updateTotal();
     }
 
-    cancelBtn.addEventListener('click', resetForm);
+    document.getElementById('create-package-btn')?.addEventListener('click', () => {
+      resetForm();
+      openModal();
+    });
+    cancelBtn.addEventListener('click', () => {
+      resetForm();
+      closeModal();
+    });
+    document.querySelectorAll('[data-modal-close]').forEach((button) => button.addEventListener('click', closeModal));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
 
     document.querySelectorAll('.package-row').forEach((row) => {
       row.addEventListener('click', (e) => {
@@ -208,7 +245,7 @@ function formatPrice(vnd: number): string {
         submitBtn.textContent = 'Cập nhật gói';
         cancelBtn.classList.remove('hidden');
         updateTotal();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        openModal();
       });
     });
 
