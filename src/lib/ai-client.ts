@@ -237,7 +237,7 @@ async function chatCloudflareWorkers(
   allMessages.push(...messages);
 
   // Workers AI native endpoint uses /ai/run/{model}, not /ai/v1/chat/completions.
-  const runUrl = baseUrl.replace(/\/v1$/, '').replace(/\/+$/, '') + '/run/' + encodeURIComponent(model);
+  const runUrl = baseUrl.replace(/\/v1$/, '').replace(/\/+$/, '') + '/run/' + model;
 
   const body: Record<string, unknown> = { messages: allMessages };
   if (maxTokens) body.max_tokens = maxTokens;
