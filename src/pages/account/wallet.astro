@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
-import { getCreditBalance, listCreditLedger } from '../../lib/credit-db';
+import { getCreditBalance, listCreditLedger, expireOldPendingCreditOrders, listUserCreditOrders, type CreditOrder } from '../../lib/credit-db';
 
 export const prerender = false;
 
