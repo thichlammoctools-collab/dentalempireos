@@ -169,6 +169,46 @@ const creditNotice = pricingRule?.tokens_per_credit
     .sug-opt:hover { border-color: rgba(165, 180, 252, 0.6); background: rgba(129, 140, 248, 0.19); color: #fff; }
     .sug-opt:active { transform: translateY(1px); background: rgba(129, 140, 248, 0.28); }
 
+    /* Initial suggestion chips (welcome screen) */
+    .initial-sug-wrap {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
+    }
+    .initial-sug-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 16px; border-radius: 24px;
+      border: 1px solid rgba(165, 180, 252, 0.25); background: rgba(129, 140, 248, 0.08);
+      color: #c7d2fe; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
+      transition: all 0.18s ease; white-space: nowrap;
+    }
+    .initial-sug-chip:hover {
+      border-color: rgba(165, 180, 252, 0.55); background: rgba(129, 140, 248, 0.18);
+      color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(129, 140, 248, 0.15);
+    }
+    .initial-sug-chip:active { transform: translateY(0); }
+    .initial-sug-chip .chip-icon { font-size: 16px; }
+
+    /* Follow-up suggestions section ("Hỏi tiếp") */
+    .followup-sug {
+      display: flex; flex-direction: column; gap: 2px; margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .followup-sug-label {
+      display: flex; align-items: center; gap: 5px;
+      color: #78d6f2; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 4px;
+    }
+    .followup-sug-label .material-symbols-outlined { font-size: 14px; }
+    .followup-sug-opt {
+      display: block; width: 100%; padding: 7px 4px; border: 0; background: transparent;
+      color: #9ca3af; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 400;
+      text-align: left; line-height: 1.5; border-radius: 6px; transition: color 0.15s ease, background 0.15s ease;
+    }
+    .followup-sug-opt:hover { color: #e5e7eb; background: rgba(255, 255, 255, 0.04); }
+    .followup-sug-opt::before { content: '→ '; color: #6b7280; }
+    @media (max-width: 640px) {
+      .initial-sug-chip { padding: 9px 14px; font-size: 12.5px; }
+      .followup-sug-opt { font-size: 12px; }
+    }
+
     .typing-wrap { display: flex; gap: 10px; margin-bottom: 20px; }
     .typing-bubble { padding: 12px 16px; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 5px 18px 18px; background: rgba(37, 39, 44, 0.88); }
     .typing-dots { display: flex; align-items: center; gap: 4px; height: 20px; }
@@ -681,7 +721,25 @@ const creditNotice = pricingRule?.tokens_per_credit
          <div class="workflow-kicker">AI WORKFLOW / BƯỚC 1</div>
          <h1>{app.name}</h1>
          <p>{app.description ?? 'Cung cấp bối cảnh chính xác nhất để AI chuẩn bị đầu ra phù hợp.'}</p>
-         <p>Hãy bắt đầu bằng việc mô tả vấn đề bạn muốn làm rõ và kết quả bạn cần đạt.</p>
+         <p>Để gợi ý sát hơn — mục tiêu chính của bạn là gì? Chọn một gợi ý bên dưới hoặc mô tả trực tiếp:</p>
+         <div class="initial-sug-wrap" id="initial-suggestions">
+           <button type="button" class="initial-sug-chip" data-text="Tạo SOP Reception / Lễ tân">
+             <span class="material-symbols-outlined chip-icon" aria-hidden="true">support_agent</span>
+             SOP Lễ tân
+           </button>
+           <button type="button" class="initial-sug-chip" data-text="Tạo SOP Chăm sóc khách hàng">
+             <span class="material-symbols-outlined chip-icon" aria-hidden="true">favorite</span>
+             SOP CSKH
+           </button>
+           <button type="button" class="initial-sug-chip" data-text="Tạo SOP Vô trùng dụng cụ">
+             <span class="material-symbols-outlined chip-icon" aria-hidden="true">biotech</span>
+             SOP Vô trùng
+           </button>
+           <button type="button" class="initial-sug-chip" data-text="Tạo SOP khác">
+             <span class="material-symbols-outlined chip-icon" aria-hidden="true">edit_note</span>
+             SOP khác
+           </button>
+         </div>
       </div>
     </div>
   </div>
@@ -844,6 +902,39 @@ const creditNotice = pricingRule?.tokens_per_credit
         suggestions.appendChild(button);
       });
       msgWrap.querySelector('.ai-bubble')?.appendChild(suggestions);
+      scrollMessageIntoView(msgWrap);
+    }
+
+    function addFollowupSuggestions(msgWrap, options) {
+      if (userTurn >= maxTurns) return;
+      const FOLLOWUP_QUESTIONS = [
+        { text: 'Cho tôi xem thêm chi tiết', icon: 'info' },
+        { text: 'Bỏ qua bước này, sang bước tiếp', icon: 'skip_next' },
+        { text: 'Tôi cần bổ sung thêm thông tin', icon: 'edit' },
+      ];
+      const bubble = msgWrap.querySelector('.ai-bubble');
+      if (!bubble) return;
+      const section = document.createElement('div');
+      section.className = 'followup-sug';
+      section.innerHTML = `
+        <div class="followup-sug-label">
+          <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+          HỎI TIẾP
+        </div>
+      `;
+      FOLLOWUP_QUESTIONS.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'followup-sug-opt';
+        btn.textContent = item.text;
+        btn.addEventListener('click', () => {
+          userInput.value = item.text;
+          autoResize(userInput);
+          sendMessage();
+        });
+        section.appendChild(btn);
+      });
+      bubble.appendChild(section);
       scrollMessageIntoView(msgWrap);
     }
 
@@ -1018,6 +1109,7 @@ const creditNotice = pricingRule?.tokens_per_credit
           await streamText(msgWrap, cleanReply, requestGeneration);
           if (requestGeneration !== generation) return;
           addOptions(msgWrap, options);
+          addFollowupSuggestions(msgWrap, options);
 
           conversationHistory.push({ role: 'assistant', content: reply });
           saveDraft();
@@ -1387,7 +1479,26 @@ const creditNotice = pricingRule?.tokens_per_credit
           <div class="msg-bubble ai-bubble workflow-intro">
              <div class="workflow-kicker">AI WORKFLOW / BƯỚC 1</div>
              <h1>${escapeHtml(appName)}</h1>
-             <p>Hãy mô tả vấn đề bạn muốn làm rõ và kết quả bạn cần đạt.</p>
+             <p>${escapeHtml('Cung cấp bối cảnh chính xác nhất để AI chuẩn bị đầu ra phù hợp.')}</p>
+             <p>Để gợi ý sát hơn — mục tiêu chính của bạn là gì? Chọn một gợi ý bên dưới hoặc mô tả trực tiếp:</p>
+             <div class="initial-sug-wrap" id="initial-suggestions">
+               <button type="button" class="initial-sug-chip" data-text="Tạo SOP Reception / Lễ tân">
+                 <span class="material-symbols-outlined chip-icon" aria-hidden="true">support_agent</span>
+                 SOP Lễ tân
+               </button>
+               <button type="button" class="initial-sug-chip" data-text="Tạo SOP Chăm sóc khách hàng">
+                 <span class="material-symbols-outlined chip-icon" aria-hidden="true">favorite</span>
+                 SOP CSKH
+               </button>
+               <button type="button" class="initial-sug-chip" data-text="Tạo SOP Vô trùng dụng cụ">
+                 <span class="material-symbols-outlined chip-icon" aria-hidden="true">biotech</span>
+                 SOP Vô trùng
+               </button>
+               <button type="button" class="initial-sug-chip" data-text="Tạo SOP khác">
+                 <span class="material-symbols-outlined chip-icon" aria-hidden="true">edit_note</span>
+                 SOP khác
+               </button>
+             </div>
           </div>
       </div>`;
       updateTurnCounter();
@@ -1440,6 +1551,15 @@ const creditNotice = pricingRule?.tokens_per_credit
     resetBtn.addEventListener('click', resetChat);
     headerResetBtn.addEventListener('click', resetChat);
     newChatBtn.addEventListener('click', resetChat);
+
+    // Initial suggestion chips — event delegation (survives resetChat DOM rebuild)
+    chatView.addEventListener('click', (e) => {
+      const chip = e.target.closest('.initial-sug-chip');
+      if (!chip || isLoading) return;
+      userInput.value = chip.dataset.text || '';
+      autoResize(userInput);
+      sendMessage();
+    });
 
     try {
       const rawDraft = localStorage.getItem(draftKey);
