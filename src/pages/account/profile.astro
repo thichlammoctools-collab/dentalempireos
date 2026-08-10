@@ -107,7 +107,6 @@ function productLink(p: typeof purchaseDetails[0]): string {
     const slug = targetId ? scannerSlugMap.get(targetId) : null;
     return slug ? `/scanner/${slug}` : '/scanner';
   }
-  if (getEntitlement(p, 'ai_app')) return '/ai-tools';
   return '#';
 }
 

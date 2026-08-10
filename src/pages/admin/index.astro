@@ -43,7 +43,6 @@ const [
   totalSections,
   freeScanners,
   premiumScanners,
-  aiTools,
   activeUsers,
   totalUsers,
   paidOrders,
@@ -57,7 +56,6 @@ const [
   getCount(`SELECT COUNT(*) AS count FROM "section"`),
   getCount(`SELECT COUNT(*) AS count FROM "survey_definition" WHERE "status" = 'active' AND "is_free" = 1`),
   getCount(`SELECT COUNT(*) AS count FROM "survey_definition" WHERE "status" = 'active' AND "is_free" = 0`),
-  getCount(`SELECT COUNT(*) AS count FROM "ai_application" WHERE "status" = 'active'`),
   getCount(`SELECT COUNT(DISTINCT "userId") AS count FROM "session" WHERE "expiresAt" > datetime('now')`),
   getCount(`SELECT COUNT(*) AS count FROM "user"`),
   getCount(`SELECT COUNT(*) AS count FROM "order" WHERE "status" = 'paid'`),
@@ -168,15 +166,6 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       trendDir="flat"
       accent="tertiary"
       progress={premiumScanners > 0 ? 100 : 0}
-    />
-    <StatCard
-      icon="smart_toy"
-      label="AI Tools đang hoạt động"
-      value={formatNumber(aiTools)}
-      trend="Active"
-      trendDir="flat"
-      accent="primary"
-      progress={aiTools > 0 ? 100 : 0}
     />
     </div>
   </section>

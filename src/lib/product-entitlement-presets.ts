@@ -6,7 +6,6 @@ import {
 
 export const PRODUCT_ENTITLEMENT_PRESETS = {
   book_full: [{ content_type: 'book', content_id: '*' }],
-  ai_tools_all: [{ content_type: 'ai_app', content_id: '*' }],
   scanners_all: [{ content_type: 'scanner', content_id: '*' }],
   courses_all: [{ content_type: 'course', content_id: '*' }],
   blog_premium: [{ content_type: 'blog', content_id: '*' }],
@@ -22,7 +21,6 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
   ],
   guided_3m: [
     { content_type: 'book', content_id: '*' },
-    { content_type: 'ai_app', content_id: '*' },
     { content_type: 'scanner', content_id: '*' },
     { content_type: 'course', content_id: '*' },
     { content_type: 'blog', content_id: '*' },
@@ -31,7 +29,6 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
   ],
   guided_6m: [
     { content_type: 'book', content_id: '*' },
-    { content_type: 'ai_app', content_id: '*' },
     { content_type: 'scanner', content_id: '*' },
     { content_type: 'course', content_id: '*' },
     { content_type: 'blog', content_id: '*' },
@@ -40,7 +37,6 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
   ],
   full_implementation: [
     { content_type: 'book', content_id: '*' },
-    { content_type: 'ai_app', content_id: '*' },
     { content_type: 'scanner', content_id: '*' },
     { content_type: 'course', content_id: '*' },
     { content_type: 'blog', content_id: '*' },
@@ -51,7 +47,6 @@ export const PRODUCT_ENTITLEMENT_PRESETS = {
 
 export const PRODUCT_ENTITLEMENT_PRESET_LABELS = {
   book_full: 'Mở khóa các chương trả phí',
-  ai_tools_all: 'Tất cả công cụ AI',
   scanners_all: 'Tất cả scanner',
   courses_all: 'Tất cả khóa học',
   blog_premium: 'Gói đăng ký Blog (tất cả bài Premium)',

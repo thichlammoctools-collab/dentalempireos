@@ -68,7 +68,6 @@ export const adminNav: AdminNavSection[] = [
     label: 'AI & CẤU HÌNH',
     items: [
       { href: '/admin/scanners',    label: 'Máy quét',     icon: 'fact_check', match: '/admin/scanners' },
-      { href: '/admin/apps',       label: 'Ứng dụng AI',  icon: 'smart_toy', match: '/admin/apps' },
       { href: '/admin/ai-usage',   label: 'Sử dụng AI',   icon: 'monitoring', match: '/admin/ai-usage' },
       { href: '/admin/ai-settings', label: 'Cài đặt AI',  icon: 'tune',      match: '/admin/ai-settings' },
     ],

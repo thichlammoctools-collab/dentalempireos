@@ -19,7 +19,6 @@ const getNavState = () => {
   if (currentPath.startsWith('/book')) return 'library';
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
-  if (currentPath.startsWith('/ai-tools')) return 'aitools';
   return '';
 };
 
@@ -178,20 +177,6 @@ const activeNav = getNavState();
         <span class="material-symbols-outlined text-2xl">menu_book</span>
         <span class="text-[10px] font-medium leading-none">Đọc tài liệu</span>
       </span>
-    </a>
-
-    <!-- AI Tools -->
-    <a
-      href="/ai-tools"
-      aria-current={activeNav === 'aitools' ? 'page' : undefined}
-      class:list={[
-        'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200 rounded-xl mx-0.5',
-        activeNav === 'aitools' ? 'bg-sky-400/10 text-sky-200' : 'text-sky-300'
-      ]}
-    >
-      <span class="material-symbols-outlined inline-flex w-6 h-6 items-center justify-center text-2xl leading-none" style="filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.7));">psychology</span>
-      <span class="text-[10px] font-semibold">AI Tools</span>
-      <span class="absolute top-1 right-1/2 translate-x-[14px] top-[6px] px-1 py-px bg-amber-500 text-[7px] font-bold text-black rounded-full leading-none">AI</span>
     </a>
 
     <!-- Scanner -->

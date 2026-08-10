@@ -69,7 +69,6 @@ export const POST: APIRoute = async ({ request }) => {
     ));
   const usesDuration = resolvedEntitlements.some((entitlement) => (
     entitlement.content_type === 'book'
-    || entitlement.content_type === 'ai_app'
     || entitlement.content_type === 'resource'
     || entitlement.content_type === 'blog'
     || entitlement.content_type === 'course'
