@@ -159,30 +159,37 @@ const creditNotice = pricingRule?.tokens_per_credit
     .msg-bubble ul, .msg-bubble ol { padding-left: 20px; margin: 6px 0; }
     .msg-bubble li { margin-bottom: 4px; }
     .msg-bubble code { padding: 1px 6px; border-radius: 5px; background: rgba(165, 180, 252, 0.12); color: #c7d2fe; font-size: 12px; }
-    .sug-wrap { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 16px; }
-    .sug-opt {
-      position: relative; width: 100%; min-height: 40px; padding: 9px 34px 9px 12px; border: 1px solid rgba(165, 180, 252, 0.3); border-radius: 10px;
-      background: rgba(129, 140, 248, 0.1); color: #e1e5ff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600;
-      line-height: 1.4; text-align: left; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    .sug-wrap, .initial-sug-wrap {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding: 12px;
+      border: 1px solid rgba(120, 214, 242, 0.2); border-radius: 14px; background: rgba(23, 48, 58, 0.34);
     }
-    .sug-opt::after { position: absolute; top: 50%; right: 12px; color: #aeb8ff; content: '→'; font-size: 16px; transform: translateY(-50%); }
-    .sug-opt:hover { border-color: rgba(165, 180, 252, 0.6); background: rgba(129, 140, 248, 0.19); color: #fff; }
-    .sug-opt:active { transform: translateY(1px); background: rgba(129, 140, 248, 0.28); }
+    .sug-wrap {
+      width: min(82%, 620px); margin: 8px 0 8px 42px;
+      animation: msgIn 0.28s ease-out;
+    }
+    .sug-wrap::before, .initial-sug-wrap::before {
+      flex-basis: 100%; color: #aabdc5; font-size: 11px; font-weight: 500; line-height: 1.4;
+    }
+    .sug-wrap::before { content: 'Chọn một phương án để tiếp tục'; }
+    .initial-sug-wrap::before { content: 'Chọn một gợi ý phù hợp'; }
+    .sug-opt {
+      display: inline-flex; align-items: center; min-height: 34px; padding: 7px 12px; border: 1px solid rgba(174, 224, 239, 0.26); border-radius: 999px;
+      background: rgba(255, 255, 255, 0.035); color: #d8e8ed; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500;
+      line-height: 1.35; text-align: left; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    }
+    .sug-opt:hover, .sug-opt:focus-visible { border-color: #78d6f2; background: rgba(120, 214, 242, 0.13); color: #fff; outline: 0; }
+    .sug-opt:active { transform: translateY(1px); background: rgba(120, 214, 242, 0.22); }
 
     /* Initial suggestion chips (welcome screen) */
-    .initial-sug-wrap {
-      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
-    }
     .initial-sug-chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 10px 16px; border-radius: 24px;
-      border: 1px solid rgba(165, 180, 252, 0.25); background: rgba(129, 140, 248, 0.08);
-      color: #c7d2fe; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
-      transition: all 0.18s ease; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 7px 12px; border-radius: 999px;
+      border: 1px solid rgba(174, 224, 239, 0.26); background: rgba(255, 255, 255, 0.035);
+      color: #d8e8ed; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500;
+      transition: all 0.18s ease;
     }
     .initial-sug-chip:hover {
-      border-color: rgba(165, 180, 252, 0.55); background: rgba(129, 140, 248, 0.18);
-      color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(129, 140, 248, 0.15);
+      border-color: #78d6f2; background: rgba(120, 214, 242, 0.13);
+      color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(120, 214, 242, 0.1);
     }
     .initial-sug-chip:active { transform: translateY(0); }
     .initial-sug-chip .chip-icon { font-size: 16px; }
@@ -190,8 +197,8 @@ const creditNotice = pricingRule?.tokens_per_credit
     /* Follow-up suggestions section ("Hỏi tiếp") */
     .followup-sug {
       display: flex; flex-direction: column; gap: 6px; width: min(82%, 620px); margin: 8px 0 20px 42px;
-      padding: 10px 12px; border: 1px solid rgba(120, 214, 242, 0.14); border-radius: 10px;
-      background: rgba(120, 214, 242, 0.035);
+      padding: 10px 12px; border: 1px solid rgba(120, 214, 242, 0.14); border-radius: 14px;
+      background: rgba(120, 214, 242, 0.035); animation: msgIn 0.28s ease-out;
     }
     .followup-sug-label {
       display: flex; align-items: center; gap: 5px;
@@ -206,8 +213,8 @@ const creditNotice = pricingRule?.tokens_per_credit
     .followup-sug-opt:hover { color: #e5e7eb; border-color: rgba(120, 214, 242, 0.18); background: rgba(120, 214, 242, 0.08); }
     .followup-sug-opt .material-symbols-outlined { flex: 0 0 auto; color: #78d6f2; font-size: 14px; }
     @media (max-width: 640px) {
-      .initial-sug-chip { padding: 9px 14px; font-size: 12.5px; }
-      .followup-sug { width: calc(100% - 42px); margin-left: 42px; }
+      .sug-wrap, .followup-sug { width: calc(100% - 42px); margin-left: 42px; }
+      .initial-sug-chip { font-size: 11.5px; }
       .followup-sug-opt { font-size: 11px; }
     }
 
@@ -903,7 +910,7 @@ const creditNotice = pricingRule?.tokens_per_credit
         });
         suggestions.appendChild(button);
       });
-      msgWrap.querySelector('.ai-bubble')?.appendChild(suggestions);
+      msgWrap.insertAdjacentElement('afterend', suggestions);
       scrollMessageIntoView(msgWrap);
     }
 
@@ -936,7 +943,10 @@ const creditNotice = pricingRule?.tokens_per_credit
         });
         section.appendChild(btn);
       });
-      msgWrap.insertAdjacentElement('afterend', section);
+      const optionCard = msgWrap.nextElementSibling?.classList.contains('sug-wrap')
+        ? msgWrap.nextElementSibling
+        : msgWrap;
+      optionCard.insertAdjacentElement('afterend', section);
       scrollMessageIntoView(msgWrap);
     }
 
