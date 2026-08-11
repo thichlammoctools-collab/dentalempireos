@@ -492,26 +492,6 @@ const breadcrumbSchema = {
               </div>
             </a>
           )}
-          {linkedScanner && (
-            <a href={`/app/${linkedScanner.id}`} class="block rounded-2xl p-5 border border-tertiary/20 hover:border-tertiary/40 transition-all group bg-surface-container-low">
-              <div class="flex items-start gap-4">
-                <div class="w-11 h-11 rounded-xl bg-tertiary/10 border border-tertiary/20 flex items-center justify-center shrink-0">
-                  <span class="material-symbols-outlined text-xl text-tertiary">quiz</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary">BÀI TEST</span>
-                  </div>
-                  <h3 class="font-bold text-white group-hover:text-tertiary transition-colors">{linkedScanner.title_vi}</h3>
-                  <p class="text-xs text-on-surface-variant mt-1 line-clamp-2">{linkedScanner.description_vi || 'Làm bài test để đánh giá kiến thức và nhận kết quả chi tiết.'}</p>
-                  <div class="flex items-center gap-1 mt-2 text-tertiary text-xs font-bold">
-                    <span>Làm bài test</span>
-                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-                  </div>
-                </div>
-              </div>
-            </a>
-          )}
         </div>
       )}
 

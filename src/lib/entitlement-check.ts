@@ -1,4 +1,3 @@
-import { getApp } from './app-db';
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
 import { hasActiveEntitlementForContent } from './entitlement-db';
@@ -42,39 +41,6 @@ export async function canAccessBook(
   if (!userId) return false;
 
   return hasUserContentGrant(db, userId, 'book', '*');
-}
-
-export async function canAccessAiApp(
-  db: D1Database,
-  userId: UserId,
-  appId: string,
-): Promise<boolean> {
-  const app = await getApp(db, appId);
-  if (!app || app.status !== 'active') return false;
-  if (app.is_free === 1) return true;
-
-  // An app without an active product is available by default. This matches the
-  // AI Tools listing, which classifies apps without an active entitlement product as free.
-  const activeProduct = await db
-    .prepare(
-      `SELECT 1
-       FROM "product" p
-       INNER JOIN "product_entitlement" pe ON pe."product_id" = p."id"
-       WHERE p."is_active" = 1
-         AND pe."content_type" = 'ai_app'
-         AND pe."content_id" IN (?, '*')
-       LIMIT 1`,
-    )
-    .bind(appId)
-    .first();
-  if (!activeProduct) return true;
-  if (!userId) return false;
-
-  const [hasAllAccess, hasContentAccess] = await Promise.all([
-    hasActiveEntitlementForContent(db, userId, 'ai_app', '*'),
-    hasActiveEntitlementForContent(db, userId, 'ai_app', appId),
-  ]);
-  return hasAllAccess || hasContentAccess;
 }
 
 export async function canAccessScanner(
