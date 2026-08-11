@@ -19,6 +19,7 @@ const getNavState = () => {
   if (currentPath.startsWith('/book')) return 'library';
   if (currentPath.startsWith('/blog')) return 'blog';
   if (currentPath.startsWith('/resources')) return 'resources';
+  if (currentPath.startsWith('/account')) return 'profile';
   return '';
 };
 
@@ -177,6 +178,19 @@ const activeNav = getNavState();
         <span class="material-symbols-outlined text-2xl">menu_book</span>
         <span class="text-[10px] font-medium leading-none">Đọc tài liệu</span>
       </span>
+    </a>
+
+    <!-- Hồ sơ cá nhân -->
+    <a
+      href="/account/profile"
+      aria-current={activeNav === 'profile' ? 'page' : undefined}
+      class:list={[
+        'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200 rounded-xl mx-0.5',
+        activeNav === 'profile' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant'
+      ]}
+    >
+      <span class="material-symbols-outlined text-2xl">account_circle</span>
+      <span class="text-[10px] font-medium">Hồ sơ</span>
     </a>
 
     <!-- Scanner -->
