@@ -5,11 +5,17 @@
 
 /* Glass card surface (with hover micro-interaction) */
 .glass-card {
-  background: color-mix(in srgb, var(--color-surface-container-lowest) 88%, transparent);
+  background: var(--color-surface-container-lowest);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 78%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-elevated-shadow) 38%, transparent);
   transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.dark .glass-card {
+  background: color-mix(in srgb, var(--color-surface-container-lowest) 88%, transparent);
+  border-color: color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+  box-shadow: none;
 }
 .glass-card:hover {
   border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
@@ -104,30 +110,54 @@ body.admin-sidebar-collapsed .admin-topbar {
   transform: translateY(0);
 }
 
-/* Compatibility for older admin pages that still use literal utility colors. */
-.admin-main-shell h1.text-white,
-.admin-main-shell h2.text-white,
-.admin-main-shell h3.text-white,
-.admin-main-shell h4.text-white,
-.admin-main-shell h5.text-white,
-.admin-main-shell h6.text-white,
-.admin-main-shell label.text-white,
-.admin-main-shell p.text-white {
+/* Compatibility for older admin pages that still use literal dark-first
+   utilities. Scope this to light mode so primary controls and dark mode retain
+   their intended foreground colors. */
+html:not(.dark) .admin-main-shell h1.text-white,
+html:not(.dark) .admin-main-shell h2.text-white,
+html:not(.dark) .admin-main-shell h3.text-white,
+html:not(.dark) .admin-main-shell h4.text-white,
+html:not(.dark) .admin-main-shell h5.text-white,
+html:not(.dark) .admin-main-shell h6.text-white,
+html:not(.dark) .admin-main-shell label.text-white,
+html:not(.dark) .admin-main-shell p.text-white,
+html:not(.dark) .admin-main-shell span.text-white,
+html:not(.dark) .admin-main-shell td.text-white,
+html:not(.dark) .admin-main-shell th.text-white,
+html:not(.dark) .admin-main-shell a.text-white,
+html:not(.dark) .admin-main-shell button.text-white {
   color: var(--color-on-surface) !important;
 }
-.admin-main-shell input.text-white,
-.admin-main-shell textarea.text-white,
-.admin-main-shell select.text-white {
+html:not(.dark) .admin-main-shell input.text-white,
+html:not(.dark) .admin-main-shell textarea.text-white,
+html:not(.dark) .admin-main-shell select.text-white {
   color: var(--color-on-surface) !important;
 }
-.admin-main-shell input::placeholder,
-.admin-main-shell textarea::placeholder {
+html:not(.dark) .admin-main-shell .text-white\/50,
+html:not(.dark) .admin-main-shell .text-white\/60,
+html:not(.dark) .admin-main-shell .text-white\/70 {
+  color: var(--color-on-surface-variant) !important;
+}
+html:not(.dark) .admin-main-shell .text-white\/30,
+html:not(.dark) .admin-main-shell .text-white\/40 {
+  color: color-mix(in srgb, var(--color-on-surface-variant) 72%, var(--color-surface)) !important;
+}
+html:not(.dark) .admin-main-shell .bg-white\/5,
+html:not(.dark) .admin-main-shell .bg-white\/\[0\.03\] {
+  background-color: var(--color-surface-container-low) !important;
+}
+html:not(.dark) .admin-main-shell .hover\:bg-white\/5:hover,
+html:not(.dark) .admin-main-shell .hover\:bg-white\/10:hover {
+  background-color: var(--color-surface-container-high) !important;
+}
+html:not(.dark) .admin-main-shell input::placeholder,
+html:not(.dark) .admin-main-shell textarea::placeholder {
   color: color-mix(in srgb, var(--color-on-surface-variant) 65%, transparent);
 }
-.admin-main-shell .bg-primary.text-white {
+html:not(.dark) .admin-main-shell .bg-primary.text-white {
   color: var(--color-on-primary) !important;
 }
-.admin-main-shell .bg-primary-container.text-white {
+html:not(.dark) .admin-main-shell .bg-primary-container.text-white {
   color: var(--color-on-primary-container) !important;
 }
 

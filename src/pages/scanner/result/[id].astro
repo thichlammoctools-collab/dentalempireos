@@ -562,16 +562,16 @@ try {
   .plan-card { order: 5; }
   .cross-sell-card { order: 6; }
   .report-locked-state { display: grid; place-items: center; gap: .5rem; min-height: 7rem; color: var(--color-on-surface-variant); text-align: center; }
-  .report-locked-state .material-symbols-outlined { color: #f59e0b; }
-  .report-confirm-dialog { position: fixed; top: 50%; left: 50%; width: min(28rem, calc(100% - 2rem)); margin: 0; padding: 0; transform: translate(-50%, -50%); color: var(--color-on-surface); background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / .45); }
-  .report-confirm-dialog::backdrop { background: rgb(0 0 0 / .64); backdrop-filter: blur(4px); }
+  .report-locked-state .material-symbols-outlined { color: var(--color-tertiary); }
+  .report-confirm-dialog { position: fixed; top: 50%; left: 50%; width: min(28rem, calc(100% - 2rem)); margin: 0; padding: 0; transform: translate(-50%, -50%); color: var(--color-on-surface); background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem var(--color-elevated-shadow); }
+  .report-confirm-dialog::backdrop { background: var(--color-overlay); backdrop-filter: blur(4px); }
   .report-confirm-content { position: relative; padding: 1.5rem; }
   .report-confirm-close { position: absolute; top: .75rem; right: .9rem; border: 0; color: var(--color-on-surface-variant); background: transparent; font-size: 1.5rem; cursor: pointer; }
-  .report-confirm-icon { color: #f59e0b; font-size: 2rem; }
-  .report-confirm-eyebrow { margin: .75rem 0 .25rem; color: #f59e0b; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+  .report-confirm-icon { color: var(--color-tertiary); font-size: 2rem; }
+  .report-confirm-eyebrow { margin: .75rem 0 .25rem; color: var(--color-tertiary); font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
   .report-confirm-content h2 { margin: 0; font-size: 1.25rem; }
   .report-confirm-content > p { color: var(--color-on-surface-variant); }
-  .report-confirm-cost { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; padding: .8rem 1rem; color: #fbbf24; background: rgb(245 158 11 / .1); border: 1px solid rgb(245 158 11 / .25); border-radius: .65rem; font-weight: 700; }
+  .report-confirm-cost { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; padding: .8rem 1rem; color: var(--color-on-tertiary-container); background: var(--color-tertiary-container); border: 1px solid color-mix(in srgb, var(--color-tertiary) 55%, var(--color-outline-variant)); border-radius: .65rem; font-weight: 700; }
   .report-confirm-note { font-size: .82rem; }
   .report-confirm-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
   .clinic-mark {

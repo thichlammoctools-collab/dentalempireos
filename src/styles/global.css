@@ -304,10 +304,34 @@
   html:not(.dark) .site-theme span.text-white,
   html:not(.dark) .site-theme strong.text-white,
   html:not(.dark) .site-theme dd.text-white,
+  html:not(.dark) .site-theme td.text-white,
+  html:not(.dark) .site-theme th.text-white,
+  html:not(.dark) .site-theme li.text-white,
   html:not(.dark) .site-theme input.text-white,
   html:not(.dark) .site-theme textarea.text-white,
   html:not(.dark) .site-theme select.text-white {
     color: var(--color-on-surface) !important;
+  }
+
+  html:not(.dark) .site-theme .text-white\/50,
+  html:not(.dark) .site-theme .text-white\/60,
+  html:not(.dark) .site-theme .text-white\/70 {
+    color: var(--color-on-surface-variant) !important;
+  }
+
+  html:not(.dark) .site-theme .text-white\/30,
+  html:not(.dark) .site-theme .text-white\/40 {
+    color: color-mix(in srgb, var(--color-on-surface-variant) 72%, var(--color-surface)) !important;
+  }
+
+  html:not(.dark) .site-theme .bg-white\/5,
+  html:not(.dark) .site-theme .bg-white\/\[0\.03\] {
+    background-color: var(--color-surface-container-low) !important;
+  }
+
+  html:not(.dark) .site-theme .hover\:bg-white\/5:hover,
+  html:not(.dark) .site-theme .hover\:bg-white\/10:hover {
+    background-color: var(--color-surface-container-high) !important;
   }
 
   html:not(.dark) .site-theme input::placeholder,
@@ -461,10 +485,18 @@
     box-shadow: 0 0 20px rgba(0, 136, 204, 0.3);
   }
   .glass-card {
-    background: color-mix(in srgb, var(--color-surface-container) 88%, transparent);
+    background: var(--color-surface-container-lowest);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-outline-variant) 78%, transparent);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-elevated-shadow) 38%, transparent);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .dark .glass-card {
+    background: color-mix(in srgb, var(--color-surface-container) 88%, transparent);
+    border-color: color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+    box-shadow: none;
   }
   .glass-panel-dark {
     background: color-mix(in srgb, var(--color-surface-container-lowest) 94%, transparent);
