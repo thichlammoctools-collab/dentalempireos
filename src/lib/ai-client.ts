@@ -58,7 +58,7 @@ function isGeminiUrl(url: string): boolean {
   return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
 }
 
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 60_000;
 const CIRCUIT_FAILURE_THRESHOLD = 3;
 const CIRCUIT_COOLDOWN_MS = 60_000;
 const circuitState = new Map<string, { failures: number; openUntil: number }>();
@@ -114,7 +114,7 @@ export async function generateOpenAiImage(
   return bytes;
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -123,7 +123,7 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promis
       lastError = err;
       if (!isRetryable(err)) throw err;
       if (i < maxRetries - 1) {
-        await sleep(500 * Math.pow(2, i) + Math.floor(Math.random() * 250));
+        await sleep(500 + Math.floor(Math.random() * 250));
       }
     }
   }
@@ -145,7 +145,7 @@ export async function chatCompletionWithFallback(
         content: await chatCompletion(config, messages, systemPrompt),
         config,
         fallbackUsed: index > 0,
-        attemptCount: (index + 1) * 3,
+        attemptCount: (index + 1) * 2,
       };
     } catch (error) {
       lastError = error;

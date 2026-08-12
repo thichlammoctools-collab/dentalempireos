@@ -5,8 +5,8 @@ import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
 import { listQuestionsByUser } from '../../lib/question-db';
 import { listChapters } from '../../lib/book-db';
-import { listProductEntitlements, type ProductEntitlement } from '../../lib/entitlement-db';
-import { listSurveyDefinitions } from '../../lib/survey-config-db';
+import { getUserHistory } from '../../lib/scanner-history-db';
+import { getScannerResponse } from '../../lib/scanner-response-db';
 import { getCreditBalance } from '../../lib/credit-db';
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 
@@ -24,53 +24,25 @@ const questions = await listQuestionsByUser(env.DB, result.user.id);
 const chapters = await listChapters(env.DB);
 const chapterMap = new Map(chapters.map(c => [c.id, { title: c.title, tier: c.tier, chapter_no: c.chapter_no }]));
 
-// Purchased products (active access)
-const now = new Date().toISOString();
-const { results: purchases } = await env.DB
-  .prepare(
-    `SELECT
-       a."granted_at",
-       a."expires_at",
-       a."is_active"  as "access_active",
-       a."credits",
-       a."scans_used",
-       a."selected_scanner_id",
-       p."id"         as "product_id",
-        p."name"       as "product_name",
-        p."price"      as "product_price",
-       o."amount"     as "paid_amount",
-       o."paid_at"
-     FROM "access" a
-     JOIN "product" p ON a."product_id" = p."id"
-     JOIN "order"   o ON a."order_id"   = o."id"
-     WHERE a."user_id" = ? AND a."is_active" = 1 AND p."is_active" = 1
-       AND (a."expires_at" IS NULL OR a."expires_at" > ?)
-     ORDER BY a."granted_at" DESC`
-  )
-  .bind(result.user.id, now)
-  .all<{
-    granted_at: string;
-    expires_at: string | null;
-    access_active: number;
-    credits: number;
-    scans_used: number;
-    selected_scanner_id: string | null;
-    product_id: string;
-    product_name: string;
-    product_price: number;
-    paid_amount: number;
-    paid_at: string | null;
-  }>();
+const scannerHistory = await getUserHistory(env.DB, result.user.id, 50);
+const scannerAssets = (await Promise.all(
+  scannerHistory.map(async (entry) => {
+    const response = await getScannerResponse(env.DB, entry.response_id);
+    if (!response) return null;
 
-const purchaseDetails = await Promise.all(
-  purchases.map(async (purchase) => ({
-    ...purchase,
-    entitlements: await listProductEntitlements(env.DB, purchase.product_id).catch(() => []),
-  })),
-);
+    const assets = [
+      response.pdf_combined_key && { type: 'pdf', label: 'Báo cáo PDF', icon: 'picture_as_pdf', href: `/api/scanner/${entry.response_id}/pdf?type=combined` },
+      response.image_analysis_key && { type: 'image', label: 'Hình phân tích', icon: 'image', href: `/api/scanner/${entry.response_id}/image?type=analysis` },
+      response.image_plan_key && { type: 'image', label: 'Hình kế hoạch', icon: 'image', href: `/api/scanner/${entry.response_id}/image?type=plan` },
+    ].filter(Boolean) as Array<{ type: 'pdf' | 'image'; label: string; icon: string; href: string }>;
 
-const surveyDefs = await listSurveyDefinitions(env.DB, { status: 'active' });
-const scannerSlugMap = new Map<string, string>(surveyDefs.map((s) => [s.id, s.slug]));
+    return assets.length > 0
+      ? { responseId: entry.response_id, scannerTitle: entry.scanner_title_vi ?? 'Scanner', assets }
+      : null;
+  }),
+)).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+const scannerAssetCount = scannerAssets.reduce((count, entry) => count + entry.assets.length, 0);
 
 const creditBalance = await getCreditBalance(env.DB, result.user.id);
 const clinicProfile = await getClinicProfile(env.DB, result.user.id);
@@ -78,45 +50,6 @@ const clinicCompletion = [clinicProfile?.clinic_name, clinicProfile?.clinic_addr
   .filter(Boolean).length;
 const isClinicReady = Boolean(clinicProfile?.clinic_name);
 
-function getEntitlement(p: typeof purchaseDetails[0], contentType: ProductEntitlement['content_type']) {
-  return p.entitlements.find((entitlement) => entitlement.content_type === contentType);
-}
-
-function productLabel(p: typeof purchaseDetails[0]): { label: string; icon: string } {
-  const labels: Record<string, { label: string; icon: string }> = {
-    book: { label: 'Tài liệu', icon: 'menu_book' },
-    ai_app: { label: 'Công cụ AI', icon: 'psychology' },
-    scanner: { label: 'Scanner', icon: 'analytics' },
-    course: { label: 'Khóa học', icon: 'school' },
-    blog: { label: 'Blog', icon: 'article' },
-    resource: { label: 'Tài liệu', icon: 'description' },
-    service: { label: 'Dịch vụ', icon: 'support_agent' },
-  };
-  const entitlement = p.entitlements[0];
-  return (entitlement && labels[entitlement.content_type]) ?? { label: 'Sản phẩm', icon: 'inventory_2' };
-}
-
-function productLink(p: typeof purchaseDetails[0]): string {
-  const course = getEntitlement(p, 'course');
-  if (course && course.content_id !== '*') return `/courses/${course.content_id}`;
-  if (getEntitlement(p, 'resource')) return '/resources';
-  if (getEntitlement(p, 'book')) return '/book';
-  if (getEntitlement(p, 'scanner')) {
-    const targetId = p.selected_scanner_id
-      ?? (getEntitlement(p, 'scanner')!.content_id !== '*' ? getEntitlement(p, 'scanner')!.content_id : null);
-    const slug = targetId ? scannerSlugMap.get(targetId) : null;
-    return slug ? `/scanner/${slug}` : '/scanner';
-  }
-  return '#';
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function formatPrice(vnd: number): string {
-  return vnd.toLocaleString('vi-VN') + 'đ';
-}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -135,7 +68,6 @@ function statusInfo(status: string) {
   return { label: 'Đã đóng', icon: 'archive', color: 'text-on-surface-variant bg-surface-container-high' };
 }
 
-const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
 ---
 
 <BaseLayout title="Hồ Sơ Cá Nhân | Dental Empire OS" description="Quản lý thông tin hồ sơ cá nhân." noindex={true}>
@@ -239,9 +171,9 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
             <!-- Stats -->
             <div class="grid grid-cols-2 gap-3">
               <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
-                <span class="material-symbols-outlined text-primary text-lg">shopping_bag</span>
-                <p class="text-base font-bold text-white mt-1">{purchases.length}</p>
-                <p class="text-[10px] text-on-surface-variant">Sản phẩm</p>
+                <span class="material-symbols-outlined text-primary text-lg">folder_copy</span>
+                <p class="text-base font-bold text-white mt-1">{scannerAssetCount}</p>
+                <p class="text-[10px] text-on-surface-variant">Tài liệu</p>
               </div>
               <div class="flex flex-col items-center text-center p-2.5 rounded-xl bg-white/5">
                 <span class="material-symbols-outlined text-primary text-lg">forum</span>
@@ -444,90 +376,58 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
             </div>
           </section>
 
-          <!-- Purchased Products -->
+          <!-- Generated scanner documents and images -->
           <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between gap-4 mb-4">
               <div>
-                <h2 class="text-sm md:text-base font-bold text-white">Sản phẩm đã mua</h2>
-                {purchases.length > 0 && (
-                  <p class="text-[11px] text-on-surface-variant mt-0.5">Tổng chi: {formatPrice(totalSpent)}</p>
-                )}
+                <h2 class="text-sm md:text-base font-bold text-white">Tài liệu đã tạo</h2>
+                <p class="text-[11px] text-on-surface-variant mt-0.5">Bản PDF và hình minh họa từ các kết quả Scanner của bạn.</p>
               </div>
-              <span class="px-2 py-0.5 text-[11px] font-bold bg-primary/10 text-primary rounded-full">{purchases.length}</span>
+              <span class="px-2 py-0.5 text-[11px] font-bold bg-primary/10 text-primary rounded-full">{scannerAssetCount}</span>
             </div>
 
-            {purchases.length === 0 ? (
+            {scannerAssetCount === 0 ? (
               <div class="text-center py-8">
-                <span class="material-symbols-outlined text-5xl text-on-surface-variant/20 block mb-3">shopping_bag</span>
-                <p class="text-sm text-on-surface-variant mb-1">Chưa có sản phẩm nào</p>
-                <p class="text-xs text-on-surface-variant/70 mb-4">Khám phá các khóa học và tài liệu của chúng tôi.</p>
+                <span class="material-symbols-outlined text-5xl text-on-surface-variant/20 block mb-3">folder_open</span>
+                <p class="text-sm text-on-surface-variant mb-1">Chưa có tài liệu nào</p>
+                <p class="text-xs text-on-surface-variant/70 mb-4">PDF và hình minh họa sẽ xuất hiện sau khi bạn tạo báo cáo Scanner.</p>
                 <a
-                  href="/#courses"
+                  href="/account/scanner-history"
                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-xs hover:opacity-90 transition-all"
                 >
-                  <span class="material-symbols-outlined text-sm">school</span>
-                  Khám phá ngay
+                  <span class="material-symbols-outlined text-sm">history</span>
+                  Xem lịch sử Scanner
                 </a>
               </div>
             ) : (
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {purchaseDetails.map(p => {
-                  const typeInfo = productLabel(p);
-                  const link = productLink(p);
-                  const expiry = p.expires_at ? formatDate(p.expires_at) : null;
-                  const scannerEnt = getEntitlement(p, 'scanner');
-                  return (
-                    <a
-                      href={link}
-                      class="relative flex items-start gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group border border-transparent hover:border-primary/20"
-                    >
-                      <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-base text-primary">{typeInfo.icon}</span>
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <h3 class="text-sm font-semibold text-white line-clamp-2 group-hover:text-primary transition-colors">{p.product_name}</h3>
-                        <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-on-surface-variant">
-                          <span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant/80">{typeInfo.label}</span>
-                          <span class="font-bold text-on-surface">{formatPrice(p.paid_amount)}</span>
-                        </div>
-                        <div class="flex items-center gap-1 mt-1.5 text-[10px]">
-                          <span class="material-symbols-outlined text-[11px] text-primary">verified</span>
-                          <span class="text-primary font-bold">Đã mua</span>
-                          {expiry ? (
-                            <span class="text-on-surface-variant/60">· HSD {expiry}</span>
-                          ) : (
-                            <span class="text-primary/70">· Vĩnh viễn</span>
-                          )}
-                        </div>
-                        {scannerEnt && (
-                          <div class="flex items-center gap-1 mt-1.5 text-[10px]">
-                            <span class="material-symbols-outlined text-[11px] text-amber-400">bolt</span>
-                            <span class="text-on-surface-variant">
-                              Đã check <strong class="text-white">{p.scans_used}</strong>/{p.credits} lượt
-                            </span>
-                          </div>
-                        )}
-                      </div>
+              <div class="flex flex-col gap-3">
+                {scannerAssets.map(entry => (
+                  <div class="rounded-xl bg-white/5 border border-transparent hover:border-primary/20 transition-colors p-3">
+                    <a href={`/scanner/result/${entry.responseId}`} class="block text-sm font-semibold text-white hover:text-primary transition-colors truncate mb-2">
+                      {entry.scannerTitle}
                     </a>
-                  );
-                })}
+                    <div class="flex flex-wrap gap-2">
+                      {entry.assets.map(asset => (
+                        <a
+                          href={asset.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container-high text-xs font-semibold text-on-surface-variant hover:bg-primary/15 hover:text-primary transition-colors"
+                        >
+                          <span class="material-symbols-outlined text-sm">{asset.icon}</span>
+                          {asset.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <a href="/account/scanner-history" class="inline-flex self-start items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                  Xem toàn bộ lịch sử Scanner
+                  <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                </a>
               </div>
             )}
           </section>
-
-          <!-- Scanner unlock banner -->
-          <div id="scanner-unlock-banner" class="hidden glass-card rounded-2xl p-5 border border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-primary text-2xl">workspace_premium</span>
-              <div class="flex-1">
-                <p class="text-sm font-bold text-white">Bạn đủ điều kiện nhận Mini Scanner Pro miễn phí!</p>
-                <p class="text-xs text-on-surface-variant mt-0.5" id="unlock-msg">Đã hoàn thành 3+ chương Tier 1 — mã kích hoạt đang chờ bạn.</p>
-              </div>
-              <button id="claim-scanner-btn" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all">
-                Nhận ngay
-              </button>
-            </div>
-          </div>
 
           <!-- My Questions -->
           <section class="glass-card rounded-2xl p-5 md:p-6 border border-outline-variant/20">
@@ -649,24 +549,6 @@ const totalSpent = purchaseDetails.reduce((sum, p) => sum + (p.paid_amount || 0)
       } catch (_) {
         ['rp-completed', 'rp-progress', 'rp-bookmarked', 'rp-last-read'].forEach((id) => setEl(id, '—'));
       }
-    })();
-
-    // ── Scanner unlock banner ──
-    (async () => {
-      try {
-        const res = await fetch('/api/reading-progress/unlock-check');
-        if (!res.ok) return;
-        const data = await res.json() as { qualified?: boolean; hasPro?: boolean; message?: string; completedTier1?: number; totalTier1?: number };
-        const banner = document.getElementById('scanner-unlock-banner');
-        if (!banner) return;
-        const claimBtn = document.getElementById('claim-scanner-btn');
-        if (data.qualified && !data.hasPro) {
-          banner.classList.remove('hidden');
-          const msg = document.getElementById('unlock-msg');
-          if (msg && data.message) msg.textContent = data.message;
-          claimBtn?.addEventListener('click', () => { window.location.href = '/scanner/he-thong-check'; });
-        }
-      } catch (_) { /* non-critical */ }
     })();
 
     let originalName = (document.getElementById('name-input') as HTMLInputElement).value;

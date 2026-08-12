@@ -451,13 +451,13 @@ try {
                 <span class="material-symbols-outlined text-base">picture_as_pdf</span>
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
               </a>
+              {!analysisImageUrl && (
+                <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="analysis">
+                  <span class="material-symbols-outlined text-base">image</span>
+                  {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
+                </button>
+              )}
             </div>
-            {!analysisImageUrl && (
-              <button type="button" class="btn btn-ghost image-create-button" data-image-type="analysis">
-                <span class="material-symbols-outlined text-base">image</span>
-                {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
-              </button>
-            )}
             {analysisImageUrl && (
               <figure class="report-image">
                 <img src={analysisImageUrl} alt={lang === 'vi' ? 'Minh họa bản soi chiếu hệ thống AI' : 'AI system analysis illustration'} />
@@ -564,7 +564,7 @@ try {
   .report-locked-state { display: grid; place-items: center; gap: .5rem; min-height: 7rem; color: var(--color-on-surface-variant); text-align: center; }
   .report-locked-state .material-symbols-outlined { color: #f59e0b; }
   .image-create-button { margin-top: 1rem; }
-  .report-confirm-dialog { width: min(28rem, calc(100% - 2rem)); padding: 0; color: var(--color-on-surface); background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / .45); }
+  .report-confirm-dialog { position: fixed; top: 50%; left: 50%; width: min(28rem, calc(100% - 2rem)); margin: 0; padding: 0; transform: translate(-50%, -50%); color: var(--color-on-surface); background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / .45); }
   .report-confirm-dialog::backdrop { background: rgb(0 0 0 / .64); backdrop-filter: blur(4px); }
   .report-confirm-content { position: relative; padding: 1.5rem; }
   .report-confirm-close { position: absolute; top: .75rem; right: .9rem; border: 0; color: var(--color-on-surface-variant); background: transparent; font-size: 1.5rem; cursor: pointer; }
@@ -1081,7 +1081,7 @@ try {
     margin: -0.25rem 0 1.25rem;
     flex-wrap: wrap;
   }
-  .analysis-tools { display: flex; justify-content: flex-end; margin: -0.25rem 0 1.25rem; }
+  .analysis-tools { display: flex; justify-content: flex-end; align-items: center; gap: 0.625rem; margin: -0.25rem 0 1.25rem; flex-wrap: wrap; }
   .plan-tool-button { padding: 0.5rem 0.875rem; }
 
   .hidden { display: none !important; }
@@ -1099,6 +1099,7 @@ try {
     .paywall-overlay { padding: 1.5rem 0.5rem; }
     .paywall-amount { font-size: 1.5rem; }
     .plan-tools { justify-content: stretch; }
+    .analysis-tools { justify-content: stretch; }
     .plan-tool-button { flex: 1; justify-content: center; }
   }
   .ai-stream-preview {
@@ -1126,7 +1127,10 @@ try {
   function pollForResult() {
     if (pollInterval) return;
     let attempts = 0;
+    let isPolling = false;
     pollInterval = setInterval(async () => {
+      if (isPolling) return;
+      isPolling = true;
       attempts++;
       try {
         const res = await fetch(`/api/scanner/${responseId}`, { credentials: 'include' });
@@ -1155,13 +1159,13 @@ try {
           if (pollInterval !== null) clearInterval(pollInterval);
           pollInterval = null;
         }
-      } catch { /* ignore */ }
-      if (attempts >= 60) {
-        clearInterval(pollInterval!);
+      } catch { /* keep polling while the connection recovers */ }
+      finally { isPolling = false; }
+      if (attempts >= 90 && pollInterval !== null) {
+        clearInterval(pollInterval);
         pollInterval = null;
-        updatePlanUI('failed', false);
       }
-    }, 4000);
+    }, 2000);
   }
 
   function updatePlanUI(status: string, hasContent: boolean) {
@@ -1285,6 +1289,7 @@ try {
 
       pollForResult();
     } catch (err) {
+      stopFeedback();
       console.error('[scanner] SSE error:', err);
       const targetContainer = getStreamContainer(type);
       const targetStatus = getStatusEl(type);
@@ -1308,7 +1313,6 @@ try {
         document.getElementById('analysis-error')?.classList.remove('hidden');
       }
     } finally {
-      stopFeedback();
       activeGenerations.delete(generationKey);
     }
   }
