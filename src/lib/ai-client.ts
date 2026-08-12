@@ -58,7 +58,7 @@ function isGeminiUrl(url: string): boolean {
   return u.includes('gemini') || u.includes('generativelanguage') || u.includes('googleapis') || u.includes('aiagent') || u.includes('aistudio');
 }
 
-const DEFAULT_TIMEOUT_MS = 45_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
 const CIRCUIT_FAILURE_THRESHOLD = 3;
 const CIRCUIT_COOLDOWN_MS = 60_000;
 const circuitState = new Map<string, { failures: number; openUntil: number }>();
@@ -77,6 +77,40 @@ export interface CompletionResult {
   config: ModelConfig;
   fallbackUsed: boolean;
   attemptCount: number;
+}
+
+/** Generate a PNG with OpenAI's image generation API. */
+export async function generateOpenAiImage(
+  apiKey: string,
+  prompt: string,
+): Promise<Uint8Array> {
+  if (!apiKey) throw new AiError('OpenAI image generation is not configured', 503, 'openai');
+
+  const resp = await aiFetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-image-2',
+      prompt,
+      size: '1536x1024',
+      quality: 'medium',
+      output_format: 'png',
+    }),
+  }, 120_000);
+
+  if (!resp.ok) {
+    throw new AiError(`OpenAI image API error (${resp.status}): ${await resp.text()}`, resp.status, 'openai');
+  }
+
+  const data = await resp.json() as { data?: Array<{ b64_json?: string }> };
+  const encoded = data.data?.[0]?.b64_json;
+  if (!encoded) throw new AiError('Empty response from OpenAI image API', 200, 'openai');
+
+  const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+  return bytes;
 }
 
 export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {

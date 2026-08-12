@@ -4,6 +4,7 @@
   "account_id": "6c99b69a2ef00c1754fae70793262cd3",
   "compatibility_date": "2025-06-17",
   "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/worker.ts",
   "assets": {
     "directory": "./dist/client"
   },
@@ -32,6 +33,36 @@
       "index_name": "dental-content"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "SCANNER_AI_ANALYSIS_QUEUE",
+        "queue": "scanner-ai-analysis"
+      },
+      {
+        "binding": "SCANNER_AI_PLAN_QUEUE",
+        "queue": "scanner-ai-plan"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "scanner-ai-analysis",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "max_concurrency": 4,
+        "dead_letter_queue": "scanner-ai-dead-letter"
+      },
+      {
+        "queue": "scanner-ai-plan",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "max_concurrency": 4,
+        "dead_letter_queue": "scanner-ai-dead-letter"
+      }
+    ]
+  },
   "vars": {},
   "routes": [
     {

@@ -18,17 +18,22 @@ import { getSurveyDefinitionFull } from './survey-config-db';
 import { getAiGatewayConfig, getAiGatewayConfigs } from './ai-gateway';
 import { getAiSettings } from './ai-settings-db';
 import { getActiveModelsWithProvider } from './ai-provider-db';
-import { chatCompletionStream, chatCompletionWithFallback } from './ai-client';
+import { AiError, chatCompletionStream, chatCompletionWithFallback } from './ai-client';
 import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
 import { logAiUsage } from './ai-usage-log';
 import { buildWebsiteContext, searchWebsite } from './rag-website-search';
-import { claimScannerAiJob, finishScannerAiJob, requestId } from './ai-operations';
+import { finishScannerAiJob, requestId, startQueuedScannerAiJob } from './ai-operations';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
   maxTokens: number;
+}
+
+export interface ScannerAiRunResult {
+  completed: boolean;
+  retryable: boolean;
 }
 
 /**
@@ -318,19 +323,25 @@ async function doPlanWithFallback(
 /**
  * Run AI analysis with retry (3 attempts, exponential backoff).
  */
-export async function runAiAnalysis(db: D1Database, responseId: number, userId?: string): Promise<void> {
+export async function runAiAnalysis(
+  db: D1Database,
+  responseId: number,
+  userId?: string,
+  runtimeEnv?: Cloudflare.Env,
+  runId?: string,
+): Promise<ScannerAiRunResult> {
   const request = requestId();
-  const job = await claimScannerAiJob(db, responseId, 'analysis');
-  if (!job.claimed) return;
+  const jobRunId = runId ?? crypto.randomUUID();
+  if (!await startQueuedScannerAiJob(db, responseId, 'analysis', jobRunId)) return { completed: true, retryable: false };
   const response = await getScannerResponse(db, responseId);
-  if (!response) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.error(`[scanner-ai] Response ${responseId} not found`); return; }
+  if (!response) { await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'failed', 'Response not found'); console.error(`[scanner-ai] Response ${responseId} not found`); return { completed: true, retryable: false }; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
-  if (!full) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.error(`[scanner-ai] Definition ${response.survey_id} not found`); return; }
+  if (!full) { await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'failed', 'Survey definition not found'); console.error(`[scanner-ai] Definition ${response.survey_id} not found`); return { completed: true, retryable: false }; }
 
   const config = parseAiConfig(full.definition.ai_config);
   const aiConfig = await getScannerAiConfig(db, config.model_override);
-  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed'); console.warn('[scanner-ai] AI not configured, skipping'); return; }
+  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'failed', 'AI is not configured'); console.warn('[scanner-ai] AI not configured, skipping'); return { completed: true, retryable: false }; }
   const scoringRules = parseScoringRules(full.definition.scoring_rules);
 
   const modelConfig: ModelConfig = {
@@ -347,37 +358,49 @@ export async function runAiAnalysis(db: D1Database, responseId: number, userId?:
 
     await updateAiAnalysis(db, responseId, analysis);
     await updateAiAnalysisStatus(db, responseId, 'done');
-    await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'done');
+    await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'done');
+    if (runtimeEnv) {
+      const { createScannerReportImage } = await import('./scanner-report-image');
+      await createScannerReportImage(runtimeEnv, response, full.definition.title_vi, 'analysis').catch((err) => console.warn('[scanner-ai] report image failed:', err));
+    }
     await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'analysis').catch((err) => console.error('[scanner-ai] email failed:', err)),
       sendScannerNotification(db, responseId, 'analysis').catch((err) => console.error('[scanner-ai] notification failed:', err)),
     ]);
+    return { completed: true, retryable: false };
   } catch (err) {
     await updateAiAnalysisStatus(db, responseId, 'failed');
-    await finishScannerAiJob(db, responseId, 'analysis', job.runId, 'failed');
+    await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'failed', String(err));
     await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_analysis', success: false, error_message: String(err).slice(0, 500), request_id: request }).catch(() => undefined);
     console.error(`[scanner-ai] Analysis failed for ${responseId}:`, err);
+    return { completed: false, retryable: !(err instanceof AiError) || err.statusCode === 408 || err.statusCode === 409 || err.statusCode === 429 || err.statusCode >= 500 };
   }
 }
 
 /**
  * Run AI plan generation with retry (3 attempts, exponential backoff).
  */
-export async function runPlanAnalysis(db: D1Database, responseId: number, userId?: string): Promise<void> {
+export async function runPlanAnalysis(
+  db: D1Database,
+  responseId: number,
+  userId?: string,
+  runtimeEnv?: Cloudflare.Env,
+  runId?: string,
+): Promise<ScannerAiRunResult> {
   const request = requestId();
-  const job = await claimScannerAiJob(db, responseId, 'plan');
-  if (!job.claimed) return;
+  const jobRunId = runId ?? crypto.randomUUID();
+  if (!await startQueuedScannerAiJob(db, responseId, 'plan', jobRunId)) return { completed: true, retryable: false };
   const response = await getScannerResponse(db, responseId);
-  if (!response) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return; }
+  if (!response) { await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'failed', 'Response not found'); console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return { completed: true, retryable: false }; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
-  if (!full) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.error(`[scanner-ai] Plan: Definition ${response.survey_id} not found`); return; }
+  if (!full) { await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'failed', 'Survey definition not found'); console.error(`[scanner-ai] Plan: Definition ${response.survey_id} not found`); return { completed: true, retryable: false }; }
 
   const config = parseAiConfig(full.definition.ai_config);
   const aiConfig = await getScannerAiConfig(db, config.model_override);
-  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed'); console.warn('[scanner-ai] Plan: AI not configured, skipping'); return; }
+  if (!aiConfig) { await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'failed', 'AI is not configured'); console.warn('[scanner-ai] Plan: AI not configured, skipping'); return { completed: true, retryable: false }; }
   const scoringRules = parseScoringRules(full.definition.scoring_rules);
 
   const modelConfig: ModelConfig = {
@@ -394,17 +417,23 @@ export async function runPlanAnalysis(db: D1Database, responseId: number, userId
 
     await updateAiPlan(db, responseId, plan);
     await updateAiPlanStatus(db, responseId, 'done');
-    await finishScannerAiJob(db, responseId, 'plan', job.runId, 'done');
+    await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'done');
+    if (runtimeEnv) {
+      const { createScannerReportImage } = await import('./scanner-report-image');
+      await createScannerReportImage(runtimeEnv, response, full.definition.title_vi, 'plan').catch((err) => console.warn('[scanner-ai] plan image failed:', err));
+    }
     await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),
       sendScannerNotification(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan notification failed:', err)),
     ]);
+    return { completed: true, retryable: false };
   } catch (err) {
     await updateAiPlanStatus(db, responseId, 'failed');
-    await finishScannerAiJob(db, responseId, 'plan', job.runId, 'failed');
+    await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'failed', String(err));
     await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: false, error_message: String(err).slice(0, 500), request_id: request }).catch(() => undefined);
     console.error(`[scanner-ai] Plan: Failed for ${responseId}:`, err);
+    return { completed: false, retryable: !(err instanceof AiError) || err.statusCode === 408 || err.statusCode === 409 || err.statusCode === 429 || err.statusCode >= 500 };
   }
 }

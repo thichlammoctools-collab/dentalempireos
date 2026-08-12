@@ -7,6 +7,8 @@ declare namespace Cloudflare {
     SESSION: KVNamespace;
     MEDIA: R2Bucket;
     VECTORIZE?: VectorizeIndex;
+    SCANNER_AI_ANALYSIS_QUEUE: Queue<import('./lib/scanner-ai-queue').ScannerAiQueueMessage>;
+    SCANNER_AI_PLAN_QUEUE: Queue<import('./lib/scanner-ai-queue').ScannerAiQueueMessage>;
     BETTER_AUTH_SECRET: string;
     BETTER_AUTH_URL: string;
     BETTER_AUTH_API_KEY?: string;
@@ -25,6 +27,7 @@ declare namespace Cloudflare {
     GOOGLE_CLIENT_SECRET: string;
     TELEGRAM_BOT_TOKEN: string;
     TELEGRAM_CHAT_ID: string;
+    OPENAI_API_KEY?: string;
   }
 }
 

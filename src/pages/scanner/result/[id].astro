@@ -92,6 +92,8 @@ const analysisHtml = analysisText ? renderSafeMarkdown(analysisText) : '';
 const hasAnalysis = !!analysisHtml;
 const hasPlan = !!planText;
 const planHtml = planText ? renderSafeMarkdown(planText) : '';
+const analysisImageUrl = response.image_analysis_key ? `/api/scanner/${id}/image?type=analysis` : null;
+const planImageUrl = response.image_plan_key ? `/api/scanner/${id}/image?type=plan` : null;
 
 // AI status (from DB, defaults to 'pending' for old responses)
 const planStatus = (response as any).ai_plan_status ?? 'pending';
@@ -370,11 +372,16 @@ try {
               {lang === 'vi' ? 'Tải PDF kế hoạch' : 'Download plan PDF'}
             </a>
           </div>
-          <div class="plan-document-meta">
+           <div class="plan-document-meta">
             <span class="material-symbols-outlined">assignment_turned_in</span>
             <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
-          </div>
-          <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
+           </div>
+           {planImageUrl && (
+             <figure class="report-image">
+               <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
+             </figure>
+           )}
+           <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{planText}</template>
         </>
       ) : (
@@ -430,6 +437,11 @@ try {
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
               </a>
             </div>
+            {analysisImageUrl && (
+              <figure class="report-image">
+                <img src={analysisImageUrl} alt={lang === 'vi' ? 'Minh họa bản soi chiếu hệ thống AI' : 'AI system analysis illustration'} />
+              </figure>
+            )}
             <article class="prose-content" set:html={analysisHtml}></article>
           </>
         ) : (
@@ -499,6 +511,8 @@ try {
     flex-wrap: wrap;
   }
   .report-identity { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+  .report-image { margin: 1.25rem 0; overflow: hidden; border: 1px solid var(--color-outline-variant); border-radius: .9rem; background: var(--color-surface-container); }
+  .report-image img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
   .clinic-mark {
     display: grid;
     place-items: center;
@@ -1060,8 +1074,8 @@ try {
           ai_analysis_status?: string;
           ai_plan_status?: string;
         };
-        const planDone = data.ai_plan_status !== 'running';
-        const analysisDone = data.ai_analysis_status !== 'running';
+        const planDone = !['queued', 'running'].includes(data.ai_plan_status ?? 'pending');
+        const analysisDone = !['queued', 'running'].includes(data.ai_analysis_status ?? 'pending');
         if (planDone && analysisDone) {
           clearInterval(pollInterval!);
           pollInterval = null;
@@ -1072,7 +1086,8 @@ try {
         updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan);
         updateAnalysisUI(data.ai_analysis_status ?? 'pending', !!data.ai_analysis);
         // Stop polling when nothing running
-        const running = (data.ai_plan_status === 'running') || (data.ai_analysis_status === 'running');
+        const running = ['queued', 'running'].includes(data.ai_plan_status ?? 'pending')
+          || ['queued', 'running'].includes(data.ai_analysis_status ?? 'pending');
         if (!running) {
           if (pollInterval !== null) clearInterval(pollInterval);
           pollInterval = null;
@@ -1096,7 +1111,7 @@ try {
     error.classList.add('hidden');
     if (hasContent) {
       window.location.reload();
-    } else if (status === 'running') {
+    } else if (status === 'queued' || status === 'running') {
       loading.classList.remove('hidden');
     } else if (status === 'failed') {
       error.classList.remove('hidden');
@@ -1115,7 +1130,7 @@ try {
     error.classList.add('hidden');
     if (hasContent) {
       window.location.reload();
-    } else if (status === 'running') {
+    } else if (status === 'queued' || status === 'running') {
       loading.classList.remove('hidden');
     } else if (status === 'failed') {
       error.classList.remove('hidden');
@@ -1153,10 +1168,10 @@ try {
       const stage = seconds < 3
         ? (lang === 'vi' ? 'Đã nhận yêu cầu, đang chuẩn bị dữ liệu...' : 'Request received, preparing your data...')
         : seconds < 10
-          ? (lang === 'vi' ? `Đang đọc kết quả để tạo ${task}...` : `Reviewing your results for the ${task}...`)
+          ? (lang === 'vi' ? `Đang chờ lượt xử lý để tạo ${task}...` : `Waiting for processing capacity for the ${task}...`)
           : seconds < 25
-            ? (lang === 'vi' ? 'AI đang soạn nội dung riêng cho bạn...' : 'AI is drafting your personalised content...')
-            : (lang === 'vi' ? 'Đang hoàn thiện và lưu kết quả, vui lòng giữ trang này mở.' : 'Finalising and saving your result. Please keep this page open.');
+            ? (lang === 'vi' ? 'AI đang xử lý dữ liệu của bạn...' : 'AI is processing your data...')
+            : (lang === 'vi' ? 'Đang xử lý hoặc chờ lượt. Bạn có thể rời trang, kết quả sẽ được lưu tự động.' : 'Processing or waiting in queue. You can leave this page; the result will be saved automatically.');
       elapsedEl.textContent = `${stage} (${seconds}s)`;
     };
 
@@ -1171,7 +1186,7 @@ try {
     activeGenerations.add(generationKey);
     const stopFeedback = startGenerationFeedback(type);
 
-    // Show streaming state
+    // Show queued state while the durable worker processes the job.
     if (type === 'plan') {
       document.getElementById('plan-cta')?.classList.add('hidden');
       document.getElementById('plan-loading')?.classList.remove('hidden');
@@ -1185,19 +1200,18 @@ try {
 
     const statusEl = getStatusEl(type);
     const container = getStreamContainer(type);
-    if (statusEl) statusEl.textContent = lang === 'vi' ? 'Đang phân tích...' : 'Analyzing...';
-    if (container) container.classList.remove('hidden');
+    if (statusEl) statusEl.textContent = lang === 'vi' ? 'Đã xếp hàng, đang chờ xử lý...' : 'Queued and waiting for processing...';
+    if (container) container.classList.add('hidden');
 
-    let completed = false;
     try {
-      const res = await fetch('/api/scanner/run-ai-stream', {
+      const res = await fetch('/api/scanner/run-ai', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response_id: Number(responseId), type }),
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
         let errMsg = `HTTP ${res.status}`;
         try {
           const errData = await res.json() as { error?: string };
@@ -1206,58 +1220,7 @@ try {
         throw new Error(errMsg);
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split(/\r?\n\r?\n/);
-        buffer = events.pop() ?? '';
-
-        for (const rawEvent of events) {
-          if (!rawEvent.trim()) continue;
-
-          let event = '';
-          let dataStr = '';
-
-          for (const segment of rawEvent.split(/\r?\n/)) {
-            const s = segment.trim();
-            if (s.startsWith('event: ')) event = s.slice(7).trim();
-            if (s.startsWith('data: ')) dataStr = s.slice(6).trim();
-          }
-          if (!dataStr) continue;
-
-          let data: Record<string, unknown>;
-          try { data = JSON.parse(dataStr); } catch { continue; }
-
-          const chunkType = String(data.type ?? type) as 'analysis' | 'plan';
-
-          if (event === 'chunk') {
-            const text = String(data.text ?? '');
-            const targetContainer = getStreamContainer(chunkType);
-            const targetStatus = getStatusEl(chunkType);
-            if (targetContainer) targetContainer.textContent = (targetContainer.textContent ?? '') + text;
-            if (targetStatus && data.message) targetStatus.textContent = String(data.message);
-          } else if (event === 'status') {
-            const targetStatus = getStatusEl(chunkType);
-            if (targetStatus) targetStatus.textContent = String(data.message ?? '');
-          } else if (event === 'done') {
-            const targetStatus = getStatusEl(chunkType);
-            if (targetStatus) targetStatus.textContent = lang === 'vi' ? 'Hoàn tất!' : 'Done!';
-            // The API sends this event only after the result is saved to D1.
-            // R2 is optional, so do not wait for its keys before displaying it.
-            completed = true;
-            setTimeout(() => window.location.reload(), 300);
-          } else if (event === 'error') {
-            throw new Error(String(data.message ?? 'Stream error'));
-          }
-        }
-      }
-      if (!completed) throw new Error(lang === 'vi' ? 'Kết nối kết thúc trước khi hoàn tất. Vui lòng thử lại.' : 'The connection ended before completion. Please try again.');
+      pollForResult();
     } catch (err) {
       console.error('[scanner] SSE error:', err);
       const targetContainer = getStreamContainer(type);

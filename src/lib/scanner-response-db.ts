@@ -35,6 +35,8 @@ export interface ScannerResponseRow {
   pdf_combined_key: string | null;
   pdf_plan_key: string | null;
   pdf_analysis_key: string | null;
+  image_analysis_key: string | null;
+  image_plan_key: string | null;
 }
 
 // ── Input Types ─────────────────────────────────────────
@@ -281,6 +283,16 @@ export async function setScannerPdfKey(
   await db.prepare(`UPDATE "scanner_response" SET "${column}" = ? WHERE "id" = ?`).bind(key, id).run();
 }
 
+export async function setScannerImageKey(
+  db: D1Database,
+  id: number,
+  type: 'analysis' | 'plan',
+  key: string,
+): Promise<void> {
+  const column = type === 'analysis' ? 'image_analysis_key' : 'image_plan_key';
+  await db.prepare(`UPDATE "scanner_response" SET "${column}" = ? WHERE "id" = ?`).bind(key, id).run();
+}
+
 // ── AI Context Builder ──────────────────────────────────
 
 export interface AiContext {
@@ -357,7 +369,7 @@ export function buildAiContext(
 export async function updateAiAnalysisStatus(
   db: D1Database,
   id: number,
-  status: 'pending' | 'running' | 'done' | 'failed',
+  status: 'pending' | 'queued' | 'running' | 'done' | 'failed',
 ): Promise<void> {
   await db
     .prepare(`UPDATE "scanner_response" SET "ai_analysis_status" = ? WHERE "id" = ?`)
@@ -368,7 +380,7 @@ export async function updateAiAnalysisStatus(
 export async function updateAiPlanStatus(
   db: D1Database,
   id: number,
-  status: 'pending' | 'running' | 'done' | 'failed',
+  status: 'pending' | 'queued' | 'running' | 'done' | 'failed',
 ): Promise<void> {
   await db
     .prepare(`UPDATE "scanner_response" SET "ai_plan_status" = ? WHERE "id" = ?`)

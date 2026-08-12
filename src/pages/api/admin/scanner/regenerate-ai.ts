@@ -5,9 +5,10 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
-import { runAiAnalysis, runPlanAnalysis } from '../../../../lib/scanner-ai';
 import { isAiEnabled } from '../../../../lib/ai-settings-db';
-import { getScannerResponse } from '../../../../lib/scanner-response-db';
+import { getScannerResponse, updateAiAnalysisStatus, updateAiPlanStatus } from '../../../../lib/scanner-response-db';
+import { enqueueScannerAiJob } from '../../../../lib/ai-operations';
+import { getScannerAiQueue } from '../../../../lib/scanner-ai-queue';
 
 export const prerender = false;
 
@@ -22,6 +23,7 @@ export const POST: APIRoute = async ({ url, locals }) => {
   if (!isAdmin || !locals.user) {
     return json({ error: 'unauthorized' }, 401);
   }
+  const userId = locals.user.id;
 
   const id = parseInt(url.searchParams.get('id') ?? '', 10);
   if (!id) return badRequest('id is required');
@@ -34,27 +36,20 @@ export const POST: APIRoute = async ({ url, locals }) => {
     return json({ error: 'AI is not enabled. Please configure AI settings first.' }, 400);
   }
 
-  const results: { analysis?: string; plan?: string; error?: string } = {};
+  const jobs = await Promise.all((['analysis', 'plan'] as const).map(async (jobType) => {
+    const job = await enqueueScannerAiJob(env.DB, id, jobType);
+    if (!job.queued) return { type: jobType, queued: false };
+    await (jobType === 'analysis'
+      ? updateAiAnalysisStatus(env.DB, id, 'queued')
+      : updateAiPlanStatus(env.DB, id, 'queued'));
+    await getScannerAiQueue(env, jobType).send({
+      responseId: id,
+      jobType,
+      runId: job.runId,
+       userId,
+    });
+    return { type: jobType, queued: true, runId: job.runId };
+  }));
 
-  try {
-    await runAiAnalysis(env.DB, id);
-    results.analysis = 'done';
-  } catch (err) {
-    results.error = `Analysis failed: ${err instanceof Error ? err.message : String(err)}`;
-  }
-
-  try {
-    await runPlanAnalysis(env.DB, id);
-    results.plan = 'done';
-  } catch (err) {
-    results.error = results.error
-      ? `${results.error} | Plan failed: ${err instanceof Error ? err.message : String(err)}`
-      : `Plan failed: ${err instanceof Error ? err.message : String(err)}`;
-  }
-
-  if (results.error) {
-    return json(results, 500);
-  }
-
-  return json({ success: true, ...results });
+  return json({ success: true, queued: true, jobs }, 202);
 };
