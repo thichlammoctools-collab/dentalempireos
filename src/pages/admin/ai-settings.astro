@@ -22,7 +22,8 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
     data-gateway-embedding-model={settings.gateway_embedding_model ?? ''}
     data-motapis-model={settings.motapis_model ?? ''}
     data-motapis-chat-model={settings.motapis_chat_model ?? ''}
-    data-motapis-scanner-model={settings.motapis_scanner_model ?? ''}>
+    data-motapis-scanner-model={settings.motapis_scanner_model ?? ''}
+    data-motapis-image-model={settings.motapis_image_model ?? ''}>
     <header class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="text-xs font-bold tracking-[0.16em] uppercase text-primary mb-2">AI Operations</p>
@@ -125,7 +126,7 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
       <div class="mt-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-primary/90">
         <strong>Gợi ý tối ưu giá bán:</strong> dùng model nhanh/tiết kiệm làm mặc định; chỉ đặt override model mạnh hơn cho Scanner hoặc Tool có giá cao và cần phân tích sâu.
       </div>
-      <div class="mt-5 grid gap-4 md:grid-cols-3">
+      <div class="mt-5 grid gap-4 md:grid-cols-4">
         <label class="block rounded-xl border border-outline-variant/20 bg-surface-container/35 p-4">
           <span class="flex items-center gap-2 text-sm font-bold text-white"><span class="material-symbols-outlined text-[18px] text-slate-300">tune</span> Model nền tảng</span>
           <span class="mt-1 block text-xs text-on-surface-variant">Fallback cho các luồng chưa có routing riêng.</span>
@@ -140,6 +141,11 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
           <span class="flex items-center gap-2 text-sm font-bold text-white"><span class="material-symbols-outlined text-[18px] text-amber-300">analytics</span> Scanner mặc định</span>
           <span class="mt-1 block text-xs text-on-surface-variant">Fallback cho Scanner chưa chọn model riêng.</span>
           <select id="scanner-model" class="field mt-4"><option value="">Dùng model nền tảng</option></select>
+        </label>
+        <label class="block rounded-xl border border-outline-variant/20 bg-surface-container/35 p-4">
+          <span class="flex items-center gap-2 text-sm font-bold text-white"><span class="material-symbols-outlined text-[18px] text-violet-300">image</span> Minh họa A4</span>
+          <span class="mt-1 block text-xs text-on-surface-variant">Luôn dùng Motapis; chọn model ảnh như gpt-image-2.</span>
+          <select id="image-model" class="field mt-4"><option value="">Chọn model ảnh</option></select>
         </label>
       </div>
       <div class="mt-5 rounded-xl border border-outline-variant/20 bg-surface-container/25 p-4">
@@ -183,7 +189,7 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
 </style>
 
 <script>
-  type AiModel = { id: string; name: string; provider: string; category: 'chat' | 'embedding' };
+  type AiModel = { id: string; name: string; provider: string; category: 'chat' | 'embedding' | 'image' };
   type SelectControl = HTMLElement & Pick<HTMLSelectElement, 'value' | 'options' | 'selectedIndex'>;
   function requiredSelect(id: string): SelectControl {
     const element = document.getElementById(id);
@@ -195,11 +201,11 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
   const configured = {
     provider: document.querySelector<HTMLInputElement>('input[name="provider"]:checked')?.value || 'cloudflare',
     cloudflare: { defaultModel: '', chatModel: '', scannerModel: '', embeddingModel: '' },
-    motapis: { defaultModel: '', chatModel: '', scannerModel: '' },
+    motapis: { defaultModel: '', chatModel: '', scannerModel: '', imageModel: '' },
   };
   const hiddenValues = {
     cloudflare: { defaultModel: value('gatewayDefaultModel'), chatModel: value('gatewayChatModel'), scannerModel: '', embeddingModel: value('gatewayEmbeddingModel') },
-    motapis: { defaultModel: value('motapisModel'), chatModel: value('motapisChatModel'), scannerModel: value('motapisScannerModel') },
+    motapis: { defaultModel: value('motapisModel'), chatModel: value('motapisChatModel'), scannerModel: value('motapisScannerModel'), imageModel: value('motapisImageModel') },
   };
   configured.cloudflare = { ...configured.cloudflare, ...hiddenValues.cloudflare };
   configured.motapis = { ...configured.motapis, ...hiddenValues.motapis };
@@ -212,6 +218,7 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
   const defaultModel = requiredSelect('default-model');
   const chatModel = requiredSelect('chat-model');
   const scannerModel = requiredSelect('scanner-model');
+  const imageModel = requiredSelect('image-model');
   const embeddingModel = requiredSelect('embedding-model');
   const maxTokens = document.getElementById('max-tokens') as HTMLInputElement;
   const embeddingCurrent = document.getElementById('embedding-current') as HTMLElement;
@@ -243,6 +250,8 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
     selectOptions(defaultModel, chatModels, values.defaultModel, 'Chọn model nền tảng');
     selectOptions(chatModel, chatModels, values.chatModel, 'Dùng model nền tảng');
     selectOptions(scannerModel, chatModels, values.scannerModel, 'Dùng model nền tảng');
+    const imageModels = models.filter((model) => model.category === 'image' && model.provider === 'Motapis');
+    selectOptions(imageModel, imageModels, configured.motapis.imageModel, 'Chọn model ảnh');
     const embeddingModels = models.filter((model) => model.category === 'embedding');
     selectOptions(embeddingModel, embeddingModels, configured.cloudflare.embeddingModel, 'Chọn embedding model');
     document.getElementById('summary-provider')!.textContent = provider === 'motapis' ? 'Motapis' : 'Cloudflare AI Gateway';
@@ -254,13 +263,14 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
     values.defaultModel = defaultModel.value;
     values.chatModel = chatModel.value;
     values.scannerModel = scannerModel.value;
+    configured.motapis.imageModel = imageModel.value;
   }
   document.querySelectorAll<HTMLInputElement>('input[name="provider"]').forEach((input) => input.addEventListener('change', () => {
     captureRouting(displayedProvider);
     displayedProvider = activeProvider();
     renderRouting();
   }));
-  [defaultModel, chatModel, scannerModel].forEach((select) => select.addEventListener('change', () => { captureRouting(); document.getElementById('summary-model')!.textContent = configured[activeProvider()].defaultModel || 'Chưa chọn'; setMessage(routingMsg, 'Có thay đổi chưa lưu. Bấm “Lưu Provider & Routing” để áp dụng.', 'muted'); }));
+  [defaultModel, chatModel, scannerModel, imageModel].forEach((select) => select.addEventListener('change', () => { captureRouting(); document.getElementById('summary-model')!.textContent = configured[activeProvider()].defaultModel || 'Chưa chọn'; setMessage(routingMsg, 'Có thay đổi chưa lưu. Bấm “Lưu Provider & Routing” để áp dụng.', 'muted'); }));
 
   async function loadModels() {
     try {
@@ -289,7 +299,8 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
         motapis_enabled: (document.getElementById('motapis-enabled') as HTMLInputElement).checked,
         motapis_model: motapis.defaultModel,
         motapis_chat_model: motapis.chatModel,
-        motapis_scanner_model: motapis.scannerModel,
+         motapis_scanner_model: motapis.scannerModel,
+         motapis_image_model: motapis.imageModel,
       }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || 'Không thể lưu cấu hình.');

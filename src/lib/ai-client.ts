@@ -79,21 +79,22 @@ export interface CompletionResult {
   attemptCount: number;
 }
 
-/** Generate a PNG with OpenAI's image generation API. */
-export async function generateOpenAiImage(
-  apiKey: string,
+/** Generate a PNG through an OpenAI-compatible image provider. */
+export async function generateOpenAiCompatibleImage(
+  config: ModelConfig,
   prompt: string,
 ): Promise<Uint8Array> {
-  if (!apiKey) throw new AiError('OpenAI image generation is not configured', 503, 'openai');
+  if (!config.api_key) throw new AiError('Image generation is not configured', 503, config.provider_id);
 
-  const resp = await aiFetch('https://api.openai.com/v1/images/generations', {
+  const baseUrl = config.base_url.replace(/\/+$/, '');
+  const resp = await aiFetch(`${baseUrl}/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${config.api_key}`,
     },
     body: JSON.stringify({
-      model: 'gpt-image-2',
+      model: config.model_id,
       prompt,
       // Closest supported portrait ratio to an A4 report page (210 × 297).
       size: '1024x1536',
@@ -103,12 +104,13 @@ export async function generateOpenAiImage(
   }, 120_000);
 
   if (!resp.ok) {
-    throw new AiError(`OpenAI image API error (${resp.status}): ${await resp.text()}`, resp.status, 'openai');
+    const detail = (await resp.text()).slice(0, 500);
+    throw new AiError(`Image API error (${resp.status}): ${detail}`, resp.status, config.provider_id);
   }
 
   const data = await resp.json() as { data?: Array<{ b64_json?: string }> };
   const encoded = data.data?.[0]?.b64_json;
-  if (!encoded) throw new AiError('Empty response from OpenAI image API', 200, 'openai');
+  if (!encoded) throw new AiError('Image provider returned no b64_json image payload', 502, config.provider_id);
 
   const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
   return bytes;

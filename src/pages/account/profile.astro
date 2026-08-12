@@ -30,8 +30,12 @@ const scannerAssets = (await Promise.all(
     const response = await getScannerResponse(env.DB, entry.response_id);
     if (!response) return null;
 
+    const hasAnalysis = Boolean(response.ai_analysis?.trim());
+    const hasPlan = Boolean(response.ai_plan?.trim());
     const assets = [
-      response.pdf_combined_key && { type: 'pdf', label: 'Báo cáo PDF', icon: 'picture_as_pdf', href: `/api/scanner/${entry.response_id}/pdf?type=combined` },
+      hasAnalysis && hasPlan && { type: 'pdf', label: 'Báo cáo tổng hợp', icon: 'picture_as_pdf', href: `/api/scanner/${entry.response_id}/pdf?type=combined` },
+      hasAnalysis && { type: 'pdf', label: 'PDF phân tích', icon: 'picture_as_pdf', href: `/api/scanner/${entry.response_id}/pdf?type=analysis` },
+      hasPlan && { type: 'pdf', label: 'PDF kế hoạch', icon: 'picture_as_pdf', href: `/api/scanner/${entry.response_id}/pdf?type=plan` },
       response.image_analysis_key && { type: 'image', label: 'Hình phân tích', icon: 'image', href: `/api/scanner/${entry.response_id}/image?type=analysis` },
       response.image_plan_key && { type: 'image', label: 'Hình kế hoạch', icon: 'image', href: `/api/scanner/${entry.response_id}/image?type=plan` },
     ].filter(Boolean) as Array<{ type: 'pdf' | 'image'; label: string; icon: string; href: string }>;

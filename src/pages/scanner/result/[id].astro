@@ -173,7 +173,7 @@ try {
   description={lang === 'vi' ? 'Bản phân tích hệ thống quản trị phòng khám' : 'Clinic management analysis'}
   noindex={true}
 >
-  <section class="result-wrap" data-response-id={id} data-scanner-id={definition.id} data-lang={lang} data-survey-slug={definition.slug} data-plan-status={planStatus} data-analysis-status={analysisStatus}>
+  <section class="result-wrap" data-response-id={id} data-scanner-id={definition.id} data-lang={lang} data-survey-slug={definition.slug} data-plan-status={planStatus} data-analysis-status={analysisStatus} data-report-token-budget={reportTokenBudget}>
     <!-- Header -->
     <header class="report-hero">
       <div class="report-identity">
@@ -1118,7 +1118,7 @@ try {
   const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
   const planStatusInit = wrap?.dataset.planStatus ?? 'pending';
   const analysisStatusInit = wrap?.dataset.analysisStatus ?? 'pending';
-  const reportTokenBudget = Number({reportTokenBudget});
+  const reportTokenLimit = Number(wrap?.dataset.reportTokenBudget ?? 4096);
 
   // ── Polling ───────────────────────────────────────────────────────
   let pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -1369,7 +1369,7 @@ try {
     type === 'analysis'
       ? (lang === 'vi' ? 'AI sẽ phân tích kết quả Scanner của bạn trước khi mở bước lập kế hoạch.' : 'AI will analyze your Scanner results before the planning step is unlocked.')
       : (lang === 'vi' ? 'AI sẽ chuyển các phát hiện từ Bản soi chiếu thành hành động ưu tiên trong 30 ngày.' : 'AI will turn System Illumination findings into prioritized 30-day actions.'),
-    lang === 'vi' ? `Tối đa ${reportTokenBudget.toLocaleString('vi-VN')} token đầu ra` : `Up to ${reportTokenBudget.toLocaleString('en-US')} output tokens`,
+    lang === 'vi' ? `Tối đa ${reportTokenLimit.toLocaleString('vi-VN')} token đầu ra` : `Up to ${reportTokenLimit.toLocaleString('en-US')} output tokens`,
     () => triggerAi(type),
   );
   document.getElementById('btn-run-plan')?.addEventListener('click', () => requestReport('plan'));

@@ -43,14 +43,14 @@ export const POST: APIRoute = async () => {
           headers: { Authorization: `Bearer ${env.MOTAPIS_API_KEY}` },
         });
         if (response.ok) {
-          const payload = await response.json() as { data?: Array<{ id?: string; name?: string }> };
+          const payload = await response.json() as { data?: Array<{ id?: string; name?: string; category?: string }> };
           for (const model of payload.data ?? []) {
             if (!model.id) continue;
             motapisModels.push({
               id: model.id,
               name: model.name || model.id,
               provider: 'Motapis',
-              category: 'chat',
+              category: model.category === 'image' || /image|dall-e/i.test(model.id) ? 'image' : 'chat',
             });
           }
         }

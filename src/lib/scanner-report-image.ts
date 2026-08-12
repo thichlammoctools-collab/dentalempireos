@@ -1,4 +1,6 @@
-import { generateOpenAiImage } from './ai-client';
+import { generateOpenAiCompatibleImage } from './ai-client';
+import { getAiGatewayConfig } from './ai-gateway';
+import { getAiSettings } from './ai-settings-db';
 import { parseScores, setScannerImageKey, type ScannerResponseRow } from './scanner-response-db';
 import { claimScannerReportImageJob, finishScannerReportImageJob } from './ai-operations';
 
@@ -25,12 +27,15 @@ export async function createScannerReportImage(
   surveyTitle: string,
   type: ImageType,
 ): Promise<string | null> {
-  if (!env.OPENAI_API_KEY) return null;
+  const config = await getAiGatewayConfig(env.DB, 'scanner');
+  if (!config || config.provider_id !== 'motapis') return null;
+  const settings = await getAiSettings(env.DB);
+  if (!settings.motapis_image_model) return null;
 
   const existingKey = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
   if (existingKey && await env.MEDIA.head(existingKey)) return existingKey;
 
-  const image = await generateOpenAiImage(env.OPENAI_API_KEY, buildImagePrompt(surveyTitle, response, type));
+  const image = await generateOpenAiCompatibleImage({ ...config, model_id: settings.motapis_image_model }, buildImagePrompt(surveyTitle, response, type));
   const key = `scanner-report-images/${response.id}/${type}.png`;
   await env.MEDIA.put(key, image, {
     httpMetadata: { contentType: 'image/png', contentDisposition: 'inline' },
@@ -49,7 +54,9 @@ export async function generateQueuedScannerReportImage(
   surveyTitle: string,
   type: ImageType,
 ): Promise<string | null> {
-  if (!env.OPENAI_API_KEY) return null;
+  const config = await getAiGatewayConfig(env.DB, 'scanner');
+  if (!config || config.provider_id !== 'motapis') return null;
+  if (!(await getAiSettings(env.DB)).motapis_image_model) return null;
   const existingKey = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
   if (existingKey && await env.MEDIA.head(existingKey)) return existingKey;
 
