@@ -264,14 +264,14 @@
       var lead = surveyData.lead_fields || {};
       var fields = Object.keys(lead);
       if (isGuestReport) {
-        ['owner_name', 'clinic_name', 'email'].forEach(function (fieldName) {
+        ['clinic_name', 'email'].forEach(function (fieldName) {
           if (fields.indexOf(fieldName) === -1) fields.push(fieldName);
         });
       }
       for (var i = 0; i < fields.length; i++) {
         var fieldName = fields[i];
         var cfg = lead[fieldName];
-        if ((cfg && cfg.required) || (isGuestReport && ['owner_name', 'clinic_name', 'email'].indexOf(fieldName) !== -1)) {
+        if ((cfg && cfg.required) || (isGuestReport && ['clinic_name', 'email'].indexOf(fieldName) !== -1)) {
           var el = document.querySelector('[name="' + fieldName + '"]');
           var value = el && el.value ? el.value : answers[fieldName];
           if (!value || !String(value).trim()) {

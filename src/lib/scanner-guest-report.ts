@@ -17,11 +17,16 @@ function normalizeRequiredText(value: unknown, max: number): string | null {
   return cleaned && cleaned.length <= max ? cleaned : null;
 }
 
-export function validateGuestLead(value: Record<string, unknown>): { email: string; ownerName: string; clinicName: string } | null {
+export function validateGuestLead(value: Record<string, unknown>): { email: string; ownerName: string | null; clinicName: string } | null {
   const email = normalizeRequiredText(value.email, 254)?.toLowerCase() ?? null;
-  const ownerName = normalizeRequiredText(value.owner_name, 120);
+  const ownerName = typeof value.owner_name === 'string' && value.owner_name.trim()
+    ? normalizeRequiredText(value.owner_name, 120)
+    : null;
+  const hasInvalidOwnerName = value.owner_name != null && ownerName === null && value.owner_name !== '';
   const clinicName = normalizeRequiredText(value.clinic_name, 160);
-  return email && !validateEmail(email) && ownerName && clinicName ? { email, ownerName, clinicName } : null;
+  return email && !validateEmail(email) && clinicName && !hasInvalidOwnerName
+    ? { email, ownerName, clinicName }
+    : null;
 }
 
 export async function hashOpaqueToken(token: string): Promise<string> {
@@ -32,7 +37,7 @@ export async function hashOpaqueToken(token: string): Promise<string> {
 export async function createGuestReport(db: D1Database, input: {
   responseId: number;
   email: string;
-  ownerName: string;
+  ownerName: string | null;
   clinicName: string;
   anonymousId: string | null;
   attribution: Attribution;
@@ -44,7 +49,7 @@ export async function createGuestReport(db: D1Database, input: {
      ("id", "response_id", "token_hash", "email", "owner_name", "clinic_name", "anonymous_id", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "expires_at", "created_at")
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
-    crypto.randomUUID(), input.responseId, await hashOpaqueToken(token), input.email, input.ownerName, input.clinicName,
+    crypto.randomUUID(), input.responseId, await hashOpaqueToken(token), input.email, input.ownerName ?? '', input.clinicName,
     input.anonymousId, input.attribution.referrerHost, input.attribution.utmSource, input.attribution.utmMedium,
     input.attribution.utmCampaign, input.attribution.utmTerm, input.attribution.utmContent, expiresAt, new Date().toISOString(),
   ).run();

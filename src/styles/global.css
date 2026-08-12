@@ -1792,7 +1792,7 @@ h2[id], h3[id], h4[id] {
   border: 1px solid var(--reader-border);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: color-mix(in srgb, var(--reader-chrome-surface) 55%, transparent);
+  background: var(--reader-chrome-surface);
 }
 .att-list-header {
   display: flex;
@@ -1800,7 +1800,7 @@ h2[id], h3[id], h4[id] {
   justify-content: space-between;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--reader-border);
-  background: color-mix(in srgb, var(--reader-chrome-surface-high) 55%, transparent);
+  background: var(--reader-chrome-surface-high);
 }
 .att-list-label {
   display: flex;
@@ -1821,12 +1821,12 @@ h2[id], h3[id], h4[id] {
   font-weight: 600;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: rgba(56,189,248,0.12);
-  color: rgba(56,189,248,0.85);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
 }
 .att-count-chip--file {
-  background: rgba(168,85,247,0.12);
-  color: rgba(168,85,247,0.85);
+  background: color-mix(in srgb, var(--color-tertiary) 14%, transparent);
+  color: var(--color-tertiary);
 }
 .att-list {
   display: flex;
@@ -1842,7 +1842,7 @@ h2[id], h3[id], h4[id] {
   transition: background-color 0.15s ease;
 }
 .att-list-item:last-child { border-bottom: none; }
-.att-list-item:hover { background: rgba(56,189,248,0.06); }
+.att-list-item:hover { background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
 .att-list-num {
   font-size: 0.65rem;
   font-weight: 700;
@@ -1859,8 +1859,8 @@ h2[id], h3[id], h4[id] {
   justify-content: center;
   flex-shrink: 0;
 }
-.att-list-icon--img { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
-.att-list-icon--file { background: rgba(168,85,247,0.12); color: rgba(168,85,247,0.8); }
+.att-list-icon--img { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.att-list-icon--file { background: color-mix(in srgb, var(--color-tertiary) 14%, transparent); color: var(--color-tertiary); }
 .att-list-info {
   flex: 1;
   min-width: 0;
@@ -1892,11 +1892,11 @@ h2[id], h3[id], h4[id] {
   letter-spacing: 0.05em;
   flex-shrink: 0;
 }
-.att-badge--img { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
-.att-badge--pdf { background: rgba(239,68,68,0.12); color: rgba(239,68,68,0.8); }
-.att-badge--doc, .att-badge--docx { background: rgba(56,189,248,0.12); color: rgba(56,189,248,0.8); }
-.att-badge--xls, .att-badge--xlsx { background: rgba(74,222,128,0.12); color: rgba(74,222,128,0.8); }
-.att-badge--ppt, .att-badge--pptx { background: rgba(251,191,36,0.12); color: rgba(251,191,36,0.8); }
+.att-badge--img { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.att-badge--pdf { background: color-mix(in srgb, var(--color-error) 14%, transparent); color: var(--color-error); }
+.att-badge--doc, .att-badge--docx { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.att-badge--xls, .att-badge--xlsx { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
+.att-badge--ppt, .att-badge--pptx { background: color-mix(in srgb, var(--color-warning) 16%, transparent); color: var(--color-warning); }
 .att-badge--file { background: color-mix(in srgb, var(--reader-chrome-text-muted) 12%, transparent); color: var(--reader-chrome-text-muted); }
 .att-list-action {
   display: flex;
@@ -1904,7 +1904,7 @@ h2[id], h3[id], h4[id] {
   gap: 0.25rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(56,189,248,0.6);
+  color: var(--color-primary);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -1912,6 +1912,12 @@ h2[id], h3[id], h4[id] {
 .att-list-item:hover .att-list-action { opacity: 1; }
 .attachment-anchor {
   scroll-margin-top: 7rem;
+}
+
+/* Keep the member gate legible on light reader canvases. */
+#reader-app[data-reader-theme="light"] .book-paywall-card {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, var(--reader-surface)), var(--reader-surface) 58%, var(--reader-bg));
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--color-on-surface) 12%, transparent);
 }
 
 /* File preview modal */

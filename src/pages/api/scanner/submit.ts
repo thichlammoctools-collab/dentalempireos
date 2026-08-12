@@ -68,7 +68,7 @@ export const POST: APIRoute = async (ctx) => {
   }
   const guestLead = isGuestDiagnostic ? validateGuestLead(body) : null;
   if (isGuestDiagnostic && !guestLead) {
-    return badRequest('Tên người phụ trách, tên phòng khám và email hợp lệ là bắt buộc.');
+    return badRequest('Tên phòng khám và email hợp lệ là bắt buộc.');
   }
   if (isGuestDiagnostic) {
     const ip = ctx.request.headers.get('CF-Connecting-IP') ?? ctx.request.headers.get('x-forwarded-for');
