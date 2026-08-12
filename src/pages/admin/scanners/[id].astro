@@ -105,15 +105,22 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
         </div>
       </header>
 
-      <div class="sticky top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex gap-1 border-b border-outline-variant/15 bg-surface/95 backdrop-blur-md overflow-x-auto scrollbar-hide">
-        <a href="#info" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap">Thông tin cơ bản</a>
-        <a href="#pricing" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Tính phí</a>
-        <a href="#sections" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Sections & Questions ({sections.length})</a>
-        <a href="#ai" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">AI Config</a>
-        <a href="#scoring" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap">Scoring Rules</a>
+      <div class="sticky top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b border-outline-variant/15 bg-surface/95 backdrop-blur-md">
+        <div class="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Khu vực cấu hình Scanner">
+          <button type="button" class="scanner-workspace-tab px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap" data-workspace="overview" role="tab" aria-selected="true">Tổng quan</button>
+          <button type="button" class="scanner-workspace-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap" data-workspace="content" role="tab" aria-selected="false">Nội dung form <span class="ml-1 text-xs opacity-70">{sections.length} phần</span></button>
+          <button type="button" class="scanner-workspace-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface whitespace-nowrap" data-workspace="analysis" role="tab" aria-selected="false">Phân tích & điểm số</button>
+        </div>
       </div>
 
-      <section id="pricing" class="scroll-mt-24 glass-card rounded-2xl p-4 sm:p-5 border border-outline-variant/20">
+      <section class="scanner-workspace-panel flex flex-col gap-4" data-workspace-panel="overview" role="tabpanel">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="rounded-xl border border-outline-variant/20 bg-surface-container/40 p-4"><span class="material-symbols-outlined text-primary text-[20px]">article</span><p class="mt-2 text-2xl font-bold text-on-surface">{sections.length}</p><p class="text-xs text-on-surface-variant">phần · {sections.reduce((total, section) => total + section.questions.length, 0)} câu hỏi</p></div>
+        <div class="rounded-xl border border-outline-variant/20 bg-surface-container/40 p-4"><span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span><p class="mt-2 text-sm font-bold text-on-surface">{aiConfig.prompt_vi ? 'AI đã tùy biến' : 'Dùng AI mặc định'}</p><p class="mt-1 text-xs text-on-surface-variant">{aiConfig.analysis_sections?.length ?? 0} mục trong báo cáo phân tích</p></div>
+        <div class="rounded-xl border border-outline-variant/20 bg-surface-container/40 p-4"><span class="material-symbols-outlined text-primary text-[20px]">speed</span><p class="mt-2 text-sm font-bold text-on-surface">{scoringRules?.dimensions?.length ? `${scoringRules.dimensions.length} chiều đo` : 'Chưa thiết lập điểm số'}</p><p class="mt-1 text-xs text-on-surface-variant">Chỉ các câu select và yes/no được tính điểm</p></div>
+      </div>
+
+      <section class="glass-card rounded-2xl p-4 sm:p-5 border border-outline-variant/20">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div class="flex items-center gap-2">
@@ -130,9 +137,8 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
       </section>
 
       <!-- Basic Info -->
-      <div id="info" class="scroll-mt-24"></div>
       <form id="form-info" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
-        <h2 class="text-lg font-bold text-on-surface">Thông tin cơ bản</h2>
+        <div><h2 class="text-lg font-bold text-on-surface">Thông tin & trạng thái</h2><p class="mt-1 text-sm text-on-surface-variant">Thiết lập cách Scanner xuất hiện, đường dẫn truy cập và nội dung giới thiệu.</p></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-on-surface-variant block mb-1">Tiêu đề (VI) *</label>
@@ -145,6 +151,7 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
           <div>
             <label class="text-xs font-semibold text-on-surface-variant block mb-1">Slug</label>
             <input type="text" name="slug" value={def.slug} class="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-on-surface font-mono focus:outline-none focus:border-primary" />
+            <p id="slug-warning" class="hidden mt-1.5 text-xs text-amber-300">Đổi slug sẽ làm URL cũ không còn truy cập được: <span class="font-mono">/scanner/{def.slug}</span></p>
           </div>
           <div>
             <label class="text-xs font-semibold text-on-surface-variant block mb-1">Trạng thái</label>
@@ -180,11 +187,14 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
           <button type="submit" class="bg-primary-container text-white px-5 py-2.5 rounded-xl font-bold text-sm cyan-glow hover:opacity-90 active:scale-95 transition-all">Lưu thông tin</button>
         </div>
       </form>
+      </section>
 
       <!-- Sections & Questions -->
-      <div id="sections" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+      <section class="scanner-workspace-panel hidden flex flex-col gap-4" data-workspace-panel="content" role="tabpanel">
+      <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-on-surface-variant"><span class="font-semibold text-primary">Luồng biên tập:</span> tạo phần khảo sát trước, sau đó thêm câu hỏi vào từng phần. Câu hỏi có thể tính điểm được đánh dấu bằng loại <code class="font-mono text-xs">select</code> hoặc <code class="font-mono text-xs">yesno</code>.</div>
+      <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-bold text-on-surface">Sections & Questions</h2>
+          <div><h2 class="text-lg font-bold text-on-surface">Cấu trúc form</h2><p class="mt-1 text-sm text-on-surface-variant">Tổ chức các phần và câu hỏi mà người dùng sẽ lần lượt trả lời.</p></div>
           <button type="button" id="btn-add-section" class="bg-primary-container text-white px-4 py-2 rounded-xl font-bold text-sm cyan-glow hover:opacity-90 active:scale-95 transition-all flex items-center gap-2">
             <span class="material-symbols-outlined text-[18px]">add</span>
             Thêm section
@@ -225,10 +235,10 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
                             {q.anchor ? ' · ⭐' : ''}
                           </p>
                         </div>
-                        <button type="button" class="btn-edit-question opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-surface-container text-on-surface-variant" data-question-id={q.id} data-section-id={section.id} data-label={q.label_vi}>
+                        <button type="button" class="btn-edit-question p-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" data-question-id={q.id} data-section-id={section.id} data-label={q.label_vi} aria-label={`Sửa câu hỏi ${q.label_vi}`}>
                           <span class="material-symbols-outlined text-[14px]">edit</span>
                         </button>
-                        <button type="button" class="btn-delete-question opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-on-surface-variant hover:text-red-400" data-question-id={q.id} data-label={q.label_vi}>
+                        <button type="button" class="btn-delete-question p-1 rounded hover:bg-red-500/20 text-on-surface-variant hover:text-red-400" data-question-id={q.id} data-label={q.label_vi} aria-label={`Xóa câu hỏi ${q.label_vi}`}>
                           <span class="material-symbols-outlined text-[14px]">delete</span>
                         </button>
                       </div>
@@ -245,9 +255,11 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
           ))
         )}
       </div>
+      </section>
 
       <!-- AI Config -->
-      <div id="ai" class="scroll-mt-24"></div>
+      <section class="scanner-workspace-panel hidden flex flex-col gap-4" data-workspace-panel="analysis" role="tabpanel">
+      <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-on-surface-variant"><span class="font-semibold text-primary">Thiết lập theo thứ tự:</span> định nghĩa chiều đo và ngưỡng điểm trước, rồi tinh chỉnh AI để diễn giải kết quả theo đúng cấu trúc báo cáo.</div>
       <form id="form-ai" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -327,11 +339,11 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
               <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
                 <div>
                   <span class="text-on-surface-variant/50">Model</span>
-                  <p class="text-on-surface font-mono mt-0.5">{aiConfig.model_override || '<span class="text-on-surface-variant/40 italic">mặc định</span>'}</p>
+                  <p id="ai-preview-model" class="text-on-surface font-mono mt-0.5">{aiConfig.model_override || 'mặc định'}</p>
                 </div>
                 <div>
                   <span class="text-on-surface-variant/50">Max tokens</span>
-                  <p class="text-on-surface font-mono mt-0.5">{aiConfig.max_tokens_override ?? '<span class="text-on-surface-variant/40 italic">mặc định</span>'}</p>
+                  <p id="ai-preview-tokens" class="text-on-surface font-mono mt-0.5">{aiConfig.max_tokens_override ?? 'mặc định'}</p>
                 </div>
               </div>
             </div>
@@ -380,7 +392,6 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
       </form>
 
       <!-- Scoring Rules (Visual UI) -->
-      <div id="scoring" class="scroll-mt-24"></div>
       <form id="form-scoring" class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -505,6 +516,7 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
           </button>
         </div>
       </form>
+      </section>
     </>
   )}
 
@@ -589,8 +601,8 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
 
           <!-- Language tabs -->
           <div class="flex gap-1 border-b border-outline-variant/15 -mb-px">
-            <button type="button" class="q-tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-primary text-primary transition-colors" data-q-tab="vi">🇻🇳 Tiếng Việt</button>
-            <button type="button" class="q-tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors" data-q-tab="en">🇬🇧 English</button>
+            <button type="button" class="q-tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-primary text-primary transition-colors" data-q-tab="vi">Tiếng Việt</button>
+            <button type="button" class="q-tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors" data-q-tab="en">English</button>
           </div>
 
           <!-- VI tab -->
@@ -653,6 +665,11 @@ const scannerPricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', d
             <div>
               <label class="text-xs font-semibold text-on-surface-variant block mb-1">Placeholder (EN)</label>
               <input type="text" name="placeholder_en" class="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-on-surface text-sm focus:outline-none focus:border-primary" />
+            </div>
+            <div id="q-field-options-en" class="hidden">
+              <label class="text-xs font-semibold text-on-surface-variant block mb-1">Options (EN) — one option per line</label>
+              <textarea name="options_en_text" rows="4" class="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-on-surface text-sm focus:outline-none focus:border-primary" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+              <p class="text-[10px] text-on-surface-variant/70 mt-1">Nếu để trống, form tiếng Anh sẽ dùng lựa chọn tiếng Việt.</p>
             </div>
           </div>
 
