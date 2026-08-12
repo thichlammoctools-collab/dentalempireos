@@ -454,7 +454,7 @@ try {
               {!analysisImageUrl && (
                 <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="analysis">
                   <span class="material-symbols-outlined text-base">image</span>
-                  {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
+                  <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
                 </button>
               )}
             </div>
@@ -1353,6 +1353,8 @@ try {
   }
 
   async function createReportImage(type: 'analysis' | 'plan', button: HTMLButtonElement) {
+    if (button.disabled || button.getAttribute('aria-busy') === 'true') return;
+
     const label = button.querySelector<HTMLElement>('[data-image-label]');
     const originalLabel = label?.textContent ?? button.textContent ?? '';
     button.disabled = true;
@@ -1404,6 +1406,8 @@ try {
   document.getElementById('btn-retry-analysis')?.addEventListener('click', () => requestReport('analysis'));
   document.querySelectorAll<HTMLButtonElement>('[data-image-type]').forEach((button) => {
     button.addEventListener('click', () => {
+      if (button.disabled || button.getAttribute('aria-busy') === 'true' || pendingConfirmation) return;
+
       const type = button.dataset.imageType as 'analysis' | 'plan';
       requestConfirmation(
         lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration',
