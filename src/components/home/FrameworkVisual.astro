@@ -1,79 +1,50 @@
 ---
-const frameworks = [
-  {
-    label: 'SKY',
-    description: 'Trục đạo đức',
-    icon: 'cloud',
-    href: '/book/03-roadmap-to-be-sky',
-    className: 'framework-node-sky',
-  },
-  {
-    label: 'S.T.A.R.S',
-    description: 'Bản đồ năng lực',
-    icon: 'star',
-    href: '/book/06-stars-luong-thuong',
-    className: 'framework-node-stars',
-  },
-  {
-    label: 'R.O.A.D.M.A.P',
-    description: 'Con đường hệ thống',
-    icon: 'route',
-    href: '/book/04-ky-nang-ca-nhan',
-    className: 'framework-node-roadmap',
-  },
-  {
-    label: 'ONE LIGHT',
-    description: 'Tâm gỗ đạo đức',
-    icon: 'light_mode',
-    href: '/book/04-ky-nang-ca-nhan',
-    className: 'framework-node-light',
-  },
-  {
-    label: 'Nha khoa · Răng Hàm Mặt',
-    description: 'Nền tảng chuyên môn',
-    icon: 'dentistry',
-    href: '/book',
-    className: 'framework-node-dental',
-  },
+const systems = [
+  { label: 'Lâm sàng', icon: 'dentistry', className: 'framework-node-clinical' },
+  { label: 'Đội ngũ', icon: 'groups', className: 'framework-node-team' },
+  { label: 'Tăng trưởng', icon: 'trending_up', className: 'framework-node-growth' },
+  { label: 'Tài chính', icon: 'account_balance_wallet', className: 'framework-node-finance' },
 ] as const;
 ---
 
-<aside class="framework-visual" aria-label="Bản đồ khung tư duy Dental Empire OS">
+<aside class="framework-visual" aria-label="Bản đồ hệ điều hành Dental Empire OS">
   <div class="framework-visual__ambient" aria-hidden="true">
     <span class="framework-orbit framework-orbit--one"></span>
     <span class="framework-orbit framework-orbit--two"></span>
     <span class="framework-constellation framework-constellation--one"></span>
     <span class="framework-constellation framework-constellation--two"></span>
-    <span class="framework-path"></span>
   </div>
 
-  <div class="relative z-10 flex items-center justify-between gap-4">
+  <div class="relative z-10 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Bản đồ hệ điều hành</p>
-      <h2 class="mt-2 text-xl font-black text-on-surface">Một trục giá trị, một đường phát triển.</h2>
+      <h2 class="mt-2 max-w-xs text-xl font-black leading-snug text-on-surface">Một điểm nhìn chung cho mọi quyết định.</h2>
     </div>
-    <span class="framework-core-icon material-symbols-outlined" aria-hidden="true">hub</span>
+    <span class="framework-core-icon material-symbols-outlined" aria-hidden="true">account_tree</span>
   </div>
 
-  <div class="framework-core relative z-10" aria-hidden="true">
-    <span class="material-symbols-outlined">flare</span>
-    <span class="framework-core__pulse"></span>
-  </div>
+  <div class="framework-system-map relative z-10" aria-label="Các hệ thống trong phòng khám">
+    <svg class="framework-connectors" viewBox="0 0 400 270" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M200 135 L90 62 M200 135 L310 62 M200 135 L90 208 M200 135 L310 208" />
+      <circle cx="200" cy="135" r="4" />
+    </svg>
 
-  <nav class="framework-map relative z-10" aria-label="Khám phá các khung tư duy">
-    {frameworks.map((framework) => (
-      <a class:list={['framework-node', framework.className]} href={framework.href}>
-        <span class="framework-node__icon material-symbols-outlined" aria-hidden="true">{framework.icon}</span>
-        <span class="min-w-0">
-          <span class="framework-node__label">{framework.label}</span>
-          <span class="framework-node__description">{framework.description}</span>
-        </span>
-        <span class="material-symbols-outlined framework-node__arrow" aria-hidden="true">arrow_outward</span>
-      </a>
+    <div class="framework-core" aria-hidden="true">
+      <span class="material-symbols-outlined">hub</span>
+      <span class="framework-core__pulse"></span>
+      <span class="framework-core__label">DEOS</span>
+    </div>
+
+    {systems.map((system) => (
+      <div class:list={['framework-node', system.className]}>
+        <span class="framework-node__icon material-symbols-outlined" aria-hidden="true">{system.icon}</span>
+        <span class="framework-node__label">{system.label}</span>
+      </div>
     ))}
-  </nav>
+  </div>
 
-  <p class="relative z-10 mt-6 border-t border-outline-variant/55 pt-5 text-sm leading-relaxed text-on-surface-variant">
-    Từ nền tảng Răng Hàm Mặt đến hệ thống tăng trưởng có chuẩn mực, mọi quyết định đều cần chung một điểm định hướng.
-  </p>
+  <div class="relative z-10 mt-4 flex items-center gap-3 border-t border-outline-variant/55 pt-4 text-sm leading-relaxed text-on-surface-variant">
+    <span class="material-symbols-outlined text-primary" aria-hidden="true">south_east</span>
+    <p>Từ chuyên môn đến lợi nhuận, các hệ thống cùng chạy theo một chuẩn vận hành.</p>
+  </div>
 </aside>

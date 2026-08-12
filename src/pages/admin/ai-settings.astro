@@ -107,11 +107,6 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
         </details>
 
         <label class="flex items-center gap-2 text-sm text-on-surface"><input id="motapis-enabled" type="checkbox" checked={settings.motapis_enabled === 1} class="h-4 w-4 accent-primary" /> Cho phép dùng Motapis khi được chọn</label>
-        <div class="flex flex-wrap items-center gap-3 border-t border-outline-variant/15 pt-5">
-          <button type="button" id="provider-test" class="btn-secondary">Kiểm tra kết nối</button>
-          <button type="submit" id="provider-save" class="btn-primary-metallic px-5 py-2.5 text-sm font-bold">Lưu Provider & Routing</button>
-          <p id="provider-msg" class="hidden text-sm" role="status"></p>
-        </div>
       </form>
     </section>
 
@@ -153,6 +148,11 @@ const activeDefaultModel = settings.ai_provider === 'motapis' ? settings.motapis
           <div><p class="text-sm font-semibold text-white">Giới hạn output mặc định</p><p class="mt-1 text-xs text-on-surface-variant">Có thể override theo từng Scanner/Tool để cân bằng chất lượng và chi phí.</p></div>
           <label class="flex items-center gap-2"><input id="max-tokens" type="number" value={settings.max_tokens} min="256" max="8192" class="field w-28" /><span class="text-xs text-on-surface-variant">tokens</span></label>
         </div>
+      </div>
+      <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-outline-variant/15 pt-5">
+        <button type="button" id="provider-test" class="btn-secondary">Kiểm tra kết nối</button>
+        <button type="submit" form="provider-form" id="provider-save" class="btn-primary-metallic px-5 py-2.5 text-sm font-bold">Lưu Provider & Routing</button>
+        <p id="provider-msg" class="hidden text-sm" role="status"></p>
       </div>
       <p id="routing-msg" class="hidden mt-4 text-sm" role="status"></p>
     </section>
