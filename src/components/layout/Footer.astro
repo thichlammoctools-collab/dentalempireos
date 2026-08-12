@@ -88,7 +88,7 @@ const social = {
     <div>
       <h4 class="font-bold text-lg mb-6 text-primary">Newsletter</h4>
       <p class="mb-4 text-on-surface-variant">Nhận kiến thức quản trị mới nhất hàng tuần.</p>
-      <form action="/api/newsletter" method="post" class="flex flex-col gap-2">
+      <form data-newsletter-form data-newsletter-source="footer" class="flex flex-col gap-2">
         <input
           type="email"
           name="email"
@@ -113,3 +113,18 @@ const social = {
     </div>
   </div>
 </footer>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('[data-newsletter-form]').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = (form.elements.namedItem('email') as HTMLInputElement | null)?.value;
+      if (!email) return;
+      const response = await fetch('/api/newsletter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: form.dataset.newsletterSource ?? 'footer', ...window.dentalAnalytics?.getAttribution?.(), anonymous_id: window.dentalAnalytics?.getAnonymousId?.() }),
+      });
+      if (response.ok) form.reset();
+    });
+  });
+</script>

@@ -113,16 +113,16 @@ const faqs = [
           <li class="rounded-2xl border border-outline-variant/70 bg-surface-container/80 p-4 text-sm font-semibold text-on-surface">Tạo nền để vận hành ổn định và có thể nhân bản.</li>
         </ul>
         <div class="mt-9 flex flex-wrap gap-3">
-          <a href="/dich-vu" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
-            Khám phá dịch vụ
+          <a href="/scanner/total-os-diagnostic" data-track-cta="total_os_diagnostic" data-track-placement="homepage_hero" class="inline-flex items-center gap-2 rounded-xl btn-primary-metallic px-6 py-3 font-bold transition-transform active:scale-95">
+            Làm Total OS Diagnostic miễn phí
             <span class="material-symbols-outlined text-lg">arrow_forward</span>
           </a>
-          <a href="/book" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">
-            {homepage.hero_cta_secondary}
-            <span class="material-symbols-outlined text-lg">menu_book</span>
+          <a href="/dich-vu" data-track-cta="services" data-track-placement="homepage_hero_secondary" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-6 py-3 font-bold text-on-surface hover:border-primary hover:text-primary transition-colors">
+            Nhận tư vấn triển khai
+            <span class="material-symbols-outlined text-lg">handshake</span>
           </a>
         </div>
-        <p class="mt-4 max-w-xl text-sm leading-relaxed text-on-surface-variant">{homepage.hero_stats_text}</p>
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-on-surface-variant">10–15 phút · nhận điểm số 5 chiều, ưu tiên cải thiện và kế hoạch hành động · cần tài khoản miễn phí.</p>
       </div>
 
         <div class="self-center">
@@ -140,35 +140,31 @@ const faqs = [
       </div>
   </section>
 
-  <section id="clinical-content-portfolio" class="scroll-mt-24 border-b border-outline-variant/60 bg-surface-container-low py-12 sm:py-16">
+  <section id="diagnostic-lead-magnet" class="scroll-mt-24 border-b border-outline-variant/60 bg-surface-container-low py-12 sm:py-16">
     <div class="mx-auto max-w-[1200px] px-6">
-      <div class="relative overflow-hidden rounded-3xl border border-amber-400/35 bg-gradient-to-br from-amber-400/10 via-surface-container to-primary/10 p-6 sm:p-8">
-        <div class="absolute -right-16 -top-20 h-48 w-48 rounded-full border border-amber-400/20" aria-hidden="true"></div>
-        <div class="absolute -right-4 -top-8 h-28 w-28 rounded-full border border-primary/20" aria-hidden="true"></div>
+      <div class="relative overflow-hidden rounded-3xl border border-primary/35 bg-gradient-to-br from-primary/15 via-surface-container to-amber-400/10 p-6 sm:p-8">
+        <div class="absolute -right-16 -top-20 h-48 w-48 rounded-full border border-primary/20" aria-hidden="true"></div>
+        <div class="absolute -right-4 -top-8 h-28 w-28 rounded-full border border-amber-400/20" aria-hidden="true"></div>
         <div class="relative grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div class="max-w-3xl">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-amber-500 dark:text-amber-300">Featured project document</p>
-            <h2 class="mt-3 text-2xl font-black text-on-surface sm:text-3xl">Dental Empire OS – Clinical Content Portfolio</h2>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-primary">Lead diagnostic miễn phí</p>
+            <h2 class="mt-3 text-2xl font-black text-on-surface sm:text-3xl">Biết điểm nghẽn trước khi chọn giải pháp.</h2>
             <p class="mt-3 max-w-2xl leading-relaxed text-on-surface-variant">
-              Tài liệu giới thiệu nhanh về cách Dental Empire OS phát triển nội dung lâm sàng, workflow, SOP, tài liệu đào tạo và chuyển hóa tri thức thành giao tiếp dễ hiểu cho người bệnh.
+              Total OS Diagnostic giúp bạn soi 5 chiều vận hành của phòng khám để xác định ưu tiên cần xử lý trước — thay vì tải một mẫu biểu rồi tự đoán vấn đề.
             </p>
             <div class="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-on-surface-variant">
-              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">description</span>12 trang</span>
-              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">language</span>English &amp; Tiếng Việt</span>
-              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">picture_as_pdf</span>PDF miễn phí</span>
+              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">timer</span>10–15 phút</span>
+              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">analytics</span>Điểm số 5 chiều</span>
+              <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-base text-primary">map</span>Ưu tiên &amp; kế hoạch 30 ngày</span>
             </div>
           </div>
           <div class="relative flex flex-wrap gap-3 lg:max-w-[270px] lg:flex-col">
-            <a href="/files/dental-empire-os-clinical-content-portfolio-en.pdf" download class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-400 active:scale-95 lg:flex-none">
-              <span class="material-symbols-outlined text-[19px]">download</span>
-              Download English PDF
+            <a href="/scanner/total-os-diagnostic" data-track-cta="total_os_diagnostic" data-track-placement="homepage_lead_magnet" class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl btn-primary-metallic px-5 py-3 text-sm font-black transition active:scale-95 lg:flex-none">
+              <span class="material-symbols-outlined text-[19px]">troubleshoot</span>
+              Bắt đầu chẩn đoán
             </a>
-            <a href="/files/dental-empire-os-clinical-content-portfolio-vi.pdf" download class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-500/50 bg-surface-container-lowest/50 px-5 py-3 text-sm font-black text-amber-600 transition hover:bg-amber-500/10 dark:text-amber-300 active:scale-95 lg:flex-none">
-              <span class="material-symbols-outlined text-[19px]">download</span>
-              Tải bản tiếng Việt
-            </a>
-            <a href="/resources#clinical-content-portfolio" class="inline-flex items-center justify-center gap-2 px-2 py-1 text-sm font-bold text-primary transition hover:text-on-surface">
-              Xem trong kho tài nguyên
+            <a href="/dich-vu" data-track-cta="services" data-track-placement="homepage_lead_magnet_secondary" class="inline-flex items-center justify-center gap-2 px-2 py-1 text-sm font-bold text-primary transition hover:text-on-surface">
+              Đã có kết quả? Nhận tư vấn
               <span class="material-symbols-outlined text-[17px]">arrow_forward</span>
             </a>
           </div>
@@ -192,7 +188,7 @@ const faqs = [
 
   <section id="roadmap" class="roadmap-section scroll-mt-24 py-20">
     <div class="mx-auto max-w-[1200px] px-6">
-      <div class="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Lộ trình thay đổi</p><h2 class="mt-3 text-3xl font-black text-on-surface sm:text-4xl">Chẩn đoán trước, chuẩn hóa sau, rồi mới nhân bản.</h2></div><a href="/scanner/total-os-diagnostic" class="inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Làm Total OS Diagnostic <span class="material-symbols-outlined">arrow_forward</span></a></div>
+      <div class="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p class="text-sm font-bold uppercase tracking-[0.16em] text-primary">Lộ trình thay đổi</p><h2 class="mt-3 text-3xl font-black text-on-surface sm:text-4xl">Chẩn đoán trước, chuẩn hóa sau, rồi mới nhân bản.</h2></div><a href="/scanner/total-os-diagnostic" data-track-cta="total_os_scanner" data-track-placement="homepage_roadmap" class="inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Làm Total OS Diagnostic <span class="material-symbols-outlined">arrow_forward</span></a></div>
       <div class="roadmap-line mt-10 grid gap-5 lg:grid-cols-3">
         <article class="roadmap-card"><div class="roadmap-card__icon"><span class="material-symbols-outlined">troubleshoot</span></div><p class="mt-6 text-sm font-black text-primary">01. Diagnosis</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chẩn đoán</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Đo mức độ phụ thuộc, tìm các điểm đứt trong luồng bệnh nhân, đội ngũ và tài chính.</p></article>
         <article class="roadmap-card"><div class="roadmap-card__icon"><span class="material-symbols-outlined">account_tree</span></div><p class="mt-6 text-sm font-black text-primary">02. Standardize</p><h3 class="mt-3 text-2xl font-bold text-on-surface">Chuẩn hóa</h3><p class="mt-3 leading-relaxed text-on-surface-variant">Xác định tiêu chuẩn, vai trò, chỉ số và nhịp họp để công việc không cần nhắc lại bằng miệng.</p></article>
@@ -224,14 +220,14 @@ const faqs = [
           <p class="mt-6 text-sm font-black text-primary">02. ĐỒNG HÀNH TƯ VẤN</p>
           <h3 class="mt-3 text-2xl font-bold text-on-surface">Có người cùng chẩn đoán và giữ nhịp</h3>
           <p class="mt-3 leading-relaxed text-on-surface-variant">Bao gồm hệ sinh thái tri thức, công cụ và các buổi tư vấn để xác định việc cần làm trước.</p>
-          <a href="/dich-vu#dong-hanh" class="mt-6 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Xem gói đồng hành <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
+          <a href="/dich-vu#dong-hanh" data-track-cta="guided_consultation" data-track-placement="homepage_services" class="mt-6 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Xem gói đồng hành <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
         </article>
         <article class="rounded-3xl border border-outline-variant/70 bg-surface-container-lowest p-7">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-700 dark:text-violet-300"><span class="material-symbols-outlined">precision_manufacturing</span></span>
           <p class="mt-6 text-sm font-black text-primary">03. TRIỂN KHAI TRỌN GÓI</p>
           <h3 class="mt-3 text-2xl font-bold text-on-surface">Cùng thiết kế và đưa vào vận hành</h3>
           <p class="mt-3 leading-relaxed text-on-surface-variant">Phù hợp khi cần audit, thiết kế SOP/KPI, đào tạo đội ngũ và triển khai thay đổi liên phòng ban.</p>
-          <a href="/dich-vu#tron-goi" class="mt-6 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Nhận đề xuất triển khai <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
+          <a href="/dich-vu#tron-goi" data-track-cta="implementation_consultation" data-track-placement="homepage_services" class="mt-6 inline-flex items-center gap-2 font-bold text-primary hover:text-on-surface transition-colors">Nhận đề xuất triển khai <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
         </article>
       </div>
     </div>

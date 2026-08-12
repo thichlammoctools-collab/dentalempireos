@@ -1,6 +1,14 @@
 /// <reference path="../.astro/types.d.ts" />
 /// <reference types="@cloudflare/workers-types" />
 
+interface Window {
+  dentalAnalytics?: {
+    getAnonymousId?: () => string | null;
+    getAttribution?: () => Record<string, string | null>;
+    track?: (eventName: string, props?: Record<string, string>) => Promise<void>;
+  };
+}
+
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database;

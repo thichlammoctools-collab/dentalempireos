@@ -119,27 +119,20 @@ function resourceUrl(fileUrl: string): string {
     </div>
   </section>
 
-  <!-- Featured portfolio downloads -->
   <section class="px-6 max-w-[1200px] mx-auto pt-8 pb-8">
-    <div class="rounded-2xl border border-amber-300 bg-amber-50/80 p-5 shadow-sm shadow-amber-900/5 dark:border-amber-500/30 dark:bg-amber-500/5 sm:p-6">
+    <div class="rounded-2xl border border-primary/30 bg-primary/5 p-5 shadow-sm sm:p-6">
       <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div class="max-w-2xl">
-          <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">Featured portfolio</p>
-          <h2 class="mt-2 text-xl font-bold text-slate-900 dark:text-white">Dental Empire OS – Clinical Content Portfolio</h2>
+          <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Bắt đầu đúng thứ tự</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900 dark:text-white">Chẩn đoán điểm nghẽn trước khi chọn tài nguyên.</h2>
           <p class="mt-2 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-on-surface-variant">
-            A 12-page overview of the project’s clinical content development, workflow design, SOP structure, training materials, and knowledge translation approach.
+            Total OS Diagnostic cho bạn điểm số 5 chiều, ưu tiên cải thiện và kế hoạch hành động. Sau đó, chọn đúng SOP, KPI hay template phù hợp với vấn đề của phòng khám.
           </p>
         </div>
-        <div class="flex shrink-0 flex-wrap gap-2.5">
-          <a href="/files/dental-empire-os-clinical-content-portfolio-en.pdf" download class="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-sm shadow-amber-900/10 transition hover:bg-amber-400">
-            <span class="material-symbols-outlined text-[18px]">download</span>
-            English PDF
-          </a>
-          <a href="/files/dental-empire-os-clinical-content-portfolio-vi.pdf" download class="inline-flex items-center gap-2 rounded-xl border border-amber-500/60 bg-white/70 px-4 py-2.5 text-sm font-bold text-amber-800 transition hover:bg-amber-100 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-500/10">
-            <span class="material-symbols-outlined text-[18px]">download</span>
-            Bản tiếng Việt
-          </a>
-        </div>
+        <a href="/scanner/total-os-diagnostic" data-track-cta="total_os_diagnostic" data-track-placement="resources_lead_magnet" class="inline-flex shrink-0 items-center gap-2 rounded-xl btn-primary-metallic px-4 py-2.5 text-sm font-bold transition active:scale-95">
+          <span class="material-symbols-outlined text-[18px]">troubleshoot</span>
+          Làm Diagnostic miễn phí
+        </a>
       </div>
     </div>
   </section>
@@ -245,6 +238,8 @@ function resourceUrl(fileUrl: string): string {
                           href={resourceUrl(res.file_url)}
                           target="_blank"
                           rel="noopener noreferrer"
+                          data-track-cta={`resource_download_${res.id}`}
+                          data-track-placement="resources_list"
                           class={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
                             res.tier === 'premium'
                               ? 'bg-amber-500 hover:bg-amber-400 text-black'
@@ -392,8 +387,9 @@ function resourceUrl(fileUrl: string): string {
             </button>
           </form>
           <p id="newsletter-success" class="hidden text-xs text-green-400 mt-2 text-center">
-            Đăng ký thành công!
+            Đăng ký thành công! Vui lòng kiểm tra email.
           </p>
+          <p id="newsletter-error" class="hidden text-xs text-red-400 mt-2 text-center" role="alert"></p>
         </div>
       </aside>
     </div>
@@ -402,17 +398,30 @@ function resourceUrl(fileUrl: string): string {
 </BaseLayout>
 
 <script>
-  document.getElementById('resources-newsletter')?.addEventListener('submit', (e) => {
+  document.getElementById('resources-newsletter')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-    fetch('/api/newsletter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    }).then(() => {
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const error = document.getElementById('newsletter-error');
+    const success = document.getElementById('newsletter-success');
+    if (button) button.disabled = true;
+    error?.classList.add('hidden');
+
+    try {
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'resources_sidebar', ...window.dentalAnalytics?.getAttribution?.(), anonymous_id: window.dentalAnalytics?.getAnonymousId?.() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Không thể đăng ký lúc này. Vui lòng thử lại.');
       form.classList.add('hidden');
-      document.getElementById('newsletter-success')?.classList.remove('hidden');
-    });
+      success?.classList.remove('hidden');
+    } catch (err) {
+      error!.textContent = err instanceof Error ? err.message : 'Không thể đăng ký lúc này. Vui lòng thử lại.';
+      error?.classList.remove('hidden');
+      if (button) button.disabled = false;
+    }
   });
 </script>

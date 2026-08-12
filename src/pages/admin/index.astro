@@ -52,6 +52,10 @@ const [
   scannerUses,
   pdfDownloads,
   revenue,
+  funnelPageViews,
+  funnelCtaClicks,
+  funnelLeads,
+  funnelConsultations,
 ] = await Promise.all([
   getCount(`SELECT COUNT(*) AS count FROM "section"`),
   getCount(`SELECT COUNT(*) AS count FROM "survey_definition" WHERE "status" = 'active' AND "is_free" = 1`),
@@ -65,6 +69,10 @@ const [
   getCount(`SELECT COUNT(*) AS count FROM "scanner_history"`),
   getCount(`SELECT COUNT(*) AS count FROM "scanner_response" WHERE "pdf_combined_key" IS NOT NULL OR "pdf_plan_key" IS NOT NULL OR "pdf_analysis_key" IS NOT NULL`),
   getRevenue(),
+  getCount(`SELECT COUNT(DISTINCT "anonymous_id") AS count FROM "site_event" WHERE "event_name" = 'page_view'`),
+  getCount(`SELECT COUNT(DISTINCT "anonymous_id") AS count FROM "site_event" WHERE "event_name" = 'cta_click'`),
+  getCount(`SELECT COUNT(DISTINCT "anonymous_id") AS count FROM "site_event" WHERE "event_name" = 'lead_submitted'`),
+  getCount(`SELECT COUNT(DISTINCT "anonymous_id") AS count FROM "site_event" WHERE "event_name" = 'consultation_submitted'`),
 ]);
 
 const formatNumber = (value: number) => value.toLocaleString('vi-VN');
@@ -181,6 +189,21 @@ const firstDraft = chapters.find((c) => c.status === 'draft');
       <StatCard icon="shopping_bag" label="Đơn hàng đã thanh toán" value={formatNumber(paidOrders)} trend="Paid" trendDir="flat" accent="tertiary" progress={paidOrders > 0 ? 100 : 0} />
       <StatCard icon="payments" label="Doanh thu" value={formatCurrency(revenue)} trend="Đơn đã thanh toán" trendDir="flat" accent="primary" progress={revenue > 0 ? 100 : 0} />
       <StatCard icon="visibility" label="Truy cập hiện tại" value={formatNumber(currentVisitors)} trend={`${formatNumber(totalVisitors)} khách đã ghi nhận`} trendDir="flat" accent="error" progress={totalVisitors > 0 ? (currentVisitors / totalVisitors) * 100 : 0} />
+    </div>
+  </section>
+
+  <!-- First-party acquisition funnel -->
+  <section class="flex flex-col gap-3">
+    <div class="px-1">
+      <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Tăng trưởng</p>
+      <h3 class="mt-1 text-xl font-bold text-white">Phễu website</h3>
+      <p class="mt-1 text-sm text-on-surface-variant">Người dùng ẩn danh duy nhất: xem trang → CTA → lead newsletter → yêu cầu tư vấn.</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard icon="visibility" label="Xem trang" value={formatNumber(funnelPageViews)} trend="First-party" trendDir="flat" accent="primary" progress={funnelPageViews > 0 ? 100 : 0} />
+      <StatCard icon="ads_click" label="Nhấp CTA" value={formatNumber(funnelCtaClicks)} trend={funnelPageViews > 0 ? `${Math.round((funnelCtaClicks / funnelPageViews) * 100)}% từ view` : 'Chưa có dữ liệu'} trendDir="flat" accent="tertiary" progress={funnelPageViews > 0 ? (funnelCtaClicks / funnelPageViews) * 100 : 0} />
+      <StatCard icon="mail" label="Lead newsletter" value={formatNumber(funnelLeads)} trend={funnelCtaClicks > 0 ? `${Math.round((funnelLeads / funnelCtaClicks) * 100)}% từ CTA` : 'Chưa có dữ liệu'} trendDir="flat" accent="primary" progress={funnelCtaClicks > 0 ? (funnelLeads / funnelCtaClicks) * 100 : 0} />
+      <StatCard icon="contact_page" label="Yêu cầu tư vấn" value={formatNumber(funnelConsultations)} trend={funnelLeads > 0 ? `${Math.round((funnelConsultations / funnelLeads) * 100)}% từ lead` : 'Chưa có dữ liệu'} trendDir="flat" accent="error" progress={funnelLeads > 0 ? (funnelConsultations / funnelLeads) * 100 : 0} />
     </div>
   </section>
 
