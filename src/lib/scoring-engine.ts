@@ -21,8 +21,8 @@ const DEFAULT_THRESHOLDS = {
 
 /** Convert a 1-5 average to a 0-100 score. */
 export function scale1to5to100(avg5: number): number {
-  if (!Number.isFinite(avg5)) return 0;
-  return Math.round(((avg5 - 1) / 4) * 100 * 10) / 10;
+  if (!Number.isFinite(avg5) || avg5 < 1) return 0;
+  return Math.min(100, Math.round(((Math.min(avg5, 5) - 1) / 4) * 100 * 10) / 10);
 }
 
 /** Average the 1-5 numeric answers belonging to a dimension. */

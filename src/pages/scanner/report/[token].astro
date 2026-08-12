@@ -18,11 +18,12 @@ if (!full) return new Response('Không tìm thấy Scanner.', { status: 404 });
 const lang = response.lang === 'en' ? 'en' : 'vi';
 const scores = parseScores(response.scores_json);
 const rules = parseScoringRules(full.definition.scoring_rules);
-const total = scores.total ?? 0;
+const normalizeScore = (score: number | undefined) => Math.min(100, Math.max(0, score ?? 0));
+const total = normalizeScore(scores.total);
 const level = getScoreLevel(total, rules ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } }, lang);
 const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
   name: lang === 'en' ? (dimension.name_en ?? dimension.name_vi ?? dimension.id) : (dimension.name_vi ?? dimension.id),
-  score: scores[dimension.id] ?? 0,
+  score: normalizeScore(scores[dimension.id]),
 }));
 ---
 <BaseLayout title="Total OS Diagnostic | Dental Empire OS" noindex={true}>

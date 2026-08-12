@@ -69,14 +69,17 @@ const scannerAiConfig = parseAiConfig(definition.ai_config);
 const reportTokenBudget = scannerAiConfig.max_tokens_override ?? 4096;
 
 const scores = parseScores(response.scores_json);
-const totalScore = scores.total ?? 0;
+// Older responses may contain scores produced from an empty/zero selection.
+// Keep reports within the 0-100 scale while new submissions are normalized upstream.
+const normalizeScore = (score: number | undefined) => Math.min(100, Math.max(0, score ?? 0));
+const totalScore = normalizeScore(scores.total);
 
 // Build dimension list with names
 type DimRow = { id: string; name: string; score: number; level: ReturnType<typeof getScoreLevel> };
 const dimensions: DimRow[] = [];
 if (scoringRules) {
   for (const dim of scoringRules.dimensions) {
-    const score = scores[dim.id] ?? 0;
+    const score = normalizeScore(scores[dim.id]);
     dimensions.push({
       id: dim.id,
       name: lang === 'vi' ? (dim.name_vi ?? dim.id) : (dim.name_en ?? dim.name_vi ?? dim.id),

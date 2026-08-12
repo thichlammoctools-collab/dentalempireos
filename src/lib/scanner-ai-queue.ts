@@ -1,5 +1,4 @@
 import { runAiAnalysis, runPlanAnalysis, type ScannerAiRunResult } from './scanner-ai';
-import { generateQueuedScannerReportImage } from './scanner-report-image';
 
 export type ScannerAiJobType = 'analysis' | 'plan';
 
