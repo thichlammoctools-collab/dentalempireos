@@ -19,19 +19,21 @@ function getFromEmail(): string {
 
 interface SendWelcomeEmailOptions {
   email: string;
+  source?: string;
   postSlug?: string;
   postTitle?: string;
 }
 
-export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelcomeEmailOptions): Promise<void> {
+export async function sendWelcomeEmail({ email, source = 'newsletter', postSlug, postTitle }: SendWelcomeEmailOptions): Promise<void> {
   const resend = getClient();
   const from = getFromEmail();
 
+  const emailSource = encodeURIComponent(source);
   const utmParams = postSlug
-    ? `utm_source=blog&utm_medium=email&utm_campaign=welcome&utm_content=${postSlug}`
-    : 'utm_source=blog&utm_medium=email&utm_campaign=welcome';
+    ? `utm_source=${emailSource}&utm_medium=email&utm_campaign=welcome&utm_content=${encodeURIComponent(postSlug)}`
+    : `utm_source=${emailSource}&utm_medium=email&utm_campaign=welcome`;
 
-  const bookUrl = `https://dentalempireos.com/book?${utmParams}`;
+  const diagnosticUrl = `https://dentalempireos.com/scanner/total-os-diagnostic?${utmParams}`;
   const blogUrl = `https://dentalempireos.com/blog?${utmParams}`;
 
   const postRefLine = postTitle
@@ -84,17 +86,17 @@ export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelco
                 <tr>
                   <td>
                     <p style="margin: 0 0 4px; font-size: 11px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1.5px;">
-                      📘 Tài liệu miễn phí
+                      🔬 Bước tiếp theo miễn phí
                     </p>
                     <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #ffffff;">
-                      Dental Empire OS — Tài liệu
+                      Total OS Diagnostic
                     </h2>
                     <p style="margin: 0 0 16px; font-size: 14px; color: #94a3b8; line-height: 1.5;">
-                      Bộ sưu tập 32 chương đầy đủ về quản trị, vận hành, marketing, tài chính, và nhân sự phòng khám nha khoa.
+                      Dành 10–15 phút để biết điểm nghẽn nào của phòng khám cần được ưu tiên trước, rồi mới chọn tài nguyên hoặc giải pháp phù hợp.
                     </p>
-                    <a href="${bookUrl}"
+                    <a href="${diagnosticUrl}"
                        style="display: inline-block; background: linear-gradient(135deg, #0891b2, #22d3ee); color: #0a0a14; font-weight: 800; font-size: 14px; padding: 12px 28px; border-radius: 8px; text-decoration: none;">
-                      📖 Đọc tài liệu miễn phí →
+                      🔬 Làm Total OS Diagnostic →
                     </a>
                   </td>
                 </tr>
@@ -120,7 +122,7 @@ export async function sendWelcomeEmail({ email, postSlug, postTitle }: SendWelco
               </p>
               <p style="margin: 0 0 12px; font-size: 12px; color: #475569;">
                 Không muốn nhận email nữa?
-                <a href="https://dentalempireos.com/unsubscribe?email=${encodeURIComponent(email)}"
+                <a href="https://dentalempireos.com/api/newsletter?action=unsubscribe&amp;email=${encodeURIComponent(email)}"
                    style="color: #64748b; text-decoration: underline;">
                   Hủy đăng ký
                 </a>

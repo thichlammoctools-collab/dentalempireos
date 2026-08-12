@@ -414,13 +414,15 @@ function resourceUrl(fileUrl: string): string {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'resources_sidebar', ...window.dentalAnalytics?.getAttribution?.(), anonymous_id: window.dentalAnalytics?.getAnonymousId?.() }),
       });
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json().catch(() => ({})) as { success?: boolean; error?: string };
       if (!response.ok || !data.success) throw new Error(data.error || 'Không thể đăng ký lúc này. Vui lòng thử lại.');
       form.classList.add('hidden');
       success?.classList.remove('hidden');
     } catch (err) {
-      error!.textContent = err instanceof Error ? err.message : 'Không thể đăng ký lúc này. Vui lòng thử lại.';
-      error?.classList.remove('hidden');
+      if (error) {
+        error.textContent = err instanceof Error ? err.message : 'Không thể đăng ký lúc này. Vui lòng thử lại.';
+        error.classList.remove('hidden');
+      }
       if (button) button.disabled = false;
     }
   });

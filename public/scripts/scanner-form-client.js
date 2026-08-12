@@ -29,6 +29,13 @@
   var partEls = [];
   var isSubmitting = false;
   var requestIdempotencyKey = null;
+  var hasTrackedStart = false;
+
+  function track(eventName, props) {
+    if (window.dentalAnalytics && typeof window.dentalAnalytics.track === 'function') {
+      window.dentalAnalytics.track(eventName, props || {});
+    }
+  }
 
   function showUnavailableMessage() {
     if (!submitError) return;
@@ -382,7 +389,16 @@
     var saveCheckEl = document.getElementById('save-profile-check');
     if (saveCheckEl) saveChecked = saveCheckEl.checked;
 
-    var payload = Object.assign({}, answers, { save_profile: saveChecked });
+    var attribution = (window.dentalAnalytics && typeof window.dentalAnalytics.getAttribution === 'function')
+      ? window.dentalAnalytics.getAttribution()
+      : {};
+    var anonymousId = (window.dentalAnalytics && typeof window.dentalAnalytics.getAnonymousId === 'function')
+      ? window.dentalAnalytics.getAnonymousId()
+      : null;
+    var payload = Object.assign({}, answers, attribution, {
+      save_profile: saveChecked,
+      anonymous_id: anonymousId,
+    });
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
 
     requestIdempotencyKey = requestIdempotencyKey || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + '-' + Math.random());
@@ -406,6 +422,7 @@
         return;
       }
       if (!data.id) throw new Error(data.error || 'Submit failed');
+      track('scanner_completed', { scanner_id: surveyData.id, placement: 'scanner_submit' });
       clearDraft();
       window.location.href = data.redirect || '/scanner/result/' + data.id;
     } catch (err) {
@@ -471,6 +488,10 @@
   });
   if (btnStart) btnStart.addEventListener('click', function () {
     if (scannerUnavailable) { showUnavailableMessage(); return; }
+    if (!hasTrackedStart) {
+      track('scanner_started', { scanner_id: surveyData.id, placement: 'scanner_intro' });
+      hasTrackedStart = true;
+    }
     goTo(0);
   });
   if (btnSubmit) btnSubmit.addEventListener('click', function () { submit(); });

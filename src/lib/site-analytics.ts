@@ -1,4 +1,4 @@
-export const TRACKABLE_EVENTS = ['page_view', 'cta_click', 'lead_submitted', 'consultation_submitted'] as const;
+export const TRACKABLE_EVENTS = ['page_view', 'cta_click', 'lead_submitted', 'consultation_submitted', 'scanner_started', 'scanner_completed'] as const;
 export type TrackableEvent = (typeof TRACKABLE_EVENTS)[number];
 
 export interface Attribution {
@@ -17,7 +17,7 @@ const MAX_PROP_KEYS = 8;
 const MAX_PROP_KEY_LENGTH = 40;
 const MAX_PROP_VALUE_LENGTH = 120;
 const MAX_ATTRIBUTION_VALUE_LENGTH = 120;
-const ALLOWED_PROP_KEYS = new Set(['cta_id', 'placement', 'resource_id', 'service_interest', 'lead_type']);
+const ALLOWED_PROP_KEYS = new Set(['cta_id', 'placement', 'resource_id', 'service_interest', 'lead_type', 'scanner_id']);
 const ATTRIBUTION_KEYS = ['source', 'referrer_host', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
 
 function boundedString(value: unknown, max: number): string | null {

@@ -71,6 +71,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     waitUntil?.(
       sendWelcomeEmail({
         email: body.email,
+        source,
         postSlug,
         postTitle,
       }).catch((err: unknown) => {

@@ -22,6 +22,7 @@ import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
 import { getActiveCreditPricingRule, startScannerCreditRun, completeScannerCreditRun, failScannerCreditRun, InsufficientCreditsError } from '../../../lib/credit-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
+import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../../lib/site-analytics';
 
 export const prerender = false;
 
@@ -57,6 +58,8 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   const lang = body.lang === 'en' ? 'en' : 'vi';
+  const anonymousId = sanitizeAnonymousId(body.anonymous_id);
+  const attribution = readAttributionFromPayload(body);
 
   // Load definition
   const def = await getSurveyDefinitionById(env.DB, surveyId);
@@ -220,6 +223,15 @@ export const POST: APIRoute = async (ctx) => {
       console.error('[submit] settle Scanner Credits failed:', err);
       return json({ error: 'Kết quả đã được lưu nhưng không thể hoàn tất thanh toán Credits. Vui lòng liên hệ quản trị viên.' }, 500);
     }
+  }
+
+  if (anonymousId) {
+    await recordSiteEvent(env.DB, {
+      anonymousId,
+      eventName: 'lead_submitted',
+      pagePath: `/scanner/${def.slug}`,
+      props: { lead_type: 'total_os_diagnostic', placement: attribution.utmContent ?? 'scanner_submit' },
+    });
   }
 
   return json(
