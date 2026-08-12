@@ -12,6 +12,7 @@ interface SectionItem {
 interface ChapterNavItem {
   id: string;
   data: { title: string; tier: number; chapter: number; has_premium?: boolean };
+  hasAccess?: boolean;
 }
 
 interface TierGroup {
@@ -229,7 +230,7 @@ const currentChapterTitle = groupedChapters
                 >
                   <span class="text-[10px] font-bold w-7 shrink-0" style="color: var(--reader-chrome-text-muted);">Ch{String(ch.data.chapter).padStart(2, '0')}</span>
                   <span class="truncate text-xs font-medium">{ch.data.title}</span>
-                  {ch.data.has_premium && (
+                  {ch.data.has_premium && !ch.hasAccess && (
                     <span class="material-symbols-outlined text-amber-400 text-[14px] ml-auto shrink-0" title="Chương cần mở khóa">lock</span>
                   )}
                   {isCurrent && (

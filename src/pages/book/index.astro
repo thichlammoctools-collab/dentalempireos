@@ -4,22 +4,9 @@ import { env } from 'cloudflare:workers';
 import { listPublishedChapters } from '../../lib/book-db';
 import { getTierLabel } from '../../lib/collection-helpers';
 import Badge from '../../components/ui/Badge.astro';
-import { canAccessBook } from '../../lib/entitlement-check';
-
 export const prerender = false;
 
 const chapters = await listPublishedChapters(env.DB);
-const premiumChapterIds = new Set(
-  Astro.locals.user
-    ? (await Promise.all(
-        chapters
-          .filter((chapter) => chapter.has_premium)
-          .map(async (chapter) => (
-            await canAccessBook(env.DB, Astro.locals.user!.id, chapter.id) ? chapter.id : null
-          )),
-      )).filter((id): id is string => id !== null)
-    : [],
-);
 const tiers = [1, 2, 3];
 ---
 
@@ -56,18 +43,18 @@ const tiers = [1, 2, 3];
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tierChapters.map((ch) => (
                 <a
-                  href={Astro.locals.user ? `/book/${ch.id}` : `/login?redirect=${encodeURIComponent(`/book/${ch.id}`)}`}
+                  href={ch.is_premium === 1 && !Astro.locals.user
+                    ? `/login?redirect=${encodeURIComponent(`/book/${ch.id}`)}`
+                    : `/book/${ch.id}`}
                   class="group p-6 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300"
                 >
                   <div class="flex items-start justify-between">
                     <div>
                       <div class="flex items-center gap-2 mb-1">
                         <p class="text-xs text-on-surface-variant">Chương {ch.chapter_no}</p>
-                         {!Astro.locals.user ? (
-                           <span class="material-symbols-outlined text-primary text-[14px]" title="Đăng nhập để đọc">lock</span>
-                         ) : ch.has_premium && !premiumChapterIds.has(ch.id) && (
-                           <span class="material-symbols-outlined text-amber-400 text-[14px]" title="Nội dung cao cấp">star</span>
-                         )}
+                        {ch.is_premium === 1 && !Astro.locals.user && (
+                          <span class="material-symbols-outlined text-primary text-[14px]" title="Đăng nhập để đọc">lock</span>
+                        )}
                       </div>
                       <h3 class="font-bold text-on-surface group-hover:text-primary transition-colors">{ch.title}</h3>
                       <p class="text-sm text-on-surface-variant mt-2 line-clamp-2">{ch.description}</p>
