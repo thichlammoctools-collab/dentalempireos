@@ -8,15 +8,16 @@ import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-d
 
 export const prerender = false;
 
-// Auth guard — middleware already redirected unauthenticated users to /login
-// but check locals.user as a safety net
 const currentUser = Astro.locals.user;
-if (!currentUser) {
-  return Astro.redirect('/login');
-}
-
 const slugParam = Astro.params.slug;
 const slug = slugParam ?? '';
+const isGuestDiagnostic = slug === 'total-os-diagnostic';
+
+// Only the designated lead magnet accepts guests. Every other Scanner keeps its
+// existing member-only policy even if middleware is bypassed.
+if (!currentUser && !isGuestDiagnostic) {
+  return Astro.redirect('/login');
+}
 
 let full;
 try {
@@ -38,23 +39,27 @@ const { definition, sections } = full;
 
 const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', definition.id);
 const scannerPrice = pricingRule?.credit_amount ?? 0;
-const [usage, creditBalance] = await Promise.all([
-  getScannerUsage(env.DB, currentUser.id, definition.id),
-  getCreditBalance(env.DB, currentUser.id),
-]);
-const requiresCredits = usage.remaining === 0;
+const [usage, creditBalance] = currentUser
+  ? await Promise.all([
+      getScannerUsage(env.DB, currentUser.id, definition.id),
+      getCreditBalance(env.DB, currentUser.id),
+    ])
+  : [{ remaining: 1, limit: 1 }, { available: 0 }];
+const requiresCredits = !isGuestDiagnostic && usage.remaining === 0;
 const scannerUnavailable = requiresCredits && (scannerPrice <= 0 || creditBalance.available < scannerPrice);
-const scannerNotice = !requiresCredits
-  ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Mỗi lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.`
-  : scannerPrice <= 0
-    ? 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.'
-    : scannerUnavailable
-      ? `Lượt miễn phí đã dùng hết. Bạn cần ${scannerPrice} Credits để thực hiện lượt tiếp theo; số dư hiện tại là ${creditBalance.available} Credits.`
-      : `3 lượt miễn phí đã dùng hết. Lượt này sẽ dùng ${scannerPrice} Credits; số dư hiện tại là ${creditBalance.available} Credits.`;
+const scannerNotice = isGuestDiagnostic && !currentUser
+  ? 'Hoàn tất chẩn đoán để nhận liên kết báo cáo riêng tư qua email.'
+  : !requiresCredits
+    ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Mỗi lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.`
+    : scannerPrice <= 0
+      ? 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.'
+      : scannerUnavailable
+        ? `Lượt miễn phí đã dùng hết. Bạn cần ${scannerPrice} Credits để thực hiện lượt tiếp theo; số dư hiện tại là ${creditBalance.available} Credits.`
+        : `3 lượt miễn phí đã dùng hết. Lượt này sẽ dùng ${scannerPrice} Credits; số dư hiện tại là ${creditBalance.available} Credits.`;
 
 let clinicProfile: any = null;
 try {
-  clinicProfile = await getClinicProfile(env.DB, currentUser.id);
+  if (currentUser) clinicProfile = await getClinicProfile(env.DB, currentUser.id);
 } catch (err) {
   console.error('[scanner/slug] clinicProfile error:', err);
 }
@@ -128,10 +133,11 @@ const defaultScaleEn: Record<string, string> = {
         data-survey-id={surveyData.id}
         data-survey-slug={surveyData.slug}
         data-survey={JSON.stringify(surveyData)}
-        data-clinic={clinicProfile || currentUser.email ? JSON.stringify({
+        data-clinic={clinicProfile || currentUser?.email ? JSON.stringify({
           ...(clinicProfile || {}),
-          email: currentUser.email,
+          email: currentUser?.email,
         }) : ''}
+        data-guest-report={isGuestDiagnostic && !currentUser ? 'true' : 'false'}
         data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
@@ -176,12 +182,16 @@ const defaultScaleEn: Record<string, string> = {
               </div>
               <div class="credit-reminder">
                 <span class="material-symbols-outlined">campaign</span>
-                <p
-                  data-vi="Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất."
-                  data-en="The first three attempts for each Scanner are free; later attempts use Credits. Please provide the most <strong>accurate and complete</strong> information for the most useful result."
-                >
-                  Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất.
-                </p>
+                {isGuestDiagnostic && !currentUser ? (
+                  <p>Nhập tên, phòng khám và email để nhận liên kết báo cáo riêng tư. Email nhận báo cáo không đồng nghĩa với đăng ký nhận tin; bạn có thể chọn riêng ở bước gửi.</p>
+                ) : (
+                  <p
+                    data-vi="Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất."
+                    data-en="The first three attempts for each Scanner are free; later attempts use Credits. Please provide the most <strong>accurate and complete</strong> information for the most useful result."
+                  >
+                    Ba lượt đầu của mỗi Scanner được miễn phí, các lượt tiếp theo dùng Credits. Hãy nhập thông tin <strong>chính xác và đầy đủ</strong> nhất để nhận được kết quả hữu ích nhất.
+                  </p>
+                )}
               </div>
               <div class="intro-info">
                 <p id="intro-info-title" class="intro-info-title">Thông tin cơ bản</p>
@@ -227,7 +237,7 @@ const defaultScaleEn: Record<string, string> = {
 </BaseLayout>
 
 <!-- External script to avoid SSR stream truncation with inline <script> tags -->
-  {!scannerUnavailable && <script src="/scripts/scanner-form-client.js?v=20260809-unified" is:inline></script>}
+  {!scannerUnavailable && <script src="/scripts/scanner-form-client.js?v=20260812-guest-report" is:inline></script>}
 
 <style is:global>
   .survey-wrap {

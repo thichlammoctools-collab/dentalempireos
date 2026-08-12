@@ -165,6 +165,22 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+export async function sendGuestScannerReportEmail({ email, clinicName, token, lang }: {
+  email: string;
+  clinicName: string;
+  token: string;
+  lang: 'vi' | 'en';
+}): Promise<void> {
+  const reportUrl = `https://dentalempireos.com/scanner/report/${token}`;
+  const vi = lang !== 'en';
+  await getClient().emails.send({
+    from: getFromEmail(),
+    to: email,
+    subject: vi ? 'Báo cáo Total OS Diagnostic của bạn' : 'Your Total OS Diagnostic report',
+    html: `<!doctype html><html lang="${lang}"><head><meta charset="UTF-8" /></head><body style="margin:0;padding:32px;background:#0a0a14;color:#e2e8f0;font-family:Arial,sans-serif"><main style="max-width:560px;margin:auto;padding:32px;background:#13131f;border-radius:16px"><h1 style="color:#22d3ee">${vi ? 'Báo cáo của bạn đã sẵn sàng' : 'Your report is ready'}</h1><p>${vi ? `Đây là liên kết riêng tư cho ${escapeHtml(clinicName)}. Liên kết có hiệu lực trong 30 ngày.` : `This is the private link for ${escapeHtml(clinicName)}. It is available for 30 days.`}</p><p><a href="${reportUrl}" style="display:inline-block;padding:12px 20px;background:#22d3ee;color:#0a0a14;border-radius:8px;font-weight:bold;text-decoration:none">${vi ? 'Xem báo cáo' : 'View report'}</a></p></main></body></html>`,
+  });
+}
+
 export async function sendScannerAiCompleteEmail(
   db: D1Database,
   responseId: number,

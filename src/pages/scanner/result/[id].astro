@@ -1346,12 +1346,6 @@ try {
 
   const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
-  function showImageDownload(button: HTMLButtonElement, type: 'analysis' | 'plan') {
-    const label = lang === 'vi' ? 'Tải minh họa A4' : 'Download A4 illustration';
-    const url = `/api/scanner/${responseId}/image?type=${type}`;
-    button.outerHTML = `<a href="${url}" download class="btn btn-primary plan-tool-button"><span class="material-symbols-outlined text-base">download</span>${label}</a>`;
-  }
-
   async function createReportImage(type: 'analysis' | 'plan', button: HTMLButtonElement) {
     if (button.disabled || button.getAttribute('aria-busy') === 'true') return;
 
@@ -1369,8 +1363,7 @@ try {
           credentials: 'include',
         });
         if (res.status === 201) {
-          showImageDownload(button, type);
-          window.showToast?.(lang === 'vi' ? 'Minh họa A4 đã sẵn sàng để tải về.' : 'Your A4 illustration is ready to download.', 'success');
+          window.location.reload();
           return;
         }
         if (res.status !== 202) {

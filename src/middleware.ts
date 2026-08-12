@@ -120,9 +120,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (url.pathname.startsWith('/scanner/') && !locals.user) {
     const seg = url.pathname.slice('/scanner/'.length);
     const isResult = seg.startsWith('result/');
+    const isGuestDiagnostic = seg === 'total-os-diagnostic';
     const isPack = seg === 'pack' || seg.startsWith('pack/');
     const isTest = seg === 'test';
-    if (!isResult && !isPack && !isTest) {
+    if (!isResult && !isGuestDiagnostic && !isPack && !isTest) {
       const redirect = encodeURIComponent(url.pathname + url.search);
       return context.redirect(`/login?redirect=${redirect}`);
     }

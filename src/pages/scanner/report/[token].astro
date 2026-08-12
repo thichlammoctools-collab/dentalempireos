@@ -1,0 +1,53 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { getGuestReportByToken } from '../../../lib/scanner-guest-report';
+import { getScannerResponse, parseScores } from '../../../lib/scanner-response-db';
+import { getSurveyDefinitionFull, parseScoringRules } from '../../../lib/survey-config-db';
+import { getScoreLevel } from '../../../lib/scoring-engine';
+
+export const prerender = false;
+
+const token = Astro.params.token ?? '';
+const report = await getGuestReportByToken(env.DB, token);
+if (!report) return new Response('Liên kết báo cáo không hợp lệ hoặc đã hết hạn.', { status: 404 });
+const response = await getScannerResponse(env.DB, report.response_id);
+if (!response || response.survey_id !== 'total-os-diagnostic') return new Response('Không tìm thấy báo cáo.', { status: 404 });
+const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
+if (!full) return new Response('Không tìm thấy Scanner.', { status: 404 });
+const lang = response.lang === 'en' ? 'en' : 'vi';
+const scores = parseScores(response.scores_json);
+const rules = parseScoringRules(full.definition.scoring_rules);
+const total = scores.total ?? 0;
+const level = getScoreLevel(total, rules ?? { dimensions: [], total_formula: 'average', thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 } }, lang);
+const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
+  name: lang === 'en' ? (dimension.name_en ?? dimension.name_vi ?? dimension.id) : (dimension.name_vi ?? dimension.id),
+  score: scores[dimension.id] ?? 0,
+}));
+---
+<BaseLayout title="Total OS Diagnostic | Dental Empire OS" noindex={true}>
+  <section class="guest-report">
+    <p class="eyebrow">TOTAL OS DIAGNOSTIC</p>
+    <h1>{lang === 'vi' ? 'Báo cáo chẩn đoán hệ thống' : 'System diagnostic report'}</h1>
+    <p class="muted">{response.clinic_name}</p>
+    <div class="score-card">
+      <span>{lang === 'vi' ? 'Điểm tổng quan' : 'Overall score'}</span>
+      <strong>{Math.round(total)}</strong>
+      <p>{level.label_vi}</p>
+    </div>
+    <h2>{lang === 'vi' ? 'Các trụ cột' : 'Dimensions'}</h2>
+    <div class="dimensions">
+      {dimensions.map((dimension) => <article><span>{dimension.name}</span><strong>{Math.round(dimension.score)}</strong></article>)}
+    </div>
+    <p class="notice">{lang === 'vi' ? 'Đây là báo cáo chẩn đoán ban đầu dựa trên câu trả lời của bạn, không phải tư vấn chuyên môn.' : 'This is an initial diagnostic based on your answers and is not professional advice.'}</p>
+  </section>
+</BaseLayout>
+<style>
+  .guest-report { max-width: 760px; margin: 0 auto; padding: 4rem 1rem 6rem; }
+  .eyebrow { color: var(--color-primary); font-weight: 800; letter-spacing: .12em; font-size: .75rem; }
+  h1 { margin-bottom: .25rem; } .muted, .notice { color: var(--color-on-surface-variant); }
+  .score-card { display: grid; justify-items: center; gap: .35rem; margin: 2rem 0; padding: 2rem; border: 1px solid var(--color-outline-variant); border-radius: 1rem; background: var(--color-surface-container); }
+  .score-card strong { font-size: 4rem; color: var(--color-primary); line-height: 1; }.score-card p { margin: 0; font-weight: 700; }
+  .dimensions { display: grid; gap: .75rem; }.dimensions article { display: flex; justify-content: space-between; padding: 1rem; border-radius: .75rem; background: var(--color-surface-container); }.dimensions strong { color: var(--color-primary); }
+  .notice { margin-top: 2rem; font-size: .85rem; }
+</style>

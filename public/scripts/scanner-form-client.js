@@ -9,6 +9,7 @@
   var rawProfile = wrap.dataset.clinic;
   var clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
   var scannerUnavailable = wrap.dataset.scannerUnavailable === 'true';
+  var isGuestReport = wrap.dataset.guestReport === 'true';
   var defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
   var defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
   var STORAGE_KEY = 'dentalempire-scanner-draft-' + surveyData.id;
@@ -80,6 +81,13 @@
       div.innerHTML = '<div class="form-col"><label class="form-label">' + escapeHtml(label) + (required ? ' <span class="req">*</span>' : '') + '</label><input type="' + type + '" name="' + fieldName + '" class="form-input" ' + (required ? 'required' : '') + ' placeholder="' + escapeHtml(placeholder) + '" ' + (type === 'number' ? 'min="0" max="500"' : '') + ' /></div>';
       container.appendChild(div);
     });
+
+    if (isGuestReport) {
+      var consentDiv = document.createElement('div');
+      consentDiv.className = 'form-row';
+      consentDiv.innerHTML = '<div class="form-col" style="grid-column:1/-1"><label class="save-profile-row"><input type="checkbox" id="marketing-consent-check" style="accent-color:var(--primary);width:16px;height:16px;" /><span class="form-label" style="margin:0;font-weight:400;color:var(--on-surface-variant);cursor:pointer;">' + (currentLang === 'vi' ? 'Tôi đồng ý nhận email kiến thức và cập nhật từ Dental Empire OS (tùy chọn).' : 'I agree to receive Dental Empire OS insights and updates (optional).') + '</span></label></div>';
+      container.appendChild(consentDiv);
+    }
 
     if (clinicProfile) {
       var saveDiv = document.createElement('div');
@@ -239,7 +247,7 @@
       }
     }
     var email = String(answers.email || '').trim();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if ((isGuestReport && !email) || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       alert(currentLang === 'vi' ? 'Vui lòng nhập email hợp lệ.' : 'Please enter a valid email address.');
       goTo(-1);
       return false;
@@ -255,10 +263,15 @@
     if (currentStep === -1 && step >= 0) {
       var lead = surveyData.lead_fields || {};
       var fields = Object.keys(lead);
+      if (isGuestReport) {
+        ['owner_name', 'clinic_name', 'email'].forEach(function (fieldName) {
+          if (fields.indexOf(fieldName) === -1) fields.push(fieldName);
+        });
+      }
       for (var i = 0; i < fields.length; i++) {
         var fieldName = fields[i];
         var cfg = lead[fieldName];
-        if (cfg && cfg.required) {
+        if ((cfg && cfg.required) || (isGuestReport && ['owner_name', 'clinic_name', 'email'].indexOf(fieldName) !== -1)) {
           var el = document.querySelector('[name="' + fieldName + '"]');
           var value = el && el.value ? el.value : answers[fieldName];
           if (!value || !String(value).trim()) {
@@ -267,6 +280,7 @@
           }
         }
       }
+
       ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'].forEach(function (k) {
         var el = document.querySelector('[name="' + k + '"]');
         if (el) answers[k] = el.value || null;
@@ -388,6 +402,8 @@
     var saveChecked = false;
     var saveCheckEl = document.getElementById('save-profile-check');
     if (saveCheckEl) saveChecked = saveCheckEl.checked;
+    var marketingConsentEl = document.getElementById('marketing-consent-check');
+    var marketingConsent = !!(marketingConsentEl && marketingConsentEl.checked);
 
     var attribution = (window.dentalAnalytics && typeof window.dentalAnalytics.getAttribution === 'function')
       ? window.dentalAnalytics.getAttribution()
@@ -397,6 +413,7 @@
       : null;
     var payload = Object.assign({}, answers, attribution, {
       save_profile: saveChecked,
+      marketing_consent: marketingConsent,
       anonymous_id: anonymousId,
     });
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
@@ -421,10 +438,11 @@
         window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
         return;
       }
-      if (!data.id) throw new Error(data.error || 'Submit failed');
+      if (!data.id && !data.redirect) throw new Error(data.error || 'Submit failed');
       track('scanner_completed', { scanner_id: surveyData.id, placement: 'scanner_submit' });
       clearDraft();
       window.location.href = data.redirect || '/scanner/result/' + data.id;
+
     } catch (err) {
       if (submitError) {
         if (err.status === 429 && err.quota) {

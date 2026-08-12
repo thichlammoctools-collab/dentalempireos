@@ -1,7 +1,7 @@
 // API: Submit a scanner response
 // POST /api/scanner/submit
 // Body: { survey_id, lang, owner_name?, clinic_name, email?, responses: {...}, save_profile?: bool }
-// Requires auth — returns 401 { requiresAuth: true } if not logged in
+// Requires auth except the designated Total OS Diagnostic guest-report flow.
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
@@ -23,6 +23,9 @@ import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
 import { getActiveCreditPricingRule, startScannerCreditRun, completeScannerCreditRun, failScannerCreditRun, InsufficientCreditsError } from '../../../lib/credit-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../../lib/site-analytics';
+import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from '../../../lib/scanner-guest-report';
+import { hashIp, subscribe } from '../../../lib/newsletter';
+import { sendGuestScannerReportEmail } from '../../../lib/resend';
 
 export const prerender = false;
 
@@ -44,18 +47,11 @@ export const POST: APIRoute = async (ctx) => {
   const body = (await ctx.request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return badRequest('Invalid JSON body');
 
-  console.log('[scanner/submit] body keys:', Object.keys(body));
-  console.log('[scanner/submit] clinic_name:', body.clinic_name, typeof body.clinic_name);
-
   const surveyId = asString(body.survey_id);
   if (!surveyId) return badRequest('survey_id is required');
 
-  // Auth check — require login
   const auth = createAuth(env);
   const session = await auth.api.getSession({ headers: ctx.request.headers });
-  if (!session?.user) {
-    return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
-  }
 
   const lang = body.lang === 'en' ? 'en' : 'vi';
   const anonymousId = sanitizeAnonymousId(body.anonymous_id);
@@ -66,9 +62,27 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
+  const isGuestDiagnostic = !session?.user && def.slug === 'total-os-diagnostic';
+  if (!session?.user && !isGuestDiagnostic) {
+    return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
+  }
+  const guestLead = isGuestDiagnostic ? validateGuestLead(body) : null;
+  if (isGuestDiagnostic && !guestLead) {
+    return badRequest('Tên người phụ trách, tên phòng khám và email hợp lệ là bắt buộc.');
+  }
+  if (isGuestDiagnostic) {
+    const ip = ctx.request.headers.get('CF-Connecting-IP') ?? ctx.request.headers.get('x-forwarded-for');
+    const ipHash = await hashIp(ip);
+    if (!ipHash || !await checkGuestRequestRateLimit(env.DB, ipHash)) {
+      return json({ error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }, 429);
+    }
+  }
+
   const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', surveyId);
-  const usage = await getScannerUsage(env.DB, session.user.id, surveyId);
-  const requiresCredits = usage.remaining === 0;
+  const usage = session?.user
+    ? await getScannerUsage(env.DB, session!.user.id, surveyId)
+    : { remaining: 1, limit: 1 };
+  const requiresCredits = !isGuestDiagnostic && usage.remaining === 0;
   if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
     return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
   }
@@ -78,7 +92,7 @@ export const POST: APIRoute = async (ctx) => {
     return badRequest('clinic_name is required');
   }
 
-  const email = asString(body.email) ?? session.user.email;
+  const email = isGuestDiagnostic ? guestLead!.email : (asString(body.email) ?? session!.user.email);
   if (email && !email.includes('@')) return badRequest('Invalid email');
 
   // Load all questions for this survey (across all sections)
@@ -113,7 +127,7 @@ export const POST: APIRoute = async (ctx) => {
   if (requiresCredits && pricingRule?.credit_amount != null) {
     try {
       const started = await startScannerCreditRun(env.DB, {
-        userId: session.user.id,
+        userId: session!.user.id,
         surveyId,
         idempotencyKey,
         credits: pricingRule.credit_amount,
@@ -149,7 +163,7 @@ export const POST: APIRoute = async (ctx) => {
     ({ id } = await createScannerResponse(env.DB, {
       survey_id: surveyId,
       lang,
-      owner_name: asString(body.owner_name) ?? session.user.name ?? null,
+      owner_name: isGuestDiagnostic ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
       clinic_name: clinicName,
       clinic_address: asString(body.clinic_address),
       email,
@@ -159,9 +173,44 @@ export const POST: APIRoute = async (ctx) => {
     }, scoringRules));
   } catch (err) {
     if (creditRun) await failScannerCreditRun(env.DB, {
-      userId: session.user.id, runId: creditRun.id, reason: 'scanner_response_creation_failed',
+      userId: session!.user.id, runId: creditRun.id, reason: 'scanner_response_creation_failed',
     });
     throw err;
+  }
+
+  if (isGuestDiagnostic) {
+    const report = await createGuestReport(env.DB, {
+      responseId: id,
+      email: guestLead!.email,
+      ownerName: guestLead!.ownerName,
+      clinicName: guestLead!.clinicName,
+      anonymousId,
+      attribution,
+    });
+    if (body.marketing_consent === true) {
+      await subscribe(env.DB, {
+        email: guestLead!.email,
+        source: 'total_os_diagnostic',
+        anonymousId,
+        attribution,
+      });
+    }
+    if (anonymousId) {
+      await recordSiteEvent(env.DB, {
+        anonymousId,
+        eventName: 'lead_submitted',
+        pagePath: '/scanner/total-os-diagnostic',
+        props: { lead_type: 'total_os_diagnostic', placement: attribution.utmContent ?? 'scanner_submit' },
+      });
+    }
+    const waitUntil = ctx.locals.cfContext?.waitUntil?.bind(ctx.locals.cfContext);
+    waitUntil?.(sendGuestScannerReportEmail({
+      email: guestLead!.email,
+      clinicName: guestLead!.clinicName,
+      token: report.token,
+      lang,
+    }).catch((err) => console.error('[submit] guest report email failed:', err)));
+    return json({ success: true, id, redirect: `/scanner/report/${report.token}`, reportExpiresAt: report.expiresAt }, 201);
   }
 
   // Add to scanner history
@@ -181,7 +230,7 @@ export const POST: APIRoute = async (ctx) => {
   const saveProfile = body.save_profile === true;
   if (saveProfile) {
     upsertClinicProfile(env.DB, {
-      id: session.user.id,
+      id: session!.user.id,
       name: asString(body.owner_name),
       clinic_name: clinicName,
       clinic_address: asString(body.clinic_address),
@@ -192,7 +241,7 @@ export const POST: APIRoute = async (ctx) => {
   // the redirect never reaches the result before the authorization row exists.
   try {
     await addToHistory(env.DB, {
-      user_id: session.user.id,
+      user_id: session!.user.id,
       survey_id: surveyId,
       response_id: id,
       score_total: totalScore,
@@ -200,7 +249,7 @@ export const POST: APIRoute = async (ctx) => {
     });
   } catch (err) {
     if (creditRun) await failScannerCreditRun(env.DB, {
-      userId: session.user.id, runId: creditRun.id, reason: 'scanner_history_creation_failed',
+      userId: session!.user.id, runId: creditRun.id, reason: 'scanner_history_creation_failed',
     });
     console.error('[submit] addToHistory failed:', err);
     return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại.' }, 500);
@@ -209,7 +258,7 @@ export const POST: APIRoute = async (ctx) => {
   if (creditRun && pricingRule?.credit_amount != null) {
     try {
       await completeScannerCreditRun(env.DB, {
-        userId: session.user.id,
+        userId: session!.user.id,
         runId: creditRun.id,
         responseId: id,
         credits: pricingRule.credit_amount,

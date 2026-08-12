@@ -61,7 +61,7 @@ const systemGroups = [
   },
 ] as const;
 
-const categorizedSlugs = new Set(systemGroups.flatMap((group) => group.slugs));
+const categorizedSlugs = new Set<string>(systemGroups.flatMap((group) => group.slugs));
 const scannerGroup = (slug: string) => systemGroups.find((group) => group.slugs.includes(slug as never))?.id ?? 'foundation';
 const groupsWithScanners = systemGroups.map((group) => ({ ...group, scanners: scanners.filter((scanner) => group.slugs.includes(scanner.slug as never)) }));
 const uncategorizedScanners = scanners.filter((scanner) => !categorizedSlugs.has(scanner.slug));
