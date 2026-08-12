@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getHomepageSettings, getDefaults } from '../lib/homepage-db';
 import { tiers } from '../data/modules';
+import AboutSystemMap from '../components/about/AboutSystemMap.astro';
 
 export const prerender = false;
 
@@ -33,7 +34,7 @@ const tierLetters: Record<number, string> = {
     <div class="about-hero-circuit about-hero-circuit--one absolute pointer-events-none" aria-hidden="true"></div>
     <div class="about-hero-circuit about-hero-circuit--two absolute pointer-events-none" aria-hidden="true"></div>
     <div class="about-hero-scan absolute inset-x-0 top-0 pointer-events-none" aria-hidden="true"></div>
-    <div class="max-w-[1200px] mx-auto w-full">
+    <div class="max-w-[1200px] mx-auto grid w-full items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
       <div class="max-w-4xl relative z-10">
         <div class="flex items-center gap-2 mb-4">
           <span class="status-dot"></span>
@@ -53,6 +54,9 @@ const tierLetters: Record<number, string> = {
             Đọc Dentalempireos ngay!
           </a>
         </div>
+      </div>
+      <div class="relative z-10">
+        <AboutSystemMap />
       </div>
     </div>
   </section>
