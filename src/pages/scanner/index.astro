@@ -21,39 +21,172 @@ const [creditBalance, scannerDetails] = await Promise.all([
 ]);
 const detailsByScanner = new Map(scannerDetails);
 
-const typeLabels: Record<string, string> = { mini: 'Mini', full: 'Full', checklist: 'Checklist' };
+const typeLabels: Record<string, string> = { mini: 'Mini', full: 'Chuyên sâu', checklist: 'Checklist' };
 const typeColors: Record<string, string> = {
-  mini: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  full: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  checklist: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  mini: 'bg-primary/10 text-primary border-primary/25',
+  full: 'bg-violet-500/15 text-violet-300 border-violet-400/25',
+  checklist: 'bg-amber-500/15 text-amber-500 border-amber-500/25',
 };
+
+const systemGroups = [
+  {
+    id: 'foundation', label: 'Nền tảng', title: 'Nền tảng & chiến lược',
+    description: 'Xác định hướng đi, mức độ trưởng thành và các ưu tiên lớn của phòng khám.',
+    icon: 'account_tree', tone: 'foundation',
+    slugs: ['ho-so-goc-re', 'startup-check', 'os-maturity-check', 'roadmap-check', 'linh-hon-check', 'loi-nhu-quan-check'],
+  },
+  {
+    id: 'operations', label: 'Vận hành', title: 'Vận hành & đội ngũ',
+    description: 'Chuẩn hóa hệ thống bên trong để phòng khám vận hành bền vững mỗi ngày.',
+    icon: 'settings_suggest', tone: 'operations',
+    slugs: ['he-thong-check', 'nhan-su-check', 'quy-trinh-check', 'tai-chinh-check', 'an-toan-check', 'kho-vat-tu-check', 'hieu-qua-check', 'co-so-vat-chat-check', 'kpi-check', 'dao-tao-check', 'do-luong-check'],
+  },
+  {
+    id: 'patient', label: 'Bệnh nhân', title: 'Trải nghiệm bệnh nhân',
+    description: 'Nhìn rõ từng điểm chạm tạo nên sự tin tưởng, quay lại và giới thiệu.',
+    icon: 'patient_list', tone: 'patient',
+    slugs: ['tiep-don-check', 'cskh-check', 'crm-check', 'referral-check', 'tu-van-ban-hang-check', 'chu-the-hoa-check', 'patient-experience-check'],
+  },
+  {
+    id: 'growth', label: 'Tăng trưởng', title: 'Tăng trưởng & thương hiệu',
+    description: 'Tạo sức hút nhất quán từ thương hiệu, nội dung đến các kênh tiếp cận.',
+    icon: 'trending_up', tone: 'growth',
+    slugs: ['marketing-check', 'content-funnel-check', 'marketing-content-check', 'marketing-online-check', 'thuong-hieu-check', 'phan-biet-thuong-hieu-check', 'thu-vi-tri-check', 'thuong-hieu-ca-nhan-check'],
+  },
+  {
+    id: 'leadership', label: 'Lãnh đạo', title: 'Lãnh đạo & năng lực',
+    description: 'Nuôi dưỡng văn hóa, năng lượng và năng lực cải tiến của người dẫn dắt.',
+    icon: 'psychology', tone: 'leadership',
+    slugs: ['van-hoa-check', 'nang-luong-check', 'case-reflection-check', 'so-hoa-check', 'thich-ung-dung-check'],
+  },
+] as const;
+
+const categorizedSlugs = new Set(systemGroups.flatMap((group) => group.slugs));
+const scannerGroup = (slug: string) => systemGroups.find((group) => group.slugs.includes(slug as never))?.id ?? 'foundation';
+const groupsWithScanners = systemGroups.map((group) => ({ ...group, scanners: scanners.filter((scanner) => group.slugs.includes(scanner.slug as never)) }));
+const uncategorizedScanners = scanners.filter((scanner) => !categorizedSlugs.has(scanner.slug));
+if (uncategorizedScanners.length) groupsWithScanners[0].scanners.push(...uncategorizedScanners);
 ---
 
-<BaseLayout title="Máy quét Scanner | Dental Empire OS" description="Tự chẩn đoán phòng khám và nhận điểm số, phân tích AI, kế hoạch AI cùng PDF kết quả.">
-  <section class="mx-auto max-w-6xl px-4 py-8 md:py-12">
-    <header class="mx-auto mb-12 max-w-3xl text-center">
-      <p class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-500">Công cụ Scanner</p>
-      <h1 class="text-4xl font-bold text-on-surface md:text-5xl">Tự chẩn đoán phòng khám của bạn</h1>
-      <p class="mx-auto mt-4 max-w-2xl text-lg text-on-surface-variant">Mỗi Scanner có 3 lượt miễn phí cho bạn. Từ lượt thứ 4, bạn dùng Credits theo giá hiển thị. Mỗi lượt gồm điểm số, Phân tích AI, Kế hoạch AI và PDF kết quả.</p>
-      {currentUser && creditBalance && <a href="/account/wallet" class="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/20"><span class="material-symbols-outlined">account_balance_wallet</span>Ví của bạn: {creditBalance.available} Credits</a>}
-      {!currentUser && <a href="/login?redirect=/scanner" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary"><span class="material-symbols-outlined">login</span>Đăng nhập để dùng Credits</a>}
+<BaseLayout title="Scanner quản trị nha khoa | Dental Empire OS" description="Chọn Scanner theo từng hệ thống vận hành để tự chẩn đoán phòng khám và nhận hướng hành động từ AI.">
+  <section class="scanner-page">
+    <div class="scanner-orbit scanner-orbit-one" aria-hidden="true"></div>
+    <div class="scanner-orbit scanner-orbit-two" aria-hidden="true"></div>
+
+    <header class="scanner-hero mx-auto max-w-6xl px-4 pt-8 md:pt-14">
+      <div class="scanner-hero-copy">
+        <p class="scanner-eyebrow"><span class="material-symbols-outlined">hub</span> Bản đồ Scanner</p>
+        <h1>Nhìn phòng khám như một <span>hệ thống</span></h1>
+        <p class="scanner-lead">Mỗi Scanner soi chiếu một mắt xích quan trọng. Chọn đúng nhóm vấn đề để biết nơi cần ưu tiên, sau đó nhận điểm số, phân tích AI và kế hoạch hành động cụ thể.</p>
+        <div class="scanner-hero-actions">
+          <a href="#system-map" class="scanner-primary-action"><span class="material-symbols-outlined">explore</span> Khám phá bản đồ</a>
+          {currentUser && creditBalance && <a href="/account/wallet" class="scanner-wallet"><span class="material-symbols-outlined">account_balance_wallet</span> {creditBalance.available} Credits</a>}
+          {!currentUser && <a href="/login?redirect=/scanner" class="scanner-wallet"><span class="material-symbols-outlined">login</span> Đăng nhập để bắt đầu</a>}
+        </div>
+      </div>
+
+      <div class="system-visual" aria-label="Minh họa năm nhóm hệ thống của phòng khám">
+        <div class="visual-ring visual-ring-outer"></div>
+        <div class="visual-ring visual-ring-inner"></div>
+        <div class="visual-core"><span class="material-symbols-outlined">local_hospital</span><strong>Clinic<br />OS</strong></div>
+        {systemGroups.map((group, index) => <div class={`visual-node node-${index + 1} ${group.tone}`}><span class="material-symbols-outlined">{group.icon}</span><small>{group.label}</small></div>)}
+      </div>
     </header>
 
-    {scanners.length === 0 && <div class="glass-card rounded-2xl py-16 text-center text-on-surface-variant"><span class="material-symbols-outlined text-6xl">fact_check</span><p class="mt-4 font-semibold">Chưa có Scanner nào đang hoạt động.</p></div>}
-
-    <section aria-labelledby="scanners-title">
-      <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-500">Khảo sát & hành động</p><h2 id="scanners-title" class="text-2xl font-bold text-on-surface md:text-3xl">Chọn Scanner phù hợp</h2><p class="mt-2 text-sm text-on-surface-variant">Bạn không cần mua quyền truy cập theo từng Scanner.</p></div>{currentUser && <a href="/account/wallet" class="text-sm font-bold text-primary hover:underline">Nạp Credits</a>}</div>
-      <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {scanners.map((scanner) => {
-          const detail = detailsByScanner.get(scanner.id);
-          const price = detail?.pricing?.credit_amount ?? 0;
-          const usage = detail?.usage;
-          const needsCredits = !!usage && usage.remaining === 0;
-          const sufficient = !needsCredits || (!!creditBalance && creditBalance.available >= price);
-          const status = !currentUser ? '3 lượt miễn phí' : !needsCredits ? `Còn ${usage!.remaining}/3 lượt miễn phí` : `${price} Credits / lượt`;
-          return <article class="glass-card flex flex-col rounded-2xl border border-outline-variant/20 p-6 transition hover:-translate-y-0.5 hover:border-primary/50"><div class="mb-3 flex items-center justify-between gap-3"><span class={`rounded-md border px-2.5 py-0.5 text-xs font-bold ${typeColors[scanner.survey_type] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant'}`}>{typeLabels[scanner.survey_type] ?? scanner.survey_type}</span><span class:list={['inline-flex items-center gap-1 text-xs font-bold', needsCredits ? 'text-amber-500' : 'text-emerald-500']}><span class="material-symbols-outlined text-[15px]">{needsCredits ? 'toll' : 'redeem'}</span>{status}</span></div><h3 class="text-xl font-bold text-on-surface">{scanner.title_vi}</h3><p class="mt-2 min-h-[3.6em] flex-1 text-sm text-on-surface-variant line-clamp-3">{scanner.description_vi ?? 'Khám phá điểm mạnh và điểm cần ưu tiên của phòng khám.'}</p><div class="mt-5 border-t border-outline-variant/15 pt-4"><p class="mb-3 text-xs text-on-surface-variant">Bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.</p>{!currentUser ? <a href={`/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`} class="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Đăng nhập để bắt đầu</a> : sufficient ? <a href={`/scanner/${scanner.slug}`} class="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary">Thực hiện Scanner</a> : <a href="/account/wallet" class="inline-flex w-full items-center justify-center rounded-xl border border-amber-500/40 px-4 py-2.5 text-sm font-bold text-amber-500">Nạp thêm Credits</a>}</div></article>;
-        })}
+    <section id="system-map" class="mx-auto max-w-6xl px-4 pb-16 pt-14 md:pb-24">
+      <div class="map-intro">
+        <div><p class="scanner-eyebrow"><span class="material-symbols-outlined">radar</span> Chẩn đoán có định hướng</p><h2>Tìm đúng điểm cần soi chiếu</h2><p>Khởi đầu từ một nhóm đang cần cải thiện hoặc xem toàn bộ bản đồ hệ thống.</p></div>
+        <div class="scanner-search"><span class="material-symbols-outlined">search</span><input id="scanner-search" type="search" placeholder="Tìm Scanner theo nhu cầu..." aria-label="Tìm Scanner" /><button id="clear-search" type="button" aria-label="Xóa tìm kiếm"><span class="material-symbols-outlined">close</span></button></div>
       </div>
+
+      <nav class="group-filter" aria-label="Lọc Scanner theo hệ thống">
+        <button type="button" class="group-filter-button is-active" data-filter="all"><span class="material-symbols-outlined">apps</span> Tất cả <b>{scanners.length}</b></button>
+        {groupsWithScanners.map((group) => <button type="button" class={`group-filter-button ${group.tone}`} data-filter={group.id}><span class="material-symbols-outlined">{group.icon}</span> {group.label} <b>{group.scanners.length}</b></button>)}
+      </nav>
+
+      {scanners.length === 0 && <div class="scanner-empty"><span class="material-symbols-outlined">fact_check</span><p>Chưa có Scanner nào đang hoạt động.</p></div>}
+
+      <div id="scanner-groups" class="scanner-groups">
+        {groupsWithScanners.map((group) => group.scanners.length > 0 && <section class={`scanner-group ${group.tone}`} data-group={group.id} aria-labelledby={`${group.id}-title`}>
+          <div class="group-heading">
+            <div class="group-icon"><span class="material-symbols-outlined">{group.icon}</span></div>
+            <div><p class="group-kicker">Hệ thống {group.label}</p><h3 id={`${group.id}-title`}>{group.title}</h3><p>{group.description}</p></div>
+            <span class="group-count">{group.scanners.length} Scanner</span>
+          </div>
+          <div class="scanner-card-grid">
+            {group.scanners.map((scanner) => {
+              const detail = detailsByScanner.get(scanner.id);
+              const price = detail?.pricing?.credit_amount ?? 0;
+              const usage = detail?.usage;
+              const needsCredits = !!usage && usage.remaining === 0;
+              const sufficient = !needsCredits || (!!creditBalance && creditBalance.available >= price);
+              const status = !currentUser ? '3 lượt miễn phí' : !needsCredits ? `Còn ${usage!.remaining}/3 lượt miễn phí` : `${price} Credits / lượt`;
+              const action = !currentUser
+                ? { href: `/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`, label: 'Đăng nhập để bắt đầu' }
+                : sufficient
+                  ? { href: `/scanner/${scanner.slug}`, label: 'Bắt đầu Scanner' }
+                  : { href: '/account/wallet', label: 'Nạp thêm Credits' };
+              return <article class="scanner-card" data-scanner-card data-group={scannerGroup(scanner.slug)} data-search={`${scanner.title_vi} ${scanner.description_vi ?? ''}`.toLocaleLowerCase('vi')}>
+                <div class="scanner-card-top"><span class={`scanner-type ${typeColors[scanner.survey_type] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant'}`}>{typeLabels[scanner.survey_type] ?? scanner.survey_type}</span><span class:list={['scanner-access', needsCredits ? 'is-paid' : '']}><span class="material-symbols-outlined">{needsCredits ? 'toll' : 'redeem'}</span>{status}</span></div>
+                <div class="scanner-card-symbol"><span class="material-symbols-outlined">{group.icon}</span></div>
+                <h4>{scanner.title_vi}</h4>
+                <p>{scanner.description_vi ?? 'Khám phá điểm mạnh và điểm cần ưu tiên của phòng khám.'}</p>
+                <div class="scanner-card-footer"><span><span class="material-symbols-outlined">auto_awesome</span> Điểm số · AI · PDF</span><a href={action.href} class:list={['scanner-card-action', !sufficient && currentUser ? 'is-wallet' : '']}>{action.label}<span class="material-symbols-outlined">arrow_forward</span></a></div>
+              </article>;
+            })}
+          </div>
+        </section>)}
+      </div>
+      <div id="scanner-no-results" class="scanner-empty hidden"><span class="material-symbols-outlined">search_off</span><p>Không tìm thấy Scanner phù hợp.</p><button type="button" id="reset-filters">Xem toàn bộ Scanner</button></div>
     </section>
   </section>
 </BaseLayout>
+
+<script>
+  const filterButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+  const groups = [...document.querySelectorAll<HTMLElement>('[data-group]')].filter((element) => element.matches('.scanner-group'));
+  const cards = [...document.querySelectorAll<HTMLElement>('[data-scanner-card]')];
+  const searchInput = document.querySelector<HTMLInputElement>('#scanner-search');
+  const clearSearch = document.querySelector<HTMLButtonElement>('#clear-search');
+  const noResults = document.querySelector<HTMLElement>('#scanner-no-results');
+  const resetFilters = document.querySelector<HTMLButtonElement>('#reset-filters');
+  let activeFilter = 'all';
+
+  const render = () => {
+    const query = searchInput?.value.trim().toLocaleLowerCase('vi') ?? '';
+    let visibleCards = 0;
+    cards.forEach((card) => {
+      const matchesGroup = activeFilter === 'all' || card.dataset.group === activeFilter;
+      const matchesSearch = !query || (card.dataset.search ?? '').includes(query);
+      const visible = matchesGroup && matchesSearch;
+      card.hidden = !visible;
+      if (visible) visibleCards += 1;
+    });
+    groups.forEach((group) => {
+      group.hidden = ![...group.querySelectorAll<HTMLElement>('[data-scanner-card]')].some((card) => !card.hidden);
+    });
+    noResults?.classList.toggle('hidden', visibleCards > 0);
+    clearSearch?.classList.toggle('is-visible', Boolean(query));
+  };
+
+  filterButtons.forEach((button) => button.addEventListener('click', () => {
+    activeFilter = button.dataset.filter ?? 'all';
+    filterButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+    render();
+  }));
+  searchInput?.addEventListener('input', render);
+  clearSearch?.addEventListener('click', () => { if (searchInput) searchInput.value = ''; render(); searchInput?.focus(); });
+  resetFilters?.addEventListener('click', () => { activeFilter = 'all'; if (searchInput) searchInput.value = ''; filterButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.filter === 'all')); render(); });
+</script>
+
+<style>
+  .scanner-page { position: relative; overflow: hidden; background: radial-gradient(circle at 88% 6%, color-mix(in srgb, var(--color-primary) 13%, transparent), transparent 23rem), radial-gradient(circle at 6% 32%, color-mix(in srgb, var(--color-tertiary) 8%, transparent), transparent 19rem); }
+  .scanner-orbit { position: absolute; border: 1px solid color-mix(in srgb, var(--color-primary) 13%, transparent); border-radius: 999px; pointer-events: none; }.scanner-orbit-one { width: 44rem; height: 44rem; right: -24rem; top: -19rem; }.scanner-orbit-two { width: 27rem; height: 27rem; left: -20rem; top: 32rem; }
+  .scanner-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(19rem, .9fr); align-items: center; gap: 3rem; min-height: 31rem; }.scanner-eyebrow { display: flex; align-items: center; gap: .4rem; color: var(--color-tertiary); font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }.scanner-eyebrow .material-symbols-outlined { font-size: 1.1rem; }.scanner-hero h1 { max-width: 42rem; margin-top: 1rem; color: var(--color-on-surface); font-size: clamp(2.55rem, 5vw, 4.8rem); font-weight: 800; letter-spacing: -.06em; line-height: .98; text-wrap: balance; }.scanner-hero h1 span { color: var(--color-primary); }.scanner-lead { max-width: 40rem; margin-top: 1.5rem; color: var(--color-on-surface-variant); font-size: 1.075rem; line-height: 1.75; text-wrap: pretty; }.scanner-hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }.scanner-primary-action, .scanner-wallet { display: inline-flex; align-items: center; gap: .55rem; border-radius: .9rem; padding: .82rem 1rem; font-size: .875rem; font-weight: 750; transition: transform .2s, background .2s; }.scanner-primary-action { background: var(--color-primary); color: var(--color-on-primary); box-shadow: 0 12px 30px color-mix(in srgb, var(--color-primary) 20%, transparent); }.scanner-primary-action:hover { transform: translateY(-2px); }.scanner-wallet { border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent); color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
+  .system-visual { position: relative; width: min(100%, 27rem); aspect-ratio: 1; justify-self: center; }.visual-ring { position: absolute; inset: 10%; border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent); border-radius: 50%; }.visual-ring-inner { inset: 26%; border-style: dashed; animation: scanner-spin 28s linear infinite; }.visual-core, .visual-node { position: absolute; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent); background: color-mix(in srgb, var(--color-surface-container-lowest) 82%, transparent); box-shadow: 0 20px 45px rgba(0, 0, 0, .18); backdrop-filter: blur(12px); }.visual-core { inset: 34%; border-radius: 50%; color: var(--color-primary); text-align: center; }.visual-core .material-symbols-outlined { font-size: 2rem; }.visual-core strong { color: var(--color-on-surface); font-size: .8rem; line-height: 1.1; }.visual-node { width: 5.5rem; aspect-ratio: 1; border-radius: 1.2rem; color: var(--color-primary); }.visual-node .material-symbols-outlined { font-size: 1.55rem; }.visual-node small { color: var(--color-on-surface-variant); font-size: .64rem; font-weight: 700; }.node-1 { top: 1%; left: 37%; }.node-2 { top: 30%; right: 1%; }.node-3 { bottom: 4%; right: 17%; }.node-4 { bottom: 4%; left: 17%; }.node-5 { top: 30%; left: 1%; }.visual-node.operations { color: #69c2f5; }.visual-node.patient { color: #57d3aa; }.visual-node.growth { color: #f8b66d; }.visual-node.leadership { color: #c4a4ff; } @keyframes scanner-spin { to { transform: rotate(360deg); } }
+  .map-intro { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }.map-intro h2 { margin-top: .55rem; color: var(--color-on-surface); font-size: clamp(1.9rem, 3vw, 2.8rem); font-weight: 800; letter-spacing: -.045em; }.map-intro p:not(.scanner-eyebrow) { margin-top: .7rem; color: var(--color-on-surface-variant); }.scanner-search { display: flex; align-items: center; width: min(100%, 22rem); border: 1px solid color-mix(in srgb, var(--color-outline-variant) 65%, transparent); border-radius: 1rem; background: var(--color-surface-container-lowest); padding: 0 .8rem; color: var(--color-on-surface-variant); }.scanner-search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent); }.scanner-search input { width: 100%; border: 0; background: transparent; padding: .85rem .6rem; color: var(--color-on-surface); font-size: .875rem; outline: 0; }.scanner-search button { visibility: hidden; color: var(--color-on-surface-variant); }.scanner-search button.is-visible { visibility: visible; }
+  .group-filter { display: flex; gap: .6rem; overflow-x: auto; padding: 2.4rem 0 1.4rem; scrollbar-width: none; }.group-filter::-webkit-scrollbar { display: none; }.group-filter-button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .4rem; border: 1px solid var(--color-outline-variant); border-radius: 999px; padding: .58rem .8rem; color: var(--color-on-surface-variant); font-size: .8rem; font-weight: 700; transition: .2s; }.group-filter-button .material-symbols-outlined { font-size: 1.05rem; }.group-filter-button b { display: grid; min-width: 1.25rem; height: 1.25rem; place-items: center; border-radius: 999px; background: var(--color-surface-container-high); font-size: .65rem; }.group-filter-button:hover, .group-filter-button.is-active { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }.group-filter-button.growth:hover, .group-filter-button.growth.is-active { border-color: #e69a47; color: #d8882f; background: rgba(230, 154, 71, .1); }.group-filter-button.patient:hover, .group-filter-button.patient.is-active { border-color: #34b789; color: #269c72; background: rgba(52, 183, 137, .1); }.group-filter-button.leadership:hover, .group-filter-button.leadership.is-active { border-color: #a887e9; color: #9976db; background: rgba(168, 135, 233, .1); }
+  .scanner-groups { display: grid; gap: 1.25rem; }.scanner-group { border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent); border-radius: 1.5rem; background: color-mix(in srgb, var(--color-surface-container-lowest) 60%, transparent); padding: 1.35rem; }.group-heading { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: .25rem .15rem 1.35rem; }.group-icon { display: grid; width: 3rem; height: 3rem; place-items: center; border-radius: .9rem; background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }.group-kicker { color: var(--color-primary); font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }.group-heading h3 { margin-top: .12rem; color: var(--color-on-surface); font-size: 1.28rem; font-weight: 800; }.group-heading p:not(.group-kicker) { margin-top: .25rem; color: var(--color-on-surface-variant); font-size: .82rem; }.group-count { color: var(--color-on-surface-variant); font-size: .72rem; font-weight: 700; white-space: nowrap; }.scanner-group.patient .group-icon { color: #269c72; background: rgba(52, 183, 137, .1); }.scanner-group.growth .group-icon { color: #d8882f; background: rgba(230, 154, 71, .1); }.scanner-group.leadership .group-icon { color: #9976db; background: rgba(168, 135, 233, .1); }.scanner-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }.scanner-card { display: flex; min-width: 0; flex-direction: column; border: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent); border-radius: 1.15rem; background: var(--color-surface-container-low); padding: 1rem; transition: border .2s, transform .2s, box-shadow .2s; }.scanner-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--color-primary) 55%, transparent); box-shadow: 0 12px 25px rgba(0, 0, 0, .12); }.scanner-card-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }.scanner-type { border-width: 1px; border-radius: .4rem; padding: .18rem .45rem; font-size: .65rem; font-weight: 800; }.scanner-access { display: flex; min-width: 0; align-items: center; gap: .2rem; color: #2ba978; font-size: .65rem; font-weight: 750; white-space: nowrap; }.scanner-access .material-symbols-outlined { font-size: .85rem; }.scanner-access.is-paid { color: var(--color-tertiary); }.scanner-card-symbol { display: grid; width: 2.3rem; height: 2.3rem; place-items: center; margin-top: 1.1rem; border-radius: .7rem; background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary); }.scanner-card h4 { margin-top: .8rem; color: var(--color-on-surface); font-size: 1rem; font-weight: 800; line-height: 1.3; }.scanner-card > p { display: -webkit-box; overflow: hidden; min-height: 3.9em; margin-top: .45rem; color: var(--color-on-surface-variant); font-size: .78rem; line-height: 1.65; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }.scanner-card-footer { margin-top: 1rem; border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 45%, transparent); padding-top: .8rem; }.scanner-card-footer > span { display: flex; align-items: center; gap: .25rem; color: var(--color-on-surface-variant); font-size: .64rem; }.scanner-card-footer > span .material-symbols-outlined { color: var(--color-tertiary); font-size: .85rem; }.scanner-card-action { display: flex; align-items: center; justify-content: space-between; margin-top: .75rem; color: var(--color-primary); font-size: .76rem; font-weight: 800; }.scanner-card-action .material-symbols-outlined { font-size: 1rem; transition: transform .2s; }.scanner-card-action:hover .material-symbols-outlined { transform: translateX(3px); }.scanner-card-action.is-wallet { color: var(--color-tertiary); }.scanner-empty { display: grid; place-items: center; gap: .75rem; min-height: 14rem; border: 1px dashed var(--color-outline-variant); border-radius: 1.5rem; color: var(--color-on-surface-variant); text-align: center; }.scanner-empty .material-symbols-outlined { color: var(--color-primary); font-size: 2.5rem; }.scanner-empty button { color: var(--color-primary); font-size: .85rem; font-weight: 800; }.hidden { display: none !important; }
+  @media (max-width: 900px) { .scanner-hero { grid-template-columns: 1fr; padding-top: 3rem; text-align: center; }.scanner-hero-copy { display: grid; justify-items: center; }.scanner-hero-actions { justify-content: center; }.system-visual { width: min(22rem, 82vw); }.map-intro { align-items: start; flex-direction: column; }.scanner-search { width: 100%; }.scanner-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .scanner-hero { gap: 2rem; min-height: auto; }.scanner-hero h1 { font-size: 2.55rem; }.scanner-lead { font-size: .95rem; }.system-visual { width: 19rem; }.visual-node { width: 4.35rem; border-radius: 1rem; }.visual-node .material-symbols-outlined { font-size: 1.25rem; }.visual-node small { font-size: .56rem; }.visual-core { inset: 33%; }.scanner-hero-actions { width: 100%; }.scanner-primary-action, .scanner-wallet { justify-content: center; width: 100%; }.group-heading { grid-template-columns: auto 1fr; }.group-count { display: none; }.scanner-card-grid { grid-template-columns: 1fr; }.scanner-group { padding: 1rem; }.scanner-card > p { min-height: auto; }.group-heading p:not(.group-kicker) { font-size: .76rem; } }
+</style>

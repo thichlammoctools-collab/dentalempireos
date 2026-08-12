@@ -27,6 +27,8 @@ export interface CreateConsultationRequestInput {
   serviceInterest: ConsultationInterest;
   message: string;
   ipHash: string | null;
+  anonymousId: string | null;
+  attribution: import('./site-analytics').Attribution;
 }
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -41,8 +43,8 @@ export async function createConsultationRequest(
 
   await db.prepare(
     `INSERT INTO "consultation_request"
-      ("id", "name", "phone", "email", "clinic_name", "team_size", "service_interest", "message", "status", "ip_hash", "created_at", "updated_at")
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
+      ("id", "name", "phone", "email", "clinic_name", "team_size", "service_interest", "message", "status", "ip_hash", "anonymous_id", "source", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "created_at", "updated_at")
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     id,
     input.name,
@@ -53,6 +55,14 @@ export async function createConsultationRequest(
     input.serviceInterest,
     input.message,
     input.ipHash,
+    input.anonymousId,
+    input.attribution.source,
+    input.attribution.referrerHost,
+    input.attribution.utmSource,
+    input.attribution.utmMedium,
+    input.attribution.utmCampaign,
+    input.attribution.utmTerm,
+    input.attribution.utmContent,
     now,
     now,
   ).run();

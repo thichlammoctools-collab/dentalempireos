@@ -215,6 +215,55 @@ const sameAs = [
       initializeTheme();
     </script>
 
+    <script is:inline>
+      (function () {
+        var analyticsKey = 'dentalempire_anonymous_id';
+        var attributionKey = 'dentalempire_attribution';
+        function id() {
+          try {
+            var stored = localStorage.getItem(analyticsKey);
+            if (stored && /^[a-zA-Z0-9_-]{8,80}$/.test(stored)) return stored;
+            var next = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^a-zA-Z0-9_-]/g, '');
+            localStorage.setItem(analyticsKey, next);
+            return next;
+          } catch { return null; }
+        }
+        function attribution() {
+          try {
+            var stored = JSON.parse(sessionStorage.getItem(attributionKey) || '{}');
+            var query = new URLSearchParams(window.location.search);
+            var next = {
+              source: query.get('source') || stored.source || null,
+              referrer_host: document.referrer ? new URL(document.referrer).host : (stored.referrer_host || null),
+              utm_source: query.get('utm_source') || stored.utm_source || null,
+              utm_medium: query.get('utm_medium') || stored.utm_medium || null,
+              utm_campaign: query.get('utm_campaign') || stored.utm_campaign || null,
+              utm_term: query.get('utm_term') || stored.utm_term || null,
+              utm_content: query.get('utm_content') || stored.utm_content || null
+            };
+            sessionStorage.setItem(attributionKey, JSON.stringify(next));
+            return next;
+          } catch { return {}; }
+        }
+        function send(eventName, props) {
+          var anonymousId = id();
+          if (!anonymousId) return Promise.resolve();
+          return fetch('/api/public/events', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+            body: JSON.stringify({ anonymous_id: anonymousId, event_name: eventName, page_path: window.location.pathname, props: props || {} })
+          }).catch(function () {});
+        }
+        window.dentalAnalytics = { getAnonymousId: id, getAttribution: attribution, track: send };
+        attribution();
+        send('page_view');
+        document.addEventListener('click', function (event) {
+          var target = event.target.closest('[data-track-cta]');
+          if (!target) return;
+          send('cta_click', { cta_id: target.dataset.trackCta, placement: target.dataset.trackPlacement || 'unknown' });
+        });
+      })();
+    </script>
+
     <!-- Toast container -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="true"></div>
 

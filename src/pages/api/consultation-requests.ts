@@ -8,6 +8,7 @@ import {
   type ConsultationInterest,
 } from '../../lib/consultation-request-db';
 import { hashIp, validateEmail } from '../../lib/newsletter';
+import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../lib/site-analytics';
 import { sendConsultationTelegramNotification } from '../../lib/telegram';
 
 export const prerender = false;
@@ -62,6 +63,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       'service_interest',
       'message',
       'website',
+      'anonymous_id',
+      'source',
+      'referrer_host',
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
     ]);
     if (Object.keys(payload).some((key) => !allowedFields.has(key))) {
       throw new Error('Dữ liệu gửi lên không hợp lệ.');
@@ -101,6 +110,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     }
 
+    const attribution = readAttributionFromPayload(payload);
+    const anonymousId = sanitizeAnonymousId(payload.anonymous_id);
     const consultationRequest = await createConsultationRequest(env.DB, {
       name: name!,
       phone: normalizedPhone,
@@ -110,7 +121,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       serviceInterest: serviceInterest as ConsultationInterest,
       message: message!,
       ipHash,
+      anonymousId,
+      attribution,
     });
+    if (anonymousId) {
+      await recordSiteEvent(env.DB, {
+        anonymousId,
+        eventName: 'consultation_submitted',
+        pagePath: '/dich-vu',
+        props: { service_interest: serviceInterest as ConsultationInterest, lead_type: 'consultation' },
+      });
+    }
 
     const notification = sendConsultationTelegramNotification(
       consultationRequest,

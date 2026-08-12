@@ -2,20 +2,26 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../lib/api-helpers';
 import { subscribe, validateEmail, hashIp, checkRateLimit, unsubscribe } from '../../lib/newsletter';
+import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../lib/site-analytics';
 import { sendWelcomeEmail } from '../../lib/resend';
 
 export const prerender = false;
 
 // POST /api/newsletter — subscribe + send welcome email
 export const POST: APIRoute = async ({ request, locals }) => {
-  let body: { email?: string; source?: string; post_slug?: string; post_title?: string };
+  let body: Record<string, unknown>;
   try {
-    body = (await request.json()) as typeof body;
+    const parsed = await request.json() as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    body = parsed as Record<string, unknown>;
   } catch {
     return badRequest('Invalid JSON');
   }
+  const allowedFields = new Set(['email', 'source', 'post_slug', 'post_title', 'anonymous_id', 'referrer_host', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']);
+  if (Object.keys(body).some((key) => !allowedFields.has(key))) return badRequest('Dữ liệu gửi lên không hợp lệ.');
+  if (typeof body.email !== 'string') return badRequest('Email là bắt buộc.');
 
-  const emailError = validateEmail(body.email ?? '');
+  const emailError = validateEmail(body.email);
   if (emailError) return badRequest(emailError);
 
   const ip = request.headers.get('CF-Connecting-IP')
@@ -33,12 +39,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
+  const source = typeof body.source === 'string' && body.source.length <= 120 ? body.source : 'blog';
+  const postSlug = typeof body.post_slug === 'string' && body.post_slug.length <= 160 ? body.post_slug : undefined;
+  const postTitle = typeof body.post_title === 'string' && body.post_title.length <= 200 ? body.post_title : undefined;
+  const anonymousId = sanitizeAnonymousId(body.anonymous_id);
+  const attribution = readAttributionFromPayload(body);
   const result = await subscribe(env.DB, {
-    email: body.email!,
-    source: body.source ?? 'blog',
-    postSlug: body.post_slug,
+    email: body.email,
+    source,
+    postSlug,
     ip: ipHash ?? undefined,
+    anonymousId,
+    attribution,
   });
+  if (result.success && anonymousId) {
+    await recordSiteEvent(env.DB, {
+      anonymousId,
+      eventName: 'lead_submitted',
+      pagePath: '/newsletter',
+      props: { lead_type: 'newsletter', placement: source },
+    });
+  }
 
   if (!result.success) {
     return json({ error: result.error ?? 'Lỗi đăng ký.' }, 500);
@@ -49,9 +70,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const waitUntil = locals.cfContext?.waitUntil?.bind(locals.cfContext);
     waitUntil?.(
       sendWelcomeEmail({
-        email: body.email!,
-        postSlug: body.post_slug,
-        postTitle: body.post_title,
+        email: body.email,
+        postSlug,
+        postTitle,
       }).catch((err: unknown) => {
         console.error('[newsletter] Failed to send welcome email:', err);
       }),

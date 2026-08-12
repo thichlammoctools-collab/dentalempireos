@@ -7,6 +7,8 @@ export interface SubscribeOptions {
   source?: string;
   postSlug?: string;
   ip?: string;
+  anonymousId?: string | null;
+  attribution?: import('./site-analytics').Attribution;
 }
 
 // ── Email validation ──────────────────────────────────────────
@@ -99,11 +101,14 @@ export async function subscribe(db: D1Database, opts: SubscribeOptions): Promise
       await db
         .prepare(
           `UPDATE "newsletter_subscriber"
-           SET "status" = 'active', "source" = ?, "post_slug" = COALESCE(?, "post_slug"),
-               "ip_hash" = COALESCE(?, "ip_hash"), "unsubscribed_at" = NULL
-           WHERE "email" = ?`
+            SET "status" = 'active', "source" = ?, "post_slug" = COALESCE(?, "post_slug"),
+                "ip_hash" = COALESCE(?, "ip_hash"), "anonymous_id" = COALESCE(?, "anonymous_id"),
+                "referrer_host" = COALESCE(?, "referrer_host"), "utm_source" = COALESCE(?, "utm_source"),
+                "utm_medium" = COALESCE(?, "utm_medium"), "utm_campaign" = COALESCE(?, "utm_campaign"),
+                "utm_term" = COALESCE(?, "utm_term"), "utm_content" = COALESCE(?, "utm_content"), "unsubscribed_at" = NULL
+            WHERE "email" = ?`
         )
-        .bind(source, opts.postSlug ?? null, opts.ip ?? null, email)
+        .bind(source, opts.postSlug ?? null, opts.ip ?? null, opts.anonymousId ?? null, opts.attribution?.referrerHost ?? null, opts.attribution?.utmSource ?? null, opts.attribution?.utmMedium ?? null, opts.attribution?.utmCampaign ?? null, opts.attribution?.utmTerm ?? null, opts.attribution?.utmContent ?? null, email)
         .run();
       return { success: true };
     }
@@ -116,11 +121,11 @@ export async function subscribe(db: D1Database, opts: SubscribeOptions): Promise
 
   await db
     .prepare(
-      `INSERT INTO "newsletter_subscriber"
-         ("id","email","source","post_slug","ip_hash","status","created_at")
-       VALUES (?, ?, ?, ?, ?, 'active', ?)`
+       `INSERT INTO "newsletter_subscriber"
+          ("id","email","source","post_slug","ip_hash","anonymous_id","referrer_host","utm_source","utm_medium","utm_campaign","utm_term","utm_content","status","created_at")
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`
     )
-    .bind(id, email, source, opts.postSlug ?? null, opts.ip ?? null, now)
+    .bind(id, email, source, opts.postSlug ?? null, opts.ip ?? null, opts.anonymousId ?? null, opts.attribution?.referrerHost ?? null, opts.attribution?.utmSource ?? null, opts.attribution?.utmMedium ?? null, opts.attribution?.utmCampaign ?? null, opts.attribution?.utmTerm ?? null, opts.attribution?.utmContent ?? null, now)
     .run();
 
   return { success: true };
