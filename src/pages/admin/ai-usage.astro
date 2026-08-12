@@ -11,22 +11,22 @@ export const prerender = false;
           <span class="material-symbols-outlined text-lg">arrow_back</span>
           <span>Admin</span>
         </a>
-        <h1 class="text-2xl font-bold text-white">AI Usage Dashboard</h1>
+        <h1 class="text-2xl font-bold text-on-surface">AI Usage Dashboard</h1>
       </div>
 
       <!-- Filters -->
       <div class="glass-card rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
           <label class="block text-xs text-on-surface-variant mb-1">From</label>
-          <input id="filter-from" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm" />
+          <input id="filter-from" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-on-surface text-sm" />
         </div>
         <div>
           <label class="block text-xs text-on-surface-variant mb-1">To</label>
-          <input id="filter-to" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm" />
+          <input id="filter-to" type="date" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-on-surface text-sm" />
         </div>
         <div>
           <label class="block text-xs text-on-surface-variant mb-1">Group by</label>
-          <select id="filter-group" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-white text-sm">
+          <select id="filter-group" class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-lg text-on-surface text-sm">
             <option value="day">Day</option>
             <option value="model">Model</option>
             <option value="feature">Feature</option>
@@ -44,15 +44,15 @@ export const prerender = false;
           <div class="text-xs text-on-surface-variant mt-1">Total Requests</div>
         </div>
         <div class="glass-card rounded-2xl p-4 text-center">
-          <div class="text-3xl font-bold text-green-400" id="stat-success">—</div>
+          <div class="text-3xl font-bold text-success" id="stat-success">—</div>
           <div class="text-xs text-on-surface-variant mt-1">Success Rate %</div>
         </div>
         <div class="glass-card rounded-2xl p-4 text-center">
-          <div class="text-3xl font-bold text-amber-400" id="stat-latency">—</div>
+          <div class="text-3xl font-bold text-warning" id="stat-latency">—</div>
           <div class="text-xs text-on-surface-variant mt-1">Avg Latency (ms)</div>
         </div>
         <div class="glass-card rounded-2xl p-4 text-center">
-          <div class="text-3xl font-bold text-blue-400" id="stat-features">—</div>
+          <div class="text-3xl font-bold text-primary" id="stat-features">—</div>
           <div class="text-xs text-on-surface-variant mt-1">Features Used</div>
         </div>
       </div>
@@ -60,7 +60,7 @@ export const prerender = false;
       <section class="glass-card rounded-2xl p-5 mb-6">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="text-lg font-bold text-white">Báo cáo vận hành 30 ngày</h2>
+            <h2 class="text-lg font-bold text-on-surface">Báo cáo vận hành 30 ngày</h2>
             <p class="text-xs text-on-surface-variant mt-1">So sánh Scanner, Chat Assistant và Kho tri thức AI.</p>
           </div>
           <button id="btn-summary" class="btn btn-ghost px-4 py-2 rounded-lg text-sm">Tải báo cáo</button>
@@ -140,7 +140,7 @@ export const prerender = false;
       }
 
       tableBody.innerHTML = data.map(row => `
-        <tr class="hover:bg-surface-container-high/30">
+        <tr class="text-on-surface hover:bg-surface-container-high/50">
           ${cols.map(c => `<td class="py-3 pr-4 ${c === 'total_requests' ? 'font-mono font-bold text-primary' : ''}">${escapeHtml(String(row[c] ?? '—'))}</td>`).join('')}
         </tr>
       `).join('');
@@ -172,10 +172,10 @@ export const prerender = false;
       const response = await fetch('/api/admin/ai-usage?summary=30d', { credentials: 'include' });
       if (!response.ok || !summaryContent) return;
       const payload = await response.json() as { summary: { by_feature: Array<Record<string, unknown>>; by_model: Array<Record<string, unknown>>; daily: Array<Record<string, unknown>> } };
-      const featureRows = payload.summary.by_feature.map(row => `<div class="rounded-xl bg-surface-container-high/50 p-3"><div class="font-semibold text-white">${escapeHtml(String(row.feature))}</div><div>${row.requests} requests · ${row.success_rate}% success · ${row.avg_latency_ms ?? 0}ms</div><div>${row.avg_input_tokens ?? 0} input / ${row.avg_output_tokens ?? 0} output tokens</div><div>${row.avg_retrieval_chunks ?? 0} chunks trung bình</div></div>`).join('');
-      const modelRows = payload.summary.by_model.map(row => `<div class="rounded-xl bg-surface-container-high/50 p-3"><div class="font-semibold text-white">${escapeHtml(String(row.provider_id))}</div><div class="font-mono text-xs">${escapeHtml(String(row.model_id))}</div><div>${row.requests} requests · ${row.success_rate}% success · ${row.avg_latency_ms ?? 0}ms</div></div>`).join('');
-      const dailyRows = payload.summary.daily.slice(-7).map(row => `<div class="flex justify-between gap-3"><span>${escapeHtml(String(row.day))}</span><span>${row.requests} req · ${row.success_rate}%</span></div>`).join('');
-      summaryContent.innerHTML = `<div><h3 class="font-semibold text-white mb-2">Theo chức năng</h3><div class="space-y-2">${featureRows || '<p>Chưa có dữ liệu.</p>'}</div></div><div><h3 class="font-semibold text-white mb-2">Theo model</h3><div class="space-y-2">${modelRows || '<p>Chưa có dữ liệu.</p>'}</div></div><div><h3 class="font-semibold text-white mb-2">7 ngày gần nhất</h3><div class="space-y-2">${dailyRows || '<p>Chưa có dữ liệu.</p>'}</div></div>`;
+      const featureRows = payload.summary.by_feature.map(row => `<div class="rounded-xl border border-outline-variant/60 bg-surface-container-high/50 p-3 text-on-surface"><div class="font-semibold">${escapeHtml(String(row.feature))}</div><div>${row.requests} requests · ${row.success_rate}% success · ${row.avg_latency_ms ?? 0}ms</div><div>${row.avg_input_tokens ?? 0} input / ${row.avg_output_tokens ?? 0} output tokens</div><div>${row.avg_retrieval_chunks ?? 0} chunks trung bình</div></div>`).join('');
+      const modelRows = payload.summary.by_model.map(row => `<div class="rounded-xl border border-outline-variant/60 bg-surface-container-high/50 p-3 text-on-surface"><div class="font-semibold">${escapeHtml(String(row.provider_id))}</div><div class="font-mono text-xs">${escapeHtml(String(row.model_id))}</div><div>${row.requests} requests · ${row.success_rate}% success · ${row.avg_latency_ms ?? 0}ms</div></div>`).join('');
+      const dailyRows = payload.summary.daily.slice(-7).map(row => `<div class="flex justify-between gap-3 text-on-surface"><span>${escapeHtml(String(row.day))}</span><span>${row.requests} req · ${row.success_rate}%</span></div>`).join('');
+      summaryContent.innerHTML = `<div><h3 class="font-semibold text-on-surface mb-2">Theo chức năng</h3><div class="space-y-2">${featureRows || '<p>Chưa có dữ liệu.</p>'}</div></div><div><h3 class="font-semibold text-on-surface mb-2">Theo model</h3><div class="space-y-2">${modelRows || '<p>Chưa có dữ liệu.</p>'}</div></div><div><h3 class="font-semibold text-on-surface mb-2">7 ngày gần nhất</h3><div class="space-y-2">${dailyRows || '<p>Chưa có dữ liệu.</p>'}</div></div>`;
     }
     document.getElementById('btn-summary')?.addEventListener('click', loadOperationalSummary);
 

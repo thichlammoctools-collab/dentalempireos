@@ -25,6 +25,8 @@ const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
   name: lang === 'en' ? (dimension.name_en ?? dimension.name_vi ?? dimension.id) : (dimension.name_vi ?? dimension.id),
   score: normalizeScore(scores[dimension.id]),
 }));
+const memberResultUrl = `/scanner/result/${response.id}`;
+const loginUrl = `/login?redirect=${encodeURIComponent(memberResultUrl)}`;
 ---
 <BaseLayout title="Total OS Diagnostic | Dental Empire OS" noindex={true}>
   <section class="guest-report">
@@ -40,6 +42,16 @@ const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
     <div class="dimensions">
       {dimensions.map((dimension) => <article><span>{dimension.name}</span><strong>{Math.round(dimension.score)}</strong></article>)}
     </div>
+    <aside class="member-upgrade" aria-labelledby="member-analysis-title">
+      <p class="member-upgrade__eyebrow">{lang === 'vi' ? 'Dành cho thành viên' : 'For members'}</p>
+      <h2 id="member-analysis-title">{lang === 'vi' ? 'Mở Bản soi chiếu hệ thống bằng AI' : 'Unlock the AI System Illumination'}</h2>
+      <p>{lang === 'vi'
+        ? 'Báo cáo miễn phí này gồm scorecard chẩn đoán. Phân tích AI, kế hoạch hành động và PDF là tính năng dành cho thành viên, theo quyền truy cập và Credits của tài khoản sau khi đăng nhập.'
+        : 'This free report includes the diagnostic scorecard. AI analysis, the action plan, and PDF are member features subject to account access and Credits after sign-in.'}</p>
+      <a href={loginUrl} class="member-upgrade__cta">
+        {lang === 'vi' ? 'Đăng nhập để xem lựa chọn thành viên' : 'Sign in to view member options'}
+      </a>
+    </aside>
     <p class="notice">{lang === 'vi' ? 'Đây là báo cáo chẩn đoán ban đầu dựa trên câu trả lời của bạn, không phải tư vấn chuyên môn.' : 'This is an initial diagnostic based on your answers and is not professional advice.'}</p>
   </section>
 </BaseLayout>
@@ -50,5 +62,9 @@ const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
   .score-card { display: grid; justify-items: center; gap: .35rem; margin: 2rem 0; padding: 2rem; border: 1px solid var(--color-outline-variant); border-radius: 1rem; background: var(--color-surface-container); }
   .score-card strong { font-size: 4rem; color: var(--color-primary); line-height: 1; }.score-card p { margin: 0; font-weight: 700; }
   .dimensions { display: grid; gap: .75rem; }.dimensions article { display: flex; justify-content: space-between; padding: 1rem; border-radius: .75rem; background: var(--color-surface-container); }.dimensions strong { color: var(--color-primary); }
+  .member-upgrade { margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--color-primary); border-radius: 1rem; background: var(--color-surface-container); }
+  .member-upgrade__eyebrow { margin: 0; color: var(--color-primary); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .member-upgrade h2 { margin: .5rem 0; font-size: 1.25rem; }.member-upgrade p:not(.member-upgrade__eyebrow) { color: var(--color-on-surface-variant); line-height: 1.6; }
+  .member-upgrade__cta { display: inline-block; margin-top: .5rem; padding: .7rem 1rem; border-radius: .625rem; background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; text-decoration: none; }
   .notice { margin-top: 2rem; font-size: .85rem; }
 </style>
