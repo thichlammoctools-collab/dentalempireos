@@ -88,6 +88,19 @@ export async function startQueuedScannerAiJob(
   return (result.meta.changes ?? 0) > 0;
 }
 
+export async function requeueScannerAiJob(
+  db: D1Database,
+  responseId: number,
+  jobType: 'analysis' | 'plan',
+  runId: string,
+): Promise<void> {
+  await db.prepare(
+    `UPDATE "scanner_ai_job"
+     SET "status" = 'queued', "queued_at" = datetime('now')
+     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ?`,
+  ).bind(responseId, jobType, runId).run();
+}
+
 export async function finishScannerAiJob(
   db: D1Database,
   responseId: number,

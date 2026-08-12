@@ -327,7 +327,6 @@ export async function runAiAnalysis(
   db: D1Database,
   responseId: number,
   userId?: string,
-  runtimeEnv?: Cloudflare.Env,
   runId?: string,
 ): Promise<ScannerAiRunResult> {
   const request = requestId();
@@ -359,10 +358,6 @@ export async function runAiAnalysis(
     await updateAiAnalysis(db, responseId, analysis);
     await updateAiAnalysisStatus(db, responseId, 'done');
     await finishScannerAiJob(db, responseId, 'analysis', jobRunId, 'done');
-    if (runtimeEnv) {
-      const { createScannerReportImage } = await import('./scanner-report-image');
-      await createScannerReportImage(runtimeEnv, response, full.definition.title_vi, 'analysis').catch((err) => console.warn('[scanner-ai] report image failed:', err));
-    }
     await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
 
     await Promise.allSettled([
@@ -386,7 +381,6 @@ export async function runPlanAnalysis(
   db: D1Database,
   responseId: number,
   userId?: string,
-  runtimeEnv?: Cloudflare.Env,
   runId?: string,
 ): Promise<ScannerAiRunResult> {
   const request = requestId();
@@ -418,10 +412,6 @@ export async function runPlanAnalysis(
     await updateAiPlan(db, responseId, plan);
     await updateAiPlanStatus(db, responseId, 'done');
     await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'done');
-    if (runtimeEnv) {
-      const { createScannerReportImage } = await import('./scanner-report-image');
-      await createScannerReportImage(runtimeEnv, response, full.definition.title_vi, 'plan').catch((err) => console.warn('[scanner-ai] plan image failed:', err));
-    }
     await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([

@@ -1,4 +1,4 @@
-import { runAiAnalysis, runPlanAnalysis } from './scanner-ai';
+import { runAiAnalysis, runPlanAnalysis, type ScannerAiRunResult } from './scanner-ai';
 import { getScannerResponse } from './scanner-response-db';
 import { getSurveyDefinitionFull } from './survey-config-db';
 import { generateQueuedScannerReportImage } from './scanner-report-image';
@@ -10,11 +10,6 @@ export interface ScannerAiQueueMessage {
   jobType: ScannerAiJobType;
   runId: string;
   userId: string;
-}
-
-export interface ScannerAiRunResult {
-  completed: boolean;
-  retryable: boolean;
 }
 
 export function getScannerAiQueue(
@@ -40,11 +35,10 @@ export async function processScannerAiQueueMessage(
       return { completed: true, retryable: false };
     }
 
-    if (message.jobType === 'analysis') {
-      await runAiAnalysis(env.DB, message.responseId, message.userId);
-    } else {
-      await runPlanAnalysis(env.DB, message.responseId, message.userId);
-    }
+    const runResult = message.jobType === 'analysis'
+      ? await runAiAnalysis(env.DB, message.responseId, message.userId, message.runId)
+      : await runPlanAnalysis(env.DB, message.responseId, message.userId, message.runId);
+    if (!runResult.completed) return runResult;
 
     const response = await getScannerResponse(env.DB, message.responseId);
     const definition = response && await getSurveyDefinitionFull(env.DB, response.survey_id);
