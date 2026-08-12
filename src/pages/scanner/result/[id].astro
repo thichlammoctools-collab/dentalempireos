@@ -370,6 +370,12 @@ try {
               <span class="material-symbols-outlined text-base">content_copy</span>
               {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
             </button>
+            {!planImageUrl && (
+              <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="plan">
+                <span class="material-symbols-outlined text-base">image</span>
+                <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
+              </button>
+            )}
             <a href={`/api/scanner/${id}/pdf?type=plan`} class="btn btn-primary plan-tool-button">
               <span class="material-symbols-outlined text-base">picture_as_pdf</span>
               {lang === 'vi' ? 'Tải PDF kế hoạch' : 'Download plan PDF'}
@@ -383,12 +389,6 @@ try {
              <figure class="report-image">
                <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
              </figure>
-           )}
-           {!planImageUrl && (
-             <button type="button" class="btn btn-ghost image-create-button" data-image-type="plan">
-               <span class="material-symbols-outlined text-base">image</span>
-               {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
-             </button>
            )}
            <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{planText}</template>
@@ -563,7 +563,6 @@ try {
   .cross-sell-card { order: 6; }
   .report-locked-state { display: grid; place-items: center; gap: .5rem; min-height: 7rem; color: var(--color-on-surface-variant); text-align: center; }
   .report-locked-state .material-symbols-outlined { color: #f59e0b; }
-  .image-create-button { margin-top: 1rem; }
   .report-confirm-dialog { position: fixed; top: 50%; left: 50%; width: min(28rem, calc(100% - 2rem)); margin: 0; padding: 0; transform: translate(-50%, -50%); color: var(--color-on-surface); background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / .45); }
   .report-confirm-dialog::backdrop { background: rgb(0 0 0 / .64); backdrop-filter: blur(4px); }
   .report-confirm-content { position: relative; padding: 1.5rem; }
@@ -1345,18 +1344,44 @@ try {
     action?.();
   });
 
-  async function createReportImage(type: 'analysis' | 'plan') {
+  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+  function showImageDownload(button: HTMLButtonElement, type: 'analysis' | 'plan') {
+    const label = lang === 'vi' ? 'Tải minh họa A4' : 'Download A4 illustration';
+    const url = `/api/scanner/${responseId}/image?type=${type}`;
+    button.outerHTML = `<a href="${url}" download class="btn btn-primary plan-tool-button"><span class="material-symbols-outlined text-base">download</span>${label}</a>`;
+  }
+
+  async function createReportImage(type: 'analysis' | 'plan', button: HTMLButtonElement) {
+    const label = button.querySelector<HTMLElement>('[data-image-label]');
+    const originalLabel = label?.textContent ?? button.textContent ?? '';
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    if (label) label.textContent = lang === 'vi' ? 'Đang tạo minh họa A4...' : 'Creating A4 illustration...';
+    window.showToast?.(lang === 'vi' ? 'Đang tạo minh họa A4. Quá trình này có thể mất vài phút.' : 'Creating A4 illustration. This may take a few minutes.', 'info');
+
     try {
-      const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (res.status === 201) {
+          showImageDownload(button, type);
+          window.showToast?.(lang === 'vi' ? 'Minh họa A4 đã sẵn sàng để tải về.' : 'Your A4 illustration is ready to download.', 'success');
+          return;
+        }
+        if (res.status !== 202) {
+          const data = await res.json().catch(() => ({})) as { error?: string };
+          throw new Error(data.error ?? `HTTP ${res.status}`);
+        }
+        await wait(2000);
       }
-      window.location.reload();
+      throw new Error(lang === 'vi' ? 'Tạo minh họa đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.' : 'Illustration generation is taking longer than expected. Please try again later.');
     } catch (error) {
+      if (label) label.textContent = originalLabel;
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
       window.showToast?.(error instanceof Error ? error.message : String(error), 'error');
     }
   }
@@ -1384,7 +1409,7 @@ try {
         lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration',
         lang === 'vi' ? 'GPT Image 2 sẽ tạo một ảnh minh họa dọc khổ A4 cho báo cáo đã hoàn tất.' : 'GPT Image 2 will create a portrait A4 illustration for the completed report.',
         lang === 'vi' ? 'Kích thước dọc A4 · không dùng token báo cáo' : 'Portrait A4 size · report tokens are not used',
-        () => createReportImage(type),
+        () => createReportImage(type, button),
       );
     });
   });
