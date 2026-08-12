@@ -6,29 +6,43 @@ import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
 import { canAccessScanner } from '../../../../lib/entitlement-check';
+import { getSurveyDefinitionFull } from '../../../../lib/survey-config-db';
+import { generateQueuedScannerReportImage } from '../../../../lib/scanner-report-image';
 
 export const prerender = false;
+type ImageType = 'analysis' | 'plan';
+type AuthorizedImageRequest =
+  | { error: Response }
+  | { id: number; type: ImageType; response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>> };
 
-export const GET: APIRoute = async ({ params, request }) => {
+async function getAuthorizedImageRequest(params: Record<string, string | undefined>, request: Request): Promise<AuthorizedImageRequest> {
   const id = parseInt(params.id ?? '', 10);
-  if (!id) return badRequest('id is required');
+  if (!id) return { error: badRequest('id is required') };
 
   const type = new URL(request.url).searchParams.get('type');
-  if (type !== 'analysis' && type !== 'plan') return badRequest('type must be "analysis" or "plan"');
+  if (type !== 'analysis' && type !== 'plan') return { error: badRequest('type must be "analysis" or "plan"') };
 
   const session = await createAuth(env).api.getSession({ headers: request.headers });
-  if (!session?.user) return json({ error: 'Vui lòng đăng nhập' }, 401);
+  if (!session?.user) return { error: json({ error: 'Vui lòng đăng nhập' }, 401) };
 
   const response = await getScannerResponse(env.DB, id);
-  if (!response) return notFound('Response not found');
+  if (!response) return { error: notFound('Response not found') };
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
   const ownsByEmail = response.email
     ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
     : false;
-  if (!owned && !ownsByEmail) return json({ error: 'Không có quyền với kết quả này' }, 403);
+  if (!owned && !ownsByEmail) return { error: json({ error: 'Không có quyền với kết quả này' }, 403) };
   if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
-    return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.' }, 402);
+    return { error: json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.' }, 402) };
   }
+
+  return { id, type, response };
+}
+
+export const GET: APIRoute = async ({ params, request }) => {
+  const authorized = await getAuthorizedImageRequest(params, request);
+  if ('error' in authorized) return authorized.error;
+  const { type, response } = authorized;
 
   const key = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
   if (!key) return notFound('Report image not found');
@@ -42,4 +56,20 @@ export const GET: APIRoute = async ({ params, request }) => {
       'Cache-Control': 'private, max-age=3600',
     },
   });
+};
+
+// The user explicitly starts image generation after reading a completed report.
+export const POST: APIRoute = async ({ params, request }) => {
+  const authorized = await getAuthorizedImageRequest(params, request);
+  if ('error' in authorized) return authorized.error;
+  const { type, response } = authorized;
+  const reportText = type === 'analysis' ? response.ai_analysis : response.ai_plan;
+  if (!reportText?.trim()) {
+    return json({ error: 'Hoàn tất báo cáo chữ trước khi tạo minh họa.' }, 409);
+  }
+
+  const definition = await getSurveyDefinitionFull(env.DB, response.survey_id);
+  if (!definition) return notFound('Survey definition not found');
+  const key = await generateQueuedScannerReportImage(env, response, definition.definition.title_vi, type);
+  return json({ created: Boolean(key), key }, key ? 201 : 202);
 };

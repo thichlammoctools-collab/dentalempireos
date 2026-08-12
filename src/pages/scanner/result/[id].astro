@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import { renderSafeMarkdown } from '../../../lib/sanitize';
 import {
   getSurveyDefinitionFull,
+  parseAiConfig,
   parseScoringRules,
   parseScaleLabels,
 } from '../../../lib/survey-config-db';
@@ -64,6 +65,8 @@ if (!(await canAccessScanner(env.DB, currentUser.id, definition.id))) {
 
 const lang = (response.lang === 'en' ? 'en' : 'vi') as 'vi' | 'en';
 const scoringRules = parseScoringRules(definition.scoring_rules);
+const scannerAiConfig = parseAiConfig(definition.ai_config);
+const reportTokenBudget = scannerAiConfig.max_tokens_override ?? 4096;
 
 const scores = parseScores(response.scores_json);
 const totalScore = scores.total ?? 0;
@@ -381,6 +384,12 @@ try {
                <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
              </figure>
            )}
+           {!planImageUrl && (
+             <button type="button" class="btn btn-ghost image-create-button" data-image-type="plan">
+               <span class="material-symbols-outlined text-base">image</span>
+               {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
+             </button>
+           )}
            <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{planText}</template>
         </>
@@ -400,12 +409,18 @@ try {
                 </button>
               </div>
             </div>
-          <div id="plan-cta">
+          <div id="plan-cta" class:list={{ 'hidden': !hasAnalysis }}>
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
               <span class="material-symbols-outlined text-base">auto_awesome</span>
               {lang === 'vi' ? 'Tạo kế hoạch 30 ngày' : 'Generate 30-Day Plan'}
             </button>
           </div>
+          {!hasAnalysis && (
+            <div class="report-locked-state">
+              <span class="material-symbols-outlined">lock</span>
+              <p>{lang === 'vi' ? 'Hoàn tất Bản soi chiếu hệ thống trước để mở Kế hoạch 30 ngày.' : 'Complete the System Illumination before unlocking the 30-day plan.'}</p>
+            </div>
+          )}
           <div id="plan-error" class="text-center py-4 hidden">
             <p class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
             <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-plan">
@@ -437,6 +452,12 @@ try {
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
               </a>
             </div>
+            {!analysisImageUrl && (
+              <button type="button" class="btn btn-ghost image-create-button" data-image-type="analysis">
+                <span class="material-symbols-outlined text-base">image</span>
+                {lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}
+              </button>
+            )}
             {analysisImageUrl && (
               <figure class="report-image">
                 <img src={analysisImageUrl} alt={lang === 'vi' ? 'Minh họa bản soi chiếu hệ thống AI' : 'AI system analysis illustration'} />
@@ -490,6 +511,25 @@ try {
     )}
   </section>
 
+  <dialog id="report-confirm-dialog" class="report-confirm-dialog">
+    <form method="dialog" class="report-confirm-content">
+      <button type="submit" class="report-confirm-close" aria-label="Đóng">×</button>
+      <span class="material-symbols-outlined report-confirm-icon">auto_awesome</span>
+      <p class="report-confirm-eyebrow">AI REPORT</p>
+      <h2 id="report-confirm-title"></h2>
+      <p id="report-confirm-description"></p>
+      <div class="report-confirm-cost">
+        <span class="material-symbols-outlined">token</span>
+        <span id="report-confirm-tokens"></span>
+      </div>
+      <p class="report-confirm-note">{lang === 'vi' ? 'Chỉ bắt đầu khi bạn đồng ý. Báo cáo được lưu tự động sau khi hoàn tất.' : 'Generation starts only after confirmation. Your report is saved automatically when complete.'}</p>
+      <div class="report-confirm-actions">
+        <button type="submit" class="btn btn-ghost">{lang === 'vi' ? 'Hủy' : 'Cancel'}</button>
+        <button type="button" id="report-confirm-accept" class="btn btn-amber">{lang === 'vi' ? 'Đồng ý và tạo' : 'Accept and generate'}</button>
+      </div>
+    </form>
+  </dialog>
+
 </BaseLayout>
 
 <style>
@@ -512,7 +552,29 @@ try {
   }
   .report-identity { display: flex; align-items: center; gap: 1rem; min-width: 0; }
   .report-image { margin: 1.25rem 0; overflow: hidden; border: 1px solid var(--color-outline-variant); border-radius: .9rem; background: var(--color-surface-container); }
-  .report-image img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+  .report-image img { display: block; width: 100%; aspect-ratio: 210 / 297; object-fit: cover; }
+  .result-wrap { display: flex; flex-direction: column; }
+  .report-hero { order: 0; }
+  .score-card { order: 1; }
+  .insight-card { order: 2; }
+  .reading-card { order: 3; }
+  .analysis-card { order: 4; }
+  .plan-card { order: 5; }
+  .cross-sell-card { order: 6; }
+  .report-locked-state { display: grid; place-items: center; gap: .5rem; min-height: 7rem; color: var(--color-on-surface-variant); text-align: center; }
+  .report-locked-state .material-symbols-outlined { color: #f59e0b; }
+  .image-create-button { margin-top: 1rem; }
+  .report-confirm-dialog { width: min(28rem, calc(100% - 2rem)); padding: 0; color: var(--color-on-surface); background: var(--color-surface-container-high); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / .45); }
+  .report-confirm-dialog::backdrop { background: rgb(0 0 0 / .64); backdrop-filter: blur(4px); }
+  .report-confirm-content { position: relative; padding: 1.5rem; }
+  .report-confirm-close { position: absolute; top: .75rem; right: .9rem; border: 0; color: var(--color-on-surface-variant); background: transparent; font-size: 1.5rem; cursor: pointer; }
+  .report-confirm-icon { color: #f59e0b; font-size: 2rem; }
+  .report-confirm-eyebrow { margin: .75rem 0 .25rem; color: #f59e0b; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+  .report-confirm-content h2 { margin: 0; font-size: 1.25rem; }
+  .report-confirm-content > p { color: var(--color-on-surface-variant); }
+  .report-confirm-cost { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; padding: .8rem 1rem; color: #fbbf24; background: rgb(245 158 11 / .1); border: 1px solid rgb(245 158 11 / .25); border-radius: .65rem; font-weight: 700; }
+  .report-confirm-note { font-size: .82rem; }
+  .report-confirm-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
   .clinic-mark {
     display: grid;
     place-items: center;
@@ -1055,6 +1117,7 @@ try {
   const lang = (wrap?.dataset.lang ?? 'vi') as 'vi' | 'en';
   const planStatusInit = wrap?.dataset.planStatus ?? 'pending';
   const analysisStatusInit = wrap?.dataset.analysisStatus ?? 'pending';
+  const reportTokenBudget = Number({reportTokenBudget});
 
   // ── Polling ───────────────────────────────────────────────────────
   let pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -1250,12 +1313,77 @@ try {
     }
   }
 
+  const confirmDialog = document.getElementById('report-confirm-dialog') as HTMLDialogElement | null;
+  const confirmTitle = document.getElementById('report-confirm-title');
+  const confirmDescription = document.getElementById('report-confirm-description');
+  const confirmTokens = document.getElementById('report-confirm-tokens');
+  const confirmAccept = document.getElementById('report-confirm-accept');
+  let pendingConfirmation: (() => void) | null = null;
+
+  function requestConfirmation(
+    title: string,
+    description: string,
+    cost: string,
+    action: () => void,
+  ) {
+    if (!confirmDialog || !confirmTitle || !confirmDescription || !confirmTokens || !confirmAccept) return action();
+    pendingConfirmation = action;
+    confirmTitle.textContent = title;
+    confirmDescription.textContent = description;
+    confirmTokens.textContent = cost;
+    confirmDialog.showModal();
+  }
+
+  confirmAccept?.addEventListener('click', () => {
+    const action = pendingConfirmation;
+    pendingConfirmation = null;
+    confirmDialog?.close();
+    action?.();
+  });
+
+  async function createReportImage(type: 'analysis' | 'plan') {
+    try {
+      const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      window.location.reload();
+    } catch (error) {
+      window.showToast?.(error instanceof Error ? error.message : String(error), 'error');
+    }
+  }
+
   // ── Button bindings ─────────────────────────────────────────────
-  document.getElementById('btn-run-plan')?.addEventListener('click', () => triggerAi('plan'));
-  document.getElementById('btn-retry-plan')?.addEventListener('click', () => triggerAi('plan'));
-  document.getElementById('btn-retry-running-plan')?.addEventListener('click', () => triggerAi('plan'));
-  document.getElementById('btn-run-analysis')?.addEventListener('click', () => triggerAi('analysis'));
-  document.getElementById('btn-retry-analysis')?.addEventListener('click', () => triggerAi('analysis'));
+  const requestReport = (type: 'analysis' | 'plan') => requestConfirmation(
+    type === 'analysis'
+      ? (lang === 'vi' ? 'Tạo Bản soi chiếu hệ thống' : 'Create System Illumination')
+      : (lang === 'vi' ? 'Tạo Kế hoạch 30 ngày' : 'Create 30-day plan'),
+    type === 'analysis'
+      ? (lang === 'vi' ? 'AI sẽ phân tích kết quả Scanner của bạn trước khi mở bước lập kế hoạch.' : 'AI will analyze your Scanner results before the planning step is unlocked.')
+      : (lang === 'vi' ? 'AI sẽ chuyển các phát hiện từ Bản soi chiếu thành hành động ưu tiên trong 30 ngày.' : 'AI will turn System Illumination findings into prioritized 30-day actions.'),
+    lang === 'vi' ? `Tối đa ${reportTokenBudget.toLocaleString('vi-VN')} token đầu ra` : `Up to ${reportTokenBudget.toLocaleString('en-US')} output tokens`,
+    () => triggerAi(type),
+  );
+  document.getElementById('btn-run-plan')?.addEventListener('click', () => requestReport('plan'));
+  document.getElementById('btn-retry-plan')?.addEventListener('click', () => requestReport('plan'));
+  document.getElementById('btn-retry-running-plan')?.addEventListener('click', () => requestReport('plan'));
+  document.getElementById('btn-run-analysis')?.addEventListener('click', () => requestReport('analysis'));
+  document.getElementById('btn-retry-analysis')?.addEventListener('click', () => requestReport('analysis'));
+  document.querySelectorAll<HTMLButtonElement>('[data-image-type]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const type = button.dataset.imageType as 'analysis' | 'plan';
+      requestConfirmation(
+        lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration',
+        lang === 'vi' ? 'GPT Image 2 sẽ tạo một ảnh minh họa dọc khổ A4 cho báo cáo đã hoàn tất.' : 'GPT Image 2 will create a portrait A4 illustration for the completed report.',
+        lang === 'vi' ? 'Kích thước dọc A4 · không dùng token báo cáo' : 'Portrait A4 size · report tokens are not used',
+        () => createReportImage(type),
+      );
+    });
+  });
 
   // ── Plan copy ─────────────────────────────────────────────────────
   const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;
@@ -1284,7 +1412,7 @@ try {
 
   // ── Initial UI state from server status ─────────────────────────
   // Plan
-  if (planStatusInit === 'running') {
+   if (planStatusInit === 'queued' || planStatusInit === 'running') {
     document.getElementById('plan-cta')?.classList.add('hidden');
     document.getElementById('plan-loading')?.classList.remove('hidden');
     const planStatus = document.getElementById('plan-status');
@@ -1297,7 +1425,7 @@ try {
     document.getElementById('plan-error')?.classList.remove('hidden');
   }
   // Analysis (unlocked section)
-  if (analysisStatusInit === 'running') {
+   if (analysisStatusInit === 'queued' || analysisStatusInit === 'running') {
     document.getElementById('analysis-cta')?.classList.add('hidden');
     document.getElementById('analysis-loading')?.classList.remove('hidden');
     pollForResult();

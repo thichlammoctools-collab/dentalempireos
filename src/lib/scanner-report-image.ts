@@ -12,7 +12,7 @@ function buildImagePrompt(
   const totalScore = Math.round(parseScores(response.scores_json).total ?? 0);
   const reportLabel = type === 'analysis' ? 'system diagnostic' : '30-day execution roadmap';
 
-  return `Create a premium editorial illustration for a Vietnamese dental clinic management ${reportLabel}. Theme: ${surveyTitle}. Overall maturity score: ${totalScore}/100. Show an abstract modern dental clinic operations system: calm clinical architecture, coordinated team workflow, subtle data visualization, and a forward-looking path of improvement. Deep navy, medical blue, ivory, and restrained warm amber accents. Sophisticated Vietnamese healthcare business aesthetic, high-end annual report cover, clean composition with generous negative space. No text, letters, numbers, logos, watermarks, people portraits, patient imagery, identifiable clinic details, or dental procedures.`;
+  return `Create a premium portrait editorial illustration for an A4 Vietnamese dental clinic management ${reportLabel}. Theme: ${surveyTitle}. Overall maturity score: ${totalScore}/100. Show an abstract modern dental clinic operations system: calm clinical architecture, coordinated team workflow, subtle data visualization, and a forward-looking path of improvement. Deep navy, medical blue, ivory, and restrained warm amber accents. Sophisticated Vietnamese healthcare business aesthetic, high-end annual report cover, clean composition with generous negative space. No text, letters, numbers, logos, watermarks, people portraits, patient imagery, identifiable clinic details, or dental procedures.`;
 }
 
 /**

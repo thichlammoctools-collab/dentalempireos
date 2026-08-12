@@ -1,6 +1,4 @@
 import { runAiAnalysis, runPlanAnalysis, type ScannerAiRunResult } from './scanner-ai';
-import { getScannerResponse } from './scanner-response-db';
-import { getSurveyDefinitionFull } from './survey-config-db';
 import { generateQueuedScannerReportImage } from './scanner-report-image';
 
 export type ScannerAiJobType = 'analysis' | 'plan';
@@ -40,12 +38,6 @@ export async function processScannerAiQueueMessage(
       : await runPlanAnalysis(env.DB, message.responseId, message.userId, message.runId);
     if (!runResult.completed) return runResult;
 
-    const response = await getScannerResponse(env.DB, message.responseId);
-    const definition = response && await getSurveyDefinitionFull(env.DB, response.survey_id);
-    const reportText = message.jobType === 'analysis' ? response?.ai_analysis : response?.ai_plan;
-    if (response && definition && reportText?.trim()) {
-      await generateQueuedScannerReportImage(env, response, definition.definition.title_vi, message.jobType);
-    }
     return { completed: true, retryable: false };
   } catch (error) {
     // Network/provider failures can be retried by Cloudflare Queues. The

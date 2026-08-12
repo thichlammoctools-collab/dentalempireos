@@ -95,7 +95,8 @@ export async function generateOpenAiImage(
     body: JSON.stringify({
       model: 'gpt-image-2',
       prompt,
-      size: '1536x1024',
+      // Closest supported portrait ratio to an A4 report page (210 × 297).
+      size: '1024x1536',
       quality: 'medium',
       output_format: 'png',
     }),

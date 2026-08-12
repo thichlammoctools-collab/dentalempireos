@@ -6,7 +6,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { isAiEnabled } from '../../../../lib/ai-settings-db';
-import { getScannerResponse, updateAiAnalysisStatus, updateAiPlanStatus } from '../../../../lib/scanner-response-db';
+import { getScannerResponse, updateAiAnalysisStatus } from '../../../../lib/scanner-response-db';
 import { enqueueScannerAiJob } from '../../../../lib/ai-operations';
 import { getScannerAiQueue } from '../../../../lib/scanner-ai-queue';
 
@@ -36,20 +36,15 @@ export const POST: APIRoute = async ({ url, locals }) => {
     return json({ error: 'AI is not enabled. Please configure AI settings first.' }, 400);
   }
 
-  const jobs = await Promise.all((['analysis', 'plan'] as const).map(async (jobType) => {
-    const job = await enqueueScannerAiJob(env.DB, id, jobType);
-    if (!job.queued) return { type: jobType, queued: false };
-    await (jobType === 'analysis'
-      ? updateAiAnalysisStatus(env.DB, id, 'queued')
-      : updateAiPlanStatus(env.DB, id, 'queued'));
-    await getScannerAiQueue(env, jobType).send({
-      responseId: id,
-      jobType,
-      runId: job.runId,
-       userId,
-    });
-    return { type: jobType, queued: true, runId: job.runId };
-  }));
+  const job = await enqueueScannerAiJob(env.DB, id, 'analysis');
+  if (!job.queued) return json({ error: 'Bản soi chiếu đang được tạo.' }, 409);
+  await updateAiAnalysisStatus(env.DB, id, 'queued');
+  await getScannerAiQueue(env, 'analysis').send({
+    responseId: id,
+    jobType: 'analysis',
+    runId: job.runId,
+    userId,
+  });
 
-  return json({ success: true, queued: true, jobs }, 202);
+  return json({ success: true, queued: true, job: { type: 'analysis', runId: job.runId } }, 202);
 };

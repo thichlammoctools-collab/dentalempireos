@@ -1,6 +1,6 @@
 // API: Queue AI analysis/plan generation on-demand (click-to-run).
 // POST /api/scanner/run-ai
-// Body: { response_id: number, type: 'analysis' | 'plan' | 'all' }
+// Body: { response_id: number, type: 'analysis' | 'plan' }
 // Requires auth — returns 401 if not logged in.
 // Cloudflare Queues runs the work durably; the client polls D1 for progress.
 
@@ -26,12 +26,10 @@ export const POST: APIRoute = async (ctx) => {
     return badRequest('response_id is required');
   }
 
-  const type: 'analysis' | 'plan' | 'all' = body.type === 'analysis' || body.type === 'plan' || body.type === 'all'
+  const type: 'analysis' | 'plan' | null = body.type === 'analysis' || body.type === 'plan'
     ? body.type
-    : 'all';
-  if (!['analysis', 'plan', 'all'].includes(type)) {
-    return badRequest('type must be "analysis", "plan", or "all"');
-  }
+    : null;
+  if (!type) return badRequest('type must be "analysis" or "plan"');
 
   // Auth check
   const auth = createAuth(env);
@@ -55,50 +53,40 @@ export const POST: APIRoute = async (ctx) => {
      return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);
   }
 
-  const jobTypes: Array<'analysis' | 'plan'> = type === 'all' ? ['analysis', 'plan'] : [type];
-  for (const jobType of jobTypes) {
-    if (await isScannerAiJobRunning(env.DB, responseId, jobType)) {
-      return json({ error: 'Báo cáo AI này đang được tạo. Vui lòng chờ kết quả hiện tại.' }, 409);
-    }
+  if (type === 'plan' && !response.ai_analysis?.trim()) {
+    return json({ error: 'Hoàn tất Bản soi chiếu hệ thống trước khi tạo Kế hoạch 30 ngày.' }, 409);
+  }
+  if (await isScannerAiJobRunning(env.DB, responseId, type)) {
+    return json({ error: 'Báo cáo AI này đang được tạo. Vui lòng chờ kết quả hiện tại.' }, 409);
   }
 
-  const quotaFeatures = type === 'all' ? ['scanner_analysis', 'scanner_plan'] as const : [type === 'analysis' ? 'scanner_analysis' : 'scanner_plan'] as const;
-  for (const feature of quotaFeatures) {
-    const quota = await reserveAiQuota(env.DB, session.user.id, feature);
-    if (!quota.allowed) return json({ error: 'Bạn đã đạt giới hạn tạo báo cáo AI trong giờ này.', quota }, 429);
-  }
+  const feature = type === 'analysis' ? 'scanner_analysis' : 'scanner_plan';
+  const quota = await reserveAiQuota(env.DB, session.user.id, feature);
+  if (!quota.allowed) return json({ error: 'Bạn đã đạt giới hạn tạo báo cáo AI trong giờ này.', quota }, 429);
 
-  const queuedJobs: Array<{ type: 'analysis' | 'plan'; runId: string }> = [];
-  for (const jobType of jobTypes) {
-    const job = await enqueueScannerAiJob(env.DB, responseId, jobType);
-    if (!job.queued) {
-      return json({ error: 'Báo cáo AI này đang được tạo. Vui lòng chờ kết quả hiện tại.' }, 409);
-    }
-    queuedJobs.push({ type: jobType, runId: job.runId });
+  const job = await enqueueScannerAiJob(env.DB, responseId, type);
+  if (!job.queued) {
+    return json({ error: 'Báo cáo AI này đang được tạo. Vui lòng chờ kết quả hiện tại.' }, 409);
   }
 
   try {
-    await Promise.all(queuedJobs.map(async (job) => {
-      await (job.type === 'analysis'
-        ? updateAiAnalysisStatus(env.DB, responseId, 'queued')
-        : updateAiPlanStatus(env.DB, responseId, 'queued'));
-      await getScannerAiQueue(env, job.type).send({
-        responseId,
-        jobType: job.type,
-        runId: job.runId,
-        userId: session.user.id,
-      });
-    }));
+    await (type === 'analysis'
+      ? updateAiAnalysisStatus(env.DB, responseId, 'queued')
+      : updateAiPlanStatus(env.DB, responseId, 'queued'));
+    await getScannerAiQueue(env, type).send({
+      responseId,
+      jobType: type,
+      runId: job.runId,
+      userId: session.user.id,
+    });
   } catch (error) {
     console.error('[run-ai] Queue dispatch failed:', error);
-    await Promise.all(queuedJobs.flatMap((job) => [
-      finishScannerAiJob(env.DB, responseId, job.type, job.runId, 'failed', 'Queue dispatch failed'),
-      job.type === 'analysis'
-        ? updateAiAnalysisStatus(env.DB, responseId, 'failed')
-        : updateAiPlanStatus(env.DB, responseId, 'failed'),
-    ]));
+    await finishScannerAiJob(env.DB, responseId, type, job.runId, 'failed', 'Queue dispatch failed');
+    await (type === 'analysis'
+      ? updateAiAnalysisStatus(env.DB, responseId, 'failed')
+      : updateAiPlanStatus(env.DB, responseId, 'failed'));
     return json({ error: 'Không thể xếp hàng tạo báo cáo AI. Vui lòng thử lại.' }, 503);
   }
 
-  return json({ queued: true, type, jobs: queuedJobs }, 202);
+  return json({ queued: true, type, job: { type, runId: job.runId } }, 202);
 };
