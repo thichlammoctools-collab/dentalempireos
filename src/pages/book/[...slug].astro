@@ -111,6 +111,7 @@ const freePreviewLastIndex = !ch.free_until_section_id
   ? -1
   : sections.findIndex((section) => section.id === ch.free_until_section_id);
 const hasFreePreview = freePreviewLastIndex >= 0;
+const freePreviewSectionTitle = hasFreePreview ? sections[freePreviewLastIndex].title : null;
 
 // ── Helpers (move outside handler for cache reuse) ─────────────────────────────────
 function flattenSections(
@@ -181,27 +182,16 @@ function renderSection(
 ): string {
   if (previewState?.exhausted) return '';
 
+  if (!accessible) {
+    // The configured preview ends before this section; do not expose its heading or content.
+    if (previewState) previewState.exhausted = true;
+    return `<div class="paywall-marker" data-paywall="true"></div>`;
+  }
+
   const tag = s.level <= 2 ? 'h2' : s.level === 3 ? 'h3' : s.level === 4 ? 'h4' : 'h5';
   let html = `<${tag} id="${s.slug}" class="section-heading">${sectionNumber ? `<span class="section-number">${sectionNumber}</span>` : ''}${s.title}</${tag}>`;
 
   for (const block of s.blocks) {
-    if (!accessible) {
-      // Render only first block as preview, then add paywall marker
-      if (block.type === 'text' && block.text_md) {
-        const previewText = block.text_md.slice(0, 200);
-        html += renderMarkdown(previewText);
-        if (block.text_md.length > 200) html += '...';
-      } else if (block.type === 'image' && block.r2_key) {
-        html += `<div class="my-6 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/10 p-4 text-on-surface-variant">
-          <span class="material-symbols-outlined text-primary">lock</span>
-          <p class="m-0 text-sm">Hình minh họa này thuộc phần nội dung chuyên sâu. Mở khóa chương để xem đầy đủ.</p>
-        </div>`;
-      }
-      // Marks the end of the server-rendered preview without duplicating an element ID.
-      html += `<div class="paywall-marker" data-paywall="true"></div>`;
-      if (previewState) previewState.exhausted = true;
-      break; // Stop rendering more blocks
-    }
     if (block.type === 'text' && block.text_md) {
       html += renderMarkdown(block.text_md);
     } else if (block.type === 'image' && block.r2_key) {
@@ -363,6 +353,13 @@ const sectionNavItems = flattenSections(sections);
     chapterNo={ch.chapter_no}
   />
 
+
+  {isPremiumChapter && !userHasAccess && freePreviewSectionTitle ? (
+    <aside class="mb-6 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-on-surface" aria-label="Phần đọc thử miễn phí">
+      <span class="material-symbols-outlined mt-0.5 text-primary">visibility</span>
+      <p class="m-0 leading-6">Đọc miễn phí đến: <strong>{freePreviewSectionTitle}</strong></p>
+    </aside>
+  ) : null}
 
   <!-- Chapter Content -->
   <div class="prose prose-figure:my-6 max-w-none reader-content" id="reader-content" set:html={strippedContent} />

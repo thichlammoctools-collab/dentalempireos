@@ -11,7 +11,7 @@ interface BookMediaAccess {
 }
 
 
-async function canAccessBookMedia(key: string, userId?: string): Promise<boolean> {
+async function canAccessBookMedia(key: string, userId?: string): Promise<boolean | null> {
   const block = await env.DB
     .prepare(
       `SELECT c."is_premium", c."id" AS chapter_id
@@ -24,28 +24,34 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .bind(key)
     .first<BookMediaAccess>();
 
-  // Free chapters and their media are public. Premium chapter media requires a
-  // signed-in member; book media never requires a Credits grant.
-  if (!block) return true;
+  // Null means this key is not book media. Free chapters and every block within
+  // them are public; premium chapter media follows the existing member policy.
+  if (!block) return null;
   return canAccessBook(env.DB, userId, block.chapter_id);
 }
 
-async function canAccessResourceMedia(key: string, userId?: string): Promise<boolean> {
+async function canAccessResourceMedia(key: string, userId?: string): Promise<boolean | null> {
   const resource = await env.DB
     .prepare('SELECT "id" FROM "resource" WHERE "file_url" = ? OR "file_url" = ? LIMIT 1')
     .bind(key, `/media/${key}`)
     .first<{ id: string }>();
 
-  // A media key that is not assigned to a resource retains its existing access behavior.
-  return !resource || canAccessResource(env.DB, userId, resource.id);
+  // Null means this key is not a managed resource.
+  if (!resource) return null;
+  return canAccessResource(env.DB, userId, resource.id);
 }
 
 async function canAccessMedia(key: string, userId?: string): Promise<boolean> {
-  const [hasBookAccess, hasResourceAccess] = await Promise.all([
+  const accessChecks = await Promise.all([
     canAccessBookMedia(key, userId),
     canAccessResourceMedia(key, userId),
   ]);
-  return hasBookAccess && hasResourceAccess;
+  const applicableChecks = accessChecks.filter((hasAccess): hasAccess is boolean => hasAccess !== null);
+
+  // A file may be referenced by more than one content type. It is public when
+  // any assigned parent is public; deny it only when every known parent denies
+  // access. Preserve the existing public behavior for unassigned R2 keys.
+  return applicableChecks.length === 0 || applicableChecks.some(Boolean);
 }
 
 // GET /media/[...key] — serve file from R2 with caching

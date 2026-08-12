@@ -43,9 +43,7 @@ const tiers = [1, 2, 3];
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tierChapters.map((ch) => (
                 <a
-                  href={ch.is_premium === 1 && !Astro.locals.user
-                    ? `/login?redirect=${encodeURIComponent(`/book/${ch.id}`)}`
-                    : `/book/${ch.id}`}
+                  href={`/book/${ch.id}`}
                   class="group p-6 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant hover:border-primary/50 transition-all duration-300"
                 >
                   <div class="flex items-start justify-between">
@@ -53,7 +51,7 @@ const tiers = [1, 2, 3];
                       <div class="flex items-center gap-2 mb-1">
                         <p class="text-xs text-on-surface-variant">Chương {ch.chapter_no}</p>
                         {ch.is_premium === 1 && !Astro.locals.user && (
-                          <span class="material-symbols-outlined text-primary text-[14px]" title="Đăng nhập để đọc">lock</span>
+                          <span class="material-symbols-outlined text-primary text-[14px]" title={ch.free_until_section_id ? 'Có phần đọc thử miễn phí' : 'Đăng nhập để đọc toàn bộ'}>lock</span>
                         )}
                       </div>
                       <h3 class="font-bold text-on-surface group-hover:text-primary transition-colors">{ch.title}</h3>
