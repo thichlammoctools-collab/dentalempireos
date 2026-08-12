@@ -51,7 +51,6 @@ export const adminNav: AdminNavSection[] = [
     items: [
       { href: '/admin/credits',          label: 'Credits',          icon: 'account_balance_wallet', match: '/admin/credits' },
       { href: '/admin/credits/orders',   label: 'Đơn nạp Credits',  icon: 'receipt_long',           match: '/admin/credits/orders' },
-      { href: '/admin/orders',           label: 'Đơn hàng',         icon: 'receipt_long',        match: '/admin/orders' },
       { href: '/admin/settings/payos',   label: 'Cổng thanh toán',  icon: 'payment',             match: '/admin/settings/payos' },
       { href: '/admin/settings/support', label: 'Ủng hộ tác giả',   icon: 'volunteer_activism',  match: '/admin/settings/support' },
     ],

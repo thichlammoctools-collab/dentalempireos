@@ -8,7 +8,7 @@ import { getResource } from '../../../lib/resource-db';
 
 export const prerender = false;
 
-type ContentType = 'book' | 'blog' | 'course' | 'resource';
+type ContentType = 'blog' | 'course' | 'resource';
 
 function asInteger(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   } | null;
   const contentType = body?.content_type;
   const contentId = typeof body?.content_id === 'string' ? body.content_id.trim() : '';
-  if (contentType !== 'book' && contentType !== 'blog' && contentType !== 'course' && contentType !== 'resource') {
+  if (contentType !== 'blog' && contentType !== 'course' && contentType !== 'resource') {
     return badRequest('content_type không hợp lệ');
   }
   if (!contentId) return badRequest('content_id là bắt buộc');
@@ -34,14 +34,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   let durationDays: number | undefined;
   let pricingRule: Awaited<ReturnType<typeof getActiveCreditPricingRule>> = null;
 
-  if (contentType === 'book') {
-    const chapter = await env.DB.prepare('SELECT "is_premium" FROM "chapter" WHERE "id" = ?').bind(contentId).first<{ is_premium: number }>();
-    if (!chapter || chapter.is_premium !== 1) return json({ error: 'Chương Premium không tồn tại.' }, 404);
-    durationDays = asInteger(body?.days) ?? undefined;
-    if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
-    canonicalContentId = '*';
-    credits = durationDays;
-  } else if (contentType === 'blog') {
+  if (contentType === 'blog') {
     const post = await getPostById(env.DB, contentId);
     if (!post || post.access_tier !== 'premium') return json({ error: 'Bài viết Premium không tồn tại.' }, 404);
     durationDays = asInteger(body?.days) ?? undefined;

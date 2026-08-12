@@ -1,6 +1,5 @@
 import { getPostById } from './blog-db';
 import { getCourse } from './course-db';
-import { hasActiveEntitlementForContent } from './entitlement-db';
 import { hasUserContentGrant } from './credit-db';
 import { getResource } from './resource-db';
 import { getSurveyDefinitionById } from './survey-config-db';
@@ -37,10 +36,9 @@ export async function canAccessBook(
     .first<{ is_premium: number }>();
 
   if (!chapter) return false;
-  if (chapter.is_premium !== 1) return true;
-  if (!userId) return false;
-
-  return hasUserContentGrant(db, userId, 'book', '*');
+  // Free chapters are public. Chapters marked premium require only a signed-in
+  // member account; book reading never consumes or depends on Credits.
+  return chapter.is_premium !== 1 || Boolean(userId);
 }
 
 export async function canAccessScanner(

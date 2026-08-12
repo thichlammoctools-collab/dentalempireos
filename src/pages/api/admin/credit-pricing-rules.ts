@@ -42,7 +42,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (creditAmount === undefined || tokensPerCredit === undefined || minutesPerCredit === undefined || maxTokens === undefined || isActive === null) {
     return badRequest('Pricing values must be positive integers');
   }
-  if (!['scanner', 'ai', 'course', 'resource', 'book', 'blog', 'consultation'].includes(featureType)) {
+  if (!['scanner', 'course', 'resource', 'blog'].includes(featureType)) {
     return badRequest('feature_type không hợp lệ');
   }
   if (featureType === 'ai') {

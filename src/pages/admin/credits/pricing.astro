@@ -6,7 +6,9 @@ import { listSurveyDefinitions } from '../../../lib/survey-config-db';
 export const prerender = false;
 
 const [rulesResult, scanners] = await Promise.all([
-  env.DB.prepare('SELECT * FROM "credit_pricing_rule" ORDER BY "feature_type", "target_id", "rule_version" DESC').all<{
+  env.DB.prepare(`SELECT * FROM "credit_pricing_rule"
+    WHERE "feature_type" IN ('scanner', 'course', 'resource', 'blog')
+    ORDER BY "feature_type", "target_id", "rule_version" DESC`).all<{
     id: string; feature_type: string; target_id: string; model: string; credit_amount: number | null; tokens_per_credit: number | null; minutes_per_credit: number | null; max_tokens: number | null; is_active: number; rule_version: number;
   }>(),
   listSurveyDefinitions(env.DB, { status: 'active' }),
@@ -15,12 +17,9 @@ const rules = rulesResult.results ?? [];
 
 const featureLabels: Record<string, string> = {
   scanner: 'Scanner',
-  ai: 'AI',
   course: 'Khóa học',
   resource: 'Tài liệu',
-  book: 'Sách',
   blog: 'Blog',
-  consultation: 'Tư vấn',
 };
 ---
 
@@ -82,14 +81,11 @@ const featureLabels: Record<string, string> = {
               data-feature-type={rule.feature_type}
               data-target-id={rule.target_id}
               data-credit-amount={rule.credit_amount ?? ''}
-              data-tokens-per-credit={rule.tokens_per_credit ?? ''}
-              data-minutes-per-credit={rule.minutes_per_credit ?? ''}
-              data-max-tokens={rule.max_tokens ?? ''}
               data-is-active={rule.is_active}
             >
               <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <span class="material-symbols-outlined text-base text-primary">
-                  {rule.feature_type === 'scanner' ? 'analytics' : rule.feature_type === 'ai' ? 'psychology' : rule.feature_type === 'course' ? 'school' : rule.feature_type === 'resource' ? 'description' : rule.feature_type === 'book' ? 'menu_book' : rule.feature_type === 'blog' ? 'article' : 'support_agent'}
+                  {rule.feature_type === 'scanner' ? 'analytics' : rule.feature_type === 'course' ? 'school' : rule.feature_type === 'resource' ? 'description' : 'article'}
                 </span>
               </div>
               <div class="flex-1 min-w-0">
@@ -150,12 +146,9 @@ const featureLabels: Record<string, string> = {
           Tính năng
           <select name="feature_type" id="rule-feature-type" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface">
             <option value="scanner">Scanner</option>
-            <option value="ai">AI</option>
             <option value="course">Khóa học</option>
             <option value="resource">Tài liệu</option>
-            <option value="book">Sách</option>
             <option value="blog">Blog</option>
-            <option value="consultation">Tư vấn</option>
           </select>
         </label>
 
@@ -175,23 +168,6 @@ const featureLabels: Record<string, string> = {
           <span id="credit-amount-help" class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu...</span>
         </label>
 
-        <label id="tokens-per-credit-field" class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
-          Tokens đổi 1 Credit (AI)
-          <input name="tokens_per_credit" id="rule-tokens-per-credit" min="1" type="number" placeholder="Ví dụ: 1000" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
-          <span class="text-xs font-normal text-on-surface-variant">Chỉ cho AI. 1.000 tokens = 1 Credit.</span>
-        </label>
-
-        <label id="minutes-per-credit-field" class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
-          Phút đổi 1 Credit (Tư vấn)
-          <input name="minutes_per_credit" id="rule-minutes-per-credit" min="1" type="number" value="1" readonly class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
-          <span class="text-xs font-normal text-on-surface-variant">Cố định: 1 Credit = 1 phút tư vấn.</span>
-        </label>
-
-        <label id="max-tokens-field" class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
-          Giới hạn tokens mỗi lần dùng
-          <input name="max_tokens" id="rule-max-tokens" min="1" type="number" placeholder="Ví dụ: 8000" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
-          <span class="text-xs font-normal text-on-surface-variant">Tùy chọn cho AI. Để trống nếu không cần.</span>
-        </label>
 
         <p id="rule-pricing-guide" class="rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-on-surface">
           <span class="font-bold">Scanner:</span> đặt số Credits dùng cho mỗi lượt sau 3 lượt miễn phí.
@@ -208,35 +184,17 @@ const featureLabels: Record<string, string> = {
     const guideEl = document.getElementById('rule-pricing-guide');
     const guides: Record<string, string> = {
       scanner: '<span class="font-bold">Scanner:</span> đặt số Credits dùng cho mỗi lượt sau <strong>3 lượt miễn phí</strong>.',
-      ai: '<span class="font-bold">AI:</span> điền Tokens đổi 1 Credit, ví dụ <strong>1.000 tokens = 1 Credit</strong>.',
-      consultation: '<span class="font-bold">Tư vấn:</span> cố định <strong>1 Credit = 1 phút</strong> tư vấn.',
       course: '<span class="font-bold">Khóa học:</span> cố định <strong>1 Credit = 1 ngày</strong> sử dụng.',
       resource: '<span class="font-bold">Tài liệu:</span> điền Giá cố định, ví dụ <strong>3 Credits</strong> để tải.',
-      book: '<span class="font-bold">Sách:</span> cố định <strong>1 Credit = 1 ngày</strong> đọc sách.',
       blog: '<span class="font-bold">Blog:</span> cố định <strong>1 Credit = 1 ngày</strong> sử dụng.',
     };
     const updateGuide = () => {
       const featureType = form?.elements.namedItem('feature_type');
       const ft = featureType instanceof HTMLSelectElement ? featureType.value : 'scanner';
       if (guideEl) guideEl.innerHTML = guides[ft];
-      const creditField = document.getElementById('credit-amount-field')!;
-      const tokenField = document.getElementById('tokens-per-credit-field')!;
-      const minuteField = document.getElementById('minutes-per-credit-field')!;
-      const maxTokenField = document.getElementById('max-tokens-field')!;
-      const creditInput = document.getElementById('rule-credit-amount') as HTMLInputElement;
-      const minuteInput = document.getElementById('rule-minutes-per-credit') as HTMLInputElement;
-      const isAI = ft === 'ai';
-      const isConsultation = ft === 'consultation';
-
-      creditField.classList.toggle('hidden', isAI || isConsultation);
-      tokenField.classList.toggle('hidden', !isAI);
-      maxTokenField.classList.toggle('hidden', !isAI);
-      minuteField.classList.toggle('hidden', !isConsultation);
-      creditInput.readOnly = false;
       document.getElementById('credit-amount-help')!.textContent = ft === 'scanner'
         ? 'Số Credits trừ cho mỗi lượt sau 3 lượt miễn phí.'
         : 'Nhập số Credits áp dụng cho mỗi lần sử dụng.';
-      if (isConsultation) minuteInput.value = '1';
     };
     form?.addEventListener('change', updateGuide);
     updateGuide();
@@ -295,9 +253,6 @@ const featureLabels: Record<string, string> = {
         featureTypeInput.value = el.dataset.featureType!;
         (document.getElementById('rule-target-id') as HTMLInputElement).value = el.dataset.targetId!;
         (document.getElementById('rule-credit-amount') as HTMLInputElement).value = el.dataset.creditAmount!;
-        (document.getElementById('rule-tokens-per-credit') as HTMLInputElement).value = el.dataset.tokensPerCredit!;
-        (document.getElementById('rule-minutes-per-credit') as HTMLInputElement).value = el.dataset.minutesPerCredit!;
-        (document.getElementById('rule-max-tokens') as HTMLInputElement).value = el.dataset.maxTokens!;
         formTitle.textContent = 'Chỉnh sửa rule';
         formSubtitle.textContent = `Đang sửa: ${el.dataset.featureType} · ${el.dataset.targetId}`;
         submitBtn.textContent = 'Cập nhật rule';

@@ -9,7 +9,6 @@ import KeywordAutoLink from '../../components/book/KeywordAutoLink.astro';
 import DonateWidget from '../../components/book/DonateWidget.astro';
 
 import { canAccessBook } from '../../lib/entitlement-check';
-import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
 
 // Configure marked ONCE at module level (persists across requests within the same isolate)
 marked.use({ breaks: true });
@@ -20,9 +19,6 @@ const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/book');
 
 const currentUser = Astro.locals.user;
-if (!currentUser) {
-  return Astro.redirect(`/login?redirect=${encodeURIComponent(`/book/${slug}`)}`);
-}
 
 const db = env.DB;
 
@@ -55,21 +51,19 @@ const { chapter: ch, sections } = tree;
 
 const isPremiumChapter = ch.is_premium === 1;
 
-// ── Book paywall: direct user grants unlock premium chapters.
+// ── Book policy: free chapters are public; every signed-in member reads all chapters.
 let userHasAccess = false;
 
 try {
-  if (currentUser) {
-    userHasAccess = await canAccessBook(db, currentUser.id, ch.id);
-  }
+  userHasAccess = await canAccessBook(db, currentUser?.id, ch.id);
 } catch {
-  // Gracefully degrade if entitlement tables are unavailable.
+  // Only a free chapter may remain readable if the access lookup is unavailable.
+  userHasAccess = ch.is_premium !== 1;
 }
 
-// The reader response varies by the viewer's entitlement. Never let an unlocked
-// render be reused for a visitor who has not purchased the book.
-Astro.response.headers.set('Cache-Control', 'private, no-store, max-age=0');
-Astro.response.headers.set('Vary', 'Cookie');
+// Premium chapters vary by member session; free chapters are public.
+Astro.response.headers.set('Cache-Control', isPremiumChapter ? 'private, no-store, max-age=0' : 'public, max-age=60');
+if (isPremiumChapter) Astro.response.headers.set('Vary', 'Cookie');
 
 const groupedByTier = [1, 2, 3].map((tier) => ({
   tier,
@@ -290,8 +284,8 @@ function renderSection(
 }
 
 // ── Cache lookup (chapter content rendering is the expensive part) ───────────────
-// Never share a rendered premium chapter between an entitled and a locked visitor.
-const readerCacheKey = `${slug}:${isPremiumChapter ? (userHasAccess ? 'unlocked' : 'locked') : 'public'}`;
+// Premium chapters are rendered fully only for signed-in members.
+const readerCacheKey = `${slug}:${isPremiumChapter ? (userHasAccess ? 'member' : 'guest') : 'public'}`;
 const cached = _chapterCache.get(readerCacheKey);
 let strippedContent: string;
 let attachments: AttachmentItem[];
@@ -399,13 +393,12 @@ const sectionNavItems = flattenSections(sections);
         <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary">
           <span class="material-symbols-outlined text-2xl">lock</span>
         </div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">Nội dung chuyên sâu</p>
-        <h2 class="m-0 text-xl font-bold text-white sm:text-2xl">Mở khóa chương này để đọc toàn bộ</h2>
-         <p class="mx-auto mt-3 max-w-lg text-sm leading-6 text-on-surface-variant">Bạn đang xem phần đọc thử của {ch.title}. Dùng Credits để mở quyền đọc Premium theo số ngày bạn cần.</p>
-        <div class="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
-           <ContentRedemptionButton contentType="book" contentId={ch.id} days={30} label="Mở khóa 30 ngày · 30 Credits" />
-         </div>
-         <p class="mt-4 text-xs text-on-surface-variant/70">1 Credit = 1 ngày đọc sách Premium. Gia hạn nối tiếp thời hạn hiện có.</p>
+        <p class="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">Dành cho thành viên</p>
+        <h2 class="m-0 text-xl font-bold text-white sm:text-2xl">Đăng nhập để đọc toàn bộ chương này</h2>
+        <p class="mx-auto mt-3 max-w-lg text-sm leading-6 text-on-surface-variant">Thành viên đã đăng nhập được đọc toàn bộ sách, không cần dùng Credits.</p>
+        <a href={`/login?redirect=${encodeURIComponent(`/book/${slug}`)}`} class="mt-5 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition hover:brightness-110">
+          Đăng nhập để đọc
+        </a>
       </div>
     </section>
   ) : null}

@@ -6,15 +6,15 @@ import { canAccessBook, canAccessResource } from '../../lib/entitlement-check';
 export const prerender = false;
 
 interface BookMediaAccess {
-  is_free: number;
   is_premium: number;
   chapter_id: string;
 }
 
+
 async function canAccessBookMedia(key: string, userId?: string): Promise<boolean> {
   const block = await env.DB
     .prepare(
-      `SELECT s."is_free", c."is_premium", c."id" AS chapter_id
+      `SELECT c."is_premium", c."id" AS chapter_id
        FROM "block" b
        JOIN "section" s ON s."id" = b."section_id"
        JOIN "chapter" c ON c."id" = s."chapter_id"
@@ -24,11 +24,9 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
     .bind(key)
     .first<BookMediaAccess>();
 
-  // Book reading requires a signed-in account, including free chapters. Files
-  // not attached to a book block retain their existing public media behavior.
+  // Free chapters and their media are public. Premium chapter media requires a
+  // signed-in member; book media never requires a Credits grant.
   if (!block) return true;
-  if (!userId) return false;
-  if (block.is_premium !== 1 || block.is_free === 1) return true;
   return canAccessBook(env.DB, userId, block.chapter_id);
 }
 

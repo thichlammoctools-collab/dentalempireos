@@ -132,7 +132,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
             <option value="0" selected={ch.is_premium !== 1}>Miễn phí toàn chương</option>
             <option value="1" selected={ch.is_premium === 1}>Trả phí, có thể cấu hình đọc thử</option>
           </select>
-          <p class="mt-1 text-[11px] leading-relaxed text-on-surface-variant/70">Sản phẩm có quyền “Mở khóa các chương trả phí” sẽ cho phép người mua đọc toàn bộ nội dung chương này.</p>
+          <p class="mt-1 text-[11px] leading-relaxed text-on-surface-variant/70">Chương miễn phí được đọc không cần đăng nhập. Chương trả phí yêu cầu đăng nhập; mọi thành viên đều đọc được toàn bộ sách, không dùng Credits.</p>
         </div>
         <div id="free-preview-field" class={ch.is_premium === 1 ? '' : 'hidden'}>
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Phần đọc thử miễn phí</label>
@@ -142,7 +142,7 @@ const selectedSectionId = flatSections[0]?.id ?? '';
               <option value={section.id} selected={ch.free_until_section_id === section.id}>{index + 1}. {section.title}</option>
             ))}
           </select>
-          <p class="mt-1 text-[11px] leading-relaxed text-on-surface-variant/70">Khách chưa mua vẫn đọc được đến mốc này. Các đề mục sau đó yêu cầu mở khóa; thiết lập này độc lập với sản phẩm thanh toán.</p>
+          <p class="mt-1 text-[11px] leading-relaxed text-on-surface-variant/70">Khách chưa đăng nhập vẫn đọc được đến mốc này. Các đề mục sau đó yêu cầu đăng nhập; thiết lập này không dùng Credits.</p>
         </div>
         <div class="sm:col-span-2">
           <label class="block text-xs font-semibold text-on-surface-variant mb-1">Mô tả</label>
