@@ -17,6 +17,7 @@ declare namespace Cloudflare {
     VECTORIZE?: VectorizeIndex;
     SCANNER_AI_ANALYSIS_QUEUE: Queue<import('./lib/scanner-ai-queue').ScannerAiQueueMessage>;
     SCANNER_AI_PLAN_QUEUE: Queue<import('./lib/scanner-ai-queue').ScannerAiQueueMessage>;
+    SCANNER_REPORT_IMAGE_QUEUE: Queue<import('./lib/scanner-report-image-queue').ScannerReportImageQueueMessage>;
     BETTER_AUTH_SECRET: string;
     BETTER_AUTH_URL: string;
     BETTER_AUTH_API_KEY?: string;

@@ -393,12 +393,11 @@ try {
               <span class="material-symbols-outlined text-base">content_copy</span>
               {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
             </button>
-            {!planImageUrl && (
-              <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="plan">
-                <span class="material-symbols-outlined text-base">image</span>
-                <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
-              </button>
-            )}
+            <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="plan" data-image-ready={planImageUrl ? 'true' : 'false'}>
+              <span class="material-symbols-outlined text-base">image</span>
+              <span data-image-label>{planImageUrl ? (lang === 'vi' ? 'Xem ảnh' : 'View image') : (lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration')}</span>
+            </button>
+
             <a href={`/api/scanner/${id}/pdf?type=plan`} class="btn btn-primary plan-tool-button">
               <span class="material-symbols-outlined text-base">picture_as_pdf</span>
               {lang === 'vi' ? 'Tải PDF kế hoạch' : 'Download plan PDF'}
@@ -503,12 +502,11 @@ try {
                 <span class="material-symbols-outlined text-base">picture_as_pdf</span>
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
               </a>
-              {!analysisImageUrl && (
-                <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="analysis">
-                  <span class="material-symbols-outlined text-base">image</span>
-                  <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
-                </button>
-              )}
+              <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="analysis" data-image-ready={analysisImageUrl ? 'true' : 'false'}>
+                <span class="material-symbols-outlined text-base">image</span>
+                <span data-image-label>{analysisImageUrl ? (lang === 'vi' ? 'Xem ảnh' : 'View image') : (lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration')}</span>
+              </button>
+
             </div>
             {analysisImageUrl && (
               <figure class="report-image">
@@ -602,6 +600,31 @@ try {
     </form>
   </dialog>
 
+  <dialog id="report-image-dialog" class="report-confirm-dialog" aria-labelledby="report-image-dialog-title">
+    <section class="report-confirm-content" aria-live="polite">
+      <button type="button" id="report-image-close" class="report-confirm-close" aria-label={lang === 'vi' ? 'Đóng' : 'Close'}>×</button>
+      <span class="material-symbols-outlined report-confirm-icon">image</span>
+      <p class="report-confirm-eyebrow">AI ILLUSTRATION</p>
+      <h2 id="report-image-dialog-title"></h2>
+      <p id="report-image-dialog-description"></p>
+      <div id="report-image-progress" class="report-image-progress">
+        <span class="material-symbols-outlined">progress_activity</span>
+        <span id="report-image-progress-label"></span>
+      </div>
+      <p id="report-image-dialog-error" class="report-image-error hidden" role="alert"></p>
+      <figure id="report-image-preview" class="report-image report-image-preview hidden">
+        <img id="report-image-preview-image" alt="" />
+      </figure>
+      <div class="report-confirm-actions">
+        <a id="report-image-download" class="btn btn-primary hidden" href="#">
+          <span class="material-symbols-outlined text-base">download</span>
+          {lang === 'vi' ? 'Tải về' : 'Download'}
+        </a>
+        <button type="button" id="report-image-dismiss" class="btn btn-ghost">{lang === 'vi' ? 'Đóng' : 'Close'}</button>
+      </div>
+    </section>
+  </dialog>
+
 </BaseLayout>
 
 <style>
@@ -646,6 +669,13 @@ try {
   .report-confirm-cost { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; padding: .8rem 1rem; color: var(--color-on-tertiary-container); background: var(--color-tertiary-container); border: 1px solid color-mix(in srgb, var(--color-tertiary) 55%, var(--color-outline-variant)); border-radius: .65rem; font-weight: 700; }
   .report-confirm-note { font-size: .82rem; }
   .report-confirm-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
+  .report-image-progress { display: flex; align-items: center; gap: .6rem; margin: 1rem 0; padding: .8rem 1rem; color: var(--color-on-primary-container); background: var(--color-primary-container); border-radius: .65rem; font-weight: 700; }
+  .report-image-progress .material-symbols-outlined { animation: report-image-spin 1.25s linear infinite; }
+  .report-image-error { margin: 1rem 0 0; color: var(--color-error, #ef4444); font-size: .9rem; }
+  .report-image-preview { margin-bottom: 0; }
+  .report-image-preview img { max-height: min(56vh, 46rem); object-fit: contain; background: var(--color-surface-container); }
+  @keyframes report-image-spin { to { transform: rotate(360deg); } }
+
   .clinic-mark {
     display: grid;
     place-items: center;
@@ -1481,45 +1511,184 @@ try {
     action?.();
   });
 
-  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  type ReportImageType = 'analysis' | 'plan';
+  type ReportImageStatus = {
+    status?: 'idle' | 'queued' | 'running' | 'done' | 'failed';
+    configuredCredits?: number | null;
+    credits?: number | null;
+    error?: string;
+  };
+  const imageDialog = document.getElementById('report-image-dialog') as HTMLDialogElement | null;
+  const imageDialogTitle = document.getElementById('report-image-dialog-title');
+  const imageDialogDescription = document.getElementById('report-image-dialog-description');
+  const imageProgress = document.getElementById('report-image-progress');
+  const imageProgressLabel = document.getElementById('report-image-progress-label');
+  const imageError = document.getElementById('report-image-dialog-error');
+  const imagePreview = document.getElementById('report-image-preview');
+  const imagePreviewImage = document.getElementById('report-image-preview-image') as HTMLImageElement | null;
+  const imageDownload = document.getElementById('report-image-download') as HTMLAnchorElement | null;
+  let imagePollTimer: number | null = null;
+  let activeImageType: ReportImageType | null = null;
 
-  async function createReportImage(type: 'analysis' | 'plan', button: HTMLButtonElement) {
-    if (button.disabled || button.getAttribute('aria-busy') === 'true') return;
+  function imageTitle(type: ReportImageType): string {
+    return type === 'analysis'
+      ? (lang === 'vi' ? 'Minh họa Bản soi chiếu hệ thống' : 'System Illumination illustration')
+      : (lang === 'vi' ? 'Minh họa Kế hoạch 30 ngày' : '30-day plan illustration');
+  }
 
-    const label = button.querySelector<HTMLElement>('[data-image-label]');
-    const originalLabel = label?.textContent ?? button.textContent ?? '';
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    if (label) label.textContent = lang === 'vi' ? 'Đang tạo minh họa A4...' : 'Creating A4 illustration...';
-    window.showToast?.(lang === 'vi' ? 'Đang tạo minh họa A4. Quá trình này có thể mất vài phút.' : 'Creating A4 illustration. This may take a few minutes.', 'info');
+  function clearImagePoll() {
+    if (imagePollTimer !== null) window.clearTimeout(imagePollTimer);
+    imagePollTimer = null;
+  }
 
-    try {
-      for (let attempt = 0; attempt < 90; attempt += 1) {
-        const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
-          method: 'POST',
-          credentials: 'include',
-        });
-        if (res.status === 201) {
-          window.location.reload();
-          return;
-        }
-        if (res.status === 409) {
-          throw new Error(lang === 'vi' ? 'Minh họa đang được tạo trong một phiên khác. Vui lòng tải lại sau ít phút.' : 'The illustration is being created in another session. Please reload in a few minutes.');
-        }
-        if (res.status !== 202) {
-          const data = await res.json().catch(() => ({})) as { error?: string };
-          throw new Error(data.error ?? `HTTP ${res.status}`);
-        }
-        await wait(2000);
-      }
-      throw new Error(lang === 'vi' ? 'Tạo minh họa đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.' : 'Illustration generation is taking longer than expected. Please try again later.');
-    } catch (error) {
-      if (label) label.textContent = originalLabel;
+  function setImageButtonState(type: ReportImageType, ready: boolean) {
+    document.querySelectorAll<HTMLButtonElement>(`[data-image-type="${type}"]`).forEach((button) => {
+      button.dataset.imageReady = ready ? 'true' : 'false';
       button.disabled = false;
       button.removeAttribute('aria-busy');
-      window.showToast?.(error instanceof Error ? error.message : String(error), 'error');
+      const label = button.querySelector<HTMLElement>('[data-image-label]');
+      if (label) label.textContent = ready
+        ? (lang === 'vi' ? 'Xem ảnh' : 'View image')
+        : (lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration');
+    });
+  }
+
+  function openImageDialog(type: ReportImageType) {
+    activeImageType = type;
+    clearImagePoll();
+    if (!imageDialog || !imageDialogTitle || !imageDialogDescription) return;
+    imageDialogTitle.textContent = imageTitle(type);
+    imageDialogDescription.textContent = lang === 'vi'
+      ? 'Minh họa riêng cho báo cáo Scanner của bạn.'
+      : 'A private illustration for your Scanner report.';
+    imageError?.classList.add('hidden');
+    imagePreview?.classList.add('hidden');
+    imageDownload?.classList.add('hidden');
+    imageProgress?.classList.remove('hidden');
+    if (!imageDialog.open) imageDialog.showModal();
+  }
+
+  function closeImageDialog() {
+    clearImagePoll();
+    activeImageType = null;
+    if (imageDialog?.open) imageDialog.close();
+  }
+
+  function renderImageStatus(type: ReportImageType, data: ReportImageStatus) {
+    const cost = data.credits ?? data.configuredCredits ?? null;
+    if (data.status === 'done') {
+      clearImagePoll();
+      imageProgress?.classList.add('hidden');
+      imageError?.classList.add('hidden');
+      if (imagePreviewImage) {
+        imagePreviewImage.src = `/api/scanner/${responseId}/image?type=${type}&v=${Date.now()}`;
+        imagePreviewImage.alt = imageTitle(type);
+      }
+      imagePreview?.classList.remove('hidden');
+      if (imageDownload) {
+        imageDownload.href = `/api/scanner/${responseId}/image?type=${type}&download=1`;
+        imageDownload.classList.remove('hidden');
+      }
+      setImageButtonState(type, true);
+      return;
+    }
+    if (data.status === 'failed') {
+      clearImagePoll();
+      imageProgress?.classList.add('hidden');
+      imageError!.textContent = data.error ?? (lang === 'vi' ? 'Không thể tạo minh họa. Credits đã được hoàn lại; bạn có thể tạo lại.' : 'The illustration could not be generated. Credits were released; you can try again.');
+      imageError?.classList.remove('hidden');
+      setImageButtonState(type, false);
+      return;
+    }
+    if (imageProgressLabel) {
+      imageProgressLabel.textContent = cost
+        ? (lang === 'vi' ? `Đang tạo minh họa · đã giữ ${cost} Credits, chỉ trừ khi tạo ảnh thành công.` : `Creating illustration · ${cost} Credits reserved and charged only on success.`)
+        : (lang === 'vi' ? 'Đang kiểm tra tiến trình tạo minh họa...' : 'Checking illustration progress...');
+    }
+    imagePollTimer = window.setTimeout(() => void pollImageStatus(type), 2000);
+  }
+
+  async function pollImageStatus(type: ReportImageType) {
+    if (activeImageType !== type) return;
+    try {
+      const res = await fetch(`/api/scanner/${responseId}/image?type=${type}&status=1`, { credentials: 'include' });
+      const data = await res.json().catch(() => ({})) as ReportImageStatus;
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      renderImageStatus(type, data);
+    } catch (error) {
+      clearImagePoll();
+      imageProgress?.classList.add('hidden');
+      imageError!.textContent = error instanceof Error ? error.message : String(error);
+      imageError?.classList.remove('hidden');
+      setImageButtonState(type, false);
     }
   }
+
+  function imageIdempotencyKey(): string {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+
+  async function startReportImage(type: ReportImageType) {
+    const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Idempotency-Key': imageIdempotencyKey() },
+    });
+    const data = await res.json().catch(() => ({})) as ReportImageStatus;
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    renderImageStatus(type, data);
+  }
+
+  async function showOrCreateReportImage(type: ReportImageType, button: HTMLButtonElement) {
+    if (button.dataset.imageReady === 'true') {
+      openImageDialog(type);
+      await pollImageStatus(type);
+      return;
+    }
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    try {
+      const statusResponse = await fetch(`/api/scanner/${responseId}/image?type=${type}&status=1`, { credentials: 'include' });
+      const status = await statusResponse.json().catch(() => ({})) as ReportImageStatus;
+      if (!statusResponse.ok) throw new Error(status.error ?? `HTTP ${statusResponse.status}`);
+      if (status.status === 'running' || status.status === 'queued') {
+        openImageDialog(type);
+        renderImageStatus(type, status);
+        return;
+      }
+      if (!status.configuredCredits) {
+        throw new Error(lang === 'vi' ? 'Admin chưa cấu hình giá Credits cho loại minh họa này.' : 'An administrator has not configured Credits pricing for this illustration type.');
+      }
+      requestConfirmation(
+        lang === 'vi' ? 'Xác nhận tạo minh họa A4' : 'Confirm A4 illustration',
+        lang === 'vi'
+          ? 'Credits sẽ được giữ trước khi tạo. Bạn chỉ bị trừ khi ảnh được tạo thành công; nếu job lỗi hoặc không có ảnh, Credits tự động được hoàn lại.'
+          : 'Credits are reserved before generation and charged only after an image is produced. Failed or missing-image jobs automatically release Credits.',
+        lang === 'vi' ? `${status.configuredCredits} Credits` : `${status.configuredCredits} Credits`,
+        () => {
+          openImageDialog(type);
+          void startReportImage(type).catch((error) => {
+            imageProgress?.classList.add('hidden');
+            imageError!.textContent = error instanceof Error ? error.message : String(error);
+            imageError?.classList.remove('hidden');
+            setImageButtonState(type, false);
+          });
+        },
+      );
+    } catch (error) {
+      imageProgress?.classList.add('hidden');
+      imageError!.textContent = error instanceof Error ? error.message : String(error);
+      imageError?.classList.remove('hidden');
+      setImageButtonState(type, false);
+    } finally {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+  }
+
+  document.getElementById('report-image-close')?.addEventListener('click', closeImageDialog);
+  document.getElementById('report-image-dismiss')?.addEventListener('click', closeImageDialog);
+  imageDialog?.addEventListener('close', clearImagePoll);
 
   // ── Button bindings ─────────────────────────────────────────────
   const requestReport = (type: 'analysis' | 'plan') => requestConfirmation(
@@ -1540,16 +1709,11 @@ try {
   document.querySelectorAll<HTMLButtonElement>('[data-image-type]').forEach((button) => {
     button.addEventListener('click', () => {
       if (button.disabled || button.getAttribute('aria-busy') === 'true' || pendingConfirmation) return;
-
-      const type = button.dataset.imageType as 'analysis' | 'plan';
-      requestConfirmation(
-        lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration',
-        lang === 'vi' ? 'GPT Image 2 sẽ tạo một ảnh minh họa dọc khổ A4 cho báo cáo đã hoàn tất.' : 'GPT Image 2 will create a portrait A4 illustration for the completed report.',
-        lang === 'vi' ? 'Kích thước dọc A4 · không dùng token báo cáo' : 'Portrait A4 size · report tokens are not used',
-        () => createReportImage(type, button),
-      );
+      const type = button.dataset.imageType as ReportImageType;
+      void showOrCreateReportImage(type, button);
     });
   });
+
 
   // ── Plan copy ─────────────────────────────────────────────────────
   const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;

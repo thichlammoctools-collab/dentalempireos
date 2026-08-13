@@ -4,7 +4,8 @@ import { getAiSettings } from './ai-settings-db';
 import { parseScores, setScannerImageKey, type ScannerResponseRow } from './scanner-response-db';
 import { claimScannerReportImageJob, finishScannerReportImageJob } from './ai-operations';
 
-type ImageType = 'analysis' | 'plan';
+export type ScannerReportImageType = 'analysis' | 'plan';
+type ImageType = ScannerReportImageType;
 
 function buildImagePrompt(
   surveyTitle: string,
@@ -54,9 +55,6 @@ export async function generateQueuedScannerReportImage(
   surveyTitle: string,
   type: ImageType,
 ): Promise<string | null> {
-  const config = await getAiGatewayConfig(env.DB, 'scanner');
-  if (!config || config.provider_id !== 'motapis') return null;
-  if (!(await getAiSettings(env.DB)).motapis_image_model) return null;
   const existingKey = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
   if (existingKey && await env.MEDIA.head(existingKey)) return existingKey;
 
@@ -64,6 +62,7 @@ export async function generateQueuedScannerReportImage(
   if (!job.claimed) return null;
   try {
     const key = await createScannerReportImage(env, response, surveyTitle, type);
+    if (!key) throw new Error('Dịch vụ tạo minh họa chưa được cấu hình.');
     await finishScannerReportImageJob(env.DB, response.id, type, job.runId, 'done');
     return key;
   } catch (error) {

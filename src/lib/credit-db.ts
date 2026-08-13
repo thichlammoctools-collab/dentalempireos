@@ -724,6 +724,188 @@ export interface ScannerCreditRun {
   updated_at: string;
 }
 
+export interface ScannerReportImageCreditRun {
+  id: string;
+  response_id: number;
+  image_type: 'analysis' | 'plan';
+  user_id: string;
+  reservation_id: string;
+  pricing_rule_id: string;
+  idempotency_key: string;
+  credits: number;
+  price_snapshot_json: string;
+  status: 'reserved' | 'completed' | 'failed';
+  active_key: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function startScannerReportImageCreditRun(
+  db: D1Database,
+  input: {
+    userId: string;
+    responseId: number;
+    imageType: 'analysis' | 'plan';
+    idempotencyKey: string;
+    credits: number;
+    pricingRule: Pick<CreditPricingRule, 'id' | 'feature_type' | 'target_id' | 'model' | 'rule_version' | 'credit_amount'>;
+  },
+): Promise<{ run: ScannerReportImageCreditRun; created: boolean }> {
+  positiveInteger(input.credits, 'credits');
+  const replay = await db.prepare(
+    `SELECT * FROM "scanner_report_image_credit_run"
+     WHERE "user_id" = ? AND "idempotency_key" = ?`,
+  ).bind(input.userId, input.idempotencyKey).first<ScannerReportImageCreditRun>();
+  if (replay) return { run: replay, created: false };
+
+  const existing = await db.prepare(
+    `SELECT * FROM "scanner_report_image_credit_run"
+     WHERE "response_id" = ? AND "image_type" = ? AND "active_key" = 'active'`,
+  ).bind(input.responseId, input.imageType).first<ScannerReportImageCreditRun>();
+  if (existing) {
+    if (existing.user_id !== input.userId) throw new Error('Image generation is already in progress');
+    return { run: existing, created: false };
+  }
+
+  const runId = id();
+  const priceSnapshot = {
+    pricingRuleId: input.pricingRule.id,
+    featureType: input.pricingRule.feature_type,
+    targetId: input.pricingRule.target_id,
+    model: input.pricingRule.model,
+    ruleVersion: input.pricingRule.rule_version,
+    creditAmount: input.credits,
+  };
+  const reserved = await reserveCredits(db, {
+    userId: input.userId,
+    amount: input.credits,
+    featureType: 'scanner_report_image',
+    businessObjectId: runId,
+    idempotencyKey: `scanner-report-image:${input.idempotencyKey}`,
+    metadata: { responseId: input.responseId, imageType: input.imageType, ...priceSnapshot },
+  });
+  const timestamp = now();
+  try {
+    await db.prepare(
+      `INSERT INTO "scanner_report_image_credit_run"
+       ("id","response_id","image_type","user_id","reservation_id","pricing_rule_id","idempotency_key","credits","price_snapshot_json","status","active_key","failure_reason","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,?,?, 'reserved', 'active', NULL, ?, ?)`,
+    ).bind(
+      runId, input.responseId, input.imageType, input.userId, reserved.reservation.id,
+      input.pricingRule.id, input.idempotencyKey, input.credits, json(priceSnapshot), timestamp, timestamp,
+    ).run();
+  } catch (error) {
+    const duplicate = await db.prepare(
+      `SELECT * FROM "scanner_report_image_credit_run"
+       WHERE ("user_id" = ? AND "idempotency_key" = ?)
+          OR ("response_id" = ? AND "image_type" = ? AND "active_key" = 'active')
+       ORDER BY CASE WHEN "user_id" = ? AND "idempotency_key" = ? THEN 0 ELSE 1 END
+       LIMIT 1`,
+    ).bind(
+      input.userId,
+      input.idempotencyKey,
+      input.responseId,
+      input.imageType,
+      input.userId,
+      input.idempotencyKey,
+    ).first<ScannerReportImageCreditRun>();
+    if (duplicate) {
+      if (reserved.created) await releaseReservation(db, {
+        userId: input.userId,
+        reservationId: reserved.reservation.id,
+        reason: 'scanner_report_image_duplicate_run',
+      });
+      if (duplicate.user_id !== input.userId) throw new Error('Image generation is already in progress');
+      return { run: duplicate, created: false };
+    }
+    if (reserved.created) await releaseReservation(db, {
+      userId: input.userId,
+      reservationId: reserved.reservation.id,
+      reason: 'scanner_report_image_run_creation_failed',
+    });
+    throw error;
+  }
+
+  return {
+    run: {
+      id: runId,
+      response_id: input.responseId,
+      image_type: input.imageType,
+      user_id: input.userId,
+      reservation_id: reserved.reservation.id,
+      pricing_rule_id: input.pricingRule.id,
+      idempotency_key: input.idempotencyKey,
+      credits: input.credits,
+      price_snapshot_json: json(priceSnapshot),
+      status: 'reserved',
+      active_key: 'active',
+      failure_reason: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    },
+    created: true,
+  };
+}
+
+export async function completeScannerReportImageCreditRun(
+  db: D1Database,
+  input: { runId: string; responseId: number; imageType: 'analysis' | 'plan'; userId: string },
+): Promise<CreditConsumption | null> {
+  const run = await db.prepare(
+    `SELECT * FROM "scanner_report_image_credit_run"
+     WHERE "id" = ? AND "response_id" = ? AND "image_type" = ? AND "user_id" = ?`,
+  ).bind(input.runId, input.responseId, input.imageType, input.userId).first<ScannerReportImageCreditRun>();
+  if (!run) throw new Error('Scanner report image Credit run not found');
+  if (run.status === 'completed') {
+    return db.prepare(
+      `SELECT * FROM "credit_consumption"
+       WHERE "feature_type" = 'scanner_report_image' AND "business_object_id" = ? AND "charge_type" = 'generate'`,
+    ).bind(run.id).first<CreditConsumption>();
+  }
+  if (run.status !== 'reserved') return null;
+
+  const consumption = await settleReservation(db, {
+    userId: input.userId,
+    reservationId: run.reservation_id,
+    featureType: 'scanner_report_image',
+    businessObjectId: run.id,
+    chargeType: 'generate',
+    credits: run.credits,
+    priceSnapshot: JSON.parse(run.price_snapshot_json),
+    quantitySnapshot: { responseId: run.response_id, imageType: run.image_type },
+  });
+  const updated = await db.prepare(
+    `UPDATE "scanner_report_image_credit_run"
+     SET "status" = 'completed', "active_key" = NULL, "updated_at" = ?
+     WHERE "id" = ? AND "status" = 'reserved'`,
+  ).bind(now(), run.id).run();
+  if ((updated.meta.changes ?? 0) !== 1) throw new Error('Unable to finalize Scanner report image Credit run');
+  return consumption;
+}
+
+export async function failScannerReportImageCreditRun(
+  db: D1Database,
+  input: { runId: string; responseId: number; imageType: 'analysis' | 'plan'; userId: string; reason: string },
+): Promise<void> {
+  const run = await db.prepare(
+    `SELECT * FROM "scanner_report_image_credit_run"
+     WHERE "id" = ? AND "response_id" = ? AND "image_type" = ? AND "user_id" = ?`,
+  ).bind(input.runId, input.responseId, input.imageType, input.userId).first<ScannerReportImageCreditRun>();
+  if (!run || run.status !== 'reserved') return;
+
+  await releaseReservation(db, {
+    userId: input.userId,
+    reservationId: run.reservation_id,
+    reason: `scanner_report_image_failed:${input.reason.slice(0, 200)}`,
+  });
+  await db.prepare(
+    `UPDATE "scanner_report_image_credit_run"
+     SET "status" = 'failed', "active_key" = NULL, "failure_reason" = ?, "updated_at" = ?
+     WHERE "id" = ? AND "status" = 'reserved'`,
+  ).bind(input.reason.slice(0, 500), now(), run.id).run();
+}
+
 export async function startScannerCreditRun(
   db: D1Database,
   input: { userId: string; surveyId: string; idempotencyKey: string; credits: number; pricingRuleId: string },

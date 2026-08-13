@@ -6,6 +6,10 @@ import {
 } from './lib/scanner-ai-queue';
 import { requeueScannerAiJob } from './lib/ai-operations';
 import { updateAiAnalysisStatus, updateAiPlanStatus } from './lib/scanner-response-db';
+import {
+  processScannerReportImageQueueMessage,
+  type ScannerReportImageQueueMessage,
+} from './lib/scanner-report-image-queue';
 
 const MAX_QUEUE_ATTEMPTS = 3;
 const SCANNER_AI_QUEUE_CONCURRENCY = 3;
@@ -27,13 +31,22 @@ async function processQueueMessage(
 export default {
   fetch: handle,
 
-  async queue(batch: MessageBatch<ScannerAiQueueMessage>, env: Cloudflare.Env): Promise<void> {
+  async queue(
+    batch: MessageBatch<ScannerAiQueueMessage | ScannerReportImageQueueMessage>,
+    env: Cloudflare.Env,
+  ): Promise<void> {
     // Queue batches may contain unrelated reports. A bounded pool prevents one
     // slow model response from making every later Scanner wait in sequence.
     for (let index = 0; index < batch.messages.length; index += SCANNER_AI_QUEUE_CONCURRENCY) {
       await Promise.all(batch.messages
         .slice(index, index + SCANNER_AI_QUEUE_CONCURRENCY)
-        .map((message) => processQueueMessage(message, env)));
+        .map(async (message) => {
+          if ('jobType' in message.body) {
+            await processQueueMessage(message as Message<ScannerAiQueueMessage>, env);
+          } else {
+            await processScannerReportImageQueueMessage(env, message.body);
+          }
+        }));
     }
   },
-} satisfies ExportedHandler<Cloudflare.Env, ScannerAiQueueMessage>;
+} satisfies ExportedHandler<Cloudflare.Env, ScannerAiQueueMessage | ScannerReportImageQueueMessage>;
