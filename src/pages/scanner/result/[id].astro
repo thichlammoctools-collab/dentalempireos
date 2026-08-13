@@ -358,12 +358,28 @@ try {
     )}
 
     <div class="card plan-card" id="plan-section">
-      <div class="insight-header">
-        <span class="material-symbols-outlined text-amber-400 text-xl">calendar_month</span>
-        <h2 class="insight-title">
-          {lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}
-        </h2>
+      <div class="report-section-header">
+        <div class="report-section-heading">
+          <span class="material-symbols-outlined report-section-icon">calendar_month</span>
+          <div>
+            <p class="report-section-eyebrow">{lang === 'vi' ? 'AI chuyển phát hiện thành hành động' : 'AI turns findings into action'}</p>
+            <h2 class="insight-title">{lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}</h2>
+          </div>
+        </div>
+        <span class:list={["ai-status-chip", { "is-ready": hasPlan, "is-working": !hasPlan && (planStatus === 'queued' || planStatus === 'running') }]}>
+          <span class="material-symbols-outlined">{hasPlan ? 'check_circle' : planStatus === 'queued' || planStatus === 'running' ? 'sync' : 'schedule'}</span>
+          {hasPlan
+            ? (lang === 'vi' ? 'Đã sẵn sàng' : 'Ready')
+            : planStatus === 'queued' || planStatus === 'running'
+              ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
+              : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis')}
+        </span>
       </div>
+      {!hasPlan && (
+        <p class="report-section-description">
+          {lang === 'vi' ? 'Một lộ trình ưu tiên, rõ người phụ trách và nhịp kiểm tra để đội ngũ bắt đầu ngay.' : 'A prioritized roadmap with ownership and review cadence so your team can begin immediately.'}
+        </p>
+      )}
 
       <!-- Done: show content -->
       {hasPlan ? (
@@ -398,30 +414,47 @@ try {
         </>
       ) : (
           <div id="plan-action">
-            <div id="plan-loading" class="hidden">
-              <div id="plan-status" class="text-center text-sm text-on-surface-variant mb-3">
-                {lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...'}
+            <div id="plan-loading" class="hidden ai-workspace" aria-live="polite">
+              <div class="ai-workspace-heading">
+                <span class="material-symbols-outlined ai-pulse-icon">auto_awesome</span>
+                <div>
+                  <p class="ai-workspace-label">{lang === 'vi' ? 'AI đang xây kế hoạch riêng cho phòng khám của bạn' : 'AI is building a plan tailored to your clinic'}</p>
+                  <div id="plan-status" class="ai-workspace-status">
+                    {lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...'}
+                  </div>
+                </div>
               </div>
-               <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
+              <ol class="ai-workflow" aria-label={lang === 'vi' ? 'Tiến trình lập kế hoạch AI' : 'AI planning progress'}>
+                <li data-ai-stage="source"><span class="material-symbols-outlined">check_circle</span>{lang === 'vi' ? 'Đọc các điểm nghẽn đã phát hiện' : 'Review identified bottlenecks'}</li>
+                <li data-ai-stage="priority"><span class="material-symbols-outlined">radio_button_unchecked</span>{lang === 'vi' ? 'Sắp xếp ưu tiên theo tác động' : 'Prioritize by impact'}</li>
+                <li data-ai-stage="plan"><span class="material-symbols-outlined">radio_button_unchecked</span>{lang === 'vi' ? 'Phân kỳ hành động theo từng tuần' : 'Sequence actions by week'}</li>
+              </ol>
+              <p id="plan-elapsed" class="ai-elapsed"></p>
+              <pre id="plan-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
+              <div class="ai-workspace-footer">
+                <span class="material-symbols-outlined">cloud_done</span>
+                <p>{lang === 'vi' ? 'Bạn có thể rời trang — kết quả được lưu tự động và sẽ có thông báo khi hoàn tất.' : 'You can leave this page — your result is saved automatically and you will be notified when it is ready.'}</p>
+              </div>
               <div class="text-center mt-3">
-                <p class="text-xs text-on-surface-variant mb-2">
-                  {lang === 'vi' ? 'Nếu quá trình dừng quá lâu, bạn có thể tạo lại kế hoạch.' : 'If this takes too long, you can generate the plan again.'}
-                </p>
                 <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-running-plan">
                   {lang === 'vi' ? 'Tạo lại kế hoạch' : 'Generate again'}
                 </button>
               </div>
             </div>
           <div id="plan-cta" class:list={{ 'hidden': !hasAnalysis }}>
+            <div class="ai-action-intro">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              <p>{lang === 'vi' ? 'AI sẽ biến Bản soi chiếu thành các việc cần làm theo tuần, có thứ tự ưu tiên rõ ràng.' : 'AI will turn your analysis into weekly actions with a clear priority order.'}</p>
+            </div>
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
               <span class="material-symbols-outlined text-base">auto_awesome</span>
-              {lang === 'vi' ? 'Tạo kế hoạch 30 ngày' : 'Generate 30-Day Plan'}
+              {lang === 'vi' ? 'Để AI lập kế hoạch 30 ngày' : 'Let AI build the 30-day plan'}
             </button>
           </div>
           {!hasAnalysis && (
             <div class="report-locked-state">
               <span class="material-symbols-outlined">lock</span>
-              <p>{lang === 'vi' ? 'Hoàn tất Bản soi chiếu hệ thống trước để mở Kế hoạch 30 ngày.' : 'Complete the System Illumination before unlocking the 30-day plan.'}</p>
+              <p>{lang === 'vi' ? 'AI sẽ mở phần này ngay khi Bản soi chiếu hoàn tất, để chuyển phát hiện thành hành động cụ thể.' : 'AI will unlock this once the System Illumination is complete, turning findings into specific action.'}</p>
             </div>
           )}
           <div id="plan-error" class="text-center py-4 hidden">
@@ -435,16 +468,28 @@ try {
     </div>
 
     <div class="card analysis-card" id="analysis-section">
-      <div class="analysis-header">
-        <div>
-          <p class="text-xs uppercase tracking-wider text-amber-500 font-bold">
-            {lang === 'vi' ? 'Phân tích AI' : 'AI Analysis'}
-          </p>
-          <h2 class="analysis-title">
-            {lang === 'vi' ? 'Bản soi chiếu hệ thống' : 'System Illumination'}
-          </h2>
+      <div class="report-section-header">
+        <div class="report-section-heading">
+          <span class="material-symbols-outlined report-section-icon">psychology</span>
+          <div>
+            <p class="report-section-eyebrow">{lang === 'vi' ? 'Phân tích AI' : 'AI Analysis'}</p>
+            <h2 class="analysis-title">{lang === 'vi' ? 'Bản soi chiếu hệ thống' : 'System Illumination'}</h2>
+          </div>
         </div>
+        <span class:list={["ai-status-chip", { "is-ready": hasAnalysis, "is-working": !hasAnalysis && (analysisStatus === 'queued' || analysisStatus === 'running') }]}>
+          <span class="material-symbols-outlined">{hasAnalysis ? 'check_circle' : analysisStatus === 'queued' || analysisStatus === 'running' ? 'sync' : 'insights'}</span>
+          {hasAnalysis
+            ? (lang === 'vi' ? 'Đã phân tích' : 'Analyzed')
+            : analysisStatus === 'queued' || analysisStatus === 'running'
+              ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
+              : (lang === 'vi' ? 'Sẵn sàng phân tích' : 'Ready to analyze')}
+        </span>
       </div>
+      {!hasAnalysis && (
+        <p class="report-section-description">
+          {lang === 'vi' ? 'AI đối chiếu điểm số, câu trả lời và các mối liên hệ giữa các vận hành để chỉ ra điểm cần ưu tiên.' : 'AI compares your scores, answers, and operational connections to identify the priority areas.'}
+        </p>
+      )}
 
       <div id="analysis-unlocked">
         {hasAnalysis ? (
@@ -470,14 +515,34 @@ try {
           </>
         ) : (
           <div id="analysis-action">
-            <div id="analysis-loading" class="hidden">
-              <div id="analysis-status" class="text-center text-sm text-on-surface-variant mb-3"></div>
-               <pre id="analysis-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
+            <div id="analysis-loading" class="hidden ai-workspace" aria-live="polite">
+              <div class="ai-workspace-heading">
+                <span class="material-symbols-outlined ai-pulse-icon">psychology</span>
+                <div>
+                  <p class="ai-workspace-label">{lang === 'vi' ? 'AI đang soi chiếu hệ thống vận hành của bạn' : 'AI is examining your operating system'}</p>
+                  <div id="analysis-status" class="ai-workspace-status"></div>
+                </div>
+              </div>
+              <ol class="ai-workflow" aria-label={lang === 'vi' ? 'Tiến trình phân tích AI' : 'AI analysis progress'}>
+                <li data-ai-stage="source"><span class="material-symbols-outlined">check_circle</span>{lang === 'vi' ? 'Đọc điểm số và câu trả lời Scanner' : 'Review Scanner scores and answers'}</li>
+                <li data-ai-stage="pattern"><span class="material-symbols-outlined">radio_button_unchecked</span>{lang === 'vi' ? 'Tìm mối liên hệ giữa các điểm nghẽn' : 'Find connections between bottlenecks'}</li>
+                <li data-ai-stage="insight"><span class="material-symbols-outlined">radio_button_unchecked</span>{lang === 'vi' ? 'Viết nhận định và ưu tiên hệ thống' : 'Write system insights and priorities'}</li>
+              </ol>
+              <p id="analysis-elapsed" class="ai-elapsed"></p>
+              <pre id="analysis-stream" class="ai-stream-preview prose-content-sm whitespace-pre-wrap text-sm text-on-surface-variant max-h-96 overflow-y-auto"></pre>
+              <div class="ai-workspace-footer">
+                <span class="material-symbols-outlined">cloud_done</span>
+                <p>{lang === 'vi' ? 'Bạn có thể rời trang — AI tiếp tục làm việc, kết quả được lưu và gửi thông báo khi sẵn sàng.' : 'You can leave this page — AI continues working, and your result is saved with a notification when ready.'}</p>
+              </div>
             </div>
             <div id="analysis-cta" class="text-center">
+              <div class="ai-action-intro">
+                <span class="material-symbols-outlined">insights</span>
+                <p>{lang === 'vi' ? 'Không chỉ tóm tắt điểm số: AI tìm ra điểm nghẽn có ảnh hưởng lớn nhất đến toàn hệ thống.' : 'More than a score summary: AI identifies the bottlenecks with the greatest system-wide impact.'}</p>
+              </div>
               <button type="button" class="btn btn-amber btn-run" id="btn-run-analysis">
                 <span class="material-symbols-outlined text-base">auto_awesome</span>
-                {lang === 'vi' ? 'Bắt đầu phân tích AI' : 'Start AI Analysis'}
+                {lang === 'vi' ? 'Để AI soi chiếu hệ thống' : 'Let AI examine the system'}
               </button>
             </div>
             <div id="analysis-error" class="text-center py-4 hidden">
@@ -688,13 +753,42 @@ try {
     transition: width 1s ease;
   }
 
-  .analysis-header { margin-bottom: 1.5rem; }
+  .report-section-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem; }
+  .report-section-heading { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+  .report-section-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; flex: none; color: var(--color-warning); background: color-mix(in srgb, var(--color-warning-container) 72%, transparent); border: 1px solid color-mix(in srgb, var(--color-warning) 38%, var(--color-outline-variant)); border-radius: 0.7rem; }
+  .report-section-eyebrow { margin: 0; color: var(--color-warning); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .report-section-description { margin: 0 0 1.5rem; color: var(--color-on-surface-variant); font-size: 0.9rem; line-height: 1.55; max-width: 48rem; }
+  .ai-status-chip { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; padding: 0.4rem 0.6rem; color: var(--color-on-surface-variant); background: var(--color-surface-container); border: 1px solid var(--color-outline-variant); border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+  .ai-status-chip .material-symbols-outlined { font-size: 0.95rem; }
+  .ai-status-chip.is-ready { color: var(--color-success); background: color-mix(in srgb, var(--color-success-container) 70%, transparent); border-color: color-mix(in srgb, var(--color-success) 38%, var(--color-outline-variant)); }
+  .ai-status-chip.is-working { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning-container) 70%, transparent); border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-outline-variant)); }
+  .ai-status-chip.is-working .material-symbols-outlined { animation: spin 1.2s linear infinite; }
   .analysis-title {
     font-size: 1.5rem;
     font-weight: 700;
      color: var(--color-on-surface);
     margin: 0.25rem 0 0;
   }
+  .ai-action-intro { display: flex; align-items: flex-start; gap: 0.65rem; margin: 0 auto 1rem; max-width: 38rem; padding: 0.8rem 0.9rem; color: var(--color-on-surface-variant); background: color-mix(in srgb, var(--color-primary-container) 34%, transparent); border: 1px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-outline-variant)); border-radius: 0.7rem; text-align: left; font-size: 0.82rem; line-height: 1.5; }
+  .ai-action-intro .material-symbols-outlined { flex: none; color: var(--color-primary); font-size: 1.15rem; }
+  .ai-action-intro p { margin: 0; }
+  .ai-workspace { padding: 1rem; color: var(--color-on-surface); background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-container) 44%, transparent), var(--color-surface-container)); border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-outline-variant)); border-radius: 0.85rem; }
+  .ai-workspace-heading { display: flex; align-items: flex-start; gap: 0.7rem; }
+  .ai-pulse-icon { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; flex: none; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary-container) 75%, transparent); border-radius: 50%; animation: ai-pulse 1.8s ease-in-out infinite; }
+  @keyframes ai-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent); } 50% { box-shadow: 0 0 0 0.45rem color-mix(in srgb, var(--color-primary) 15%, transparent); } }
+  .ai-workspace-label { margin: 0 0 0.2rem; color: var(--color-on-surface); font-size: 0.88rem; font-weight: 700; line-height: 1.4; }
+  .ai-workspace-status, .ai-elapsed { color: var(--color-on-surface-variant); font-size: 0.78rem; line-height: 1.45; }
+  .ai-workflow { display: grid; gap: 0.6rem; margin: 1rem 0; padding: 0; list-style: none; }
+  .ai-workflow li { display: flex; align-items: center; gap: 0.5rem; color: var(--color-on-surface-variant); font-size: 0.82rem; }
+  .ai-workflow .material-symbols-outlined { color: var(--color-primary); font-size: 1rem; }
+  .ai-workflow li.is-active { color: var(--color-on-surface); font-weight: 700; }
+  .ai-workflow li.is-active .material-symbols-outlined { color: var(--color-warning); animation: spin 1.2s linear infinite; }
+  .ai-workflow li.is-complete { color: var(--color-on-surface); }
+  .ai-workflow li.is-complete .material-symbols-outlined { color: var(--color-success); animation: none; }
+  .ai-elapsed { margin: -0.15rem 0 0.9rem; }
+  .ai-workspace-footer { display: flex; align-items: flex-start; gap: 0.45rem; margin-top: 0.9rem; padding-top: 0.75rem; color: var(--color-on-surface-variant); border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 70%, transparent); font-size: 0.76rem; line-height: 1.45; }
+  .ai-workspace-footer .material-symbols-outlined { flex: none; color: var(--color-primary); font-size: 1rem; }
+  .ai-workspace-footer p { margin: 0; }
 
   .prose-content {
      color: var(--color-on-surface);
@@ -1103,6 +1197,9 @@ try {
     .plan-tools { justify-content: stretch; }
     .analysis-tools { justify-content: stretch; }
     .plan-tool-button { flex: 1; justify-content: center; }
+    .report-section-header { align-items: flex-start; }
+    .report-section-heading { align-items: flex-start; }
+    .ai-status-chip { margin-top: 0.1rem; }
   }
   .ai-stream-preview {
      background: var(--color-surface-container-lowest);
@@ -1224,6 +1321,20 @@ try {
     return document.getElementById('analysis-elapsed');
   }
 
+  function updateWorkflowProgress(type: 'analysis' | 'plan', seconds: number) {
+    const stages = type === 'plan' ? ['source', 'priority', 'plan'] : ['source', 'pattern', 'insight'];
+    const activeIndex = seconds < 10 ? 0 : seconds < 25 ? 1 : 2;
+    const scope = type === 'plan' ? '#plan-loading' : '#analysis-loading';
+    stages.forEach((stage, index) => {
+      const item = document.querySelector(`${scope} [data-ai-stage="${stage}"]`);
+      const icon = item?.querySelector('.material-symbols-outlined');
+      if (!item || !icon) return;
+      item.classList.toggle('is-complete', index < activeIndex);
+      item.classList.toggle('is-active', index === activeIndex);
+      icon.textContent = index < activeIndex ? 'check_circle' : index === activeIndex ? 'sync' : 'radio_button_unchecked';
+    });
+  }
+
   function startGenerationFeedback(type: 'analysis' | 'plan'): () => void {
     const elapsedEl = getElapsedEl(type);
     const startedAt = Date.now();
@@ -1242,6 +1353,7 @@ try {
             ? (lang === 'vi' ? 'AI đang xử lý dữ liệu của bạn...' : 'AI is processing your data...')
             : (lang === 'vi' ? 'Đang xử lý hoặc chờ lượt. Bạn có thể rời trang, kết quả sẽ được lưu tự động.' : 'Processing or waiting in queue. You can leave this page; the result will be saved automatically.');
       elapsedEl.textContent = `${stage} (${seconds}s)`;
+      updateWorkflowProgress(type, seconds);
     };
 
     update();
@@ -1448,6 +1560,7 @@ try {
     if (planStatus && !planStatus.textContent?.trim()) {
       planStatus.textContent = lang === 'vi' ? 'Đang tạo kế hoạch 30 ngày...' : 'Generating your 30-day plan...';
     }
+    startGenerationFeedback('plan');
     pollForResult();
   } else if (planStatusInit === 'failed') {
     document.getElementById('plan-cta')?.classList.add('hidden');
@@ -1455,9 +1568,14 @@ try {
   }
   // Analysis (unlocked section)
    if (analysisStatusInit === 'queued' || analysisStatusInit === 'running') {
-    document.getElementById('analysis-cta')?.classList.add('hidden');
-    document.getElementById('analysis-loading')?.classList.remove('hidden');
-    pollForResult();
+     document.getElementById('analysis-cta')?.classList.add('hidden');
+     document.getElementById('analysis-loading')?.classList.remove('hidden');
+     const analysisStatus = document.getElementById('analysis-status');
+     if (analysisStatus && !analysisStatus.textContent?.trim()) {
+       analysisStatus.textContent = lang === 'vi' ? 'AI đang chuẩn bị dữ liệu để phân tích...' : 'AI is preparing your data for analysis...';
+     }
+     startGenerationFeedback('analysis');
+     pollForResult();
   } else if (analysisStatusInit === 'failed') {
     document.getElementById('analysis-cta')?.classList.add('hidden');
     document.getElementById('analysis-error')?.classList.remove('hidden');
