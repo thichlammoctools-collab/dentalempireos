@@ -493,6 +493,10 @@ try {
         {hasAnalysis ? (
           <>
             <div class="analysis-tools">
+              <button type="button" class="btn btn-ghost plan-tool-button" id="btn-copy-analysis">
+                <span class="material-symbols-outlined text-base">content_copy</span>
+                {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
+              </button>
               <a href={`/api/scanner/${id}/pdf?type=analysis`} class="btn btn-primary plan-tool-button">
                 <span class="material-symbols-outlined text-base">picture_as_pdf</span>
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
@@ -504,6 +508,7 @@ try {
               </figure>
             )}
             <article class="prose-content" set:html={analysisHtml}></article>
+            <template id="analysis-copy-source">{analysisText}</template>
           </>
         ) : (
           <div id="analysis-action">
@@ -1486,9 +1491,7 @@ try {
   document.getElementById('btn-run-analysis')?.addEventListener('click', () => requestReport('analysis'));
   document.getElementById('btn-retry-analysis')?.addEventListener('click', () => requestReport('analysis'));
 
-  // ── Plan copy ─────────────────────────────────────────────────────
-  const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;
-
+  // ── Report copy ───────────────────────────────────────────────────
   async function copyPlanText(text: string) {
     if (!navigator.clipboard?.writeText) {
       throw new Error('Clipboard API is unavailable.');
@@ -1496,20 +1499,26 @@ try {
     await navigator.clipboard.writeText(text);
   }
 
-  btnCopyPlan?.addEventListener('click', async () => {
-    const source = document.getElementById('plan-copy-source') as HTMLTemplateElement | null;
-    const text = source?.content.textContent?.trim() ?? '';
-    if (!text) return;
-    const original = btnCopyPlan.innerHTML;
-    try {
-      await copyPlanText(text);
-      btnCopyPlan.innerHTML = `<span class="material-symbols-outlined text-base">check</span>${lang === 'vi' ? 'Đã sao chép' : 'Copied'}`;
-      setTimeout(() => { btnCopyPlan.innerHTML = original; }, 2000);
-    } catch {
-      btnCopyPlan.innerHTML = `<span class="material-symbols-outlined text-base">error</span>${lang === 'vi' ? 'Không thể sao chép' : 'Copy failed'}`;
-      setTimeout(() => { btnCopyPlan.innerHTML = original; }, 2500);
-    }
-  });
+  function bindCopyButton(buttonId: string, sourceId: string) {
+    const button = document.getElementById(buttonId) as HTMLButtonElement | null;
+    button?.addEventListener('click', async () => {
+      const source = document.getElementById(sourceId) as HTMLTemplateElement | null;
+      const text = source?.content.textContent?.trim() ?? '';
+      if (!text) return;
+      const original = button.innerHTML;
+      try {
+        await copyPlanText(text);
+        button.innerHTML = `<span class="material-symbols-outlined text-base">check</span>${lang === 'vi' ? 'Đã sao chép' : 'Copied'}`;
+        setTimeout(() => { button.innerHTML = original; }, 2000);
+      } catch {
+        button.innerHTML = `<span class="material-symbols-outlined text-base">error</span>${lang === 'vi' ? 'Không thể sao chép' : 'Copy failed'}`;
+        setTimeout(() => { button.innerHTML = original; }, 2500);
+      }
+    });
+  }
+
+  bindCopyButton('btn-copy-plan', 'plan-copy-source');
+  bindCopyButton('btn-copy-analysis', 'analysis-copy-source');
 
   // ── Initial UI state from server status ─────────────────────────
   // Plan
