@@ -42,10 +42,6 @@
       {
         "binding": "SCANNER_AI_PLAN_QUEUE",
         "queue": "scanner-ai-plan"
-      },
-      {
-        "binding": "SCANNER_REPORT_IMAGE_QUEUE",
-        "queue": "scanner-report-image"
       }
     ],
     "consumers": [
@@ -63,14 +59,6 @@
         "max_batch_timeout": 1,
         "max_retries": 3,
         "max_concurrency": 4,
-        "dead_letter_queue": "scanner-ai-dead-letter"
-      },
-      {
-        "queue": "scanner-report-image",
-        "max_batch_size": 1,
-        "max_batch_timeout": 1,
-        "max_retries": 3,
-        "max_concurrency": 2,
         "dead_letter_queue": "scanner-ai-dead-letter"
       }
     ]

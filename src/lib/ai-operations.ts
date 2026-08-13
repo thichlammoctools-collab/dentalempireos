@@ -128,39 +128,6 @@ export async function isScannerAiJobRunning(
   return Boolean(row?.running);
 }
 
-export async function claimScannerReportImageJob(
-  db: D1Database,
-  responseId: number,
-  imageType: 'analysis' | 'plan',
-): Promise<{ claimed: boolean; runId: string }> {
-  const runId = crypto.randomUUID();
-  const inserted = await db.prepare(
-    `INSERT OR IGNORE INTO "scanner_report_image_job" ("response_id","image_type","run_id") VALUES (?,?,?)`,
-  ).bind(responseId, imageType, runId).run();
-  if ((inserted.meta.changes ?? 0) > 0) return { claimed: true, runId };
-
-  const updated = await db.prepare(
-    `UPDATE "scanner_report_image_job"
-     SET "run_id" = ?, "status" = 'running', "claimed_at" = datetime('now'), "updated_at" = datetime('now')
-     WHERE "response_id" = ? AND "image_type" = ?
-       AND ("status" <> 'running' OR "claimed_at" < datetime('now', '-15 minutes'))`,
-  ).bind(runId, responseId, imageType).run();
-  return { claimed: (updated.meta.changes ?? 0) > 0, runId };
-}
-
-export async function finishScannerReportImageJob(
-  db: D1Database,
-  responseId: number,
-  imageType: 'analysis' | 'plan',
-  runId: string,
-  status: 'done' | 'failed',
-  errorMessage?: string,
-): Promise<void> {
-  await db.prepare(
-    `UPDATE "scanner_report_image_job" SET "status" = ?, "error_message" = ?, "updated_at" = datetime('now')
-      WHERE "response_id" = ? AND "image_type" = ? AND "run_id" = ?`,
-  ).bind(status, errorMessage?.slice(0, 500) ?? null, responseId, imageType, runId).run();
-}
 
 export function requestId(): string {
   return crypto.randomUUID();

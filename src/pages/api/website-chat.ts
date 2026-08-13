@@ -7,8 +7,8 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { sseResponse } from '../../lib/sse';
-import { chatCompletionWithFallback } from '../../lib/ai-client';
-import type { ChatMessage } from '../../lib/ai-client';
+import { chatCompletionStream } from '../../lib/ai-client';
+import type { ChatMessage, ModelConfig } from '../../lib/ai-client';
 import { getAiGatewayConfigs } from '../../lib/ai-gateway';
 import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, buildSearchQueryWithHistory, summarizeHistory, type WebsiteChunk } from '../../lib/rag-website-search';
 import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
@@ -19,9 +19,36 @@ import { reserveAiQuota, requestId } from '../../lib/ai-operations';
 export const prerender = false;
 
 const MAX_CHAT_OUTPUT_TOKENS = 1024;
+const ANONYMOUS_SESSION_COOKIE = 'de_chat_anon_token';
+const ANONYMOUS_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 function getChatMaxTokens(maxTokens?: number): number {
   return Math.min(maxTokens ?? MAX_CHAT_OUTPUT_TOKENS, MAX_CHAT_OUTPUT_TOKENS);
+}
+
+function getAnonymousSessionToken(request: Request): string | null {
+  const cookie = request.headers.get('cookie') ?? '';
+  const match = cookie.match(new RegExp(`(?:^|;\\s*)${ANONYMOUS_SESSION_COOKIE}=([^;]+)`));
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function anonymousSessionCookie(token: string): string {
+  return `${ANONYMOUS_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${ANONYMOUS_COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function quotaSubject(userId: string | null, clientAddress: string | undefined, anonymousToken: string | null): string {
+  if (userId) return `user:${userId}`;
+  if (anonymousToken) return `anon:${anonymousToken}`;
+  return `ip:${clientAddress ?? 'unknown'}`;
+}
+
+function eventPayload(event: string, data: Record<string, unknown>): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify({ event, ...data })}\n\n`);
 }
 
 function buildSystemPrompt(ragContext: string): string {
@@ -102,18 +129,23 @@ export const POST: APIRoute = async (ctx) => {
   const authSession = await auth.api.getSession({ headers: ctx.request.headers });
   const userId = authSession?.user?.id ?? null;
   const request = requestId();
-  const quota = await reserveAiQuota(env.DB, userId ?? `ip:${ctx.clientAddress ?? 'anonymous'}`, 'website_chat');
-  if (!quota.allowed) {
-    return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn Website Chat trong giờ này.', quota }), { status: 429, headers: { 'Content-Type': 'application/json' } });
-  }
+  let anonymousToken = userId ? null : getAnonymousSessionToken(ctx.request);
+
+  const message = body.message.trim();
 
   // A browser can retain a session created before the visitor signs in, or one
   // removed by maintenance. Start a fresh conversation rather than blocking chat.
   let activeSessionId = sessionId;
-  let sessionData = activeSessionId ? await loadSession(env.DB, activeSessionId, userId) : null;
+  let sessionData = activeSessionId
+    ? await loadSession(env.DB, activeSessionId, userId, anonymousToken)
+    : null;
+  let sessionCookie: string | null = null;
   if (!sessionData) {
-    activeSessionId = await createSession(env.DB, userId, body.page_type as string | undefined, body.page_slug as string | undefined);
-    sessionData = await loadSession(env.DB, activeSessionId, userId);
+    const createdSession = await createSession(env.DB, userId, body.page_type as string | undefined, body.page_slug as string | undefined);
+    activeSessionId = createdSession.id;
+    anonymousToken = createdSession.anonymousToken;
+    sessionCookie = anonymousToken ? anonymousSessionCookie(anonymousToken) : null;
+    sessionData = await loadSession(env.DB, activeSessionId, userId, anonymousToken);
   }
   if (!activeSessionId || !sessionData) {
     return new Response(JSON.stringify({ error: 'Không thể khởi tạo phiên chat. Vui lòng thử lại.' }), {
@@ -133,6 +165,18 @@ export const POST: APIRoute = async (ctx) => {
   }
   for (const config of modelConfigs) config.max_tokens = getChatMaxTokens(config.max_tokens);
 
+  const quota = await reserveAiQuota(
+    env.DB,
+    quotaSubject(userId, ctx.clientAddress, anonymousToken),
+    'website_chat',
+  );
+  if (!quota.allowed) {
+    return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn Website Chat trong giờ này.', quota }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', ...(sessionCookie ? { 'Set-Cookie': sessionCookie } : {}) },
+    });
+  }
+
   const searchOpts: { contentType?: string } = {};
   if (body.page_type === 'book' && body.page_slug) {
     searchOpts.contentType = 'book';
@@ -141,7 +185,7 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   // Build search query với conversation context (multi-turn understanding)
-  const searchQuery = buildSearchQueryWithHistory(body.message.trim(), history);
+  const searchQuery = buildSearchQueryWithHistory(message, history);
 
   let chunks: WebsiteChunk[] = [];
   try {
@@ -159,116 +203,138 @@ export const POST: APIRoute = async (ctx) => {
   const summarizedHistory = summarizeHistory(history);
   const chatMessages: ChatMessage[] = [
     ...summarizedHistory.map((message): ChatMessage => ({ role: message.role as ChatMessage['role'], content: message.content })),
-    { role: 'user', content: body.message.trim() },
+    { role: 'user', content: message },
   ].slice(-9) as ChatMessage[];
 
-  let aiResponse = '';
-  let aiError: string | null = null;
-  let fallbackUsed = false;
-  let providerFallbackUsed = false;
-  let usedModelCfg = modelCfg;
+  const sourceMetadata = formattedChunks.map((chunk) => ({
+    url: chunk.url,
+    title: chunk.title,
+    content_type: chunk.content_type,
+  }));
   const aiStartedAt = Date.now();
-  try {
-    const completion = await chatCompletionWithFallback(modelConfigs, chatMessages, systemPrompt);
-    aiResponse = completion.content;
-    usedModelCfg = completion.config;
-    providerFallbackUsed = completion.fallbackUsed;
-  } catch (err) {
-    aiError = String(err);
-    console.error('[website-chat] AI error:', err);
-  }
+  let aiResponse = '';
+  let currentConfigIndex = 0;
+  let usedModelCfg: ModelConfig = modelCfg;
+  let providerFallbackUsed = false;
+  let modelReader: ReadableStreamDefaultReader<string> | null = null;
+  let completed = false;
+  let cancelled = false;
 
-  // Never return an empty assistant bubble. The retrieved book context remains
-  // useful even when the configured model is unavailable or returns whitespace.
-  if (aiError || !aiResponse.trim()) {
-    aiResponse = buildContextFallback(chunks);
-    fallbackUsed = true;
-    aiError = null;
-  }
+  const openModelStream = () => {
+    usedModelCfg = modelConfigs[currentConfigIndex];
+    modelReader = chatCompletionStream(usedModelCfg, chatMessages, systemPrompt).getReader();
+  };
 
-  await logAiUsage(env.DB, {
-    provider_id: usedModelCfg.provider_id,
-    model_id: usedModelCfg.model_id,
-    user_id: userId ?? undefined,
-    session_id: activeSessionId,
-    feature: 'website_chat',
-    success: !fallbackUsed && Boolean(aiResponse.trim()),
-    error_message: fallbackUsed ? 'AI response fallback' : undefined,
-    latency_ms: Date.now() - aiStartedAt,
-    input_tokens: Math.ceil((systemPrompt.length + chatMessages.reduce((sum, message) => sum + message.content.length, 0)) / 4),
-    output_tokens: Math.ceil(aiResponse.length / 4),
-    fallback_used: fallbackUsed || providerFallbackUsed,
-    retrieval_chunks: chunks.length,
-    request_id: request,
-  }).catch((err) => console.warn('[website-chat] usage log failed:', err));
+  const saveAndLog = async (fallbackUsed: boolean, errorMessage?: string) => {
+    const success = Boolean(aiResponse.trim()) && !fallbackUsed;
+    await logAiUsage(env.DB, {
+      provider_id: usedModelCfg.provider_id,
+      model_id: usedModelCfg.model_id,
+      user_id: userId ?? undefined,
+      session_id: activeSessionId,
+      feature: 'website_chat',
+      success,
+      error_message: errorMessage,
+      latency_ms: Date.now() - aiStartedAt,
+      input_tokens: Math.ceil((systemPrompt.length + chatMessages.reduce((sum, message) => sum + message.content.length, 0)) / 4),
+      output_tokens: Math.ceil(aiResponse.length / 4),
+      fallback_used: fallbackUsed || providerFallbackUsed,
+      retrieval_chunks: chunks.length,
+      request_id: request,
+    }).catch((err) => console.warn('[website-chat] usage log failed:', err));
 
-  // Save conversation to DB
-  if (!aiError) {
-    try {
-      const newMessages = [
-        ...sessionData.messages,
-        { role: 'user' as const, content: body.message.trim(), created_at: new Date().toISOString() },
-        { role: 'assistant' as const, content: aiResponse, created_at: new Date().toISOString() },
-      ];
-      await saveSession(env.DB, activeSessionId, newMessages, chunks.map(c => c.id));
-    } catch (err) {
-      console.error('[website-chat] Save session failed:', err);
+    if (!cancelled && aiResponse.trim()) {
+      try {
+        await saveSession(env.DB, activeSessionId, [
+          ...sessionData.messages,
+          { role: 'user', content: message, created_at: new Date().toISOString() },
+          { role: 'assistant', content: aiResponse, created_at: new Date().toISOString() },
+        ], chunks.map((chunk) => chunk.id));
+      } catch (err) {
+        console.error('[website-chat] Save session failed:', err);
+      }
     }
-  }
+  };
 
-  // Stream response word-by-word as they arrive
-  const textEncoder = new TextEncoder();
-  let wordIndex = 0;
-  const words = aiResponse.split(/(\s+)/);
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(eventPayload('metadata', {
+        session_id: activeSessionId,
+        chunks_count: chunks.length,
+        chunks_ids: chunks.map((chunk) => chunk.id),
+        sources: sourceMetadata,
+        quota,
+      }));
+    },
+    async pull(controller) {
+      if (completed) return;
 
-  const stream = new ReadableStream({
-    pull(controller) {
-      if (wordIndex === 0) {
-        // First pull: send session_id + sources metadata
-        const metadataText = textEncoder.encode(
-          `data: ${JSON.stringify({
-            event: 'metadata',
-            session_id: activeSessionId,
-            chunks_count: chunks.length,
-            chunks_ids: chunks.map(c => c.id),
-            sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-          })}\n\n`
-        );
-        controller.enqueue(metadataText);
-      }
+      while (true) {
+        try {
+          if (!modelReader) openModelStream();
+          const reader = modelReader;
+          if (!reader) throw new Error('Không thể mở luồng AI.');
+          const { value, done } = await reader.read();
+          if (done) {
+            completed = true;
+            if (!aiResponse.trim()) {
+              aiResponse = buildContextFallback(chunks);
+              controller.enqueue(eventPayload('chunk', { text: aiResponse }));
+              await saveAndLog(true, 'AI returned an empty response');
+            } else {
+              await saveAndLog(false);
+            }
+            controller.enqueue(eventPayload('done', {
+              session_id: activeSessionId,
+              chunks_used: chunks.length,
+              sources: sourceMetadata,
+              quota,
+              fallback_used: providerFallbackUsed,
+            }));
+            controller.close();
+            return;
+          }
 
-      if (aiError) {
-        controller.enqueue(
-          textEncoder.encode(`data: ${JSON.stringify({ event: 'error', message: aiError })}\n\n`)
-        );
-        controller.close();
-        return;
-      }
+          if (value) {
+            aiResponse += value;
+            controller.enqueue(eventPayload('chunk', { text: value }));
+          }
+          return;
+        } catch (err) {
+          await modelReader?.cancel(err).catch(() => undefined);
+          modelReader = null;
+          if (!aiResponse && currentConfigIndex < modelConfigs.length - 1) {
+            currentConfigIndex++;
+            providerFallbackUsed = true;
+            continue;
+          }
 
-      if (wordIndex < words.length) {
-        const word = words[wordIndex++];
-        if (word) {
-          controller.enqueue(
-            textEncoder.encode(`data: ${JSON.stringify({ event: 'chunk', text: word })}\n\n`)
-          );
-        }
-        return;
-      }
-
-      // Done
-      controller.enqueue(
-        textEncoder.encode(
-          `data: ${JSON.stringify({
-            event: 'done',
+          console.error('[website-chat] AI stream failed:', err);
+          completed = true;
+          if (!aiResponse.trim()) {
+            aiResponse = buildContextFallback(chunks);
+            controller.enqueue(eventPayload('chunk', { text: aiResponse }));
+          }
+          await saveAndLog(true, String(err));
+          controller.enqueue(eventPayload('done', {
             session_id: activeSessionId,
             chunks_used: chunks.length,
-            sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
-          })}\n\n`
-        )
-      );
-      controller.close();
+            sources: sourceMetadata,
+            quota,
+            fallback_used: true,
+          }));
+          controller.close();
+          return;
+        }
+      }
+    },
+    async cancel(reason) {
+      cancelled = true;
+      await modelReader?.cancel(reason).catch(() => undefined);
     },
   });
 
-  return sseResponse(stream);
+  return sseResponse(stream, {
+    headers: sessionCookie ? { 'Set-Cookie': sessionCookie } : undefined,
+  });
 };

@@ -55,6 +55,7 @@
       <button id="page-chat-send" aria-label="Gửi">
         <span class="material-symbols-outlined">arrow_upward</span>
       </button>
+      <button id="page-chat-stop" type="button" hidden>Dừng</button>
     </div>
   </footer>
 
@@ -433,9 +434,11 @@
   }
   #page-chat-send:hover { transform: scale(1.06); }
   #page-chat-send:active { transform: scale(0.95); }
-  #page-chat-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+   #page-chat-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+   #page-chat-stop { border: 0; border-radius: 8px; padding: 8px 10px; background: #e7e5e4; color: #44403c; font: 600 12px inherit; cursor: pointer; }
+   #page-chat-stop:hover { background: #d6d3d1; }
 
-  /* ── Markdown ───────────────────────────────────────────────── */
+   /* ── Markdown ───────────────────────────────────────────────── */
   .page-bubble h1, .page-bubble h2, .page-bubble h3 {
     color: inherit;
     margin: 6px 0 3px;
@@ -491,6 +494,7 @@
   const messagesArea = document.getElementById('page-chat-area')!;
   const inputEl = document.getElementById('page-chat-input') as HTMLTextAreaElement;
   const sendBtn = document.getElementById('page-chat-send') as HTMLButtonElement;
+  const stopBtn = document.getElementById('page-chat-stop') as HTMLButtonElement;
 
   const SESSION_KEY = 'de_chat_session_id';
   const storedSessionId = sessionStorage.getItem(SESSION_KEY);
@@ -499,6 +503,7 @@
     sessionStorage.removeItem(SESSION_KEY);
   }
   let isLoading = false;
+  let requestController: AbortController | null = null;
   let welcomeShown = true;
 
   function scrollToBottom() {
@@ -529,6 +534,36 @@
     if (w) w.remove();
   }
 
+  function appendSources(body: HTMLElement, sources: Array<{url: string; title: string; content_type: string}>) {
+    if (!sources.length) return;
+    const srcEl = document.createElement('div');
+    srcEl.className = 'page-sources';
+    const label = document.createElement('div');
+    label.className = 'page-sources-label';
+    label.textContent = 'Nguồn tham khảo';
+    srcEl.appendChild(label);
+    for (const source of sources.slice(0, 5)) {
+      let sourceUrl: URL;
+      try {
+        sourceUrl = new URL(source.url, window.location.origin);
+      } catch { continue; }
+      if (sourceUrl.protocol !== 'http:' && sourceUrl.protocol !== 'https:') continue;
+      const link = document.createElement('a');
+      link.className = 'page-source-link';
+      link.href = sourceUrl.href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const type = document.createElement('span');
+      type.textContent = source.content_type === 'book' ? 'Tài liệu' : source.content_type === 'blog' ? 'Blog' : 'Tài nguyên';
+      const title = document.createElement('span');
+      title.textContent = source.title || 'Xem chi tiết';
+      link.appendChild(type);
+      link.appendChild(title);
+      srcEl.appendChild(link);
+    }
+    if (srcEl.childElementCount > 1) body.appendChild(srcEl);
+  }
+
   function addMessage(role: 'user' | 'assistant', content: string, sources?: Array<{url: string; title: string; content_type: string}>) {
     hideWelcome();
 
@@ -548,16 +583,7 @@
     body.appendChild(bubble);
 
     if (role === 'assistant' && sources?.length) {
-      const srcEl = document.createElement('div');
-      srcEl.className = 'page-sources';
-      srcEl.innerHTML = `
-        <div class="page-sources-label">📚 Nguồn tham khảo</div>
-        ${sources.map(s => `
-          <a href="${s.url}" class="page-source-link" target="_blank" rel="noopener">
-            <span>${s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄'}</span>
-            <span>${s.title || 'Xem chi tiết'}</span>
-          </a>`).join('')}`;
-      body.appendChild(srcEl);
+      appendSources(body, sources);
     }
 
     msg.appendChild(body);
@@ -624,6 +650,9 @@
 
     isLoading = true;
     sendBtn.disabled = true;
+    inputEl.disabled = true;
+    stopBtn.hidden = false;
+    requestController = new AbortController();
     inputEl.value = '';
     autoResize();
 
@@ -638,6 +667,8 @@
       const sendChatRequest = (sessionId: string | null) => fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        signal: requestController?.signal,
         body: JSON.stringify({ message: text, session_id: sessionId ?? undefined }),
       });
       let res = await sendChatRequest(currentSessionId);
@@ -712,36 +743,55 @@
       const parsed = await Promise.resolve(marked.parse(accumulatedText));
       bubbleEl.innerHTML = DOMPurify.sanitize(parsed as string);
 
-      // Append sources
-      if (currentSources.length) {
-        const srcEl = document.createElement('div');
-        srcEl.className = 'page-sources';
-        srcEl.innerHTML = `
-          <div class="page-sources-label">📚 Nguồn tham khảo</div>
-          ${currentSources.map((s: {url: string; title: string; content_type: string}) => `
-            <a href="${s.url}" class="page-source-link" target="_blank" rel="noopener">
-              <span>${s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄'}</span>
-              <span>${s.title || 'Xem chi tiết'}</span>
-            </a>`).join('')}`;
-        msgEl.querySelector('.page-msg-body')!.appendChild(srcEl);
-      }
+      appendSources(msgEl.querySelector('.page-msg-body')!, currentSources);
 
     } catch (e) {
       removeTyping();
-      const errMsg = (e as Error).message || 'Kết nối thất bại. Vui lòng thử lại.';
-      addMessage('assistant', `❌ **Lỗi:** ${errMsg}`);
+      if ((e as Error).name === 'AbortError') {
+        addMessage('assistant', 'Đã dừng tạo phản hồi.');
+      } else {
+        const errMsg = (e as Error).message || 'Kết nối thất bại. Vui lòng thử lại.';
+        addMessage('assistant', `**Lỗi:** ${errMsg}`);
+      }
     } finally {
       isLoading = false;
+      requestController = null;
       sendBtn.disabled = false;
+      stopBtn.hidden = true;
+      inputEl.disabled = false;
       inputEl.focus();
     }
   }
 
-  // Show welcome on load
-  showWelcome();
+  async function hydrateConversation() {
+    if (!currentSessionId) {
+      showWelcome();
+      return;
+    }
+    try {
+      const response = await fetch(`/api/website-chat/${encodeURIComponent(currentSessionId)}`, {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) throw new Error('Session unavailable');
+      const session = await response.json() as { messages?: Array<{ role: 'user' | 'assistant'; content: string }> };
+      const messages = session.messages ?? [];
+      if (!messages.length) {
+        showWelcome();
+        return;
+      }
+      for (const message of messages) addMessage(message.role, message.content);
+    } catch {
+      currentSessionId = null;
+      sessionStorage.removeItem(SESSION_KEY);
+      showWelcome();
+    }
+  }
+
+  void hydrateConversation();
 
   // Event bindings
   sendBtn.addEventListener('click', sendMessage);
+  stopBtn.addEventListener('click', () => requestController?.abort());
   inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();

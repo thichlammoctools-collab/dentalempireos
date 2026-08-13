@@ -79,63 +79,6 @@ export interface CompletionResult {
   attemptCount: number;
 }
 
-/** Generate a PNG through an OpenAI-compatible image provider. */
-export async function generateOpenAiCompatibleImage(
-  config: ModelConfig,
-  prompt: string,
-): Promise<Uint8Array> {
-  if (!config.api_key) throw new AiError('Image generation is not configured', 503, config.provider_id);
-
-  const baseUrl = config.base_url.replace(/\/+$/, '');
-  const resp = await aiFetch(`${baseUrl}/images/generations`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.api_key}`,
-    },
-    body: JSON.stringify({
-      model: config.model_id,
-      prompt,
-      // Closest supported portrait ratio to an A4 report page (210 × 297).
-      size: '1024x1536',
-      quality: 'medium',
-      output_format: 'png',
-    }),
-  }, 120_000);
-
-  if (!resp.ok) {
-    const detail = (await resp.text()).slice(0, 500);
-    throw new AiError(`Image API error (${resp.status}): ${detail}`, resp.status, config.provider_id);
-  }
-
-  const data = await resp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
-  const image = data.data?.[0];
-  if (image?.b64_json) {
-    return Uint8Array.from(atob(image.b64_json), (char) => char.charCodeAt(0));
-  }
-
-  // Some OpenAI-compatible gateways return a temporary URL instead of an
-  // inline base64 payload. Retrieve it before the provider URL expires.
-  if (image?.url) {
-    let imageUrl: URL;
-    try {
-      imageUrl = new URL(image.url);
-    } catch {
-      throw new AiError('Image provider returned an invalid image URL', 502, config.provider_id);
-    }
-    if (imageUrl.protocol !== 'https:') {
-      throw new AiError('Image provider returned a non-HTTPS image URL', 502, config.provider_id);
-    }
-    const imageResponse = await aiFetch(imageUrl.toString(), { method: 'GET' }, 120_000);
-    if (!imageResponse.ok) {
-      throw new AiError(`Generated image download failed (${imageResponse.status})`, imageResponse.status, config.provider_id);
-    }
-    return new Uint8Array(await imageResponse.arrayBuffer());
-  }
-
-  throw new AiError('Image provider returned neither b64_json nor URL image payload', 502, config.provider_id);
-}
-
 export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < maxRetries; i++) {
