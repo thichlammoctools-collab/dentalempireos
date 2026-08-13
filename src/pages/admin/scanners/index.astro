@@ -15,16 +15,19 @@ const PAGE_SIZE = 10;
 const statusFilter = Astro.url.searchParams.get('status') as 'active' | 'draft' | 'archived' | null;
 const typeFilter = Astro.url.searchParams.get('type') as 'mini' | 'full' | 'checklist' | null;
 const accessFilter = Astro.url.searchParams.get('access');
+const searchQuery = Astro.url.searchParams.get('q')?.trim() ?? '';
 const hasActiveProductFilter = accessFilter === 'free' ? false : accessFilter === 'paid' ? true : undefined;
 const requestedPage = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10));
 const page = requestedPage;
 const offset = (page - 1) * PAGE_SIZE;
 const filters = {
+  ...(searchQuery ? { search: searchQuery } : {}),
   ...(statusFilter ? { status: statusFilter } : {}),
   ...(typeFilter ? { survey_type: typeFilter } : {}),
   ...(hasActiveProductFilter !== undefined ? { has_active_product: hasActiveProductFilter } : {}),
 };
 const filterParams = new URLSearchParams();
+if (searchQuery) filterParams.set('q', searchQuery);
 if (statusFilter) filterParams.set('status', statusFilter);
 if (typeFilter) filterParams.set('type', typeFilter);
 if (accessFilter === 'free' || accessFilter === 'paid') filterParams.set('access', accessFilter);
@@ -171,6 +174,20 @@ const avatarColors = [
   </header>
 
   <form method="get" class="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-3">
+    <div class="min-w-52 flex-1">
+      <label for="scanner-search" class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Tìm Scanner</label>
+      <div class="relative">
+        <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-on-surface-variant">search</span>
+        <input
+          id="scanner-search"
+          name="q"
+          type="search"
+          value={searchQuery}
+          placeholder="Tên, slug, mã hoặc mô tả..."
+          class="w-full rounded-lg border border-outline-variant/30 bg-surface py-2 pl-9 pr-3 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none"
+        />
+      </div>
+    </div>
     <div>
       <label for="scanner-status-filter" class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Trạng thái</label>
       <select id="scanner-status-filter" name="status" class="rounded-lg border border-outline-variant/30 bg-surface px-3 py-2 text-xs text-on-surface focus:border-primary focus:outline-none">
@@ -198,7 +215,7 @@ const avatarColors = [
       </select>
     </div>
     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary transition-opacity hover:opacity-90"><span class="material-symbols-outlined text-[15px]">filter_alt</span>Lọc</button>
-    {(statusFilter || typeFilter || accessFilter) && <a href="/admin/scanners" class="px-2 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface">Xóa lọc</a>}
+    {(searchQuery || statusFilter || typeFilter || accessFilter) && <a href="/admin/scanners" class="px-2 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface">Xóa lọc</a>}
   </form>
 
   <!-- Bundled seeds panel -->

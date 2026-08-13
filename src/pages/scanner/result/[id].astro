@@ -1481,6 +1481,9 @@ try {
           window.location.reload();
           return;
         }
+        if (res.status === 409) {
+          throw new Error(lang === 'vi' ? 'Minh họa đang được tạo trong một phiên khác. Vui lòng tải lại sau ít phút.' : 'The illustration is being created in another session. Please reload in a few minutes.');
+        }
         if (res.status !== 202) {
           const data = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(data.error ?? `HTTP ${res.status}`);

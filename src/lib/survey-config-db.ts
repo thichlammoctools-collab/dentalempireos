@@ -242,12 +242,24 @@ export async function listAllSurveyDefinitionIds(db: D1Database): Promise<Set<st
 
 export async function listSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType; limit?: number; offset?: number } = {},
+  opts: { search?: string; status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType; limit?: number; offset?: number } = {},
 ): Promise<SurveyDefinitionRow[]> {
   let sql = 'SELECT * FROM "survey_definition"';
   const params: unknown[] = [];
   const conditions: string[] = [];
 
+  if (opts.search?.trim()) {
+    const search = `%${opts.search.trim().toLocaleLowerCase('vi')}%`;
+    conditions.push(`(
+      LOWER("title_vi") LIKE ?
+      OR LOWER("title_en") LIKE ?
+      OR LOWER("slug") LIKE ?
+      OR LOWER("id") LIKE ?
+      OR LOWER(COALESCE("description_vi", '')) LIKE ?
+      OR LOWER(COALESCE("description_en", '')) LIKE ?
+    )`);
+    params.push(search, search, search, search, search, search);
+  }
   if (opts.status) {
     conditions.push('"status" = ?');
     params.push(opts.status);
@@ -291,12 +303,24 @@ export async function listSurveyDefinitions(
 
 export async function countSurveyDefinitions(
   db: D1Database,
-  opts: { status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType } = {},
+  opts: { search?: string; status?: SurveyStatus; is_free?: number; has_active_product?: boolean; survey_type?: SurveyType } = {},
 ): Promise<number> {
   let sql = 'SELECT COUNT(*) AS total FROM "survey_definition"';
   const params: unknown[] = [];
   const conditions: string[] = [];
 
+  if (opts.search?.trim()) {
+    const search = `%${opts.search.trim().toLocaleLowerCase('vi')}%`;
+    conditions.push(`(
+      LOWER("title_vi") LIKE ?
+      OR LOWER("title_en") LIKE ?
+      OR LOWER("slug") LIKE ?
+      OR LOWER("id") LIKE ?
+      OR LOWER(COALESCE("description_vi", '')) LIKE ?
+      OR LOWER(COALESCE("description_en", '')) LIKE ?
+    )`);
+    params.push(search, search, search, search, search, search);
+  }
   if (opts.status) {
     conditions.push('"status" = ?');
     params.push(opts.status);

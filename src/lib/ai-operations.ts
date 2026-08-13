@@ -154,11 +154,12 @@ export async function finishScannerReportImageJob(
   imageType: 'analysis' | 'plan',
   runId: string,
   status: 'done' | 'failed',
+  errorMessage?: string,
 ): Promise<void> {
   await db.prepare(
-    `UPDATE "scanner_report_image_job" SET "status" = ?, "updated_at" = datetime('now')
-     WHERE "response_id" = ? AND "image_type" = ? AND "run_id" = ?`,
-  ).bind(status, responseId, imageType, runId).run();
+    `UPDATE "scanner_report_image_job" SET "status" = ?, "error_message" = ?, "updated_at" = datetime('now')
+      WHERE "response_id" = ? AND "image_type" = ? AND "run_id" = ?`,
+  ).bind(status, errorMessage?.slice(0, 500) ?? null, responseId, imageType, runId).run();
 }
 
 export function requestId(): string {

@@ -67,7 +67,9 @@ export async function generateQueuedScannerReportImage(
     await finishScannerReportImageJob(env.DB, response.id, type, job.runId, 'done');
     return key;
   } catch (error) {
-    await finishScannerReportImageJob(env.DB, response.id, type, job.runId, 'failed');
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[scanner-report-image] Generation failed:', message);
+    await finishScannerReportImageJob(env.DB, response.id, type, job.runId, 'failed', message);
     throw error;
   }
 }

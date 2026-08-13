@@ -8,6 +8,7 @@ import { createAuth } from '../../../../lib/auth';
 import { canAccessScanner } from '../../../../lib/entitlement-check';
 import { getSurveyDefinitionFull } from '../../../../lib/survey-config-db';
 import { generateQueuedScannerReportImage } from '../../../../lib/scanner-report-image';
+import { AiError } from '../../../../lib/ai-client';
 
 export const prerender = false;
 type ImageType = 'analysis' | 'plan';
@@ -72,6 +73,15 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const definition = await getSurveyDefinitionFull(env.DB, response.survey_id);
   if (!definition) return notFound('Survey definition not found');
-  const key = await generateQueuedScannerReportImage(env, response, definition.definition.title_vi, type);
-  return json({ created: Boolean(key), key }, key ? 201 : 202);
+  try {
+    const key = await generateQueuedScannerReportImage(env, response, definition.definition.title_vi, type);
+    if (key) return json({ created: true, key }, 201);
+    return json({ error: 'Minh họa đang được tạo trong một yêu cầu khác. Vui lòng thử lại sau ít phút.' }, 409);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Không thể tạo minh họa.';
+    const status = error instanceof AiError && error.statusCode >= 400 && error.statusCode < 600
+      ? error.statusCode
+      : 502;
+    return json({ error: message }, status);
+  }
 };

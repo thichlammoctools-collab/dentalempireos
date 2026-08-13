@@ -108,12 +108,32 @@ export async function generateOpenAiCompatibleImage(
     throw new AiError(`Image API error (${resp.status}): ${detail}`, resp.status, config.provider_id);
   }
 
-  const data = await resp.json() as { data?: Array<{ b64_json?: string }> };
-  const encoded = data.data?.[0]?.b64_json;
-  if (!encoded) throw new AiError('Image provider returned no b64_json image payload', 502, config.provider_id);
+  const data = await resp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
+  const image = data.data?.[0];
+  if (image?.b64_json) {
+    return Uint8Array.from(atob(image.b64_json), (char) => char.charCodeAt(0));
+  }
 
-  const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
-  return bytes;
+  // Some OpenAI-compatible gateways return a temporary URL instead of an
+  // inline base64 payload. Retrieve it before the provider URL expires.
+  if (image?.url) {
+    let imageUrl: URL;
+    try {
+      imageUrl = new URL(image.url);
+    } catch {
+      throw new AiError('Image provider returned an invalid image URL', 502, config.provider_id);
+    }
+    if (imageUrl.protocol !== 'https:') {
+      throw new AiError('Image provider returned a non-HTTPS image URL', 502, config.provider_id);
+    }
+    const imageResponse = await aiFetch(imageUrl.toString(), { method: 'GET' }, 120_000);
+    if (!imageResponse.ok) {
+      throw new AiError(`Generated image download failed (${imageResponse.status})`, imageResponse.status, config.provider_id);
+    }
+    return new Uint8Array(await imageResponse.arrayBuffer());
+  }
+
+  throw new AiError('Image provider returned neither b64_json nor URL image payload', 502, config.provider_id);
 }
 
 export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
