@@ -1,7 +1,19 @@
 -- Draft pillar post: review content and cover before changing status to published.
 
+INSERT OR IGNORE INTO "blog_category" (
+  "id", "name", "slug", "description", "icon", "color", "sort_order", "post_count", "created_at"
+)
+VALUES (
+  'cat-van-hanh', 'Vận Hành', 'van-hanh',
+  'Quy trình, SOPs, và tối ưu hoạt động hàng ngày',
+  'settings_suggest', '#7c3aed', 2, 0, '2026-08-13T00:00:00Z'
+);
+
 INSERT OR IGNORE INTO "blog_tag" ("id", "name", "slug", "post_count", "created_at")
 VALUES
+  ('tag-quy-trinh', 'Quy Trình', 'quy-trinh', 0, '2026-08-13T00:00:00Z'),
+  ('tag-sop', 'SOP', 'sop', 0, '2026-08-13T00:00:00Z'),
+  ('tag-nhan-su', 'Nhân Sự', 'nhan-su', 0, '2026-08-13T00:00:00Z'),
   ('tag-phong-kham-moi', 'Phòng Khám Mới', 'phong-kham-moi', 0, '2026-08-13T00:00:00Z'),
   ('tag-van-hanh', 'Vận Hành', 'van-hanh', 0, '2026-08-13T00:00:00Z'),
   ('tag-checklist', 'Checklist', 'checklist', 0, '2026-08-13T00:00:00Z');
@@ -212,7 +224,8 @@ _Không cần đăng nhập · Nhận liên kết kết quả riêng tư · Dữ
   'Dental Empire',
   'draft',
   0, 0, 1,
-  14, 0, NULL, NULL, 'startup-check',
+  14, 0, NULL, NULL,
+  CASE WHEN EXISTS (SELECT 1 FROM "survey_definition" WHERE "id" = 'startup-check') THEN 'startup-check' ELSE NULL END,
   '2026-08-13T00:00:00Z', '2026-08-13T00:00:00Z', 'free'
 );
 
