@@ -78,6 +78,22 @@ function orderRetryHref(order: CreditOrder): string | null {
   if (order.payment_method === 'manual') return `/payment/credits-manual?order=${encodeURIComponent(order.id)}`;
   return order.checkout_url;
 }
+
+function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: string | null }): { amount: number; label: string } {
+  if (entry.kind !== 'settlement') return { amount: entry.amount, label: kindLabels[entry.kind] ?? entry.kind };
+
+  try {
+    const metadata = JSON.parse(entry.metadata_json ?? '{}') as { credits?: unknown };
+    const credits = typeof metadata.credits === 'number' && Number.isInteger(metadata.credits) && metadata.credits > 0
+      ? metadata.credits
+      : null;
+    if (credits !== null) return { amount: -credits, label: `Đã sử dụng ${credits} Credits` };
+  } catch {
+    // Preserve the recorded ledger value if historical metadata is unavailable.
+  }
+
+  return { amount: entry.amount, label: kindLabels[entry.kind] ?? entry.kind };
+}
 ---
 
 <BaseLayout title="Ví Credits | Dental Empire OS" description="Theo dõi số dư Credits, lịch sử sử dụng và gói nạp." noindex={true}>
@@ -170,18 +186,21 @@ function orderRetryHref(order: CreditOrder): string | null {
           <div class="py-8 text-center text-sm text-on-surface-variant">Chưa có giao dịch Credits nào.</div>
         ) : (
           <div class="divide-y divide-outline-variant/15">
-            {entries.map((entry) => (
-              <div class="flex items-center gap-3 py-3.5">
-                <div class:list={[
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                  entry.amount > 0 ? 'bg-emerald-500/10 text-emerald-500' : entry.amount < 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary',
-                ]}>
-                  <span class="material-symbols-outlined text-lg">{entry.amount > 0 ? 'add_circle' : entry.amount < 0 ? 'remove_circle' : 'check_circle'}</span>
+            {entries.map((entry) => {
+              const display = getLedgerDisplay(entry);
+              return (
+                <div class="flex items-center gap-3 py-3.5">
+                  <div class:list={[
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                    display.amount > 0 ? 'bg-emerald-500/10 text-emerald-500' : display.amount < 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary',
+                  ]}>
+                    <span class="material-symbols-outlined text-lg">{display.amount > 0 ? 'add_circle' : display.amount < 0 ? 'remove_circle' : 'check_circle'}</span>
+                  </div>
+                  <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-on-surface">{display.label}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{entry.reason ?? entry.source_type} · {formatDate(entry.created_at)}</p></div>
+                  <p class:list={['text-sm font-black tabular-nums', display.amount > 0 ? 'text-emerald-500' : display.amount < 0 ? 'text-amber-500' : 'text-on-surface-variant']}>{display.amount > 0 ? '+' : ''}{display.amount}</p>
                 </div>
-                <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-on-surface">{kindLabels[entry.kind] ?? entry.kind}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{entry.reason ?? entry.source_type} · {formatDate(entry.created_at)}</p></div>
-                <p class:list={['text-sm font-black tabular-nums', entry.amount > 0 ? 'text-emerald-500' : entry.amount < 0 ? 'text-amber-500' : 'text-on-surface-variant']}>{entry.amount > 0 ? '+' : ''}{entry.amount}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

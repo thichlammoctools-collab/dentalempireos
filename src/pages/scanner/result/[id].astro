@@ -366,13 +366,17 @@ try {
             <h2 class="insight-title">{lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}</h2>
           </div>
         </div>
-        <span class:list={["ai-status-chip", { "is-ready": hasPlan, "is-working": !hasPlan && (planStatus === 'queued' || planStatus === 'running') }]}>
-          <span class="material-symbols-outlined">{hasPlan ? 'check_circle' : planStatus === 'queued' || planStatus === 'running' ? 'sync' : 'schedule'}</span>
-          {hasPlan
+        <span id="plan-status-chip" class:list={["ai-status-chip", { "is-ready": hasPlan, "is-working": !hasPlan && (planStatus === 'queued' || planStatus === 'running') }]}>
+          <span class="material-symbols-outlined">{hasPlan ? 'check_circle' : planStatus === 'queued' || planStatus === 'running' ? 'sync' : hasAnalysis ? 'auto_awesome' : 'schedule'}</span>
+          <span id="plan-status-chip-label">{hasPlan
             ? (lang === 'vi' ? 'Đã sẵn sàng' : 'Ready')
             : planStatus === 'queued' || planStatus === 'running'
               ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
-              : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis')}
+              : hasAnalysis
+                ? planStatus === 'failed'
+                  ? (lang === 'vi' ? 'Cần thử lại' : 'Retry needed')
+                  : (lang === 'vi' ? 'Sẵn sàng lập kế hoạch' : 'Ready to build plan')
+                : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis')}</span>
         </span>
       </div>
       {!hasPlan && (
@@ -448,7 +452,7 @@ try {
             </div>
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
               <span class="material-symbols-outlined text-base">auto_awesome</span>
-              {lang === 'vi' ? 'Để AI lập kế hoạch 30 ngày' : 'Let AI build the 30-day plan'}
+              {lang === 'vi' ? 'Tạo kế hoạch 30 ngày với AI' : 'Create the 30-day plan with AI'}
             </button>
           </div>
           {!hasAnalysis && (
@@ -1249,7 +1253,7 @@ try {
           return;
         }
         // Update UI per section
-        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan);
+        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan, !!data.ai_analysis);
         updateAnalysisUI(data.ai_analysis_status ?? 'pending', !!data.ai_analysis);
         // Stop polling when nothing running
         const running = ['queued', 'running'].includes(data.ai_plan_status ?? 'pending')
@@ -1267,21 +1271,39 @@ try {
     }, 2000);
   }
 
-  function updatePlanUI(status: string, hasContent: boolean) {
+  function updatePlanUI(status: string, hasContent: boolean, hasAnalysisContent: boolean) {
     const cta = document.getElementById('plan-cta');
     const loading = document.getElementById('plan-loading');
     const error = document.getElementById('plan-error');
+    const chip = document.getElementById('plan-status-chip');
     if (!cta || !loading || !error) return;
     cta.classList.add('hidden');
     loading.classList.add('hidden');
     error.classList.add('hidden');
+    if (chip) {
+      const working = status === 'queued' || status === 'running';
+      chip.classList.toggle('is-ready', hasContent);
+      chip.classList.toggle('is-working', !hasContent && working);
+      const icon = chip.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = hasContent ? 'check_circle' : working ? 'sync' : hasAnalysisContent ? 'auto_awesome' : 'schedule';
+      const label = document.getElementById('plan-status-chip-label');
+      if (label) label.textContent = hasContent
+        ? (lang === 'vi' ? 'Đã sẵn sàng' : 'Ready')
+        : working
+          ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
+          : status === 'failed' && hasAnalysisContent
+            ? (lang === 'vi' ? 'Cần thử lại' : 'Retry needed')
+            : hasAnalysisContent
+              ? (lang === 'vi' ? 'Sẵn sàng lập kế hoạch' : 'Ready to build plan')
+              : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis');
+    }
     if (hasContent) {
       window.location.reload();
     } else if (status === 'queued' || status === 'running') {
       loading.classList.remove('hidden');
     } else if (status === 'failed') {
       error.classList.remove('hidden');
-    } else {
+    } else if (hasAnalysisContent) {
       cta.classList.remove('hidden');
     }
   }
