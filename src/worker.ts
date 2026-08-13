@@ -47,9 +47,14 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     ]);
   }
 
-  await env.DB.prepare('DELETE FROM "scanner_guest_request" WHERE "created_at" < ?')
-    .bind(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-    .run();
+  try {
+    await env.DB.prepare('DELETE FROM "scanner_guest_request" WHERE "created_at" < ?')
+      .bind(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .run();
+  } catch (error) {
+    // The guest-report tables may not exist until the corresponding migration runs.
+    console.warn('[scanner-retention] Guest request cleanup skipped:', error);
+  }
 }
 
 const MAX_QUEUE_ATTEMPTS = 3;

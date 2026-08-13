@@ -8,7 +8,6 @@ CREATE INDEX IF NOT EXISTS "idx_scanner_response_expiry"
 CREATE INDEX IF NOT EXISTS "idx_scanner_credit_run_response_status"
   ON "scanner_credit_run" ("response_id", "status");
 
--- Apply the policy to historical Scanner responses as well.
 UPDATE "scanner_response"
 SET "retention_tier" = 'guest',
     "expires_at" = strftime('%Y-%m-%dT%H:%M:%fZ', "created_at", '+3 days')

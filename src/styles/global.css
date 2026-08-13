@@ -324,6 +324,18 @@
     color: color-mix(in srgb, var(--color-on-surface-variant) 72%, var(--color-surface)) !important;
   }
 
+  html:not(.dark) .site-theme .featured-card-overlay .text-white {
+    color: white !important;
+  }
+
+  html:not(.dark) .site-theme .featured-card-overlay .text-white\/70 {
+    color: rgb(255 255 255 / 0.7) !important;
+  }
+
+  html:not(.dark) .site-theme .featured-card-overlay .text-white\/50 {
+    color: rgb(255 255 255 / 0.5) !important;
+  }
+
   html:not(.dark) .site-theme .bg-white\/5,
   html:not(.dark) .site-theme .bg-white\/\[0\.03\] {
     background-color: var(--color-surface-container-low) !important;

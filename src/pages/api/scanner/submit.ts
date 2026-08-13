@@ -86,12 +86,6 @@ export const POST: APIRoute = async (ctx) => {
     ? await getScannerUsage(env.DB, session!.user.id, surveyId)
     : { remaining: 1, limit: 1 };
   const requiresCredits = !isGuestScanner && usage.remaining === 0;
-  const retentionTier: ScannerRetentionTier = isGuestScanner
-    ? 'guest'
-    : requiresCredits
-      ? 'credit_paid'
-      : 'account_free';
-  const expiresAt = getScannerRetentionExpiry(retentionTier);
   if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
     return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
   }
@@ -167,6 +161,12 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   // Insert the response only after a paid run has atomically reserved its Credits.
+  const retentionTier: ScannerRetentionTier = isGuestScanner
+    ? 'guest'
+    : creditRun
+      ? 'credit_paid'
+      : 'account_free';
+  const expiresAt = getScannerRetentionExpiry(retentionTier);
   let id: number;
   try {
     ({ id } = await createScannerResponse(env.DB, {
