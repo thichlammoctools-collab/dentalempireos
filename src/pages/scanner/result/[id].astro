@@ -407,11 +407,6 @@ try {
             <span class="material-symbols-outlined">assignment_turned_in</span>
             <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
            </div>
-           {planImageUrl && (
-             <figure class="report-image">
-               <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
-             </figure>
-           )}
            <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{planText}</template>
         </>
@@ -508,11 +503,6 @@ try {
               </button>
 
             </div>
-            {analysisImageUrl && (
-              <figure class="report-image">
-                <img src={analysisImageUrl} alt={lang === 'vi' ? 'Minh họa bản soi chiếu hệ thống AI' : 'AI system analysis illustration'} />
-              </figure>
-            )}
             <article class="prose-content" set:html={analysisHtml}></article>
           </>
         ) : (
@@ -1571,6 +1561,7 @@ try {
   function closeImageDialog() {
     clearImagePoll();
     activeImageType = null;
+    if (imagePreviewImage) imagePreviewImage.removeAttribute('src');
     if (imageDialog?.open) imageDialog.close();
   }
 
@@ -1600,6 +1591,10 @@ try {
       setImageButtonState(type, false);
       return;
     }
+    imageError?.classList.add('hidden');
+    imagePreview?.classList.add('hidden');
+    imageDownload?.classList.add('hidden');
+    imageProgress?.classList.remove('hidden');
     if (imageProgressLabel) {
       imageProgressLabel.textContent = cost
         ? (lang === 'vi' ? `Đang tạo minh họa · đã giữ ${cost} Credits, chỉ trừ khi tạo ảnh thành công.` : `Creating illustration · ${cost} Credits reserved and charged only on success.`)

@@ -865,6 +865,12 @@ export async function completeScannerReportImageCreditRun(
   }
   if (run.status !== 'reserved') return null;
 
+  let priceSnapshot: unknown;
+  try {
+    priceSnapshot = JSON.parse(run.price_snapshot_json);
+  } catch {
+    priceSnapshot = { pricingRuleId: run.pricing_rule_id, creditAmount: run.credits };
+  }
   const consumption = await settleReservation(db, {
     userId: input.userId,
     reservationId: run.reservation_id,
@@ -872,15 +878,14 @@ export async function completeScannerReportImageCreditRun(
     businessObjectId: run.id,
     chargeType: 'generate',
     credits: run.credits,
-    priceSnapshot: JSON.parse(run.price_snapshot_json),
+    priceSnapshot,
     quantitySnapshot: { responseId: run.response_id, imageType: run.image_type },
   });
-  const updated = await db.prepare(
+  await db.prepare(
     `UPDATE "scanner_report_image_credit_run"
      SET "status" = 'completed', "active_key" = NULL, "updated_at" = ?
      WHERE "id" = ? AND "status" = 'reserved'`,
   ).bind(now(), run.id).run();
-  if ((updated.meta.changes ?? 0) !== 1) throw new Error('Unable to finalize Scanner report image Credit run');
   return consumption;
 }
 

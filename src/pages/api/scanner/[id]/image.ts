@@ -20,12 +20,6 @@ type AuthorizedImageRequest =
   | { error: Response }
   | { id: number; type: ImageType; userId: string; response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>> };
 
-type ImageJobRow = {
-  status: 'running' | 'done' | 'failed';
-  error_message: string | null;
-  updated_at: string;
-};
-
 function parseIdempotencyKey(request: Request): string | null {
   const key = request.headers.get('Idempotency-Key')?.trim() ?? '';
   return /^[A-Za-z0-9_-]{16,128}$/.test(key) ? key : null;
@@ -70,16 +64,14 @@ async function getRun(
 function statusPayload(
   imageKey: string | null,
   run: ScannerReportImageCreditRun | null,
-  job: ImageJobRow | null,
 ) {
   if (imageKey) return { status: 'done', imageUrl: 'ready', credits: run?.credits ?? null };
   if (run?.status === 'failed') return {
     status: 'failed',
-    error: run.failure_reason ?? job?.error_message ?? 'Không thể tạo minh họa. Credits đã được hoàn lại.',
+    error: run.failure_reason ?? 'Không thể tạo minh họa. Credits đã được hoàn lại.',
     credits: run.credits,
   };
   if (run?.status === 'reserved') return { status: 'running', credits: run.credits };
-  if (job?.status === 'running') return { status: 'running', credits: null };
   return { status: 'idle', credits: null };
 }
 
@@ -90,16 +82,12 @@ export const GET: APIRoute = async ({ params, request }) => {
   const key = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
 
   if (new URL(request.url).searchParams.get('status') === '1') {
-    const [run, job, pricingRule] = await Promise.all([
+    const [run, pricingRule] = await Promise.all([
       getRun(authorized.id, type, authorized.userId),
-      env.DB.prepare(
-        `SELECT "status", "error_message", "updated_at" FROM "scanner_report_image_job"
-         WHERE "response_id" = ? AND "image_type" = ?`,
-      ).bind(authorized.id, type).first<ImageJobRow>(),
       getActiveCreditPricingRule(env.DB, 'scanner_report_image', type),
     ]);
     return json({
-      ...statusPayload(key, run, job),
+      ...statusPayload(key, run),
       configuredCredits: pricingRule?.credit_amount ?? null,
     });
   }
