@@ -23,7 +23,6 @@ export interface AiSettingsRow {
   motapis_model: string | null;
   motapis_scanner_model: string | null;
   motapis_chat_model: string | null;
-  motapis_image_model: string | null;
   updated_at: string;
 }
 
@@ -49,7 +48,6 @@ const AI_SETTINGS_DEFAULTS: AiSettingsRow = {
   motapis_model: null,
   motapis_scanner_model: null,
   motapis_chat_model: null,
-  motapis_image_model: null,
   updated_at: '',
 };
 
@@ -88,7 +86,6 @@ export async function updateAiSettings(
     motapis_model?: string | null;
     motapis_scanner_model?: string | null;
     motapis_chat_model?: string | null;
-    motapis_image_model?: string | null;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -101,9 +98,9 @@ export async function updateAiSettings(
                "chat_provider_id" = ?, "chat_model_id" = ?, "embedding_provider_id" = ?, "embedding_model_id" = ?,
                "gateway_enabled" = ?, "gateway_account_id" = ?, "gateway_id" = ?, "gateway_default_model" = ?,
                 "gateway_chat_model" = ?, "gateway_embedding_model" = ?, "updated_at" = ?,
-                "ai_provider" = ?, "motapis_enabled" = ?, "motapis_model" = ?,
-                 "motapis_scanner_model" = ?, "motapis_chat_model" = ?, "motapis_image_model" = ?
-         WHERE "id" = 1`,
+                 "ai_provider" = ?, "motapis_enabled" = ?, "motapis_model" = ?,
+                  "motapis_scanner_model" = ?, "motapis_chat_model" = ?
+          WHERE "id" = 1`,
       )
       .bind(
         data.base_url ?? current.base_url,
@@ -124,11 +121,10 @@ export async function updateAiSettings(
         now,
         data.ai_provider ?? current.ai_provider,
         data.motapis_enabled ?? current.motapis_enabled,
-        data.motapis_model ?? current.motapis_model,
-        data.motapis_scanner_model ?? current.motapis_scanner_model,
-        data.motapis_chat_model ?? current.motapis_chat_model,
-        data.motapis_image_model ?? current.motapis_image_model,
-      )
+         data.motapis_model ?? current.motapis_model,
+         data.motapis_scanner_model ?? current.motapis_scanner_model,
+         data.motapis_chat_model ?? current.motapis_chat_model,
+       )
       .run();
   } catch (error) {
     throw new Error(`Không thể lưu cấu hình AI Gateway: ${error instanceof Error ? error.message : String(error)}`);

@@ -283,15 +283,6 @@ export async function setScannerPdfKey(
   await db.prepare(`UPDATE "scanner_response" SET "${column}" = ? WHERE "id" = ?`).bind(key, id).run();
 }
 
-export async function setScannerImageKey(
-  db: D1Database,
-  id: number,
-  type: 'analysis' | 'plan',
-  key: string,
-): Promise<void> {
-  const column = type === 'analysis' ? 'image_analysis_key' : 'image_plan_key';
-  await db.prepare(`UPDATE "scanner_response" SET "${column}" = ? WHERE "id" = ?`).bind(key, id).run();
-}
 
 // ── AI Context Builder ──────────────────────────────────
 

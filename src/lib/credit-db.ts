@@ -786,7 +786,11 @@ export async function completeScannerCreditRun(
   }
   if (run.status !== 'reserved') throw new Error(`Scanner Credit run is ${run.status}`);
 
-  const consumption = await settleReservation(db, {
+  const existing = await db.prepare(
+    `SELECT * FROM "credit_consumption"
+     WHERE "feature_type" = 'scanner' AND "business_object_id" = ? AND "charge_type" = 'full_run'`,
+  ).bind(run.id).first<CreditConsumption>();
+  const consumption = existing ?? await settleReservation(db, {
     userId: input.userId, reservationId: run.reservation_id, featureType: 'scanner',
     businessObjectId: run.id, chargeType: 'full_run', credits: input.credits,
     priceSnapshot: input.priceSnapshot, quantitySnapshot: { responseId: input.responseId },

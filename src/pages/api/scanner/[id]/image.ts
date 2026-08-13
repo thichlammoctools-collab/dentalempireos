@@ -6,9 +6,6 @@ import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
 import { canAccessScanner } from '../../../../lib/entitlement-check';
-import { getSurveyDefinitionFull } from '../../../../lib/survey-config-db';
-import { generateQueuedScannerReportImage } from '../../../../lib/scanner-report-image';
-import { AiError } from '../../../../lib/ai-client';
 
 export const prerender = false;
 type ImageType = 'analysis' | 'plan';
@@ -44,7 +41,6 @@ export const GET: APIRoute = async ({ params, request }) => {
   const authorized = await getAuthorizedImageRequest(params, request);
   if ('error' in authorized) return authorized.error;
   const { type, response } = authorized;
-
   const key = type === 'analysis' ? response.image_analysis_key : response.image_plan_key;
   if (!key) return notFound('Report image not found');
   const image = await env.MEDIA.get(key);
@@ -59,29 +55,4 @@ export const GET: APIRoute = async ({ params, request }) => {
       'Cache-Control': 'private, max-age=3600',
     },
   });
-};
-
-// The user explicitly starts image generation after reading a completed report.
-export const POST: APIRoute = async ({ params, request }) => {
-  const authorized = await getAuthorizedImageRequest(params, request);
-  if ('error' in authorized) return authorized.error;
-  const { type, response } = authorized;
-  const reportText = type === 'analysis' ? response.ai_analysis : response.ai_plan;
-  if (!reportText?.trim()) {
-    return json({ error: 'Hoàn tất báo cáo chữ trước khi tạo minh họa.' }, 409);
-  }
-
-  const definition = await getSurveyDefinitionFull(env.DB, response.survey_id);
-  if (!definition) return notFound('Survey definition not found');
-  try {
-    const key = await generateQueuedScannerReportImage(env, response, definition.definition.title_vi, type);
-    if (key) return json({ created: true, key }, 201);
-    return json({ error: 'Minh họa đang được tạo trong một yêu cầu khác. Vui lòng thử lại sau ít phút.' }, 409);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Không thể tạo minh họa.';
-    const status = error instanceof AiError && error.statusCode >= 400 && error.statusCode < 600
-      ? error.statusCode
-      : 502;
-    return json({ error: message }, status);
-  }
 };

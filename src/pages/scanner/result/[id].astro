@@ -366,13 +366,17 @@ try {
             <h2 class="insight-title">{lang === 'vi' ? 'Kế hoạch 30 ngày' : '30-day action plan'}</h2>
           </div>
         </div>
-        <span class:list={["ai-status-chip", { "is-ready": hasPlan, "is-working": !hasPlan && (planStatus === 'queued' || planStatus === 'running') }]}>
-          <span class="material-symbols-outlined">{hasPlan ? 'check_circle' : planStatus === 'queued' || planStatus === 'running' ? 'sync' : 'schedule'}</span>
-          {hasPlan
+        <span id="plan-status-chip" class:list={["ai-status-chip", { "is-ready": hasPlan, "is-working": !hasPlan && (planStatus === 'queued' || planStatus === 'running') }]}>
+          <span class="material-symbols-outlined">{hasPlan ? 'check_circle' : planStatus === 'queued' || planStatus === 'running' ? 'sync' : hasAnalysis ? 'auto_awesome' : 'schedule'}</span>
+          <span id="plan-status-chip-label">{hasPlan
             ? (lang === 'vi' ? 'Đã sẵn sàng' : 'Ready')
             : planStatus === 'queued' || planStatus === 'running'
               ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
-              : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis')}
+              : hasAnalysis
+                ? planStatus === 'failed'
+                  ? (lang === 'vi' ? 'Cần thử lại' : 'Retry needed')
+                  : (lang === 'vi' ? 'Sẵn sàng lập kế hoạch' : 'Ready to build plan')
+                : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis')}</span>
         </span>
       </div>
       {!hasPlan && (
@@ -389,27 +393,21 @@ try {
               <span class="material-symbols-outlined text-base">content_copy</span>
               {lang === 'vi' ? 'Sao chép tất cả' : 'Copy All'}
             </button>
-            {!planImageUrl && (
-              <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="plan">
-                <span class="material-symbols-outlined text-base">image</span>
-                <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
-              </button>
-            )}
             <a href={`/api/scanner/${id}/pdf?type=plan`} class="btn btn-primary plan-tool-button">
               <span class="material-symbols-outlined text-base">picture_as_pdf</span>
               {lang === 'vi' ? 'Tải PDF kế hoạch' : 'Download plan PDF'}
             </a>
           </div>
-           <div class="plan-document-meta">
-            <span class="material-symbols-outlined">assignment_turned_in</span>
-            <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
-           </div>
-           {planImageUrl && (
-             <figure class="report-image">
-               <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
-             </figure>
-           )}
-           <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
+             <div class="plan-document-meta">
+              <span class="material-symbols-outlined">assignment_turned_in</span>
+              <span>{lang === 'vi' ? 'Bản giao việc 30 ngày - sẵn sàng chia sẻ với đội ngũ' : '30-day team action document - ready to share'}</span>
+             </div>
+             {planImageUrl && (
+               <figure class="report-image">
+                 <img src={planImageUrl} alt={lang === 'vi' ? 'Minh họa kế hoạch hành động AI' : 'AI action plan illustration'} />
+               </figure>
+             )}
+             <article class="prose-content plan-content" id="plan-content" set:html={planHtml}></article>
           <template id="plan-copy-source">{planText}</template>
         </>
       ) : (
@@ -448,7 +446,7 @@ try {
             </div>
             <button type="button" class="btn btn-amber btn-run" id="btn-run-plan">
               <span class="material-symbols-outlined text-base">auto_awesome</span>
-              {lang === 'vi' ? 'Để AI lập kế hoạch 30 ngày' : 'Let AI build the 30-day plan'}
+              {lang === 'vi' ? 'Tạo kế hoạch 30 ngày với AI' : 'Create the 30-day plan with AI'}
             </button>
           </div>
           {!hasAnalysis && (
@@ -499,12 +497,6 @@ try {
                 <span class="material-symbols-outlined text-base">picture_as_pdf</span>
                 {lang === 'vi' ? 'Tải PDF soi chiếu' : 'Download analysis PDF'}
               </a>
-              {!analysisImageUrl && (
-                <button type="button" class="btn btn-ghost plan-tool-button" data-image-type="analysis">
-                  <span class="material-symbols-outlined text-base">image</span>
-                  <span data-image-label>{lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration'}</span>
-                </button>
-              )}
             </div>
             {analysisImageUrl && (
               <figure class="report-image">
@@ -642,6 +634,7 @@ try {
   .report-confirm-cost { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; padding: .8rem 1rem; color: var(--color-on-tertiary-container); background: var(--color-tertiary-container); border: 1px solid color-mix(in srgb, var(--color-tertiary) 55%, var(--color-outline-variant)); border-radius: .65rem; font-weight: 700; }
   .report-confirm-note { font-size: .82rem; }
   .report-confirm-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
+
   .clinic-mark {
     display: grid;
     place-items: center;
@@ -1248,7 +1241,7 @@ try {
           return;
         }
         // Update UI per section
-        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan);
+        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan, !!data.ai_analysis);
         updateAnalysisUI(data.ai_analysis_status ?? 'pending', !!data.ai_analysis);
         // Stop polling when nothing running
         const running = ['queued', 'running'].includes(data.ai_plan_status ?? 'pending')
@@ -1266,21 +1259,39 @@ try {
     }, 2000);
   }
 
-  function updatePlanUI(status: string, hasContent: boolean) {
+  function updatePlanUI(status: string, hasContent: boolean, hasAnalysisContent: boolean) {
     const cta = document.getElementById('plan-cta');
     const loading = document.getElementById('plan-loading');
     const error = document.getElementById('plan-error');
+    const chip = document.getElementById('plan-status-chip');
     if (!cta || !loading || !error) return;
     cta.classList.add('hidden');
     loading.classList.add('hidden');
     error.classList.add('hidden');
+    if (chip) {
+      const working = status === 'queued' || status === 'running';
+      chip.classList.toggle('is-ready', hasContent);
+      chip.classList.toggle('is-working', !hasContent && working);
+      const icon = chip.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = hasContent ? 'check_circle' : working ? 'sync' : hasAnalysisContent ? 'auto_awesome' : 'schedule';
+      const label = document.getElementById('plan-status-chip-label');
+      if (label) label.textContent = hasContent
+        ? (lang === 'vi' ? 'Đã sẵn sàng' : 'Ready')
+        : working
+          ? (lang === 'vi' ? 'AI đang làm việc' : 'AI working')
+          : status === 'failed' && hasAnalysisContent
+            ? (lang === 'vi' ? 'Cần thử lại' : 'Retry needed')
+            : hasAnalysisContent
+              ? (lang === 'vi' ? 'Sẵn sàng lập kế hoạch' : 'Ready to build plan')
+              : (lang === 'vi' ? 'Chờ bản soi chiếu' : 'Awaiting analysis');
+    }
     if (hasContent) {
       window.location.reload();
     } else if (status === 'queued' || status === 'running') {
       loading.classList.remove('hidden');
     } else if (status === 'failed') {
       error.classList.remove('hidden');
-    } else {
+    } else if (hasAnalysisContent) {
       cta.classList.remove('hidden');
     }
   }
@@ -1458,46 +1469,6 @@ try {
     action?.();
   });
 
-  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-
-  async function createReportImage(type: 'analysis' | 'plan', button: HTMLButtonElement) {
-    if (button.disabled || button.getAttribute('aria-busy') === 'true') return;
-
-    const label = button.querySelector<HTMLElement>('[data-image-label]');
-    const originalLabel = label?.textContent ?? button.textContent ?? '';
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    if (label) label.textContent = lang === 'vi' ? 'Đang tạo minh họa A4...' : 'Creating A4 illustration...';
-    window.showToast?.(lang === 'vi' ? 'Đang tạo minh họa A4. Quá trình này có thể mất vài phút.' : 'Creating A4 illustration. This may take a few minutes.', 'info');
-
-    try {
-      for (let attempt = 0; attempt < 90; attempt += 1) {
-        const res = await fetch(`/api/scanner/${responseId}/image?type=${type}`, {
-          method: 'POST',
-          credentials: 'include',
-        });
-        if (res.status === 201) {
-          window.location.reload();
-          return;
-        }
-        if (res.status === 409) {
-          throw new Error(lang === 'vi' ? 'Minh họa đang được tạo trong một phiên khác. Vui lòng tải lại sau ít phút.' : 'The illustration is being created in another session. Please reload in a few minutes.');
-        }
-        if (res.status !== 202) {
-          const data = await res.json().catch(() => ({})) as { error?: string };
-          throw new Error(data.error ?? `HTTP ${res.status}`);
-        }
-        await wait(2000);
-      }
-      throw new Error(lang === 'vi' ? 'Tạo minh họa đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.' : 'Illustration generation is taking longer than expected. Please try again later.');
-    } catch (error) {
-      if (label) label.textContent = originalLabel;
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-      window.showToast?.(error instanceof Error ? error.message : String(error), 'error');
-    }
-  }
-
   // ── Button bindings ─────────────────────────────────────────────
   const requestReport = (type: 'analysis' | 'plan') => requestConfirmation(
     type === 'analysis'
@@ -1514,19 +1485,6 @@ try {
   document.getElementById('btn-retry-running-plan')?.addEventListener('click', () => requestReport('plan'));
   document.getElementById('btn-run-analysis')?.addEventListener('click', () => requestReport('analysis'));
   document.getElementById('btn-retry-analysis')?.addEventListener('click', () => requestReport('analysis'));
-  document.querySelectorAll<HTMLButtonElement>('[data-image-type]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (button.disabled || button.getAttribute('aria-busy') === 'true' || pendingConfirmation) return;
-
-      const type = button.dataset.imageType as 'analysis' | 'plan';
-      requestConfirmation(
-        lang === 'vi' ? 'Tạo minh họa A4' : 'Create A4 illustration',
-        lang === 'vi' ? 'GPT Image 2 sẽ tạo một ảnh minh họa dọc khổ A4 cho báo cáo đã hoàn tất.' : 'GPT Image 2 will create a portrait A4 illustration for the completed report.',
-        lang === 'vi' ? 'Kích thước dọc A4 · không dùng token báo cáo' : 'Portrait A4 size · report tokens are not used',
-        () => createReportImage(type, button),
-      );
-    });
-  });
 
   // ── Plan copy ─────────────────────────────────────────────────────
   const btnCopyPlan = document.getElementById('btn-copy-plan') as HTMLButtonElement | null;

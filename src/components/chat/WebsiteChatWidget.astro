@@ -71,10 +71,9 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       </div>
     </div>
 
-    <!-- Rate limit -->
-    <div id="chat-rate-limit-banner" class="chat-rate-limit-banner" style="display:none">
-      <span>Còn <strong id="chat-rate-remaining">3</strong> lượt miễn phí ·</span>
-      <a href="/login">Đăng nhập</a> để không giới hạn
+    <!-- Server-enforced usage state -->
+    <div id="chat-rate-limit-banner" class="chat-rate-limit-banner" style="display:none" role="status" aria-live="polite">
+      <span>Còn <strong id="chat-rate-remaining">0</strong> lượt trong giờ này.</span>
     </div>
 
     <!-- Input -->
@@ -87,6 +86,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
             <path d="M1.5 9H16.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
+        <button id="chat-stop-btn" class="chat-stop-btn" type="button" aria-label="Dừng tạo phản hồi" hidden>Dừng</button>
       </div>
     </div>
   </div>
@@ -216,7 +216,13 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       #chat-messages-area { padding: 14px 12px; }
       :global(#website-chat-root .chat-msg-body) { max-width: calc(100% - 32px); }
       :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: calc(100% - 32px); }
-      :global(#website-chat-root .chat-msg-bubble) { padding: 9px 11px; font-size: 12.5px; }
+      :global(#website-chat-root .chat-msg-bubble) { padding: 10px 12px; font-size: 14px; line-height: 1.65; }
+      :global(#website-chat-root .chat-msg-bubble h1), :global(#website-chat-root .chat-msg-bubble h2), :global(#website-chat-root .chat-msg-bubble h3) { margin: 0.9em 0 0.4em; }
+      :global(#website-chat-root .chat-msg-bubble h2) { font-size: 14px; }
+      :global(#website-chat-root .chat-msg-bubble h3) { font-size: 13px; }
+      :global(#website-chat-root .chat-msg-bubble p) { margin: 0.65em 0; }
+      :global(#website-chat-root .chat-msg-bubble ul), :global(#website-chat-root .chat-msg-bubble ol) { margin: 0.65em 0; padding-left: 1.35em; }
+      :global(#website-chat-root .chat-msg-bubble li) { margin: 0.3em 0; }
       :global(#website-chat-root .chat-source-links) { max-width: 100%; }
       #chat-input-area { padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
     }
@@ -258,9 +264,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
   #chat-send-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f97316; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s, opacity 0.15s; }
   #chat-send-btn:hover { transform: scale(1.06); }
   #chat-send-btn:active { transform: scale(0.95); }
-  #chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+   #chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+   .chat-stop-btn { border: 0; border-radius: 8px; padding: 7px 9px; background: #334155; color: #f8fafc; font: 600 12px inherit; cursor: pointer; }
+   .chat-stop-btn:hover { background: #475569; }
 
-  /* Markdown */
+   /* Markdown */
    :global(#website-chat-root .chat-msg-bubble h1), :global(#website-chat-root .chat-msg-bubble h2), :global(#website-chat-root .chat-msg-bubble h3) { color: inherit; margin: 6px 0 3px; font-weight: 600; }
     :global(#website-chat-root .chat-msg-bubble h2) { font-size: 12px; }
     :global(#website-chat-root .chat-msg-bubble h3) { font-size: 11.5px; }
@@ -310,17 +318,8 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     initialized = true;
 
     loadScripts().then(function () {
-    // ── Rate limit ───────────────────────────────────────────────
-    var FREE_QUESTIONS = 3;
-    var STORAGE_KEY = 'de_chat_free';
+    // ── Session & server quota state ─────────────────────────────
     var SESSION_KEY = 'de_chat_session_id';
-
-    function getFreeCount() { return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10); }
-    function incFreeCount() {
-      var c = getFreeCount() + 1;
-      localStorage.setItem(STORAGE_KEY, String(c));
-      return c;
-    }
 
     // Session management - lưu session_id để persist conversation
     var storedSessionId = sessionStorage.getItem(SESSION_KEY);
@@ -339,6 +338,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     var messagesArea = document.getElementById('chat-messages-area');
     var inputEl = document.getElementById('chat-input');
     var sendBtn = document.getElementById('chat-send-btn');
+    var stopBtn = document.getElementById('chat-stop-btn');
     var rateBanner = document.getElementById('chat-rate-limit-banner');
     var rateRemaining = document.getElementById('chat-rate-remaining');
 
@@ -350,38 +350,24 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     // ── State ────────────────────────────────────────────────────
     var isLoading = false;
     var currentSources = [];
-    var isSignedIn = false;
+    var requestController = null;
+    var quotaState = null;
 
-    // ── Rate limit UI ─────────────────────────────────────────────
-    function updateRateLimit() {
-      if (isSignedIn) {
-        if (rateBanner) rateBanner.style.display = 'none';
+    // ── Server-enforced quota UI ──────────────────────────────────
+    function updateRateLimit(quota) {
+      if (quota) quotaState = quota;
+      if (!quotaState) return;
+      var remaining = Math.max(0, quotaState.limit - quotaState.used);
+      if (rateRemaining) rateRemaining.textContent = String(remaining);
+      if (rateBanner) rateBanner.style.display = remaining <= 5 ? 'block' : 'none';
+      if (remaining === 0) {
+        inputEl.placeholder = 'Bạn đã dùng hết lượt trong giờ này.';
+        inputEl.disabled = true;
+      } else if (!isLoading) {
         inputEl.placeholder = 'Nhập câu hỏi...';
         inputEl.disabled = false;
-        return;
-      }
-      var count = getFreeCount();
-      var remaining = Math.max(0, FREE_QUESTIONS - count);
-      if (rateRemaining) rateRemaining.textContent = String(remaining);
-      if (remaining === 0) {
-        if (rateBanner) rateBanner.style.display = 'block';
-        inputEl.placeholder = 'Đăng nhập để tiếp tục...';
-        inputEl.disabled = true;
       }
     }
-    updateRateLimit();
-
-    // Logged-in members are not subject to the browser-only free-question limit.
-    fetch('/api/auth/get-session', { credentials: 'include' })
-      .then(function (response) { return response.ok ? response.json() : null; })
-      .then(function (session) {
-        isSignedIn = Boolean(session && session.user);
-        updateRateLimit();
-      })
-      .catch(function () {
-        // Keep the free-user limit if the session cannot be checked.
-        updateRateLimit();
-      });
 
     // ── Helpers ──────────────────────────────────────────────────
     function autoResize() {
@@ -439,12 +425,19 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         for (var i = 0; i < Math.min(sources.length, 3); i++) {
           var s = sources[i];
           var a = document.createElement('a');
-          a.href = s.url;
+          try {
+            var sourceUrl = new URL(s.url, window.location.origin);
+            if (sourceUrl.protocol !== 'http:' && sourceUrl.protocol !== 'https:') continue;
+            a.href = sourceUrl.href;
+          } catch (e) { continue; }
           a.className = 'chat-source-link';
           a.target = '_blank';
-          a.rel = 'noopener';
-          var icon = s.content_type === 'book' ? '📖' : s.content_type === 'blog' ? '📝' : '📄';
-          a.innerHTML = '<span class="chat-source-type">' + icon + '</span> ' + (s.title || 'Xem chi tiết');
+          a.rel = 'noopener noreferrer';
+          var type = document.createElement('span');
+          type.className = 'chat-source-type';
+          type.textContent = s.content_type === 'book' ? 'Tài liệu' : s.content_type === 'blog' ? 'Blog' : 'Tài nguyên';
+          a.appendChild(type);
+          a.appendChild(document.createTextNode(' ' + (s.title || 'Xem chi tiết')));
           srcEl.appendChild(a);
         }
         body.appendChild(srcEl);
@@ -454,6 +447,26 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       messagesArea.appendChild(msg);
       scrollBottom();
       return { el: msg, bubble: bubble };
+    }
+
+    function hydrateConversation() {
+      if (!currentSessionId) return;
+      fetch('/api/website-chat/' + encodeURIComponent(currentSessionId), { credentials: 'same-origin' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Session unavailable');
+          return response.json();
+        })
+        .then(function (session) {
+          var messages = session.messages || [];
+          for (var index = 0; index < messages.length; index++) {
+            var message = messages[index];
+            if (message.role === 'user' || message.role === 'assistant') addMessage(message.role, message.content);
+          }
+        })
+        .catch(function () {
+          currentSessionId = null;
+          try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+        });
     }
 
     function showTyping() {
@@ -473,52 +486,27 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       if (el) el.remove();
     }
 
-    function appendFollowup(suggestions) {
-      if (!suggestions || !suggestions.length) return;
-      var lastMsg = messagesArea.lastElementChild;
-      if (!lastMsg) return;
-      var body = lastMsg.querySelector('.chat-msg-body');
-      if (!body) return;
-
-      var fu = document.createElement('div');
-      fu.className = 'chat-followup';
-      fu.innerHTML = '<div class="chat-followup-label">💡 Hỏi tiếp:</div>';
-      for (var fi = 0; fi < Math.min(suggestions.length, 3); fi++) {
-        var s = suggestions[fi];
-        var btn = document.createElement('button');
-        btn.className = 'chat-followup-btn';
-        btn.textContent = s;
-        btn.addEventListener('click', (function (ss) {
-          return function () { inputEl.value = ss; autoResize(); sendMessage(); };
-        })(s));
-        fu.appendChild(btn);
-      }
-      body.appendChild(fu);
-    }
-
     // ── Send message ─────────────────────────────────────────────
     function sendMessage() {
       if (isLoading) return;
       var text = inputEl.value.trim();
       if (!text) return;
 
-      var count = getFreeCount();
-      if (!isSignedIn && count >= FREE_QUESTIONS) {
-        inputEl.placeholder = 'Đăng nhập để tiếp tục...';
-        inputEl.disabled = true;
+      if (quotaState && quotaState.used >= quotaState.limit) {
+        updateRateLimit();
         return;
       }
 
       isLoading = true;
       sendBtn.disabled = true;
+      inputEl.disabled = true;
+      if (stopBtn) stopBtn.hidden = false;
 
       var userText = text;
       inputEl.value = '';
       autoResize();
 
       addMessage('user', userText);
-      if (!isSignedIn) incFreeCount();
-      updateRateLimit();
       showTyping();
       currentSources = [];
 
@@ -526,12 +514,12 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       var lastRender = 0;
       var lastMsgBubble = null;
       var streamError = '';
-      var requestController = new AbortController();
+      requestController = new AbortController();
       var requestTimedOut = false;
       var requestTimeout = window.setTimeout(function () {
         requestTimedOut = true;
         requestController.abort();
-      }, 60000);
+      }, 75000);
 
       function clearInvalidSession() {
         currentSessionId = null;
@@ -542,6 +530,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         return fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         signal: requestController.signal,
         body: JSON.stringify({
           message: userText,
@@ -553,7 +542,6 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       }
 
       sendChatRequest(false).then(function (res) {
-        window.clearTimeout(requestTimeout);
         if ((res.status === 400 || res.status === 404) && currentSessionId) {
           clearInvalidSession();
           return sendChatRequest(true);
@@ -570,101 +558,114 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         var decoder = new TextDecoder();
         var buffer = '';
 
-        function pump() {
-          reader.read().then(function (result2) {
+        return new Promise(function (resolve, reject) {
+          function pump() {
+            reader.read().then(function (result2) {
               if (result2.done) {
-                // Final render
                 if (lastMsgBubble) {
                   lastMsgBubble.innerHTML = parseMarkdown(streamError || accumulatedText || 'Mình chưa nhận được câu trả lời. Vui lòng thử lại.');
                 }
-              if (currentSources.length) {
-                var body2 = messagesArea.lastElementChild.querySelector('.chat-msg-body');
-                if (body2) {
-                  var srcEl = document.createElement('div');
-                  srcEl.className = 'chat-source-links';
-                  for (var si = 0; si < Math.min(currentSources.length, 3); si++) {
-                    var s2 = currentSources[si];
-                    var a2 = document.createElement('a');
-                    a2.href = s2.url;
-                    a2.className = 'chat-source-link';
-                    a2.target = '_blank';
-                    a2.rel = 'noopener';
-                    var icon2 = s2.content_type === 'book' ? '📖' : s2.content_type === 'blog' ? '📝' : '📄';
-                    a2.innerHTML = '<span class="chat-source-type">' + icon2 + '</span> ' + (s2.title || 'Xem chi tiết');
-                    srcEl.appendChild(a2);
+                if (currentSources.length) {
+                  var body2 = messagesArea.lastElementChild.querySelector('.chat-msg-body');
+                  if (body2) {
+                    var srcEl = document.createElement('div');
+                    srcEl.className = 'chat-source-links';
+                    for (var si = 0; si < Math.min(currentSources.length, 3); si++) {
+                      var s2 = currentSources[si];
+                      var a2 = document.createElement('a');
+                      try {
+                        var sourceUrl2 = new URL(s2.url, window.location.origin);
+                        if (sourceUrl2.protocol !== 'http:' && sourceUrl2.protocol !== 'https:') continue;
+                        a2.href = sourceUrl2.href;
+                      } catch (e) { continue; }
+                      a2.className = 'chat-source-link';
+                      a2.target = '_blank';
+                      a2.rel = 'noopener noreferrer';
+                      var type2 = document.createElement('span');
+                      type2.className = 'chat-source-type';
+                      type2.textContent = s2.content_type === 'book' ? 'Tài liệu' : s2.content_type === 'blog' ? 'Blog' : 'Tài nguyên';
+                      a2.appendChild(type2);
+                      a2.appendChild(document.createTextNode(' ' + (s2.title || 'Xem chi tiết')));
+                      srcEl.appendChild(a2);
+                    }
+                    body2.appendChild(srcEl);
                   }
-                  body2.appendChild(srcEl);
+                }
+                scrollBottom();
+                resolve();
+                return;
+              }
+
+              buffer += decoder.decode(result2.value, { stream: true });
+              var lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (var li = 0; li < lines.length; li++) {
+                var trimmed = lines[li].trim();
+                if (!trimmed.startsWith('data: ')) continue;
+                var dataStr = trimmed.slice(6).trim();
+                if (!dataStr) continue;
+                try {
+                  var parsed = JSON.parse(dataStr);
+                  if (parsed.event === 'metadata' || parsed.event === 'chunks_used') {
+                    currentSources = parsed.sources || [];
+                    updateRateLimit(parsed.quota);
+                    if (parsed.session_id) {
+                      currentSessionId = parsed.session_id;
+                      try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch (e) { /* ignore */ }
+                    }
+                  } else if (parsed.event === 'chunk') {
+                    accumulatedText += parsed.text || '';
+                    var now = Date.now();
+                    if (now - lastRender > 60 && lastMsgBubble) {
+                      lastMsgBubble.textContent = accumulatedText;
+                      scrollBottom();
+                      lastRender = now;
+                    }
+                  } else if (parsed.event === 'done') {
+                    currentSources = parsed.sources || currentSources;
+                    updateRateLimit(parsed.quota);
+                    if (parsed.session_id) {
+                      currentSessionId = parsed.session_id;
+                      try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch (e) { /* ignore */ }
+                    }
+                  } else if (parsed.event === 'error') {
+                    streamError = '❌ **Lỗi:** ' + (parsed.message || 'Không thể tạo câu trả lời. Vui lòng thử lại.');
+                  }
+                } catch (e) {
+                  console.warn('[chat] SSE:', e);
                 }
               }
-              scrollBottom();
-              return;
-            }
-
-            buffer += decoder.decode(result2.value, { stream: true });
-            var lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (var li = 0; li < lines.length; li++) {
-              var trimmed = lines[li].trim();
-              if (!trimmed.startsWith('data: ')) continue;
-              var dataStr = trimmed.slice(6).trim();
-              if (!dataStr) continue;
-              try {
-                var parsed = JSON.parse(dataStr);
-                if (parsed.event === 'metadata' || parsed.event === 'chunks_used') {
-                  currentSources = parsed.sources || [];
-                  // Lưu session_id từ server
-                  if (parsed.session_id) {
-                    currentSessionId = parsed.session_id;
-                    try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch (e) { /* ignore */ }
-                  }
-                } else if (parsed.event === 'chunk') {
-                  accumulatedText += parsed.text || '';
-                  var now = Date.now();
-                  if (now - lastRender > 60 && lastMsgBubble) {
-                    lastMsgBubble.textContent = accumulatedText;
-                    scrollBottom();
-                    lastRender = now;
-                  }
-                } else if (parsed.event === 'followup_suggestions' && parsed.suggestions && parsed.suggestions.length) {
-                  // Dynamic follow-up suggestions từ AI
-                  appendFollowup(parsed.suggestions);
-                } else if (parsed.event === 'done') {
-                  currentSources = parsed.sources || currentSources;
-                  if (parsed.session_id) {
-                    currentSessionId = parsed.session_id;
-                    try { sessionStorage.setItem(SESSION_KEY, parsed.session_id); } catch (e) { /* ignore */ }
-                  }
-                } else if (parsed.event === 'error') {
-                  streamError = '❌ **Lỗi:** ' + (parsed.message || 'Không thể tạo câu trả lời. Vui lòng thử lại.');
-                }
-              } catch (e) {
-                console.warn('[chat] SSE:', e);
-              }
-            }
-            pump();
-          }).catch(function (err) {
-            removeTyping();
-            addMessage('assistant', '❌ **Lỗi:** ' + (err.message || 'Kết nối thất bại. Vui lòng thử lại.'));
-            isLoading = false;
-            sendBtn.disabled = false;
-          });
-        }
-        pump();
+              pump();
+            }).catch(reject);
+          }
+          pump();
+        });
       }).catch(function (err) {
         window.clearTimeout(requestTimeout);
         removeTyping();
-        addMessage('assistant', requestTimedOut
-          ? '**Lỗi:** AI phản hồi quá lâu. Vui lòng thử lại sau ít phút.'
-          : 'Lỗi: ' + (err.message || 'Kết nối thất bại. Vui lòng thử lại.'));
+        if (err && err.name === 'AbortError') {
+          addMessage('assistant', requestTimedOut
+            ? '**Lỗi:** AI phản hồi quá lâu. Vui lòng thử lại sau ít phút.'
+            : 'Đã dừng tạo phản hồi.');
+        } else {
+          addMessage('assistant', 'Lỗi: ' + (err.message || 'Kết nối thất bại. Vui lòng thử lại.'));
+        }
         isLoading = false;
         sendBtn.disabled = false;
       }).finally(function () {
+        window.clearTimeout(requestTimeout);
         isLoading = false;
+        requestController = null;
         sendBtn.disabled = false;
+        inputEl.disabled = Boolean(quotaState && quotaState.used >= quotaState.limit);
+        if (stopBtn) stopBtn.hidden = true;
+        updateRateLimit();
         inputEl.focus();
       });
     }
+
+    hydrateConversation();
 
     // ── Event bindings ──────────────────────────────────────────
     // Suggestion chips
@@ -681,6 +682,9 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 
     // Send button
     sendBtn.addEventListener('click', sendMessage);
+    stopBtn?.addEventListener('click', function () {
+      requestController?.abort();
+    });
 
     // Enter key
     inputEl.addEventListener('keydown', function (e) {

@@ -22,6 +22,7 @@ export interface WebsiteChatSession {
 interface DbRow {
   id: string;
   user_id: string | null;
+  anonymous_token_hash: string | null;
   title: string | null;
   messages: string;
   context_chunk_ids: string | null;
@@ -38,25 +39,32 @@ interface DbRow {
  * @param pageSlug - Slug của trang
  * @returns session_id
  */
+export interface CreatedWebsiteChatSession {
+  id: string;
+  anonymousToken: string | null;
+}
+
 export async function createSession(
   db: D1Database,
   userId: string | null = null,
   pageType?: string,
   pageSlug?: string,
-): Promise<string> {
+): Promise<CreatedWebsiteChatSession> {
   const id = crypto.randomUUID();
+  const anonymousToken = userId ? null : crypto.randomUUID();
+  const anonymousTokenHash = anonymousToken ? await hashAnonymousToken(anonymousToken) : null;
   const now = new Date().toISOString();
 
   await db
     .prepare(
       `INSERT INTO "website_chat_session"
-       ("id", "user_id", "title", "messages", "page_type", "page_slug", "created_at", "updated_at")
-       VALUES (?, ?, '', '[]', ?, ?, ?, ?)`,
+       ("id", "user_id", "anonymous_token_hash", "title", "messages", "page_type", "page_slug", "created_at", "updated_at")
+       VALUES (?, ?, ?, '', '[]', ?, ?, ?, ?)`,
     )
-    .bind(id, userId, pageType ?? null, pageSlug ?? null, now, now)
+    .bind(id, userId, anonymousTokenHash, pageType ?? null, pageSlug ?? null, now, now)
     .run();
 
-  return id;
+  return { id, anonymousToken };
 }
 
 /**
@@ -69,23 +77,22 @@ export async function loadSession(
   db: D1Database,
   sessionId: string,
   userId?: string | null,
+  anonymousToken?: string | null,
 ): Promise<WebsiteChatSession | null> {
-  let query = 'SELECT * FROM "website_chat_session" WHERE "id" = ?';
-  const params: unknown[] = [sessionId];
-
-  // Anonymous users: không check user_id
-  // Authenticated users: verify ownership
-  if (userId !== undefined && userId !== null) {
-    query += ' AND "user_id" = ?';
-    params.push(userId);
-  }
-
   const row = await db
-    .prepare(query)
-    .bind(...params)
+    .prepare('SELECT * FROM "website_chat_session" WHERE "id" = ?')
+    .bind(sessionId)
     .first<DbRow>();
 
   if (!row) return null;
+
+  if (row.user_id) {
+    if (!userId || row.user_id !== userId) return null;
+  } else {
+    if (!anonymousToken || !row.anonymous_token_hash) return null;
+    const tokenHash = await hashAnonymousToken(anonymousToken);
+    if (!constantTimeEqual(row.anonymous_token_hash, tokenHash)) return null;
+  }
 
   try {
     return {
@@ -210,6 +217,20 @@ export async function deleteSession(
     .prepare(query)
     .bind(...params)
     .run();
+}
+
+async function hashAnonymousToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < left.length; index++) {
+    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return mismatch === 0;
 }
 
 /**

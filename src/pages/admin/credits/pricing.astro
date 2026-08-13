@@ -155,7 +155,7 @@ const featureLabels: Record<string, string> = {
         <label class="flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-on-surface">
           Áp dụng cho
           <input name="target_id" id="rule-target-id" list="credit-pricing-targets" value="*" placeholder="* = tất cả" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
-          <span class="text-xs font-normal text-on-surface-variant"><code>*</code> tất cả; nhập ID để đặt giá riêng.</span>
+          <span class="text-xs font-normal text-on-surface-variant"><code>*</code> áp dụng mặc định; nhập ID để đặt giá riêng.</span>
         </label>
         <datalist id="credit-pricing-targets">
           <option value="*">Mặc định cho toàn bộ nội dung</option>
@@ -166,6 +166,7 @@ const featureLabels: Record<string, string> = {
           Giá cố định (Credits)
           <input name="credit_amount" id="rule-credit-amount" min="1" type="number" placeholder="Ví dụ: 5" class="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm font-normal text-on-surface" />
           <span id="credit-amount-help" class="text-xs font-normal text-on-surface-variant">Dùng cho Scanner, khóa học, tài liệu...</span>
+
         </label>
 
 

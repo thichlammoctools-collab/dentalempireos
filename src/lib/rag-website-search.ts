@@ -26,27 +26,75 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+function normalizeSearchText(text: string): string {
+  return stripMarkdown(text)
+    .toLocaleLowerCase('vi')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// This lets a query such as "ROADMAP là gì?" match the book's
+// "R.O.A.D.M.A.P" spelling without making the embedding service a prerequisite.
+function compactSearchText(text: string): string {
+  return text
+    .toLocaleLowerCase('vi')
+    .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
 function extractKeywords(query: string): string[] {
-  return query
-    .toLowerCase()
+  const words = normalizeSearchText(query)
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(w => w.length > 2 && !STOPWORDS.has(w));
+
+  // Preserve dotted acronyms before punctuation is normalized into whitespace.
+  // For example, R.O.A.D.M.A.P becomes the searchable canonical term "roadmap".
+  const acronyms = query.match(/\b(?:[A-Za-z]\.){2,}[A-Za-z]\.?\b/g) ?? [];
+  return [...new Set([...words, ...acronyms.map(compactSearchText).filter(Boolean)])];
 }
 
 function scoreChunk(text: string, title: string, headingPath: string | null, keywords: string[], query: string): number {
-  const stripped = stripMarkdown(text.toLowerCase());
+  const fields = {
+    content: normalizeSearchText(text),
+    title: normalizeSearchText(title),
+    heading: normalizeSearchText(headingPath ?? ''),
+    compactContent: compactSearchText(text),
+    compactTitle: compactSearchText(title),
+    compactHeading: compactSearchText(headingPath ?? ''),
+  };
   let score = 0;
+
   for (const kw of keywords) {
+    const normalizedKeyword = normalizeSearchText(kw);
+    const compactKeyword = compactSearchText(kw);
+    if (!normalizedKeyword || !compactKeyword) continue;
+
     let pos = 0;
-    while ((pos = stripped.indexOf(kw, pos)) !== -1) {
+    while ((pos = fields.content.indexOf(normalizedKeyword, pos)) !== -1) {
       score++;
-      pos += kw.length;
+      pos += normalizedKeyword.length;
+    }
+
+    // Section and chapter labels describe named concepts more precisely than
+    // surrounding prose, so they receive a strong lexical preference.
+    if (fields.title.includes(normalizedKeyword)) score += 8;
+    if (fields.heading.includes(normalizedKeyword)) score += 12;
+
+    // A compact comparison connects punctuation variants such as ROADMAP and
+    // R.O.A.D.M.A.P. Only named terms (four or more characters) receive the
+    // extra boost to avoid broad matching for ordinary short words.
+    if (compactKeyword.length >= 4) {
+      if (fields.compactTitle.includes(compactKeyword)) score += 10;
+      if (fields.compactHeading.includes(compactKeyword)) score += 16;
+      if (fields.compactContent.includes(compactKeyword) && !fields.content.includes(normalizedKeyword)) score += 3;
     }
   }
-  if (stripped.includes(query)) score += 5;
-  if (title.toLowerCase().includes(query)) score += 8;
-  if (headingPath?.toLowerCase().includes(query)) score += 3;
+
+  const normalizedQuery = normalizeSearchText(query);
+  if (normalizedQuery && fields.content.includes(normalizedQuery)) score += 5;
+  if (normalizedQuery && fields.title.includes(normalizedQuery)) score += 12;
+  if (normalizedQuery && fields.heading.includes(normalizedQuery)) score += 16;
 
   const wordCount = text.split(/\s+/).length;
   if (wordCount < 10) score *= 0.5;
@@ -159,17 +207,23 @@ async function vectorSearch(
 }
 
 function hybridMerge(vector: WebsiteChunk[], keyword: WebsiteChunk[], limit: number): WebsiteChunk[] {
-  const seen = new Set<string>();
-  const result: WebsiteChunk[] = [];
+  const fused = new Map<string, { chunk: WebsiteChunk; score: number }>();
+  const add = (chunks: WebsiteChunk[], weight: number) => {
+    for (const [index, chunk] of chunks.entries()) {
+      const existing = fused.get(chunk.id);
+      // Reciprocal-rank fusion keeps semantic recall, while the keyword stream
+      // is weighted for exact book terminology and acronym questions.
+      const score = (existing?.score ?? 0) + weight / (20 + index);
+      fused.set(chunk.id, { chunk, score });
+    }
+  };
 
-  for (const c of vector) {
-    if (!seen.has(c.id)) { result.push(c); seen.add(c.id); }
-  }
-  for (const c of keyword) {
-    if (!seen.has(c.id) && result.length < limit) { result.push(c); seen.add(c.id); }
-  }
-
-  return result.slice(0, limit);
+  add(vector, 1);
+  add(keyword, 2);
+  return [...fused.values()]
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+    .map(({ chunk, score }) => ({ ...chunk, score }));
 }
 
 export async function searchWebsite(
