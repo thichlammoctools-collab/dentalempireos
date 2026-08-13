@@ -54,4 +54,6 @@ WHERE "status" = 'reserved'
 DELETE FROM "credit_pricing_rule" WHERE "feature_type" = 'scanner_report_image';
 DROP TABLE IF EXISTS "scanner_report_image_credit_run";
 DROP TABLE IF EXISTS "scanner_report_image_job";
-ALTER TABLE "ai_settings" DROP COLUMN "motapis_image_model";
+
+-- Intentionally retain the now-unused nullable setting. D1/SQLite DROP COLUMN
+-- rebuilds schema and can fail on unrelated legacy schema objects.
