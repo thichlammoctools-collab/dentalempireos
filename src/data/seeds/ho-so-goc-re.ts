@@ -66,7 +66,7 @@ export const TRANSLATIONS_VI: UiTranslations = {
   submitButton: 'Gửi Hồ Sơ',
   submitting: 'Đang xử lý...',
   required: 'bắt buộc',
-  start: 'Bắt đầu →',
+  start: 'Đánh toàn diện phòng khám',
   back: '← Quay lại',
   next: 'Tiếp tục →',
   prev: '← Quay lại',
