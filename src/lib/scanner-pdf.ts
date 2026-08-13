@@ -56,8 +56,8 @@ const T = {
     years: 'Số năm',
     staff: 'Nhân sự',
     section1: 'I. ĐIỂM TỔNG HỢP',
-    section2: 'II. KẾ HOẠCH HÀNH ĐỘNG 30 NGÀY',
-    section3: 'III. BẢN SOI CHIẾU HỆ THỐNG',
+    section2: 'II. BẢN SOI CHIẾU HỆ THỐNG',
+    section3: 'III. KẾ HOẠCH HÀNH ĐỘNG 30 NGÀY',
     totalLabel: 'TỔNG ĐIỂM',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Trang',
@@ -70,8 +70,8 @@ const T = {
     years: 'Years',
     staff: 'Staff',
     section1: 'I. OVERALL SCORE',
-    section2: 'II. 30-DAY ACTION PLAN',
-    section3: 'III. SYSTEM ILLUMINATION',
+    section2: 'II. SYSTEM ILLUMINATION',
+    section3: 'III. 30-DAY ACTION PLAN',
     totalLabel: 'TOTAL SCORE',
     siteUrl: 'dentalempireos.com',
     pageLabel: 'Page',
@@ -528,25 +528,25 @@ export async function generateScannerPdf(
     ctx.y -= 8;
   }
 
-  if (type === 'combined' || type === 'plan') {
-    drawSectionTitle(ctx, type === 'combined' ? t.section2 : reportTitle);
-    if (response.ai_plan) {
-      renderMarkdownToPdf(ctx, response.ai_plan);
-    } else {
-      drawParagraph(ctx, lang === 'vi'
-        ? 'Kế hoạch 30 ngày đang được tạo. Vui lòng tải lại sau vài phút.'
-        : 'The 30-day action plan is being generated. Please download the report again in a few minutes.', { color: MUTED });
-    }
-  }
-
   if (type === 'combined' || type === 'analysis') {
-    drawSectionTitle(ctx, type === 'combined' ? t.section3 : reportTitle);
+    drawSectionTitle(ctx, type === 'combined' ? t.section2 : reportTitle);
     if (response.ai_analysis) {
       renderMarkdownToPdf(ctx, response.ai_analysis);
     } else {
       drawParagraph(ctx, lang === 'vi'
         ? 'Bản phân tích AI đang được tạo. Vui lòng tải lại sau vài phút.'
         : 'The AI analysis is being generated. Please download the report again in a few minutes.', { color: MUTED });
+    }
+  }
+
+  if (type === 'combined' || type === 'plan') {
+    drawSectionTitle(ctx, type === 'combined' ? t.section3 : reportTitle);
+    if (response.ai_plan) {
+      renderMarkdownToPdf(ctx, response.ai_plan);
+    } else {
+      drawParagraph(ctx, lang === 'vi'
+        ? 'Kế hoạch 30 ngày đang được tạo. Vui lòng tải lại sau vài phút.'
+        : 'The 30-day action plan is being generated. Please download the report again in a few minutes.', { color: MUTED });
     }
   }
 
