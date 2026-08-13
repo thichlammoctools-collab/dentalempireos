@@ -1,0 +1,77 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const paths = [
+  {
+    id: 'preparing',
+    label: 'Tôi đang chuẩn bị mở',
+    title: 'Lộ trình khởi động vững vàng',
+    description: 'Bắt đầu với Bảng Start Up để kiểm tra mức độ sẵn sàng trước khi đầu tư và vận hành.',
+    href: '/scanner/startup-check',
+    cta: 'Bắt đầu Bảng Start Up',
+    icon: 'rocket_launch',
+  },
+  {
+    id: 'under-five',
+    label: 'Phòng khám dưới 5 năm',
+    title: 'Lộ trình củng cố nền tảng',
+    description: 'Bảng Start Up giúp bạn nhìn rõ những nền tảng cần hoàn thiện trong giai đoạn đầu.',
+    href: '/scanner/startup-check',
+    cta: 'Bắt đầu Bảng Start Up',
+    icon: 'foundation',
+  },
+  {
+    id: 'over-five',
+    label: 'Phòng khám trên 5 năm',
+    title: 'Lộ trình chẩn đoán toàn cảnh',
+    description: 'Bảng Tổng Hợp giúp bạn soi 5 chiều vận hành để chọn đúng ưu tiên cần xử lý trước.',
+    href: '/scanner/total-os-diagnostic',
+    cta: 'Bắt đầu Bảng Tổng Hợp',
+    icon: 'troubleshoot',
+  },
+];
+---
+
+<BaseLayout title="Lộ trình Scanner | Dental Empire OS" description="Chọn lộ trình Scanner phù hợp với giai đoạn phát triển của phòng khám.">
+  <section class="path-page">
+    <div class="path-page__inner">
+      <p class="eyebrow">Lộ trình Scanner miễn phí</p>
+      <h1>Phòng khám của bạn đang ở giai đoạn nào?</h1>
+      <p class="lead">Bạn đã bắt đầu từ Tư duy Kinh doanh và Linh Hồn Check. Chọn giai đoạn hiện tại để tiếp tục với Scanner vận hành phù hợp nhất.</p>
+
+      <div class="path-grid">
+        {paths.map((path, index) => (
+          <article class="path-card">
+            <span class="path-card__number">0{index + 1}</span>
+            <span class="material-symbols-outlined path-card__icon">{path.icon}</span>
+            <p class="path-card__label">{path.label}</p>
+            <h2>{path.title}</h2>
+            <p>{path.description}</p>
+            <a href={path.href} data-track-cta={`scanner_path_${path.id}`} data-track-placement="scanner_path_selector" class="path-card__cta">
+              {path.cta}
+              <span class="material-symbols-outlined">arrow_forward</span>
+            </a>
+          </article>
+        ))}
+      </div>
+
+      <p class="note">Miễn phí · Không cần đăng nhập · Kết quả được gửi bằng liên kết riêng tư qua email</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .path-page { min-height: 70vh; padding: 5rem 1.5rem 6rem; background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 42%); }
+  .path-page__inner { max-width: 1100px; margin: 0 auto; text-align: center; }
+  .eyebrow { color: var(--color-primary); font-size: .78rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+  h1 { max-width: 780px; margin: .75rem auto 1rem; font-size: clamp(2.2rem, 5vw, 3.75rem); line-height: 1.1; }
+  .lead { max-width: 700px; margin: 0 auto; color: var(--color-on-surface-variant); font-size: 1.1rem; line-height: 1.7; }
+  .path-grid { display: grid; gap: 1rem; margin-top: 3rem; text-align: left; }
+  .path-card { position: relative; display: flex; flex-direction: column; min-height: 310px; padding: 1.75rem; overflow: hidden; border: 1px solid var(--color-outline-variant); border-radius: 1.25rem; background: var(--color-surface-container); }
+  .path-card__number { position: absolute; top: 1rem; right: 1.25rem; color: var(--color-outline-variant); font-weight: 900; font-size: 1.2rem; }
+  .path-card__icon { color: var(--color-primary); font-size: 2.25rem; }.path-card__label { margin: 1.25rem 0 .45rem; color: var(--color-primary); font-size: .85rem; font-weight: 800; }
+  .path-card h2 { margin: 0; font-size: 1.4rem; }.path-card p:not(.path-card__label) { color: var(--color-on-surface-variant); line-height: 1.6; }
+  .path-card__cta { display: inline-flex; align-items: center; gap: .4rem; margin-top: auto; color: var(--color-primary); font-weight: 800; text-decoration: none; }.path-card__cta:hover { color: var(--color-on-surface); }
+  .note { margin-top: 2rem; color: var(--color-on-surface-variant); font-size: .9rem; }
+  @media (min-width: 720px) { .path-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>

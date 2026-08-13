@@ -1,7 +1,7 @@
 // Dental Empire OS — Service Worker
 // Strategy: cache-first cho static assets, network-first cho HTML.
 
-const VERSION = 'de-v3';
+const VERSION = 'de-v4';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 

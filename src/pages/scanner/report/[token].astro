@@ -5,6 +5,7 @@ import { getGuestReportByToken } from '../../../lib/scanner-guest-report';
 import { getScannerResponse, parseScores } from '../../../lib/scanner-response-db';
 import { getSurveyDefinitionFull, parseScoringRules } from '../../../lib/survey-config-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
+import { GUEST_SCANNER_NEXT_STEPS, isGuestScannerSlug } from '../../../lib/guest-scanner';
 
 export const prerender = false;
 
@@ -12,7 +13,7 @@ const token = Astro.params.token ?? '';
 const report = await getGuestReportByToken(env.DB, token);
 if (!report) return new Response('Liên kết báo cáo không hợp lệ hoặc đã hết hạn.', { status: 404 });
 const response = await getScannerResponse(env.DB, report.response_id);
-if (!response || response.survey_id !== 'total-os-diagnostic') return new Response('Không tìm thấy báo cáo.', { status: 404 });
+if (!response || !isGuestScannerSlug(response.survey_id)) return new Response('Không tìm thấy báo cáo.', { status: 404 });
 const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
 if (!full) return new Response('Không tìm thấy Scanner.', { status: 404 });
 const lang = response.lang === 'en' ? 'en' : 'vi';
@@ -27,11 +28,13 @@ const dimensions = (rules?.dimensions ?? []).map((dimension) => ({
 }));
 const memberResultUrl = `/scanner/result/${response.id}`;
 const loginUrl = `/login?redirect=${encodeURIComponent(memberResultUrl)}`;
+const nextStep = GUEST_SCANNER_NEXT_STEPS[response.survey_id];
+const surveyTitle = lang === 'en' ? (full.definition.title_en || full.definition.title_vi) : full.definition.title_vi;
 ---
-<BaseLayout title="Total OS Diagnostic | Dental Empire OS" noindex={true}>
+<BaseLayout title={`${surveyTitle} | Dental Empire OS`} noindex={true}>
   <section class="guest-report">
-    <p class="eyebrow">TOTAL OS DIAGNOSTIC</p>
-    <h1>{lang === 'vi' ? 'Báo cáo chẩn đoán hệ thống' : 'System diagnostic report'}</h1>
+    <p class="eyebrow">{surveyTitle}</p>
+    <h1>{lang === 'vi' ? 'Kết quả Scanner của bạn' : 'Your Scanner result'}</h1>
     <p class="muted">{response.clinic_name}</p>
     <div class="score-card">
       <span>{lang === 'vi' ? 'Điểm tổng quan' : 'Overall score'}</span>
@@ -42,6 +45,12 @@ const loginUrl = `/login?redirect=${encodeURIComponent(memberResultUrl)}`;
     <div class="dimensions">
       {dimensions.map((dimension) => <article><span>{dimension.name}</span><strong>{Math.round(dimension.score)}</strong></article>)}
     </div>
+    <aside class="next-step" aria-labelledby="next-step-title">
+      <p class="next-step__eyebrow">{nextStep.eyebrow}</p>
+      <h2 id="next-step-title">{nextStep.title}</h2>
+      <p>{nextStep.description}</p>
+      <a href={nextStep.href} data-track-cta={`guest_next_${response.survey_id}`} data-track-placement="guest_report" class="next-step__cta">{nextStep.cta}</a>
+    </aside>
     <aside class="member-upgrade" aria-labelledby="member-analysis-title">
       <p class="member-upgrade__eyebrow">{lang === 'vi' ? 'Dành cho thành viên' : 'For members'}</p>
       <h2 id="member-analysis-title">{lang === 'vi' ? 'Mở Bản soi chiếu hệ thống bằng AI' : 'Unlock the AI System Illumination'}</h2>
@@ -62,8 +71,10 @@ const loginUrl = `/login?redirect=${encodeURIComponent(memberResultUrl)}`;
   .score-card { display: grid; justify-items: center; gap: .35rem; margin: 2rem 0; padding: 2rem; border: 1px solid var(--color-outline-variant); border-radius: 1rem; background: var(--color-surface-container); }
   .score-card strong { font-size: 4rem; color: var(--color-primary); line-height: 1; }.score-card p { margin: 0; font-weight: 700; }
   .dimensions { display: grid; gap: .75rem; }.dimensions article { display: flex; justify-content: space-between; padding: 1rem; border-radius: .75rem; background: var(--color-surface-container); }.dimensions strong { color: var(--color-primary); }
-  .member-upgrade { margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--color-primary); border-radius: 1rem; background: var(--color-surface-container); }
-  .member-upgrade__eyebrow { margin: 0; color: var(--color-primary); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .next-step, .member-upgrade { margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--color-primary); border-radius: 1rem; background: var(--color-surface-container); }
+  .next-step__eyebrow, .member-upgrade__eyebrow { margin: 0; color: var(--color-primary); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .next-step h2 { margin: .5rem 0; font-size: 1.25rem; }.next-step p:not(.next-step__eyebrow) { color: var(--color-on-surface-variant); line-height: 1.6; }
+  .next-step__cta { display: inline-block; margin-top: .5rem; padding: .7rem 1rem; border-radius: .625rem; background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; text-decoration: none; }
   .member-upgrade h2 { margin: .5rem 0; font-size: 1.25rem; }.member-upgrade p:not(.member-upgrade__eyebrow) { color: var(--color-on-surface-variant); line-height: 1.6; }
   .member-upgrade__cta { display: inline-block; margin-top: .5rem; padding: .7rem 1rem; border-radius: .625rem; background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; text-decoration: none; }
   .notice { margin-top: 2rem; font-size: .85rem; }

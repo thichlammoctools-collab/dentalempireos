@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import { listSurveyDefinitions } from '../../lib/survey-config-db';
 import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
+import { isGuestScannerSlug } from '../../lib/guest-scanner';
 
 export const prerender = false;
 
@@ -27,7 +28,6 @@ const typeColors: Record<string, string> = {
   full: 'bg-violet-500/15 text-violet-300 border-violet-400/25',
   checklist: 'bg-amber-500/15 text-amber-500 border-amber-500/25',
 };
-
 const systemGroups = [
   {
     id: 'foundation', label: 'Nền tảng', title: 'Nền tảng & chiến lược',
@@ -79,9 +79,9 @@ if (uncategorizedScanners.length) groupsWithScanners[0].scanners.push(...uncateg
         <h1>Nhìn phòng khám như một <span>hệ thống</span></h1>
         <p class="scanner-lead">Mỗi Scanner soi chiếu một mắt xích quan trọng. Chọn đúng nhóm vấn đề để biết nơi cần ưu tiên, sau đó nhận điểm số, phân tích AI và kế hoạch hành động cụ thể.</p>
         <div class="scanner-hero-actions">
-          <a href="#system-map" class="scanner-primary-action"><span class="material-symbols-outlined">explore</span> Khám phá bản đồ</a>
+          <a href="/scanner/loi-nhu-quan-check" class="scanner-primary-action"><span class="material-symbols-outlined">psychology</span> Bắt đầu từ tư duy</a>
           {currentUser && creditBalance && <a href="/account/wallet" class="scanner-wallet"><span class="material-symbols-outlined">account_balance_wallet</span> {creditBalance.available} Credits</a>}
-          {!currentUser && <a href="/login?redirect=/scanner" class="scanner-wallet"><span class="material-symbols-outlined">login</span> Đăng nhập để bắt đầu</a>}
+          {!currentUser && <a href="/lo-trinh-scanner" class="scanner-wallet"><span class="material-symbols-outlined">account_tree</span> Xem lộ trình miễn phí</a>}
         </div>
       </div>
 
@@ -120,9 +120,12 @@ if (uncategorizedScanners.length) groupsWithScanners[0].scanners.push(...uncateg
               const usage = detail?.usage;
               const needsCredits = !!usage && usage.remaining === 0;
               const sufficient = !needsCredits || (!!creditBalance && creditBalance.available >= price);
-              const status = !currentUser ? '3 lượt miễn phí' : !needsCredits ? `Còn ${usage!.remaining}/3 lượt miễn phí` : `${price} Credits / lượt`;
+              const isGuestScanner = isGuestScannerSlug(scanner.slug);
+              const status = !currentUser
+                ? (isGuestScanner ? 'Miễn phí · Không cần đăng nhập' : '3 lượt miễn phí')
+                : !needsCredits ? `Còn ${usage!.remaining}/3 lượt miễn phí` : `${price} Credits / lượt`;
               const action = !currentUser
-                ? { href: `/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`, label: 'Đăng nhập để bắt đầu' }
+                ? (isGuestScanner ? { href: `/scanner/${scanner.slug}`, label: 'Bắt đầu miễn phí' } : { href: `/login?redirect=${encodeURIComponent(`/scanner/${scanner.slug}`)}`, label: 'Đăng nhập để bắt đầu' })
                 : sufficient
                   ? { href: `/scanner/${scanner.slug}`, label: 'Bắt đầu Scanner' }
                   : { href: '/account/wallet', label: 'Nạp thêm Credits' };

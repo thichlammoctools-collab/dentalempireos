@@ -493,7 +493,11 @@
   const sendBtn = document.getElementById('page-chat-send') as HTMLButtonElement;
 
   const SESSION_KEY = 'de_chat_session_id';
-  let currentSessionId: string | null = sessionStorage.getItem(SESSION_KEY);
+  const storedSessionId = sessionStorage.getItem(SESSION_KEY);
+  let currentSessionId: string | null = storedSessionId?.trim() ? storedSessionId : null;
+  if (!currentSessionId && storedSessionId) {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
   let isLoading = false;
   let welcomeShown = true;
 
@@ -634,7 +638,7 @@
       const sendChatRequest = (sessionId: string | null) => fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId }),
+        body: JSON.stringify({ message: text, session_id: sessionId ?? undefined }),
       });
       let res = await sendChatRequest(currentSessionId);
       if ((res.status === 400 || res.status === 404) && currentSessionId) {

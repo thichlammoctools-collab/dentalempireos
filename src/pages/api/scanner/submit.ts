@@ -26,6 +26,7 @@ import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from
 import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from '../../../lib/scanner-guest-report';
 import { hashIp, subscribe } from '../../../lib/newsletter';
 import { sendGuestScannerReportEmail } from '../../../lib/resend';
+import { isGuestScannerSlug } from '../../../lib/guest-scanner';
 
 export const prerender = false;
 
@@ -62,15 +63,15 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
-  const isGuestDiagnostic = !session?.user && def.slug === 'total-os-diagnostic';
-  if (!session?.user && !isGuestDiagnostic) {
+  const isGuestScanner = !session?.user && isGuestScannerSlug(def.slug);
+  if (!session?.user && !isGuestScanner) {
     return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
   }
-  const guestLead = isGuestDiagnostic ? validateGuestLead(body) : null;
-  if (isGuestDiagnostic && !guestLead) {
+  const guestLead = isGuestScanner ? validateGuestLead(body) : null;
+  if (isGuestScanner && !guestLead) {
     return badRequest('Tên phòng khám và email hợp lệ là bắt buộc.');
   }
-  if (isGuestDiagnostic) {
+  if (isGuestScanner) {
     const ip = ctx.request.headers.get('CF-Connecting-IP') ?? ctx.request.headers.get('x-forwarded-for');
     const ipHash = await hashIp(ip);
     if (!ipHash || !await checkGuestRequestRateLimit(env.DB, ipHash)) {
@@ -82,7 +83,7 @@ export const POST: APIRoute = async (ctx) => {
   const usage = session?.user
     ? await getScannerUsage(env.DB, session!.user.id, surveyId)
     : { remaining: 1, limit: 1 };
-  const requiresCredits = !isGuestDiagnostic && usage.remaining === 0;
+  const requiresCredits = !isGuestScanner && usage.remaining === 0;
   if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
     return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
   }
@@ -92,7 +93,7 @@ export const POST: APIRoute = async (ctx) => {
     return badRequest('clinic_name is required');
   }
 
-  const email = isGuestDiagnostic ? guestLead!.email : (asString(body.email) ?? session!.user.email);
+  const email = isGuestScanner ? guestLead!.email : (asString(body.email) ?? session!.user.email);
   if (email && !email.includes('@')) return badRequest('Invalid email');
 
   // Load all questions for this survey (across all sections)
@@ -163,7 +164,7 @@ export const POST: APIRoute = async (ctx) => {
     ({ id } = await createScannerResponse(env.DB, {
       survey_id: surveyId,
       lang,
-      owner_name: isGuestDiagnostic ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
+      owner_name: isGuestScanner ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
       clinic_name: clinicName,
       clinic_address: asString(body.clinic_address),
       email,
@@ -178,7 +179,7 @@ export const POST: APIRoute = async (ctx) => {
     throw err;
   }
 
-  if (isGuestDiagnostic) {
+  if (isGuestScanner) {
     const report = await createGuestReport(env.DB, {
       responseId: id,
       email: guestLead!.email,
@@ -190,7 +191,7 @@ export const POST: APIRoute = async (ctx) => {
     if (body.marketing_consent === true) {
       await subscribe(env.DB, {
         email: guestLead!.email,
-        source: 'total_os_diagnostic',
+        source: def.slug,
         anonymousId,
         attribution,
       });
@@ -199,8 +200,8 @@ export const POST: APIRoute = async (ctx) => {
       await recordSiteEvent(env.DB, {
         anonymousId,
         eventName: 'lead_submitted',
-        pagePath: '/scanner/total-os-diagnostic',
-        props: { lead_type: 'total_os_diagnostic', placement: attribution.utmContent ?? 'scanner_submit' },
+        pagePath: `/scanner/${def.slug}`,
+        props: { lead_type: def.slug, placement: attribution.utmContent ?? 'scanner_submit' },
       });
     }
     const waitUntil = ctx.locals.cfContext?.waitUntil?.bind(ctx.locals.cfContext);
@@ -209,6 +210,7 @@ export const POST: APIRoute = async (ctx) => {
       clinicName: guestLead!.clinicName,
       token: report.token,
       lang,
+      scannerTitle: def.title_vi,
     }).catch((err) => console.error('[submit] guest report email failed:', err)));
     return json({ success: true, id, redirect: `/scanner/report/${report.token}`, reportExpiresAt: report.expiresAt }, 201);
   }

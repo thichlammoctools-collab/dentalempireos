@@ -2,6 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { createAuth } from './lib/auth';
 import { ensureCreditAccount, grantCredits } from './lib/credit-db';
+import { isGuestScannerSlug } from './lib/guest-scanner';
 
 // Memoize auth instance per isolate (persists across requests in the same Worker instance)
 let _cachedAuth: ReturnType<typeof createAuth> | null = null;
@@ -119,11 +120,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Scanner form pages require login (exclude /result/, /pack, /test)
   if (url.pathname.startsWith('/scanner/') && !locals.user) {
     const seg = url.pathname.slice('/scanner/'.length);
-    const isResult = seg.startsWith('result/');
-    const isGuestDiagnostic = seg === 'total-os-diagnostic';
+    const isResult = seg.startsWith('result/') || seg.startsWith('report/');
+    const isGuestScanner = isGuestScannerSlug(seg);
     const isPack = seg === 'pack' || seg.startsWith('pack/');
     const isTest = seg === 'test';
-    if (!isResult && !isGuestDiagnostic && !isPack && !isTest) {
+    if (!isResult && !isGuestScanner && !isPack && !isTest) {
       const redirect = encodeURIComponent(url.pathname + url.search);
       return context.redirect(`/login?redirect=${redirect}`);
     }

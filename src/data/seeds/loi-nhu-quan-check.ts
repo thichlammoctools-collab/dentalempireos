@@ -1,4 +1,4 @@
-// Seed: Lời Như Quản Check — quản lý phòng khám như một doanh nghiệp (order 24)
+// Seed: Tư duy Kinh doanh Check — quản lý phòng khám như một doanh nghiệp (order 24)
 // Free scanner (is_free: 1), đánh giá business mindset của chủ phòng khám.
 // 2 sections: 5 select (dimension) + 2 open-ended.
 
@@ -7,7 +7,7 @@ import type { SeedScanner } from './registry';
 export const LOI_NHU_QUAN_CHECK_SEED: SeedScanner = {
   id: 'loi-nhu-quan-check',
   slug: 'loi-nhu-quan-check',
-  title_vi: 'Lời Như Quản Check',
+  title_vi: 'Tư duy Kinh doanh Check',
   title_en: 'Business Mindset Check',
   description_vi: 'Nhiều bác sĩ giỏi nhưng phòng khám không phát triển vì thiếu mindset kinh doanh. Kiểm tra cách bạn quản lý phòng khám như một doanh nghiệp.',
   description_en: 'Many good doctors but clinics that do not grow because of a lack of business mindset. Check how you manage your clinic as a business.',
@@ -24,7 +24,7 @@ export const LOI_NHU_QUAN_CHECK_SEED: SeedScanner = {
     email: { label_vi: 'Email liên hệ', label_en: 'Contact email', required: true, placeholder_vi: 'ban@email.com', type: 'email' },
   },
 
-  translations_vi: { submitButton: 'Xem kết quả', submitting: 'Đang xử lý...', required: 'bắt buộc', start: 'Bắt đầu →', back: '← Quay lại', next: 'Tiếp tục →', prev: '← Quay lại', intro_title: 'Lời Như Quản Check', intro_desc: 'Quản lý phòng khám như doanh nghiệp — kiểm tra business mindset của bạn.', restore_draft: 'Bạn có bản nháp chưa hoàn thành.', clear_draft: 'Xoá & bắt đầu lại', submit_title: 'SẴn sàng xem kết quả?', submit_desc: 'Hệ thống sẽ tính điểm và hiển thị ngay.', step_label: 'Phần', submit_label: 'Gửi' },
+  translations_vi: { submitButton: 'Xem kết quả', submitting: 'Đang xử lý...', required: 'bắt buộc', start: 'Bắt đầu →', back: '← Quay lại', next: 'Tiếp tục →', prev: '← Quay lại', intro_title: 'Tư duy Kinh doanh Check', intro_desc: 'Quản lý phòng khám như doanh nghiệp — kiểm tra business mindset của bạn.', restore_draft: 'Bạn có bản nháp chưa hoàn thành.', clear_draft: 'Xoá & bắt đầu lại', submit_title: 'Sẵn sàng xem kết quả?', submit_desc: 'Hệ thống sẽ tính điểm và hiển thị ngay.', step_label: 'Phần', submit_label: 'Gửi' },
   translations_en: { submitButton: 'See Result', submitting: 'Processing...', required: 'required', start: 'Start →', back: '← Back', next: 'Next →', prev: '← Back', intro_title: 'Business Mindset Check', intro_desc: 'Managing your clinic as a business — check your business mindset.', restore_draft: 'You have an unfinished draft.', clear_draft: 'Clear & start over', submit_title: 'Ready to see results?', submit_desc: 'We will calculate and display your score immediately.', step_label: 'Part', submit_label: 'Submit' },
 
   scoring_rules: {

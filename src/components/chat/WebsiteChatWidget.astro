@@ -323,7 +323,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
     }
 
     // Session management - lưu session_id để persist conversation
-    var currentSessionId = sessionStorage.getItem(SESSION_KEY) || null;
+    var storedSessionId = sessionStorage.getItem(SESSION_KEY);
+    var currentSessionId = storedSessionId && storedSessionId.trim() ? storedSessionId : null;
+    if (!currentSessionId && storedSessionId) {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
 
     // ── DOM refs ─────────────────────────────────────────────────
     var trigger = document.getElementById('website-chat-trigger');
@@ -541,7 +545,7 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         signal: requestController.signal,
         body: JSON.stringify({
           message: userText,
-          session_id: retryWithoutSession ? null : currentSessionId,
+          session_id: retryWithoutSession ? undefined : (currentSessionId || undefined),
           page_type: pageType !== 'home' ? pageType : undefined,
           page_slug: pageSlug || undefined,
         }),

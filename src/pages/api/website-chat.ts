@@ -69,9 +69,13 @@ function buildContextFallback(chunks: WebsiteChunk[]): string {
 }
 
 export const POST: APIRoute = async (ctx) => {
-  let body: { message: string; session_id?: string; page_type?: string; page_slug?: string };
+  let body: { message?: unknown; session_id?: unknown; page_type?: unknown; page_slug?: unknown };
   try {
-    body = (await ctx.request.json()) as typeof body;
+    const parsedBody = await ctx.request.json();
+    if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+      throw new Error('Invalid request body');
+    }
+    body = parsedBody as typeof body;
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
@@ -79,7 +83,11 @@ export const POST: APIRoute = async (ctx) => {
   if (typeof body.message !== 'string' || !body.message.trim() || body.message.trim().length > 4_000) {
     return new Response(JSON.stringify({ error: 'message must contain 1-4,000 characters' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (body.session_id !== undefined && (typeof body.session_id !== 'string' || body.session_id.length > 128)) {
+
+  // Older cached clients sent null for a new conversation. Treat null and blank
+  // values as absent so the session creation fallback below can recover safely.
+  const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : undefined;
+  if (body.session_id !== undefined && body.session_id !== null && (typeof body.session_id !== 'string' || body.session_id.length > 128)) {
     return new Response(JSON.stringify({ error: 'session_id is invalid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (body.page_type !== undefined && (typeof body.page_type !== 'string' || !['book', 'blog', 'resource', 'home'].includes(body.page_type))) {
@@ -101,13 +109,13 @@ export const POST: APIRoute = async (ctx) => {
 
   // A browser can retain a session created before the visitor signs in, or one
   // removed by maintenance. Start a fresh conversation rather than blocking chat.
-  let sessionId = body.session_id?.trim();
-  let sessionData = sessionId ? await loadSession(env.DB, sessionId, userId) : null;
+  let activeSessionId = sessionId;
+  let sessionData = activeSessionId ? await loadSession(env.DB, activeSessionId, userId) : null;
   if (!sessionData) {
-    sessionId = await createSession(env.DB, userId, body.page_type, body.page_slug);
-    sessionData = await loadSession(env.DB, sessionId, userId);
+    activeSessionId = await createSession(env.DB, userId, body.page_type as string | undefined, body.page_slug as string | undefined);
+    sessionData = await loadSession(env.DB, activeSessionId, userId);
   }
-  if (!sessionId || !sessionData) {
+  if (!activeSessionId || !sessionData) {
     return new Response(JSON.stringify({ error: 'Không thể khởi tạo phiên chat. Vui lòng thử lại.' }), {
       status: 503, headers: { 'Content-Type': 'application/json' },
     });
@@ -182,7 +190,7 @@ export const POST: APIRoute = async (ctx) => {
     provider_id: usedModelCfg.provider_id,
     model_id: usedModelCfg.model_id,
     user_id: userId ?? undefined,
-    session_id: sessionId,
+    session_id: activeSessionId,
     feature: 'website_chat',
     success: !fallbackUsed && Boolean(aiResponse.trim()),
     error_message: fallbackUsed ? 'AI response fallback' : undefined,
@@ -202,7 +210,7 @@ export const POST: APIRoute = async (ctx) => {
         { role: 'user' as const, content: body.message.trim(), created_at: new Date().toISOString() },
         { role: 'assistant' as const, content: aiResponse, created_at: new Date().toISOString() },
       ];
-      await saveSession(env.DB, sessionId, newMessages, chunks.map(c => c.id));
+      await saveSession(env.DB, activeSessionId, newMessages, chunks.map(c => c.id));
     } catch (err) {
       console.error('[website-chat] Save session failed:', err);
     }
@@ -220,7 +228,7 @@ export const POST: APIRoute = async (ctx) => {
         const metadataText = textEncoder.encode(
           `data: ${JSON.stringify({
             event: 'metadata',
-            session_id: sessionId,
+            session_id: activeSessionId,
             chunks_count: chunks.length,
             chunks_ids: chunks.map(c => c.id),
             sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
@@ -252,7 +260,7 @@ export const POST: APIRoute = async (ctx) => {
         textEncoder.encode(
           `data: ${JSON.stringify({
             event: 'done',
-            session_id: sessionId,
+            session_id: activeSessionId,
             chunks_used: chunks.length,
             sources: formattedChunks.map(c => ({ url: c.url, title: c.title, content_type: c.content_type })),
           })}\n\n`

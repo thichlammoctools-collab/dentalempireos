@@ -5,17 +5,16 @@ import { getSurveyDefinitionFullBySlug, parseLeadFields, parseUiTranslations, pa
 import { getClinicProfile } from '../../lib/clinic-profile-db';
 import { getScannerUsage } from '../../lib/scanner-history-db';
 import { getActiveCreditPricingRule, getCreditBalance } from '../../lib/credit-db';
+import { isGuestScannerSlug } from '../../lib/guest-scanner';
 
 export const prerender = false;
 
 const currentUser = Astro.locals.user;
 const slugParam = Astro.params.slug;
 const slug = slugParam ?? '';
-const isGuestDiagnostic = slug === 'total-os-diagnostic';
+const isGuestScanner = isGuestScannerSlug(slug);
 
-// Only the designated lead magnet accepts guests. Every other Scanner keeps its
-// existing member-only policy even if middleware is bypassed.
-if (!currentUser && !isGuestDiagnostic) {
+if (!currentUser && !isGuestScanner) {
   return Astro.redirect('/login');
 }
 
@@ -45,10 +44,10 @@ const [usage, creditBalance] = currentUser
       getCreditBalance(env.DB, currentUser.id),
     ])
   : [{ remaining: 1, limit: 1 }, { available: 0 }];
-const requiresCredits = !isGuestDiagnostic && usage.remaining === 0;
+const requiresCredits = !(isGuestScanner && !currentUser) && usage.remaining === 0;
 const scannerUnavailable = requiresCredits && (scannerPrice <= 0 || creditBalance.available < scannerPrice);
-const scannerNotice = isGuestDiagnostic && !currentUser
-  ? 'Hoàn tất chẩn đoán để nhận liên kết báo cáo riêng tư qua email.'
+const scannerNotice = isGuestScanner && !currentUser
+  ? 'Hoàn tất Scanner để nhận liên kết báo cáo riêng tư qua email.'
   : !requiresCredits
     ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Mỗi lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.`
     : scannerPrice <= 0
@@ -137,7 +136,7 @@ const defaultScaleEn: Record<string, string> = {
           ...(clinicProfile || {}),
           email: currentUser?.email,
         }) : ''}
-        data-guest-report={isGuestDiagnostic && !currentUser ? 'true' : 'false'}
+        data-guest-report={isGuestScanner && !currentUser ? 'true' : 'false'}
         data-scanner-unavailable={scannerUnavailable ? 'true' : 'false'}
         data-scale-vi={JSON.stringify(defaultScaleVi)}
         data-scale-en={JSON.stringify(defaultScaleEn)}
@@ -182,7 +181,7 @@ const defaultScaleEn: Record<string, string> = {
               </div>
               <div class="credit-reminder">
                 <span class="material-symbols-outlined">campaign</span>
-                {isGuestDiagnostic && !currentUser ? (
+                {isGuestScanner && !currentUser ? (
                   <p>Nhập tên, phòng khám và email để nhận liên kết báo cáo riêng tư. Email nhận báo cáo không đồng nghĩa với đăng ký nhận tin; bạn có thể chọn riêng ở bước gửi.</p>
                 ) : (
                   <p
