@@ -49,10 +49,12 @@ export const GET: APIRoute = async ({ params, request }) => {
   const image = await env.MEDIA.get(key);
   if (!image) return notFound('Report image not found');
 
+  const download = new URL(request.url).searchParams.get('download') === '1';
+  const filename = `scanner-${response.survey_id}-${type}-${authorized.id}.${image.httpMetadata?.contentType === 'image/jpeg' ? 'jpg' : 'png'}`;
   return new Response(image.body, {
     headers: {
       'Content-Type': image.httpMetadata?.contentType ?? 'image/png',
-      'Content-Disposition': 'inline',
+      'Content-Disposition': download ? `attachment; filename="${filename}"` : 'inline',
       'Cache-Control': 'private, max-age=3600',
     },
   });
