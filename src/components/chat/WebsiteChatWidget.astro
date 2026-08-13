@@ -216,7 +216,13 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       #chat-messages-area { padding: 14px 12px; }
       :global(#website-chat-root .chat-msg-body) { max-width: calc(100% - 32px); }
       :global(#website-chat-root .chat-msg.user .chat-msg-body) { width: calc(100% - 32px); }
-      :global(#website-chat-root .chat-msg-bubble) { padding: 9px 11px; font-size: 12.5px; }
+      :global(#website-chat-root .chat-msg-bubble) { padding: 10px 12px; font-size: 14px; line-height: 1.65; }
+      :global(#website-chat-root .chat-msg-bubble h1), :global(#website-chat-root .chat-msg-bubble h2), :global(#website-chat-root .chat-msg-bubble h3) { margin: 0.9em 0 0.4em; }
+      :global(#website-chat-root .chat-msg-bubble h2) { font-size: 14px; }
+      :global(#website-chat-root .chat-msg-bubble h3) { font-size: 13px; }
+      :global(#website-chat-root .chat-msg-bubble p) { margin: 0.65em 0; }
+      :global(#website-chat-root .chat-msg-bubble ul), :global(#website-chat-root .chat-msg-bubble ol) { margin: 0.65em 0; padding-left: 1.35em; }
+      :global(#website-chat-root .chat-msg-bubble li) { margin: 0.3em 0; }
       :global(#website-chat-root .chat-source-links) { max-width: 100%; }
       #chat-input-area { padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
     }
