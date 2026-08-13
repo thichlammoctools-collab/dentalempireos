@@ -99,17 +99,17 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({ error: 'Bạn đã đạt giới hạn Website Chat trong giờ này.', quota }), { status: 429, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Get or create session
-  let sessionId = body.session_id;
-  if (!sessionId) {
-    sessionId = await createSession(env.DB, userId, body.page_type, body.page_slug);
-  }
-
-  // Load session (verify ownership if authenticated)
-  const sessionData = await loadSession(env.DB, sessionId, userId);
+  // A browser can retain a session created before the visitor signs in, or one
+  // removed by maintenance. Start a fresh conversation rather than blocking chat.
+  let sessionId = body.session_id?.trim();
+  let sessionData = sessionId ? await loadSession(env.DB, sessionId, userId) : null;
   if (!sessionData) {
-    return new Response(JSON.stringify({ error: 'Session not found or access denied' }), {
-      status: 404, headers: { 'Content-Type': 'application/json' },
+    sessionId = await createSession(env.DB, userId, body.page_type, body.page_slug);
+    sessionData = await loadSession(env.DB, sessionId, userId);
+  }
+  if (!sessionId || !sessionData) {
+    return new Response(JSON.stringify({ error: 'Không thể khởi tạo phiên chat. Vui lòng thử lại.' }), {
+      status: 503, headers: { 'Content-Type': 'application/json' },
     });
   }
 

@@ -631,14 +631,17 @@
     let lastRenderTime = 0;
 
     try {
-      const res = await fetch('/api/website-chat', {
+      const sendChatRequest = (sessionId: string | null) => fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          session_id: currentSessionId,
-        }),
+        body: JSON.stringify({ message: text, session_id: sessionId }),
       });
+      let res = await sendChatRequest(currentSessionId);
+      if ((res.status === 400 || res.status === 404) && currentSessionId) {
+        currentSessionId = null;
+        try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+        res = await sendChatRequest(null);
+      }
 
       if (!res.ok || !res.body) {
         const errData = await res.json().catch((): { error?: string } => ({ error: 'Lỗi kết nối' })) as { error?: string };

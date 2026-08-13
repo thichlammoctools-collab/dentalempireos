@@ -456,9 +456,9 @@ export async function generateScannerPdf(
   }
 
   const reportTitle = type === 'plan'
-    ? t.section2.replace(/^II\.\s*/, '')
+    ? t.section3.replace(/^III\.\s*/, '')
     : type === 'analysis'
-      ? t.section3.replace(/^III\.\s*/, '')
+      ? t.section2.replace(/^II\.\s*/, '')
       : (lang === 'vi' ? definitionRow.title_vi : (definitionRow.title_en || definitionRow.title_vi));
   cover.drawText(reportTitle, {
     x: 50, y: PAGE_HEIGHT - 145, size: 28,
@@ -542,7 +542,7 @@ export async function generateScannerPdf(
   if (type === 'combined' || type === 'plan') {
     drawSectionTitle(ctx, type === 'combined' ? t.section3 : reportTitle);
     if (response.ai_plan) {
-      renderMarkdownToPdf(ctx, response.ai_plan);
+      renderPlanMarkdownToPdf(ctx, response.ai_plan);
     } else {
       drawParagraph(ctx, lang === 'vi'
         ? 'Kế hoạch 30 ngày đang được tạo. Vui lòng tải lại sau vài phút.'
@@ -551,6 +551,148 @@ export async function generateScannerPdf(
   }
 
   return doc.save();
+}
+
+interface PlanAction {
+  title: string;
+  content: string[];
+}
+
+interface PlanWeek {
+  title: string;
+  actions: PlanAction[];
+}
+
+function parsePlanMarkdown(markdown: string): PlanWeek[] {
+  marked.setOptions({ gfm: true, breaks: true });
+  const weeks: PlanWeek[] = [];
+  let week: PlanWeek | null = null;
+  let action: PlanAction | null = null;
+
+  for (const token of marked.lexer(markdown)) {
+    if (token.type === 'heading' && token.depth === 2) {
+      week = { title: stripMarkdown(tokenText(token)), actions: [] };
+      weeks.push(week);
+      action = null;
+    } else if (token.type === 'heading' && token.depth === 3) {
+      if (!week) {
+        week = { title: ctxLabel('vi', 'Kế hoạch hành động', 'Action plan'), actions: [] };
+        weeks.push(week);
+      }
+      action = { title: stripMarkdown(tokenText(token)), content: [] };
+      week.actions.push(action);
+    } else if (action) {
+      const text = stripMarkdown(tokenText(token)).trim();
+      if (text) action.content.push(text);
+    }
+  }
+
+  return weeks;
+}
+
+function ctxLabel(lang: 'vi' | 'en', vi: string, en: string) {
+  return lang === 'vi' ? vi : en;
+}
+
+function planField(text: string, lang: 'vi' | 'en'): { label: string; value: string; color: ReturnType<typeof rgb> } {
+  const match = text.match(/^([^:：]+)\s*[:：]\s*(.*)$/s);
+  const label = match?.[1]?.trim() ?? '';
+  const value = match?.[2]?.trim() ?? text;
+  const normalized = label.toLowerCase();
+  const isObjective = normalized.includes(lang === 'vi' ? 'mục tiêu' : 'objective');
+  const isDone = normalized.includes(lang === 'vi' ? 'hoàn thành' : 'done when');
+  const isOwner = normalized.includes(lang === 'vi' ? 'phụ trách' : 'owner') || normalized.includes(lang === 'vi' ? 'thời hạn' : 'due date');
+  return {
+    label: label || ctxLabel(lang, 'Chi tiết', 'Details'),
+    value,
+    color: isDone ? SUCCESS : isObjective ? NAVY : isOwner ? MUTED : AMBER,
+  };
+}
+
+function drawPlanWeek(ctx: PdfContext, title: string, weekIndex: number) {
+  ensureSpace(ctx, 54);
+  const label = ctx.lang === 'vi'
+    ? `GIAI ĐOẠN ${weekIndex + 1}`
+    : `PHASE ${weekIndex + 1}`;
+  ctx.page.drawRectangle({
+    x: MARGIN_X, y: ctx.y - 38, width: CONTENT_WIDTH, height: 38,
+    color: NAVY, opacity: 0.08,
+  });
+  ctx.page.drawRectangle({ x: MARGIN_X, y: ctx.y - 38, width: 4, height: 38, color: AMBER });
+  ctx.page.drawText(label, {
+    x: MARGIN_X + 14, y: ctx.y - 14, size: 7.5, font: ctx.fontBold, color: AMBER,
+  });
+  ctx.page.drawText(title, {
+    x: MARGIN_X + 14, y: ctx.y - 29, size: 11, font: ctx.fontBold, color: NAVY,
+  });
+  ctx.y -= 50;
+}
+
+function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number, isLast: boolean) {
+  const timelineX = MARGIN_X + 18;
+  const cardX = MARGIN_X + 42;
+  const cardWidth = CONTENT_WIDTH - 42;
+  const fields = action.content.flatMap((text) => text.split('\n').filter(Boolean)).map((text) => planField(text, ctx.lang));
+  const fieldLines = fields.map((field) => ({
+    ...field,
+    lines: wrapText(field.value, ctx.font, 9.5, cardWidth - 30),
+  }));
+  const titleLines = wrapText(action.title, ctx.fontBold, 10, cardWidth - 18);
+  const cardHeight = 18 + titleLines.length * 13 + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0) + 10;
+  const needed = cardHeight + 22;
+  ensureSpace(ctx, needed);
+
+  const topY = ctx.y;
+  const cardBottom = topY - cardHeight;
+  if (!isLast) {
+    ctx.page.drawLine({
+      start: { x: timelineX, y: topY - 10 }, end: { x: timelineX, y: cardBottom - 20 },
+      thickness: 1.2, color: LIGHT,
+    });
+  }
+  ctx.page.drawCircle({ x: timelineX, y: topY - 10, size: 9, color: NAVY });
+  ctx.page.drawText(String(actionIndex + 1), {
+    x: timelineX - 2.1, y: topY - 12.8, size: 6.5, font: ctx.fontBold, color: WHITE,
+  });
+  ctx.page.drawRectangle({
+    x: cardX, y: cardBottom, width: cardWidth, height: cardHeight,
+    color: rgb(0.97, 0.98, 1), borderColor: LIGHT, borderWidth: 0.7,
+  });
+
+  let y = topY - 17;
+  titleLines.forEach((line) => {
+    ctx.page.drawText(line, { x: cardX + 15, y, size: 10, font: ctx.fontBold, color: NAVY });
+    y -= 13;
+  });
+  y -= 3;
+  for (const field of fieldLines) {
+    ctx.page.drawText(field.label, { x: cardX + 15, y, size: 8.5, font: ctx.fontBold, color: field.color });
+    y -= 13;
+    field.lines.forEach((line) => {
+      ctx.page.drawText(line, { x: cardX + 15, y, size: 9.5, font: ctx.font, color: TEXT });
+      y -= 13;
+    });
+    y -= 2;
+  }
+  ctx.y = cardBottom - 18;
+}
+
+function renderPlanMarkdownToPdf(ctx: PdfContext, markdown: string) {
+  const weeks = parsePlanMarkdown(markdown);
+  if (!weeks.length || !weeks.some((week) => week.actions.length)) {
+    renderMarkdownToPdf(ctx, markdown);
+    return;
+  }
+
+  let actionIndex = 0;
+  const actionCount = weeks.reduce((count, week) => count + week.actions.length, 0);
+  weeks.forEach((week, weekIndex) => {
+    drawPlanWeek(ctx, week.title, weekIndex);
+    week.actions.forEach((action) => {
+      drawPlanAction(ctx, action, actionIndex, actionIndex === actionCount - 1);
+      actionIndex++;
+    });
+  });
 }
 
 function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {

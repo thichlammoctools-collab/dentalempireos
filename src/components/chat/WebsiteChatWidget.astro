@@ -529,18 +529,33 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
         requestController.abort();
       }, 60000);
 
-      fetch('/api/website-chat', {
+      function clearInvalidSession() {
+        currentSessionId = null;
+        try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+      }
+
+      function sendChatRequest(retryWithoutSession) {
+        return fetch('/api/website-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: requestController.signal,
         body: JSON.stringify({
           message: userText,
-          session_id: currentSessionId,
+          session_id: retryWithoutSession ? null : currentSessionId,
           page_type: pageType !== 'home' ? pageType : undefined,
           page_slug: pageSlug || undefined,
         }),
-      }).then(function (res) {
+        });
+      }
+
+      sendChatRequest(false).then(function (res) {
         window.clearTimeout(requestTimeout);
+        if ((res.status === 400 || res.status === 404) && currentSessionId) {
+          clearInvalidSession();
+          return sendChatRequest(true);
+        }
+        return res;
+      }).then(function (res) {
         if (!res.ok || !res.body) {
           return res.json().catch(function () { return { error: 'Lỗi kết nối' }; }).then(function (d) { throw new Error(d.error || 'Lỗi kết nối'); });        }
 

@@ -44,7 +44,8 @@ export const GET: APIRoute = async ({ params, request }) => {
   }
 
   const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
-  if (cachedKey) {
+  const pdfLayoutVersion = type === 'plan' ? 'v2' : 'v1';
+  if (cachedKey?.endsWith(`/${type}-${pdfLayoutVersion}.pdf`)) {
     const cached = await env.MEDIA.get(cachedKey);
     if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
   }
@@ -69,7 +70,7 @@ export const GET: APIRoute = async ({ params, request }) => {
       phone: clinicProfile?.phone,
     }, type);
     const filename = `scanner-${response.survey_id}-${type}-${id}.pdf`;
-    const key = `scanner-reports/${session.user.id}/${id}/${type}.pdf`;
+    const key = `scanner-reports/${session.user.id}/${id}/${type}-${pdfLayoutVersion}.pdf`;
     await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
     await setScannerPdfKey(env.DB, id, type, key);
     return new Response(pdfBytes as BodyInit, {
