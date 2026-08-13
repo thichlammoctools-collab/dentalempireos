@@ -1,6 +1,8 @@
 // RAG search for website-wide content (book + blog + resource).
 // Hybrid: vector (Vectorize) + keyword search, falls back to keyword-only.
 
+import { getTierLabel } from './collection-helpers';
+
 export interface WebsiteChunk {
   id: string;
   content_type: 'book' | 'blog' | 'resource';
@@ -319,6 +321,85 @@ export function chunksToFormatted(chunks: WebsiteChunk[]): FormattedChunk[] {
     text: c.text,
     url: c.url,
   }));
+}
+
+export type BookOverviewIntent = 'overview' | 'catalog' | 'groups' | null;
+
+interface BookOutlineChapter {
+  id: string;
+  tier: number;
+  chapter_no: number;
+  title: string;
+  description: string | null;
+}
+
+function normalizeIntentText(text: string): string {
+  return text
+    .toLocaleLowerCase('vi')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Identifies questions whose answer must come from the complete book catalogue,
+ * rather than the highest-scoring RAG excerpts. Keep named-concept questions
+ * (for example, ROADMAP là gì?) on the ordinary semantic retrieval path.
+ */
+export function detectBookOverviewIntent(message: string): BookOverviewIntent {
+  const text = normalizeIntentText(message);
+  const mentionsBook = /\b(sach|tai lieu|dental empire os|thu vien)\b/.test(text);
+  const asksContents = /\b(gom|bao gom|co gi|noi dung|tong quan|cau truc|danh muc|muc luc|chuong|nhom)\b/.test(text);
+  if (!mentionsBook || !asksContents) return null;
+
+  if (/\b(nhom|phan nhom|cac tang|tang noi dung)\b/.test(text)) return 'groups';
+  if (/\b(danh muc|muc luc|chuong|liet ke)\b/.test(text)) return 'catalog';
+  return 'overview';
+}
+
+/**
+ * Builds the canonical published-book outline from the same chapter metadata
+ * rendered by /book/. It deliberately bypasses website_content and Vectorize:
+ * chunks describe excerpts, not an exhaustive catalogue.
+ */
+export async function buildPublishedBookOutline(
+  db: D1Database,
+  intent: Exclude<BookOverviewIntent, null>,
+): Promise<string> {
+  const { results } = await db
+    .prepare(`SELECT "id", "tier", "chapter_no", "title", "description"
+      FROM "chapter"
+      WHERE "status" = 'published'
+      ORDER BY "tier", "order"`)
+    .all<BookOutlineChapter>();
+  const chapters = results ?? [];
+  if (!chapters.length) return '';
+
+  const grouped = new Map<number, BookOutlineChapter[]>();
+  for (const chapter of chapters) {
+    const tierChapters = grouped.get(chapter.tier) ?? [];
+    tierChapters.push(chapter);
+    grouped.set(chapter.tier, tierChapters);
+  }
+
+  const heading = intent === 'groups'
+    ? 'DANH MỤC CHÍNH THỨC — NHÓM NỘI DUNG CỦA SÁCH'
+    : intent === 'catalog'
+      ? 'DANH MỤC CHÍNH THỨC — DANH SÁCH CHƯƠNG ĐÃ XUẤT BẢN'
+      : 'DANH MỤC CHÍNH THỨC — TỔNG QUAN SÁCH';
+  const sections = [...grouped.entries()].map(([tier, tierChapters]) => {
+    const label = `Tầng ${tier}: ${getTierLabel(tier)}`;
+    if (intent === 'groups') {
+      return `${label} (${tierChapters.length} chương): ${tierChapters.map((chapter) => chapter.title).join('; ')}`;
+    }
+    return `${label} (${tierChapters.length} chương)\n${tierChapters
+      .map((chapter) => `- Chương ${chapter.chapter_no}: ${chapter.title}${chapter.description?.trim() ? ` — ${chapter.description.trim()}` : ''}`)
+      .join('\n')}`;
+  });
+
+  return `${heading}\nĐây là danh mục đầy đủ của các chương đang xuất bản tại thời điểm truy vấn. Không suy diễn thêm chương hoặc nhóm nội dung từ các đoạn trích khác.\n\n${sections.join('\n\n')}`;
 }
 
 /**

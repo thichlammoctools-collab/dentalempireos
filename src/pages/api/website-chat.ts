@@ -10,7 +10,18 @@ import { sseResponse } from '../../lib/sse';
 import { chatCompletionStream } from '../../lib/ai-client';
 import type { ChatMessage, ModelConfig } from '../../lib/ai-client';
 import { getAiGatewayConfigs } from '../../lib/ai-gateway';
-import { searchWebsite, expandWebsiteContext, buildWebsiteContext, chunksToFormatted, buildSearchQueryWithHistory, summarizeHistory, type WebsiteChunk } from '../../lib/rag-website-search';
+import {
+  searchWebsite,
+  expandWebsiteContext,
+  buildWebsiteContext,
+  buildPublishedBookOutline,
+  chunksToFormatted,
+  buildSearchQueryWithHistory,
+  detectBookOverviewIntent,
+  summarizeHistory,
+  type BookOverviewIntent,
+  type WebsiteChunk,
+} from '../../lib/rag-website-search';
 import { createSession, loadSession, saveSession } from '../../lib/website-chat-db';
 import { createAuth } from '../../lib/auth';
 import { logAiUsage } from '../../lib/ai-usage-log';
