@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Sơ đồ 10 hệ thống nền tảng cho phòng khám nha khoa mới</title>
+  <desc id="desc">Mười hệ thống vận hành bao quanh chủ phòng khám.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071827"/>
+      <stop offset="1" stop-color="#102d43"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#29c6c1"/>
+      <stop offset="1" stop-color="#168f9b"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="800" cy="450" r="250" fill="#1cd3c3" opacity=".12" filter="url(#glow)"/>
+  <g fill="none" stroke="#7ce4de" stroke-width="2" opacity=".45">
+    <path d="M800 450L800 118M800 450L1050 150M800 450L1320 270M800 450L1320 560M800 450L1050 750M800 450L800 782M800 450L550 750M800 450L280 560M800 450L280 270M800 450L550 150"/>
+  </g>
+  <g font-family="Arial, sans-serif" text-anchor="middle">
+    <circle cx="800" cy="450" r="143" fill="url(#core)" stroke="#a9fffa" stroke-width="3"/>
+    <text x="800" y="430" fill="#06242a" font-size="31" font-weight="700">CHỦ PHÒNG KHÁM</text>
+    <text x="800" y="471" fill="#06242a" font-size="20">Thiết kế, quyết định</text>
+    <text x="800" y="500" fill="#06242a" font-size="20">và giữ nhịp hệ thống</text>
+    <g fill="#102e42" stroke="#4dcfc8" stroke-width="2">
+      <rect x="640" y="52" width="320" height="110" rx="20"/><rect x="1030" y="90" width="320" height="110" rx="20"/>
+      <rect x="1250" y="215" width="290" height="110" rx="20"/><rect x="1250" y="505" width="290" height="110" rx="20"/>
+      <rect x="1030" y="700" width="320" height="110" rx="20"/><rect x="640" y="738" width="320" height="110" rx="20"/>
+      <rect x="250" y="700" width="320" height="110" rx="20"/><rect x="60" y="505" width="290" height="110" rx="20"/>
+      <rect x="60" y="215" width="290" height="110" rx="20"/><rect x="250" y="90" width="320" height="110" rx="20"/>
+    </g>
+    <g fill="#e8fffd" font-size="20" font-weight="700">
+      <text x="800" y="103">1. Điều hành của chủ</text><text x="1190" y="141">2. Nhân sự và phân vai</text>
+      <text x="1395" y="266">3. Tuyển dụng, onboarding</text><text x="1395" y="556">4. Quy trình cốt lõi</text>
+      <text x="1190" y="751">5. Tiếp đón, tư vấn</text><text x="800" y="789">6. Điều trị và an toàn</text>
+      <text x="410" y="751">7. Chăm sóc bệnh nhân</text><text x="205" y="556">8. Vật tư, thiết bị</text>
+      <text x="205" y="266">9. Tài chính, dòng tiền</text><text x="410" y="141">10. Văn hóa, hành vi</text>
+    </g>
+    <text x="800" y="884" fill="#88aaa9" font-size="18">10 hệ thống nền tảng cho phòng khám nha khoa mới</text>
+  </g>
+</svg>
