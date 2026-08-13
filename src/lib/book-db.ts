@@ -78,12 +78,59 @@ export async function listPublishedChapters(db: D1Database): Promise<ChapterRow[
   const { results } = await db
     .prepare(`
        SELECT c.*, c."is_premium" AS "has_premium"
-      FROM "chapter" c
-      WHERE c."status" = 'published'
-      ORDER BY c."tier", c."order"
+       FROM "chapter" c
+       WHERE c."status" = 'published'
+       ORDER BY c."tier", c."order"
     `)
     .all<ChapterRow>();
   return results;
+}
+
+/** A top-level section provides the navigable scope of a published chapter. */
+export interface PublishedBookOutlineSection {
+  id: string;
+  chapter_id: string;
+  title: string;
+  slug: string;
+  order: number;
+}
+
+export interface PublishedBookOutlineChapter extends ChapterRow {
+  sections: PublishedBookOutlineSection[];
+}
+
+/**
+ * Canonical catalogue for surfaces that must describe the whole published book.
+ *
+ * This reads the same published chapter rows as the book index and only the
+ * root sections shown as its primary navigation. It intentionally does not use
+ * RAG chunks: chunks are excerpts and cannot establish catalogue completeness.
+ */
+export async function listPublishedBookOutline(db: D1Database): Promise<PublishedBookOutlineChapter[]> {
+  const [chapters, sectionResult] = await Promise.all([
+    listPublishedChapters(db),
+    db
+      .prepare(`
+        SELECT s."id", s."chapter_id", s."title", s."slug", s."order"
+        FROM "section" s
+        JOIN "chapter" c ON c."id" = s."chapter_id"
+        WHERE c."status" = 'published' AND s."parent_id" IS NULL
+        ORDER BY c."tier", c."order", s."order"
+      `)
+      .all<PublishedBookOutlineSection>(),
+  ]);
+
+  const sectionsByChapter = new Map<string, PublishedBookOutlineSection[]>();
+  for (const section of sectionResult.results ?? []) {
+    const sections = sectionsByChapter.get(section.chapter_id) ?? [];
+    sections.push(section);
+    sectionsByChapter.set(section.chapter_id, sections);
+  }
+
+  return chapters.map((chapter) => ({
+    ...chapter,
+    sections: sectionsByChapter.get(chapter.id) ?? [],
+  }));
 }
 
 export interface ChapterInput {

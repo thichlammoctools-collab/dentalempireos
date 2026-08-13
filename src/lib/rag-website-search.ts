@@ -2,6 +2,7 @@
 // Hybrid: vector (Vectorize) + keyword search, falls back to keyword-only.
 
 import { getTierLabel } from './collection-helpers';
+import { listPublishedBookOutline, type PublishedBookOutlineChapter } from './book-db';
 
 export interface WebsiteChunk {
   id: string;
@@ -325,14 +326,6 @@ export function chunksToFormatted(chunks: WebsiteChunk[]): FormattedChunk[] {
 
 export type BookOverviewIntent = 'overview' | 'catalog' | 'groups' | null;
 
-interface BookOutlineChapter {
-  id: string;
-  tier: number;
-  chapter_no: number;
-  title: string;
-  description: string | null;
-}
-
 function normalizeIntentText(text: string): string {
   return text
     .toLocaleLowerCase('vi')
@@ -349,35 +342,45 @@ function normalizeIntentText(text: string): string {
  * (for example, ROADMAP là gì?) on the ordinary semantic retrieval path.
  */
 export function detectBookOverviewIntent(message: string): BookOverviewIntent {
-  const text = normalizeIntentText(message);
-  const mentionsBook = /\b(sach|tai lieu|dental empire os|thu vien)\b/.test(text);
-  const asksContents = /\b(gom|bao gom|co gi|noi dung|tong quan|cau truc|danh muc|muc luc|chuong|nhom)\b/.test(text);
-  if (!mentionsBook || !asksContents) return null;
+  // Preserve the existing exact/compact ROADMAP retrieval path. A question
+  // about this named concept can mention a document or chapter without asking
+  // for the whole library catalogue.
+  if (compactSearchText(message).includes('roadmap')) return null;
 
-  if (/\b(nhom|phan nhom|cac tang|tang noi dung)\b/.test(text)) return 'groups';
-  if (/\b(danh muc|muc luc|chuong|liet ke)\b/.test(text)) return 'catalog';
+  const text = normalizeIntentText(message);
+  const mentionsBook = /\b(sach|tai lieu|dental empire os|thu vien|ebook)\b/.test(text);
+  const asksScope = /\b(gom|bao gom|co gi|noi dung|tong quan|cau truc|danh muc|muc luc|chuong|nhom|pham vi|chuyen muc|phan)\b/.test(text);
+  if (!mentionsBook || !asksScope) return null;
+
+  if (/\b(nhom|phan nhom|cac tang|tang noi dung|chuyen muc)\b/.test(text)) return 'groups';
+  if (/\b(danh muc|muc luc|chuong|liet ke|danh sach)\b/.test(text)) return 'catalog';
   return 'overview';
 }
 
+function formatOutlineChapter(chapter: PublishedBookOutlineChapter, includeSections: boolean): string {
+  const description = chapter.description?.trim() ? ` — ${chapter.description.trim()}` : '';
+  if (!includeSections || chapter.sections.length === 0) {
+    return `- Chương ${chapter.chapter_no}: ${chapter.title}${description}`;
+  }
+
+  return `- Chương ${chapter.chapter_no}: ${chapter.title}${description}\n${chapter.sections
+    .map((section) => `  - ${section.title}`)
+    .join('\n')}`;
+}
+
 /**
- * Builds the canonical published-book outline from the same chapter metadata
- * rendered by /book/. It deliberately bypasses website_content and Vectorize:
- * chunks describe excerpts, not an exhaustive catalogue.
+ * Builds the canonical published-book outline from the same D1 catalogue used
+ * by the book index. It deliberately bypasses website_content and Vectorize:
+ * retrieved chunks are excerpts and cannot establish catalogue completeness.
  */
 export async function buildPublishedBookOutline(
   db: D1Database,
   intent: Exclude<BookOverviewIntent, null>,
 ): Promise<string> {
-  const { results } = await db
-    .prepare(`SELECT "id", "tier", "chapter_no", "title", "description"
-      FROM "chapter"
-      WHERE "status" = 'published'
-      ORDER BY "tier", "order"`)
-    .all<BookOutlineChapter>();
-  const chapters = results ?? [];
+  const chapters = await listPublishedBookOutline(db);
   if (!chapters.length) return '';
 
-  const grouped = new Map<number, BookOutlineChapter[]>();
+  const grouped = new Map<number, PublishedBookOutlineChapter[]>();
   for (const chapter of chapters) {
     const tierChapters = grouped.get(chapter.tier) ?? [];
     tierChapters.push(chapter);
@@ -385,21 +388,22 @@ export async function buildPublishedBookOutline(
   }
 
   const heading = intent === 'groups'
-    ? 'DANH MỤC CHÍNH THỨC — NHÓM NỘI DUNG CỦA SÁCH'
+    ? 'DANH MỤC CHÍNH THỨC — NHÓM NỘI DUNG CỦA THƯ VIỆN'
     : intent === 'catalog'
-      ? 'DANH MỤC CHÍNH THỨC — DANH SÁCH CHƯƠNG ĐÃ XUẤT BẢN'
-      : 'DANH MỤC CHÍNH THỨC — TỔNG QUAN SÁCH';
+      ? 'DANH MỤC CHÍNH THỨC — CHƯƠNG VÀ ĐỀ MỤC ĐÃ XUẤT BẢN'
+      : 'DANH MỤC CHÍNH THỨC — TỔNG QUAN THƯ VIỆN';
+  const includeSections = intent === 'catalog';
   const sections = [...grouped.entries()].map(([tier, tierChapters]) => {
     const label = `Tầng ${tier}: ${getTierLabel(tier)}`;
     if (intent === 'groups') {
       return `${label} (${tierChapters.length} chương): ${tierChapters.map((chapter) => chapter.title).join('; ')}`;
     }
     return `${label} (${tierChapters.length} chương)\n${tierChapters
-      .map((chapter) => `- Chương ${chapter.chapter_no}: ${chapter.title}${chapter.description?.trim() ? ` — ${chapter.description.trim()}` : ''}`)
+      .map((chapter) => formatOutlineChapter(chapter, includeSections))
       .join('\n')}`;
   });
 
-  return `${heading}\nĐây là danh mục đầy đủ của các chương đang xuất bản tại thời điểm truy vấn. Không suy diễn thêm chương hoặc nhóm nội dung từ các đoạn trích khác.\n\n${sections.join('\n\n')}`;
+  return `${heading}\nĐây là phạm vi đầy đủ của các chương và đề mục đang xuất bản tại thời điểm truy vấn. Không suy diễn thêm nhóm, chương, đề mục hoặc tình trạng truy cập từ các đoạn trích RAG.\n\n${sections.join('\n\n')}`;
 }
 
 /**

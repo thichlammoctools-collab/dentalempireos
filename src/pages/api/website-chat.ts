@@ -62,7 +62,14 @@ function eventPayload(event: string, data: Record<string, unknown>): Uint8Array 
   return new TextEncoder().encode(`data: ${JSON.stringify({ event, ...data })}\n\n`);
 }
 
-function buildSystemPrompt(ragContext: string): string {
+function buildSystemPrompt(ragContext: string, bookOverviewIntent: BookOverviewIntent): string {
+  const overviewInstruction = bookOverviewIntent
+    ? `
+10. Câu hỏi này yêu cầu tổng quan/danh mục thư viện. Chỉ dùng phần "DANH MỤC CHÍNH THỨC" để mô tả toàn bộ phạm vi, nhóm nội dung, chương hoặc đề mục. Danh mục đó là nguồn chuẩn duy nhất cho các khẳng định đầy đủ.
+11. Chỉ nói về việc nội dung có thể đọc, truy cập, miễn phí, trả phí hoặc cần đăng nhập khi trạng thái đó xuất hiện rõ trong ngữ cảnh. Nếu không có, không suy đoán về khả dụng.`
+    : `
+10. Các đoạn RAG thông thường chỉ là trích đoạn liên quan, không phải mục lục. Tuyệt đối không mô tả chúng là toàn bộ sách/thư viện, không suy diễn một danh sách nhóm, chương hoặc đề mục đầy đủ từ chúng.`;
+
   return `Bạn là Dental Empire AI, trợ lý nội dung của Dental Empire OS về vận hành và quản trị phòng khám nha khoa tại Việt Nam.
 
 Mục tiêu là giúp người đọc tìm đúng nội dung trên website và hiểu được bước tiếp theo có thể áp dụng. Giọng điệu chuyên nghiệp, thân thiện, thực tế; xưng "mình" hoặc "Dental Empire AI", gọi người dùng là "bạn".
@@ -80,7 +87,7 @@ ${ragContext}
 6. Khi có ngữ cảnh, kết thúc câu trả lời bằng một câu nguồn ngắn theo mẫu "Nguồn: Tài liệu <tên tài liệu>". Chỉ dùng đúng tên tài liệu xuất hiện trong ngữ cảnh; giao diện sẽ hiển thị liên kết nguồn tương ứng.
 7. Với câu hỏi ngoài nội dung website, có thể trả lời bằng kiến thức tổng quát về quản trị phòng khám, nhưng phải nói rõ đó là gợi ý chung, không phải nội dung đã xác minh từ website.
 8. Không tự tạo URL, tên sản phẩm, chương, chương trình miễn phí, ưu đãi, số liệu hoặc chính sách. Không yêu cầu người dùng truy cập URL trong phần trả lời vì giao diện tự hiển thị nguồn khi có.
-9. Không chẩn đoán, tư vấn điều trị, kê đơn hoặc đưa khuyến nghị y khoa cá nhân.
+9. Không chẩn đoán, tư vấn điều trị, kê đơn hoặc đưa khuyến nghị y khoa cá nhân.${overviewInstruction}
 
 Định dạng cho khung chat:
 - Mặc định dài 2-5 câu, tối đa 120 từ.
@@ -89,9 +96,11 @@ ${ragContext}
 - Khi thông tin có trong ngữ cảnh, nêu rõ đó là **Tài liệu**, **Blog** hoặc **Tài nguyên** nếu phân loại này hữu ích.`;
 }
 
-function buildContextFallback(chunks: WebsiteChunk[]): string {
+function buildContextFallback(chunks: WebsiteChunk[], bookOutline = ''): string {
   if (!chunks.length) {
-    return 'Mình chưa tìm thấy nội dung phù hợp trên Dental Empire OS cho câu hỏi này.';
+    return bookOutline
+      ? 'Mình đang gặp sự cố khi tổng hợp câu trả lời AI. Danh mục chính thức của thư viện đã được tải, nhưng chưa thể tạo phần tóm tắt.'
+      : 'Mình chưa tìm thấy nội dung phù hợp trên Dental Empire OS cho câu hỏi này.';
   }
 
   const excerpts = chunks.slice(0, 2).map((chunk) => {
@@ -197,19 +206,32 @@ export const POST: APIRoute = async (ctx) => {
     searchOpts.contentType = 'blog';
   }
 
-  // Build search query với conversation context (multi-turn understanding)
+  // Build search query với conversation context (multi-turn understanding).
+  // Overview detection intentionally runs on the current message only, so a
+  // short named-concept follow-up (for example, "ROADMAP là gì?") remains on
+  // the ordinary retrieval path instead of inheriting a prior catalogue intent.
   const searchQuery = buildSearchQueryWithHistory(message, history);
+  const bookOverviewIntent = detectBookOverviewIntent(message);
 
   let chunks: WebsiteChunk[] = [];
+  let bookOutline = '';
   try {
-    const matches = await searchWebsite(env.DB, searchQuery, 8, searchOpts, env);
-    chunks = await expandWebsiteContext(env.DB, matches, 10);
+    if (bookOverviewIntent) {
+      // A complete outline comes exclusively from the published chapter/section
+      // schema. Top-ranked prose chunks are deliberately excluded because they
+      // cannot prove an exhaustive book scope or availability claim.
+      bookOutline = await buildPublishedBookOutline(env.DB, bookOverviewIntent);
+    } else {
+      const matches = await searchWebsite(env.DB, searchQuery, 8, searchOpts, env);
+      chunks = await expandWebsiteContext(env.DB, matches, 10);
+    }
   } catch (err) {
     console.warn('[website-chat] search failed:', err);
   }
 
-  const ragContext = buildWebsiteContext(chunks);
-  const systemPrompt = buildSystemPrompt(ragContext);
+  const retrievedContext = buildWebsiteContext(chunks);
+  const ragContext = bookOutline || retrievedContext;
+  const systemPrompt = buildSystemPrompt(ragContext, bookOverviewIntent);
   const formattedChunks = chunksToFormatted(chunks);
 
   // Summarize history nếu quá dài, rồi thêm user message mới
@@ -291,7 +313,7 @@ export const POST: APIRoute = async (ctx) => {
           if (done) {
             completed = true;
             if (!aiResponse.trim()) {
-              aiResponse = buildContextFallback(chunks);
+              aiResponse = buildContextFallback(chunks, bookOutline);
               controller.enqueue(eventPayload('chunk', { text: aiResponse }));
               await saveAndLog(true, 'AI returned an empty response');
             } else {
@@ -325,7 +347,7 @@ export const POST: APIRoute = async (ctx) => {
           console.error('[website-chat] AI stream failed:', err);
           completed = true;
           if (!aiResponse.trim()) {
-            aiResponse = buildContextFallback(chunks);
+            aiResponse = buildContextFallback(chunks, bookOutline);
             controller.enqueue(eventPayload('chunk', { text: aiResponse }));
           }
           await saveAndLog(true, String(err));
