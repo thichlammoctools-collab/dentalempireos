@@ -2,7 +2,7 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { getGuestReportByToken } from '../../../lib/scanner-guest-report';
-import { getScannerResponse, parseScores } from '../../../lib/scanner-response-db';
+import { getScannerResponse, isScannerResponseExpired, parseScores } from '../../../lib/scanner-response-db';
 import { getSurveyDefinitionFull, parseScoringRules } from '../../../lib/survey-config-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { GUEST_SCANNER_NEXT_STEPS, isGuestScannerSlug } from '../../../lib/guest-scanner';
@@ -14,6 +14,7 @@ const report = await getGuestReportByToken(env.DB, token);
 if (!report) return new Response('Liên kết báo cáo không hợp lệ hoặc đã hết hạn.', { status: 404 });
 const response = await getScannerResponse(env.DB, report.response_id);
 if (!response || !isGuestScannerSlug(response.survey_id)) return new Response('Không tìm thấy báo cáo.', { status: 404 });
+if (isScannerResponseExpired(response)) return new Response('Báo cáo này đã hết thời hạn lưu trữ.', { status: 410 });
 const full = await getSurveyDefinitionFull(env.DB, response.survey_id);
 if (!full) return new Response('Không tìm thấy Scanner.', { status: 404 });
 const lang = response.lang === 'en' ? 'en' : 'vi';
@@ -30,12 +31,16 @@ const memberResultUrl = `/scanner/result/${response.id}`;
 const loginUrl = `/login?redirect=${encodeURIComponent(memberResultUrl)}`;
 const nextStep = GUEST_SCANNER_NEXT_STEPS[response.survey_id];
 const surveyTitle = lang === 'en' ? (full.definition.title_en || full.definition.title_vi) : full.definition.title_vi;
+const expiryDate = new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'vi-VN', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+}).format(new Date(report.expires_at));
 ---
 <BaseLayout title={`${surveyTitle} | Dental Empire OS`} noindex={true}>
   <section class="guest-report">
     <p class="eyebrow">{surveyTitle}</p>
     <h1>{lang === 'vi' ? 'Kết quả Scanner của bạn' : 'Your Scanner result'}</h1>
     <p class="muted">{response.clinic_name}</p>
+    <p class="retention-notice">{lang === 'vi' ? `Liên kết và dữ liệu khảo sát được lưu đến ${expiryDate}. Sau thời điểm này, báo cáo sẽ không còn truy cập được.` : `This link and survey data are stored until ${expiryDate}. After that, the report will no longer be available.`}</p>
     <div class="score-card">
       <span>{lang === 'vi' ? 'Điểm tổng quan' : 'Overall score'}</span>
       <strong>{Math.round(total)}</strong>
@@ -68,6 +73,7 @@ const surveyTitle = lang === 'en' ? (full.definition.title_en || full.definition
   .guest-report { max-width: 760px; margin: 0 auto; padding: 4rem 1rem 6rem; }
   .eyebrow { color: var(--color-primary); font-weight: 800; letter-spacing: .12em; font-size: .75rem; }
   h1 { margin-bottom: .25rem; } .muted, .notice { color: var(--color-on-surface-variant); }
+  .retention-notice { margin-top: 1rem; padding: .75rem 1rem; border-left: 3px solid var(--color-primary); border-radius: .5rem; background: var(--color-surface-container); color: var(--color-on-surface-variant); font-size: .9rem; line-height: 1.55; }
   .score-card { display: grid; justify-items: center; gap: .35rem; margin: 2rem 0; padding: 2rem; border: 1px solid var(--color-outline-variant); border-radius: 1rem; background: var(--color-surface-container); }
   .score-card strong { font-size: 4rem; color: var(--color-primary); line-height: 1; }.score-card p { margin: 0; font-weight: 700; }
   .dimensions { display: grid; gap: .75rem; }.dimensions article { display: flex; justify-content: space-between; padding: 1rem; border-radius: .75rem; background: var(--color-surface-container); }.dimensions strong { color: var(--color-primary); }

@@ -47,14 +47,14 @@ const [usage, creditBalance] = currentUser
 const requiresCredits = !(isGuestScanner && !currentUser) && usage.remaining === 0;
 const scannerUnavailable = requiresCredits && (scannerPrice <= 0 || creditBalance.available < scannerPrice);
 const scannerNotice = isGuestScanner && !currentUser
-  ? 'Hoàn tất Scanner để nhận liên kết báo cáo riêng tư qua email.'
+  ? 'Hoàn tất Scanner để nhận liên kết báo cáo riêng tư qua email. Kết quả được lưu trong 3 ngày, sau đó dữ liệu khảo sát sẽ được xoá.'
   : !requiresCredits
-    ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Mỗi lượt bao gồm điểm số, Phân tích AI, Kế hoạch AI và PDF.`
+    ? `Bạn còn ${usage.remaining}/${usage.limit} lượt miễn phí cho Scanner này. Kết quả, Phân tích AI, Kế hoạch AI và PDF được lưu trong 30 ngày.`
     : scannerPrice <= 0
       ? 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.'
       : scannerUnavailable
         ? `Lượt miễn phí đã dùng hết. Bạn cần ${scannerPrice} Credits để thực hiện lượt tiếp theo; số dư hiện tại là ${creditBalance.available} Credits.`
-        : `3 lượt miễn phí đã dùng hết. Lượt này sẽ dùng ${scannerPrice} Credits; số dư hiện tại là ${creditBalance.available} Credits.`;
+        : `3 lượt miễn phí đã dùng hết. Lượt này sẽ dùng ${scannerPrice} Credits; kết quả và các tệp PDF được lưu trong 365 ngày; số dư hiện tại là ${creditBalance.available} Credits.`;
 
 let clinicProfile: any = null;
 try {

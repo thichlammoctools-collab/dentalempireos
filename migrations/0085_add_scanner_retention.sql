@@ -1,0 +1,2 @@
+-- Superseded by 0088_add_scanner_retention.sql.
+-- This no-op remains only to preserve migration filename ordering.

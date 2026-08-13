@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { badRequest, json, notFound } from '../../../../lib/api-helpers';
-import { getScannerResponse } from '../../../../lib/scanner-response-db';
+import { getScannerResponse, isScannerResponseExpired } from '../../../../lib/scanner-response-db';
 import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
 import { createAuth } from '../../../../lib/auth';
@@ -25,6 +25,7 @@ async function getAuthorizedImageRequest(params: Record<string, string | undefin
 
   const response = await getScannerResponse(env.DB, id);
   if (!response) return { error: notFound('Response not found') };
+  if (isScannerResponseExpired(response)) return { error: json({ error: 'Báo cáo này đã hết thời hạn lưu trữ.' }, 410) };
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
   const ownsByEmail = response.email
     ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id

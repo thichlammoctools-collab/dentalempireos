@@ -79,20 +79,35 @@ function orderRetryHref(order: CreditOrder): string | null {
   return order.checkout_url;
 }
 
-function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: string | null }): { amount: number; label: string } {
-  if (entry.kind !== 'settlement') return { amount: entry.amount, label: kindLabels[entry.kind] ?? entry.kind };
+function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: string | null; source_type: string; service_label: string | null; reason: string | null }): { amount: number; label: string; detail: string } {
+  if (entry.kind !== 'settlement') {
+    return {
+      amount: entry.amount,
+      label: kindLabels[entry.kind] ?? entry.kind,
+      detail: entry.reason ?? entry.source_type,
+    };
+  }
 
   try {
     const metadata = JSON.parse(entry.metadata_json ?? '{}') as { credits?: unknown };
     const credits = typeof metadata.credits === 'number' && Number.isInteger(metadata.credits) && metadata.credits > 0
       ? metadata.credits
       : null;
-    if (credits !== null) return { amount: -credits, label: `Đã sử dụng ${credits} Credits` };
+    if (credits !== null) {
+      const service = entry.source_type === 'scanner'
+        ? `Scanner trả phí${entry.service_label ? ` · ${entry.service_label}` : ''}`
+        : entry.source_type;
+      return { amount: -credits, label: `Đã dùng ${credits} Credits`, detail: service };
+    }
   } catch {
     // Preserve the recorded ledger value if historical metadata is unavailable.
   }
 
-  return { amount: entry.amount, label: kindLabels[entry.kind] ?? entry.kind };
+  return {
+    amount: entry.amount,
+    label: kindLabels[entry.kind] ?? entry.kind,
+    detail: entry.reason ?? entry.source_type,
+  };
 }
 ---
 
@@ -181,7 +196,7 @@ function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: 
       </section>
 
       <section class="mt-8 rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5 md:p-6">
-        <div class="mb-5 flex items-center justify-between"><h2 class="text-lg font-bold text-on-surface">Lịch sử Credits</h2><span class="text-xs text-on-surface-variant">{entries.length} giao dịch gần nhất</span></div>
+        <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-lg font-bold text-on-surface">Lịch sử Credits</h2><p class="mt-1 text-xs text-on-surface-variant">Chỉ hiển thị Credits nạp và đã dùng cho dịch vụ. Các lượt Scanner miễn phí nằm trong Lịch sử Check.</p></div><span class="text-xs text-on-surface-variant">{entries.length} giao dịch gần nhất</span></div>
         {entries.length === 0 ? (
           <div class="py-8 text-center text-sm text-on-surface-variant">Chưa có giao dịch Credits nào.</div>
         ) : (
@@ -196,7 +211,7 @@ function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: 
                   ]}>
                     <span class="material-symbols-outlined text-lg">{display.amount > 0 ? 'add_circle' : display.amount < 0 ? 'remove_circle' : 'check_circle'}</span>
                   </div>
-                  <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-on-surface">{display.label}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{entry.reason ?? entry.source_type} · {formatDate(entry.created_at)}</p></div>
+                  <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-on-surface">{display.label}</p><p class="mt-0.5 truncate text-xs text-on-surface-variant">{display.detail} · {formatDate(entry.created_at)}</p></div>
                   <p class:list={['text-sm font-black tabular-nums', display.amount > 0 ? 'text-emerald-500' : display.amount < 0 ? 'text-amber-500' : 'text-on-surface-variant']}>{display.amount > 0 ? '+' : ''}{display.amount}</p>
                 </div>
               );

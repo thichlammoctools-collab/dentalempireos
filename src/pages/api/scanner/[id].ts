@@ -4,7 +4,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../lib/api-helpers';
-import { getScannerResponse, maskEmail } from '../../../lib/scanner-response-db';
+import { getScannerResponse, isScannerResponseExpired, maskEmail } from '../../../lib/scanner-response-db';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
 import { getUserByEmail } from '../../../lib/user-db';
@@ -22,6 +22,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const response = await getScannerResponse(env.DB, id);
   if (!response) return notFound('Response not found');
+  if (isScannerResponseExpired(response)) return json({ error: 'Báo cáo này đã hết thời hạn lưu trữ.' }, 410);
 
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
   const ownsByEmail = response.email

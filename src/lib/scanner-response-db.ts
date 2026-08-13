@@ -37,6 +37,26 @@ export interface ScannerResponseRow {
   pdf_analysis_key: string | null;
   image_analysis_key: string | null;
   image_plan_key: string | null;
+  retention_tier: ScannerRetentionTier;
+  expires_at: string;
+}
+
+export type ScannerRetentionTier = 'guest' | 'account_free' | 'credit_paid';
+
+export const SCANNER_RETENTION_DAYS: Record<ScannerRetentionTier, number> = {
+  guest: 3,
+  account_free: 30,
+  credit_paid: 365,
+};
+
+export function getScannerRetentionExpiry(tier: ScannerRetentionTier, from = new Date()): string {
+  const expiresAt = new Date(from);
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + SCANNER_RETENTION_DAYS[tier]);
+  return expiresAt.toISOString();
+}
+
+export function isScannerResponseExpired(response: Pick<ScannerResponseRow, 'expires_at'>, now = new Date()): boolean {
+  return new Date(response.expires_at).getTime() <= now.getTime();
 }
 
 // ── Input Types ─────────────────────────────────────────
@@ -50,6 +70,8 @@ export interface ScannerResponseInput {
   email?: string | null;
   years_in_operation?: number | null;
   staff_count?: number | null;
+  retention_tier: ScannerRetentionTier;
+  expires_at: string;
   responses: ResponseMap;
 }
 
@@ -145,9 +167,9 @@ export async function createScannerResponse(
     result = await db
       .prepare(
         `INSERT INTO "scanner_response"
-          ("survey_id","lang","owner_name","clinic_name","clinic_address","email",
-           "years_in_operation","staff_count","responses_json","scores_json")
-         VALUES (?,?,?,?,?,?,?,?,?,?)
+           ("survey_id","lang","owner_name","clinic_name","clinic_address","email",
+            "years_in_operation","staff_count","retention_tier","expires_at","responses_json","scores_json")
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
          RETURNING "id"`,
       )
       .bind(
@@ -159,6 +181,8 @@ export async function createScannerResponse(
         input.email ?? null,
         input.years_in_operation ?? null,
         input.staff_count ?? null,
+        input.retention_tier,
+        input.expires_at,
         JSON.stringify(input.responses),
         JSON.stringify(scores),
       )

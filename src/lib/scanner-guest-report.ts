@@ -1,7 +1,6 @@
 import { validateEmail } from './newsletter';
 import type { Attribution } from './site-analytics';
 
-const REPORT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX = 3;
 
@@ -41,9 +40,10 @@ export async function createGuestReport(db: D1Database, input: {
   clinicName: string;
   anonymousId: string | null;
   attribution: Attribution;
+  expiresAt: string;
 }): Promise<{ token: string; expiresAt: string }> {
   const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
-  const expiresAt = new Date(Date.now() + REPORT_TTL_MS).toISOString();
+  const expiresAt = input.expiresAt;
   await db.prepare(
     `INSERT INTO "scanner_guest_report"
      ("id", "response_id", "token_hash", "email", "owner_name", "clinic_name", "anonymous_id", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "expires_at", "created_at")

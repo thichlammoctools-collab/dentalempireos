@@ -14,6 +14,7 @@ export interface HistoryWithSurvey extends ScannerHistoryRow {
   scanner_title_vi: string | null;
   scanner_title_en: string | null;
   scanner_slug: string | null;
+  credit_cost: number | null;
 }
 
 export const FREE_SCANNER_ATTEMPT_LIMIT = 3;
@@ -52,14 +53,19 @@ export async function getUserHistory(
 ): Promise<HistoryWithSurvey[]> {
   const { results } = await db
     .prepare(
-      `SELECT h.*, d.title_vi as scanner_title_vi, d.title_en as scanner_title_en, d.slug as scanner_slug
-       FROM "scanner_history" h
-       JOIN "survey_definition" d ON d.id = h.survey_id
-       WHERE h.user_id = ?
-       ORDER BY h.created_at DESC
-       LIMIT ?`,
+       `SELECT h.*, d.title_vi as scanner_title_vi, d.title_en as scanner_title_en, d.slug as scanner_slug,
+               consumption.credits as credit_cost
+        FROM "scanner_history" h
+         JOIN "survey_definition" d ON d.id = h.survey_id
+         JOIN "scanner_response" response ON response.id = h.response_id
+         LEFT JOIN "scanner_credit_run" run ON run.response_id = h.response_id AND run.status = 'completed'
+         LEFT JOIN "credit_consumption" consumption ON consumption.business_object_id = run.id
+           AND consumption.feature_type = 'scanner' AND consumption.charge_type = 'full_run'
+         WHERE h.user_id = ? AND response.expires_at > ?
+         ORDER BY h.created_at DESC
+         LIMIT ?`,
     )
-    .bind(userId, limit)
+    .bind(userId, new Date().toISOString(), limit)
     .all<HistoryWithSurvey>();
   return results ?? [];
 }

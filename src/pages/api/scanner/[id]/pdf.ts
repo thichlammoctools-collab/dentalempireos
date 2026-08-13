@@ -4,7 +4,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
-import { getScannerResponse, setScannerPdfKey } from '../../../../lib/scanner-response-db';
+import { getScannerResponse, isScannerResponseExpired, setScannerPdfKey } from '../../../../lib/scanner-response-db';
 import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
 import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
 import { getUserByEmail } from '../../../../lib/user-db';
@@ -24,6 +24,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const response = await getScannerResponse(env.DB, id);
   if (!response) return notFound('Response not found');
+  if (isScannerResponseExpired(response)) return json({ error: 'Báo cáo này đã hết thời hạn lưu trữ.' }, 410);
 
   const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
   const ownsByEmail = response.email
@@ -70,7 +71,12 @@ export const GET: APIRoute = async ({ params, request }) => {
       phone: clinicProfile?.phone,
     }, type);
     const filename = `scanner-${response.survey_id}-${type}-${id}.pdf`;
-    const key = `scanner-reports/${session.user.id}/${id}/${type}-${pdfLayoutVersion}.pdf`;
+    const retentionPrefix = response.retention_tier === 'guest'
+      ? 'guest'
+      : response.retention_tier === 'credit_paid'
+        ? 'paid'
+        : 'free';
+    const key = `scanner-artifacts/${retentionPrefix}/${session.user.id}/${id}/${type}-${pdfLayoutVersion}.pdf`;
     await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
     await setScannerPdfKey(env.DB, id, type, key);
     return new Response(pdfBytes as BodyInit, {

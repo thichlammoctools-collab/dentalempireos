@@ -35,6 +35,10 @@ export interface CreditLedgerEntry {
   created_at: string;
 }
 
+export interface CreditHistoryEntry extends CreditLedgerEntry {
+  service_label: string | null;
+}
+
 export interface CreditReservation {
   id: string;
   account_id: string;
@@ -175,14 +179,28 @@ export async function listCreditLedger(
   db: D1Database,
   userId: string,
   options: { limit?: number; offset?: number } = {},
-): Promise<CreditLedgerEntry[]> {
+): Promise<CreditHistoryEntry[]> {
   const account = await ensureCreditAccount(db, userId);
   const { results } = await db.prepare(
-    `SELECT * FROM "credit_ledger_entry"
-     WHERE "account_id" = ?
-     ORDER BY "created_at" DESC, "id" DESC
+    `SELECT ledger.*,
+            CASE WHEN ledger."source_type" = 'scanner' THEN survey."title_vi" ELSE NULL END AS "service_label"
+     FROM "credit_ledger_entry" ledger
+     LEFT JOIN "scanner_credit_run" scanner_run ON scanner_run."id" = ledger."source_id"
+     LEFT JOIN "survey_definition" survey ON survey."id" = scanner_run."survey_id"
+     WHERE ledger."account_id" = ?
+       AND (
+         ledger."kind" != 'reservation'
+         OR NOT EXISTS (
+           SELECT 1 FROM "credit_ledger_entry" settled
+           WHERE settled."account_id" = ledger."account_id"
+             AND settled."kind" = 'settlement'
+             AND settled."source_type" = ledger."source_type"
+             AND settled."source_id" = ledger."source_id"
+         )
+       )
+     ORDER BY ledger."created_at" DESC, ledger."id" DESC
      LIMIT ? OFFSET ?`,
-  ).bind(account.id, options.limit ?? 50, options.offset ?? 0).all<CreditLedgerEntry>();
+  ).bind(account.id, options.limit ?? 50, options.offset ?? 0).all<CreditHistoryEntry>();
   return results;
 }
 

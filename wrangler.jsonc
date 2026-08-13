@@ -33,6 +33,9 @@
       "index_name": "dental-content"
     }
   ],
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  },
   "queues": {
     "producers": [
       {

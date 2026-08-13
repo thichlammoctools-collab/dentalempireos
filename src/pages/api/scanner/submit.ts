@@ -15,6 +15,8 @@ import {
   buildResponsesMap,
   validateRequiredAnswers,
   parseScores,
+  getScannerRetentionExpiry,
+  type ScannerRetentionTier,
 } from '../../../lib/scanner-response-db';
 // AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
@@ -84,6 +86,12 @@ export const POST: APIRoute = async (ctx) => {
     ? await getScannerUsage(env.DB, session!.user.id, surveyId)
     : { remaining: 1, limit: 1 };
   const requiresCredits = !isGuestScanner && usage.remaining === 0;
+  const retentionTier: ScannerRetentionTier = isGuestScanner
+    ? 'guest'
+    : requiresCredits
+      ? 'credit_paid'
+      : 'account_free';
+  const expiresAt = getScannerRetentionExpiry(retentionTier);
   if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
     return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
   }
@@ -170,6 +178,8 @@ export const POST: APIRoute = async (ctx) => {
       email,
       years_in_operation: asInt(body.years_in_operation),
       staff_count: asInt(body.staff_count),
+      retention_tier: retentionTier,
+      expires_at: expiresAt,
       responses: responsesMap,
     }, scoringRules));
   } catch (err) {
@@ -187,6 +197,7 @@ export const POST: APIRoute = async (ctx) => {
       clinicName: guestLead!.clinicName,
       anonymousId,
       attribution,
+      expiresAt,
     });
     if (body.marketing_consent === true) {
       await subscribe(env.DB, {

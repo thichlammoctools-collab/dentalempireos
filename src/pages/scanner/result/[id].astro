@@ -10,6 +10,7 @@ import {
 } from '../../../lib/survey-config-db';
 import {
   getScannerResponse,
+  isScannerResponseExpired,
   parseScores,
   parseResponses,
 } from '../../../lib/scanner-response-db';
@@ -32,6 +33,9 @@ if (!id || Number.isNaN(id)) {
 const response = await getScannerResponse(env.DB, id);
 if (!response) {
   return new Response('Response not found', { status: 404 });
+}
+if (isScannerResponseExpired(response)) {
+  return new Response('Báo cáo này đã hết thời hạn lưu trữ.', { status: 410 });
 }
 
 // Auth check — require login (middleware already redirected, but double-check)
@@ -147,6 +151,12 @@ const clinicProfile = await getClinicProfile(env.DB, currentUser.id);
 const reportDate = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
   day: '2-digit', month: '2-digit', year: 'numeric',
 }).format(new Date(response.created_at));
+const expiryDate = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+}).format(new Date(response.expires_at));
+const retentionLabel = response.retention_tier === 'credit_paid'
+  ? (lang === 'vi' ? 'Lượt dùng Credits · lưu 365 ngày' : 'Credit-paid attempt · stored for 365 days')
+  : (lang === 'vi' ? 'Lượt miễn phí · lưu 30 ngày' : 'Free attempt · stored for 30 days');
 
 // Cross-sell suggestions: pick 2 other active surveys
 let crossSells: Array<{ id: string; slug: string; title_vi: string; title_en: string; description_vi: string | null }> = [];
@@ -194,6 +204,7 @@ try {
             {response.owner_name && <span><span class="material-symbols-outlined">person</span>{response.owner_name}</span>}
             {response.clinic_address && <span><span class="material-symbols-outlined">location_on</span>{response.clinic_address}</span>}
             <span><span class="material-symbols-outlined">calendar_today</span>{reportDate}</span>
+            <span title={retentionLabel}><span class="material-symbols-outlined">schedule</span>{lang === 'vi' ? `Lưu đến ${expiryDate}` : `Stored until ${expiryDate}`}</span>
           </div>
         </div>
       </div>

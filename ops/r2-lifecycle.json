@@ -1,0 +1,27 @@
+{
+  "rules": [
+    {
+      "id": "delete-guest-scanner-artifacts",
+      "enabled": true,
+      "prefix": "scanner-artifacts/guest/",
+      "deleteObjectsTransition": { "condition": { "type": "Age", "maxAge": 259200 } }
+    },
+    {
+      "id": "delete-free-scanner-artifacts",
+      "enabled": true,
+      "prefix": "scanner-artifacts/free/",
+      "deleteObjectsTransition": { "condition": { "type": "Age", "maxAge": 2592000 } }
+    },
+    {
+      "id": "delete-paid-scanner-artifacts",
+      "enabled": true,
+      "prefix": "scanner-artifacts/paid/",
+      "deleteObjectsTransition": { "condition": { "type": "Age", "maxAge": 31536000 } }
+    },
+    {
+      "id": "abort-incomplete-multipart-uploads",
+      "enabled": true,
+      "abortMultipartUploadsTransition": { "condition": { "type": "Age", "maxAge": 604800 } }
+    }
+  ]
+}
