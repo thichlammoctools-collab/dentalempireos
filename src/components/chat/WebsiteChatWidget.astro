@@ -131,9 +131,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       color: #e0f2fe;
       box-shadow: 0 5px 18px rgba(14, 165, 233, 0.4);
     }
-    /* Blog pages keep the AI control above the floating table-of-contents button. */
+    /* Blog pages keep AI and the floating table of contents on one row. */
     .website-chat-root--blog #website-chat-trigger {
-      bottom: calc(4.5rem + 3.25rem + env(safe-area-inset-bottom, 0px));
+      right: 60px !important;
+      bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
     }
   }
   #website-chat-trigger:hover { transform: scale(1.06); border-color: #fbbf24; background: color-mix(in srgb, #fbbf24 10%, var(--reader-chrome-surface-high, #1e293b)); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32); }
