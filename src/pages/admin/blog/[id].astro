@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
+import { marked } from 'marked';
 import { getPostById, listCategories, listTags, buildCategoryTree, flattenCategoryTree } from '../../../lib/blog-db';
 
 export const prerender = false;
@@ -21,6 +22,8 @@ const categoryOptions = flattenCategoryTree(categoryTree);
 if (!post) {
   return new Response('Không tìm thấy bài viết', { status: 404 });
 }
+
+const markdownFallbackHtml = post.content_md ? marked.parse(post.content_md) : '';
 
 ---
 
@@ -143,7 +146,7 @@ if (!post) {
       <!-- Content -->
       <section class="glass-card rounded-xl p-5">
         <h3 class="text-sm font-bold text-white mb-4">Nội dung</h3>
-        <div id="rich-editor-container" class="richtext-block-container min-h-[500px]"></div>
+        <div id="rich-editor-container" class="richtext-block-container min-h-[500px]" data-markdown-fallback={markdownFallbackHtml}></div>
         <input type="hidden" name="blocks_json" id="blocks-json" value="[]" />
       </section>
 
@@ -280,6 +283,7 @@ if (!post) {
   // ── Rich Text Editor ────────────────────────────────────────
   const richEditorContainer = document.getElementById('rich-editor-container') as HTMLDivElement;
   const blocksJsonInput = document.getElementById('blocks-json') as HTMLInputElement;
+  const markdownFallbackHtml = richEditorContainer.dataset.markdownFallback || '';
   let richHandle: import('../../../scripts/richtext-editor').RichTextHandle | null = null;
 
   (async () => {
@@ -287,7 +291,7 @@ if (!post) {
       const res = await fetch(`/api/admin/blog/blocks?post_id=${postId}`);
       const data = await res.json() as { blocks?: Array<{ content: string }> };
       const existingRichBlock = data.blocks?.find(b => b.content && !b.content.startsWith('['));
-      const initialContent = existingRichBlock?.content || '';
+      const initialContent = existingRichBlock?.content || markdownFallbackHtml;
 
       const mod = await import('../../../scripts/richtext-editor');
       const { renderRichTextToolbar } = await import('../../../scripts/richtext-toolbar');
@@ -336,13 +340,14 @@ if (!post) {
     submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Đang lưu...';
 
     try {
+      const richContent = richHandle?.getHTML() || markdownFallbackHtml;
       const res = await fetch(`/api/admin/blog/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: postId,
           title, slug, description,
-          content_md: '',
+          content_md: richContent,
           cover_url: coverUrl, cover_alt: coverAlt,
           category_id: categoryId,
           access_tier: accessTier,

@@ -559,7 +559,7 @@ const breadcrumbSchema = {
               <span class="material-symbols-outlined text-[18px] text-gray-400 dark:text-on-surface-variant/40 transition-transform group-open:rotate-180">expand_more</span>
             </summary>
             <div class="border-t border-gray-100 dark:border-outline-variant"></div>
-            <ol class="toc-list ol-reset !px-5 py-5 space-y-2.5" style="counter-reset: toc-counter">
+            <ol class="toc-list ol-reset !px-5 !py-5 space-y-2.5" style="counter-reset: toc-counter">
               {tocItems.map((item) => (
                 <li class={`toc-list-item ${item.level === 3 ? 'toc-list-h3' : ''}`}>
                   <a
