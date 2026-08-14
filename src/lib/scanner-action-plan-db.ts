@@ -95,6 +95,7 @@ export async function createScannerActionPlan(
   ).bind(input.responseId, input.userId).first<ScannerResponseScoreRow>();
   if (!response) throw new Error('Scanner response not found or not owned by user.');
 
+  const createdAt = timestamp();
   const plan: ScannerActionPlanRow = {
     id: id(),
     user_id: input.userId,
@@ -103,8 +104,8 @@ export async function createScannerActionPlan(
     status: 'active',
     title: input.title ?? null,
     summary: input.summary ?? null,
-    created_at: timestamp(),
-    updated_at: timestamp(),
+    created_at: createdAt,
+    updated_at: createdAt,
   };
   const scores = parseScores(response.scores_json);
   const baseline: ScannerActionPlanScoreSnapshotRow = {
