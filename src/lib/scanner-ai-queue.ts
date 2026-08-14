@@ -37,13 +37,10 @@ export async function processScannerAiQueueMessage(
       return { completed: true, retryable: false };
     }
 
-    // Queue payloads are untrusted and may be old/redelivered. Plans must have
-    // an authenticated history owner; do not fall back to a report email or a
-    // user ID supplied by the caller/queue message.
+    // Queue payloads are untrusted and may be old/redelivered. The plan runner
+    // independently requires scanner_history ownership; this lookup is only
+    // used to attribute transient analysis work without trusting the payload.
     const history = await getHistoryByResponseId(env.DB, message.responseId);
-    if (message.jobType === 'plan' && !history) {
-      return { completed: true, retryable: false };
-    }
     const ownerId = history?.user_id;
     const runResult = message.jobType === 'analysis'
       ? await runAiAnalysis(env.DB, message.responseId, ownerId, message.runId)

@@ -123,10 +123,9 @@ async function reapStaleScannerAiJobs(env: Cloudflare.Env): Promise<void> {
     try {
       await getScannerAiQueue(env, job.jobType).send(job);
     } catch (error) {
-      // Keep the job visible as failed rather than indefinitely queued when a
-      // reaper dispatch itself cannot reach Queues. A user/admin can retry it.
-      await finishScannerAiJob(env.DB, job.responseId, job.jobType, job.runId, 'failed', 'Stale-job redispatch failed');
-      await setScannerAiResponseStatus(env, job, 'failed');
+      // The record is already queued and the next scheduled reaper will safely
+      // retry dispatching this same run. Do not terminally fail work solely
+      // because a transient Queue producer call failed.
       console.error('[scanner-ai-reaper] Queue redispatch failed:', error);
     }
   }
