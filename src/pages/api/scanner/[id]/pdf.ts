@@ -7,8 +7,12 @@ import { json, badRequest, notFound } from '../../../../lib/api-helpers';
 import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
 import {
   claimRetainedScannerPdfLease,
+  createScannerPdfArtifactIntent,
   persistScannerPdfKeyForLease,
   releaseScannerResponseOperationLease,
+  renewRetainedScannerResponseOperationLease,
+  buildScannerPdfArtifactKey,
+  isScannerPdfArtifactKeyForLayout,
 } from '../../../../lib/scanner-response-operation-fence';
 import { getRetainedScannerResponseForOwner } from '../../../../lib/scanner-history-db';
 import { createAuth } from '../../../../lib/auth';
@@ -43,9 +47,18 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
   const pdfLayoutVersion = type === 'plan' ? 'v2' : 'v1';
-  if (cachedKey?.endsWith(`/${type}-${pdfLayoutVersion}.pdf`)) {
-    const cached = await env.MEDIA.get(cachedKey);
-    if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+  if (cachedKey && isScannerPdfArtifactKeyForLayout(cachedKey, type, pdfLayoutVersion)) {
+    // R2 is not an authorization source. Revalidate immediately before serving
+    // a cached artifact so an expiry/purge race cannot disclose the report.
+    const current = await getRetainedScannerResponseForOwner(env.DB, session.user.id, id);
+    if (!current) return notFound('Response not found');
+    const currentKey = type === 'combined' ? current.pdf_combined_key : type === 'plan' ? current.pdf_plan_key : current.pdf_analysis_key;
+    if (currentKey === cachedKey) {
+      const cached = await env.MEDIA.get(cachedKey);
+      if (cached && await getRetainedScannerResponseForOwner(env.DB, session.user.id, id)) {
+        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+      }
+    }
   }
 
   // Claim before expensive generation. This is the retention/write fence and
@@ -56,15 +69,21 @@ export const GET: APIRoute = async ({ params, request }) => {
     // the ownership/retention path rather than generating an untracked object.
     const current = await getRetainedScannerResponseForOwner(env.DB, session.user.id, id);
     const currentKey = current && (type === 'combined' ? current.pdf_combined_key : type === 'plan' ? current.pdf_plan_key : current.pdf_analysis_key);
-    if (currentKey?.endsWith(`/${type}-${pdfLayoutVersion}.pdf`)) {
+    if (currentKey && isScannerPdfArtifactKeyForLayout(currentKey, type, pdfLayoutVersion)) {
       const cached = await env.MEDIA.get(currentKey);
-      if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${currentKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+      if (cached && await getRetainedScannerResponseForOwner(env.DB, session.user.id, id)) {
+        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${currentKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+      }
     }
     return current ? json({ error: 'PDF generation is already in progress.' }, 409) : notFound('Response not found');
   }
 
   let uploadedKey: string | null = null;
+  let intentKey: string | null = null;
   try {
+    // The profile/logo fetch and PDF render can be costly. A failed heartbeat is
+    // terminal for this request: do not upload or return bytes after retention wins.
+    if (!await renewRetainedScannerResponseOperationLease(env.DB, id, session.user.id, lease)) return notFound('Response not found');
     const clinicProfile = await getClinicProfile(env.DB, session.user.id);
     let logo: Uint8Array | undefined;
     let logoType: 'image/png' | 'image/jpeg' | undefined;
@@ -82,22 +101,47 @@ export const GET: APIRoute = async ({ params, request }) => {
       logoType,
       phone: clinicProfile?.phone,
     }, type);
+    if (!await renewRetainedScannerResponseOperationLease(env.DB, id, session.user.id, lease)) return notFound('Response not found');
+
     const filename = `scanner-${response.survey_id}-${type}-${id}.pdf`;
     const retentionPrefix = response.retention_tier === 'guest'
       ? 'guest'
       : response.retention_tier === 'credit_paid'
         ? 'paid'
         : 'free';
-    const key = `scanner-artifacts/${retentionPrefix}/${session.user.id}/${id}/${type}-${pdfLayoutVersion}.pdf`;
+    // Every write receives a non-reusable lease token segment. A stale writer
+    // therefore cannot overwrite a newer artifact or share its cleanup key.
+    const key = buildScannerPdfArtifactKey(
+      `scanner-artifacts/${retentionPrefix}/${session.user.id}/${id}`,
+      type,
+      pdfLayoutVersion,
+      lease.token,
+    );
+    // Intent is durable before the non-transactional R2 write. If this isolate
+    // dies after put, the purge worker sees and deletes the otherwise-orphan key.
+    if (!await createScannerPdfArtifactIntent(env.DB, id, session.user.id, key, lease)) return notFound('Response not found');
+    intentKey = key;
+    if (!await renewRetainedScannerResponseOperationLease(env.DB, id, session.user.id, lease)) {
+      // Leave the intent for reconciliation. It is harmless if no put occurred,
+      // but is the only durable handle if the platform completes a stale write.
+      return notFound('Response not found');
+    }
     await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
     uploadedKey = key;
-    if (!await persistScannerPdfKeyForLease(env.DB, id, session.user.id, type, key, lease)) {
-      // Expiry/purge or lease fencing won after R2 accepted the object. Never
-      // leave an artifact that cannot be referenced by a retained response.
-      await env.MEDIA.delete(key).catch((deleteError) => console.error('[scanner-pdf] compensating delete failed:', deleteError));
+    if (!await renewRetainedScannerResponseOperationLease(env.DB, id, session.user.id, lease)
+      || !await persistScannerPdfKeyForLease(env.DB, id, session.user.id, type, key, lease)) {
+      // Keep the durable intent even if the compensating delete succeeds: R2
+      // cannot rule out an arbitrarily late stale put. Reconciliation promotes
+      // the intent to an indefinite tombstone after this lease releases.
+      await env.MEDIA.delete(key).catch((deleteError) => {
+        console.error('[scanner-pdf] compensating delete failed:', deleteError);
+      });
       uploadedKey = null;
       return notFound('Response not found');
     }
+    intentKey = null;
+    // One final retained check closes the persistence-to-response race.
+    if (!await getRetainedScannerResponseForOwner(env.DB, session.user.id, id)) return notFound('Response not found');
     return new Response(pdfBytes as BodyInit, {
       status: 200,
       headers: {
@@ -109,7 +153,13 @@ export const GET: APIRoute = async ({ params, request }) => {
     });
   } catch (err) {
     if (uploadedKey) {
-      await env.MEDIA.delete(uploadedKey).catch((deleteError) => console.error('[scanner-pdf] compensating delete failed:', deleteError));
+      await env.MEDIA.delete(uploadedKey).catch((deleteError) => {
+        console.error('[scanner-pdf] compensating delete failed:', deleteError);
+      });
+    } else if (intentKey) {
+      // Do not remove the sole durable write handle after a failed/ambiguous put.
+      // Reconciliation promotes it to an indefinite tombstone after the lease.
+      console.warn('[scanner-pdf] retaining unresolved write intent for reconciliation', { key: intentKey });
     }
     return json(
       { error: err instanceof Error ? err.message : 'PDF generation failed' },

@@ -41,6 +41,11 @@ export async function processScannerAiQueueMessage(
       `SELECT 1 FROM "scanner_response" response
        INNER JOIN "scanner_history" history ON history."response_id" = response."id"
        WHERE response."id" = ? AND julianday(response."expires_at") > julianday('now')
+         AND NOT EXISTS (
+           SELECT 1 FROM "scanner_history" competing_history
+           WHERE competing_history."response_id" = history."response_id"
+             AND competing_history."id" <> history."id"
+         )
        LIMIT 1`,
     ).bind(message.responseId).first();
     if (!retained) {

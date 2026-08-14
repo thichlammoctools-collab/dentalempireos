@@ -1,3 +1,5 @@
+import type { ScannerResponseOperationLease } from './scanner-response-operation-fence';
+
 export type AiQuotaFeature = 'website_chat' | 'mentor_chat' | 'scanner_analysis' | 'scanner_plan';
 
 /**
@@ -59,6 +61,11 @@ function activeJobLeaseClause(status = 'running', requireRetainedResponse = fals
         AND EXISTS (
           SELECT 1 FROM "scanner_history" history
           WHERE history."response_id" = "scanner_response"."id"
+            AND NOT EXISTS (
+              SELECT 1 FROM "scanner_history" competing_history
+              WHERE competing_history."response_id" = history."response_id"
+                AND competing_history."id" <> history."id"
+            )
         )`
     : '';
   return `EXISTS (
@@ -85,8 +92,13 @@ export async function getRetainedScannerAiJobOwner(
      INNER JOIN "scanner_response" response ON response."id" = job."response_id"
      INNER JOIN "scanner_history" history ON history."response_id" = response."id"
      WHERE job."response_id" = ? AND job."job_type" = ? AND job."run_id" = ?
-       AND job."status" = 'running' AND julianday(response."expires_at") > julianday('now')
-     LIMIT 1`,
+        AND job."status" = 'running' AND julianday(response."expires_at") > julianday('now')
+        AND NOT EXISTS (
+          SELECT 1 FROM "scanner_history" competing_history
+          WHERE competing_history."response_id" = history."response_id"
+            AND competing_history."id" <> history."id"
+        )
+      LIMIT 1`,
   ).bind(responseId, jobType, runId).first<{ user_id: string }>();
   return row?.user_id ?? null;
 }
@@ -310,23 +322,38 @@ export async function setScannerAiResponseStatusForJobState(
   return (result.meta.changes ?? 0) === 1;
 }
 
-/** Commits the compatibility artifact, UI status, and terminal job state under one active lease. */
+/** Commits output only while both the job fence and tokenized response lease remain current. */
 export async function completeScannerAiJobWithArtifact(
   db: D1Database,
   responseId: number,
   jobType: ScannerAiJobType,
   runId: string,
   artifact: string,
+  ownerId: string,
+  lease: ScannerResponseOperationLease,
 ): Promise<boolean> {
   const statusColumn = responseStatusColumn(jobType);
   const artifactColumn = responseArtifactColumn(jobType);
   const timestampUpdate = jobType === 'analysis' ? ', "ai_analyzed_at" = datetime(\'now\')' : '';
+  const responseLeaseClause = ` AND EXISTS (
+    SELECT 1 FROM "scanner_response_operation_lease" operation_lease
+    INNER JOIN "scanner_history" history ON history."response_id" = operation_lease."response_id"
+    WHERE operation_lease."response_id" = "scanner_response"."id"
+      AND operation_lease."operation_key" = ? AND operation_lease."token" = ?
+      AND history."user_id" = ?
+      AND julianday(operation_lease."lease_expires_at") > julianday('now')
+      AND NOT EXISTS (
+        SELECT 1 FROM "scanner_history" competing_history
+        WHERE competing_history."response_id" = history."response_id"
+          AND competing_history."id" <> history."id"
+      )
+  )`;
   const results = await db.batch([
     db.prepare(
       `UPDATE "scanner_response"
        SET "${artifactColumn}" = ?, "${statusColumn}" = 'done'${timestampUpdate}
-        WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}`,
-    ).bind(artifact, responseId, jobType, runId),
+        WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}${responseLeaseClause}`,
+    ).bind(artifact, responseId, jobType, runId, lease.operationKey, lease.token, ownerId),
     db.prepare(
       `UPDATE "scanner_ai_job"
         SET "status" = 'done', "completed_at" = datetime('now'), "error_message" = NULL
@@ -334,10 +361,19 @@ export async function completeScannerAiJobWithArtifact(
           AND EXISTS (
             SELECT 1 FROM "scanner_response" response
             INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+            INNER JOIN "scanner_response_operation_lease" operation_lease ON operation_lease."response_id" = response."id"
             WHERE response."id" = "scanner_ai_job"."response_id"
+              AND history."user_id" = ?
+              AND operation_lease."operation_key" = ? AND operation_lease."token" = ?
               AND julianday(response."expires_at") > julianday('now')
+              AND julianday(operation_lease."lease_expires_at") > julianday('now')
+              AND NOT EXISTS (
+                SELECT 1 FROM "scanner_history" competing_history
+                WHERE competing_history."response_id" = history."response_id"
+                  AND competing_history."id" <> history."id"
+              )
           )`,
-    ).bind(responseId, jobType, runId),
+    ).bind(responseId, jobType, runId, ownerId, lease.operationKey, lease.token),
   ]);
   return (results[0]?.meta.changes ?? 0) === 1 && (results[1]?.meta.changes ?? 0) === 1;
 }

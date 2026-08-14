@@ -53,12 +53,21 @@ async function recordScannerPurgeAttempt(
 }
 
 async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> {
+  // 0101 records put-before-persist writes; 0102 retains their cleanup handles
+  // after raw response purge, including after a successful R2.delete.
+  if (!await hasTable(env.DB, 'scanner_pdf_artifact_intent')
+    || !await hasTable(env.DB, 'scanner_retired_artifact_tombstone')) {
+    console.error('[scanner-retention] PDF intent/tombstone migration missing; purge deferred');
+    return;
+  }
   const now = new Date().toISOString();
   const { results = [] } = await env.DB.prepare(
-    `SELECT "id", "pdf_combined_key", "pdf_plan_key", "pdf_analysis_key", "image_analysis_key", "image_plan_key"
-     FROM "scanner_response"
-     WHERE "expires_at" <= ?
-     ORDER BY "expires_at" ASC
+    `SELECT response."id", response."pdf_combined_key", response."pdf_plan_key", response."pdf_analysis_key",
+            response."image_analysis_key", response."image_plan_key", intent."storage_key" AS "pending_pdf_key"
+     FROM "scanner_response" response
+     LEFT JOIN "scanner_pdf_artifact_intent" intent ON intent."response_id" = response."id"
+     WHERE response."expires_at" <= ?
+     ORDER BY response."expires_at" ASC
      LIMIT ?`,
   ).bind(now, SCANNER_RESPONSE_PURGE_BATCH_SIZE).all<{
     id: number;
@@ -67,6 +76,7 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     pdf_analysis_key: string | null;
     image_analysis_key: string | null;
     image_plan_key: string | null;
+    pending_pdf_key: string | null;
   }>();
 
   let hasLegacyImageCreditRun = false;
@@ -94,40 +104,33 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
       continue;
     }
 
-    const keys = [
-      response.pdf_combined_key,
-      response.pdf_plan_key,
-      response.pdf_analysis_key,
-      response.image_analysis_key,
-      response.image_plan_key,
-    ].filter((key): key is string => Boolean(key));
-
-    // R2 deletion is the privacy gate. If any artifact cannot be deleted, retain
-    // the raw D1 row and retry this response on the next schedule; logging each
-    // failed key keeps the failure observable without blocking later responses.
-    let artifactsDeleted = true;
-    for (const key of keys) {
-      try {
-        await env.MEDIA.delete(key);
-      } catch (error) {
-        artifactsDeleted = false;
-        console.error('[scanner-retention] artifact deletion failed; response retained for retry', {
-          responseId: response.id,
-          key,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-    if (!artifactsDeleted) {
-      await recordScannerPurgeAttempt(env.DB, response.id, 'pending', 'artifact_delete_failed').catch((error) => {
-        console.error('[scanner-retention] unable to record artifact deletion failure', { responseId: response.id, error });
-      });
-      continue;
-    }
-
+    // Tombstones are inserted in the same D1 batch as response deletion. This is
+    // deliberately before the delete statement, so no cleanup handle can vanish
+    // with its FK-bound intent when raw PII is removed.
     try {
       await recordScannerPurgeAttempt(env.DB, response.id, 'artifacts_deleted', null);
       const statements: D1PreparedStatement[] = [
+        // Re-read the response and intent inside the same D1 batch that deletes
+        // them. A writer which committed its intent/key after the candidate list
+        // was read is therefore still tombstoned before its response can vanish.
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO "scanner_retired_artifact_tombstone"
+             ("storage_key","write_token","artifact_kind","retired_at","created_at")
+           SELECT "storage_key", "lease_token", 'pdf', datetime('now'), datetime('now')
+           FROM "scanner_pdf_artifact_intent" WHERE "response_id" = ?`,
+        ).bind(response.id),
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO "scanner_retired_artifact_tombstone"
+             ("storage_key","write_token","artifact_kind","retired_at","created_at")
+           SELECT "storage_key", NULL, "artifact_kind", datetime('now'), datetime('now')
+           FROM (
+             SELECT "pdf_combined_key" AS "storage_key", 'pdf' AS "artifact_kind" FROM "scanner_response" WHERE "id" = ?
+             UNION ALL SELECT "pdf_plan_key", 'pdf' FROM "scanner_response" WHERE "id" = ?
+             UNION ALL SELECT "pdf_analysis_key", 'pdf' FROM "scanner_response" WHERE "id" = ?
+             UNION ALL SELECT "image_analysis_key", 'image' FROM "scanner_response" WHERE "id" = ?
+             UNION ALL SELECT "image_plan_key", 'image' FROM "scanner_response" WHERE "id" = ?
+           ) AS artifacts WHERE "storage_key" IS NOT NULL`,
+        ).bind(response.id, response.id, response.id, response.id, response.id),
         // New normalized plans are retention-safe and remain readable. Legacy
         // ai_plan-derived plans are not destructively rewritten; source purge
         // marks them unavailable because their historical content may be raw.
@@ -145,6 +148,9 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
         env.DB.prepare('DELETE FROM "scanner_guest_report" WHERE "response_id" = ?').bind(response.id),
         env.DB.prepare('DELETE FROM "scanner_history" WHERE "response_id" = ?').bind(response.id),
         env.DB.prepare('DELETE FROM "scanner_ai_job" WHERE "response_id" = ?').bind(response.id),
+        // Intent entries name uploads that may have succeeded before the process
+        // crashed, even when no PDF key reached scanner_response.
+        env.DB.prepare('DELETE FROM "scanner_pdf_artifact_intent" WHERE "response_id" = ?').bind(response.id),
       ];
       // 0087 removes these tables, but long-retained deployments can still have
       // them. Probe first: normal migrated D1 never prepares a nonexistent table.
@@ -179,9 +185,12 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
       if (deleted !== 1) throw new Error('scanner_response delete did not affect exactly one row');
       // Normalized plans and their opaque reminder ledger survive raw-response
       // purge. Legacy plans become unavailable and their reminder metadata is
-      // removed by the scheduled lifecycle cleanup.
+      // removed by the scheduled lifecycle cleanup. R2 deletion is intentionally
+      // asynchronous from this point: tombstones retry forever to catch late puts.
       await recordScannerPurgeAttempt(env.DB, response.id, 'completed', null);
-      console.info('[scanner-retention] response purged', { responseId: response.id, artifactCount: keys.length });
+      console.info('[scanner-retention] response purged with durable artifact tombstones', {
+        responseId: response.id,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await recordScannerPurgeAttempt(env.DB, response.id, 'artifacts_deleted', message).catch((recordError) => {
@@ -198,6 +207,101 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
   } catch (error) {
     // The guest-report tables may not exist until the corresponding migration runs.
     console.warn('[scanner-retention] Guest request cleanup skipped:', error);
+  }
+}
+
+/**
+ * Converts dead PDF write intents into independent cleanup handles before an
+ * intent can be removed or cascaded. The tombstone is then the sole durable
+ * cleanup authority, including if the writer's stale R2.put arrives later.
+ */
+async function reconcileScannerPdfArtifactIntents(env: Cloudflare.Env): Promise<void> {
+  if (!await hasTable(env.DB, 'scanner_pdf_artifact_intent')
+    || !await hasTable(env.DB, 'scanner_retired_artifact_tombstone')) return;
+  const { results = [] } = await env.DB.prepare(
+    `SELECT intent."response_id", intent."storage_key", intent."lease_token"
+     FROM "scanner_pdf_artifact_intent" intent
+     LEFT JOIN "scanner_response_operation_lease" lease
+       ON lease."response_id" = intent."response_id"
+       AND julianday(lease."lease_expires_at") > julianday('now')
+     WHERE lease."response_id" IS NULL
+     ORDER BY intent."updated_at" ASC
+     LIMIT ?`,
+  ).bind(SCANNER_RESPONSE_PURGE_BATCH_SIZE).all<{
+    response_id: number;
+    storage_key: string;
+    lease_token: string;
+  }>();
+
+  for (const intent of results) {
+    try {
+      // This insert must complete before removing the FK-bound intent.
+      await env.DB.prepare(
+        `INSERT INTO "scanner_retired_artifact_tombstone"
+           ("storage_key","write_token","artifact_kind","retired_at","created_at")
+         VALUES (?,?,'pdf',datetime('now'),datetime('now'))
+         ON CONFLICT("storage_key") DO NOTHING`,
+      ).bind(intent.storage_key, intent.lease_token).run();
+      await env.DB.prepare(
+        `DELETE FROM "scanner_pdf_artifact_intent"
+         WHERE "response_id" = ? AND "storage_key" = ? AND "lease_token" = ?`,
+      ).bind(intent.response_id, intent.storage_key, intent.lease_token).run();
+    } catch (error) {
+      console.error('[scanner-retention] pending PDF intent tombstone failed; intent retained for retry', {
+        responseId: intent.response_id,
+        key: intent.storage_key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+/**
+ * Tombstones are intentionally never deleted. A delete that succeeded today
+ * cannot prove that a lease-fenced writer will not complete its stale put later.
+ * Token-scoped keys make repeat deletion safe: no later valid artifact can share
+ * this object name. The bounded schedule records every outcome for review.
+ */
+async function reconcileRetiredScannerArtifactTombstones(env: Cloudflare.Env): Promise<void> {
+  if (!await hasTable(env.DB, 'scanner_retired_artifact_tombstone')) return;
+  const { results = [] } = await env.DB.prepare(
+    `SELECT "storage_key"
+     FROM "scanner_retired_artifact_tombstone"
+     ORDER BY COALESCE("last_delete_attempt_at", "retired_at") ASC
+     LIMIT ?`,
+  ).bind(SCANNER_RESPONSE_PURGE_BATCH_SIZE).all<{ storage_key: string }>();
+
+  for (const tombstone of results) {
+    const timestamp = new Date().toISOString();
+    try {
+      await env.MEDIA.delete(tombstone.storage_key);
+      await env.DB.prepare(
+        `UPDATE "scanner_retired_artifact_tombstone"
+         SET "last_delete_attempt_at" = ?, "last_delete_succeeded_at" = ?,
+             "last_error" = NULL, "delete_attempt_count" = "delete_attempt_count" + 1
+         WHERE "storage_key" = ?`,
+      ).bind(timestamp, timestamp, tombstone.storage_key).run();
+      console.info('[scanner-retention] retired artifact tombstone delete succeeded', {
+        key: tombstone.storage_key,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await env.DB.prepare(
+        `UPDATE "scanner_retired_artifact_tombstone"
+         SET "last_delete_attempt_at" = ?, "last_delete_failed_at" = ?, "last_error" = ?,
+             "delete_attempt_count" = "delete_attempt_count" + 1
+         WHERE "storage_key" = ?`,
+      ).bind(timestamp, timestamp, message.slice(0, 500), tombstone.storage_key).run().catch((updateError) => {
+        console.error('[scanner-retention] unable to record tombstone delete failure', {
+          key: tombstone.storage_key,
+          error: updateError instanceof Error ? updateError.message : String(updateError),
+        });
+      });
+      console.error('[scanner-retention] retired artifact tombstone delete failed; retained indefinitely', {
+        key: tombstone.storage_key,
+        error: message,
+      });
+    }
   }
 }
 
@@ -296,8 +400,13 @@ export default {
   fetch: handle,
 
   async scheduled(_controller: ScheduledController, env: Cloudflare.Env): Promise<void> {
+    // Purge first, then transform detached intents, then repeatedly sweep every
+    // tombstone. This ordering prevents intent cleanup from losing the only
+    // handle for a late R2 write.
+    await purgeExpiredScannerResponses(env);
+    await reconcileScannerPdfArtifactIntents(env);
     await Promise.all([
-      purgeExpiredScannerResponses(env),
+      reconcileRetiredScannerArtifactTombstones(env),
       retryPendingScannerSubmissionSnapshots(env),
       reapStaleScannerAiJobs(env),
       maintainScannerActionPlanReminders(env.DB),

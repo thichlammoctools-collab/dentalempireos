@@ -6,7 +6,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { isAiEnabled } from '../../../../lib/ai-settings-db';
-import { getScannerResponse } from '../../../../lib/scanner-response-db';
+import { getRetainedScannerResponseCanonicalOwner } from '../../../../lib/scanner-response-operation-fence';
 import {
   claimScannerAiJobDispatch,
   confirmScannerAiJobDispatched,
@@ -30,8 +30,11 @@ export const POST: APIRoute = async ({ url, locals }) => {
   const id = parseInt(url.searchParams.get('id') ?? '', 10);
   if (!id) return badRequest('id is required');
 
-  const response = await getScannerResponse(env.DB, id);
-  if (!response) return badRequest('Response not found');
+  // Admin regeneration still processes raw response data; it requires the same
+  // retained canonical owner invariant as user-initiated AI work.
+  if (!await getRetainedScannerResponseCanonicalOwner(env.DB, id)) {
+    return badRequest('Response is expired, missing, or has no canonical history owner');
+  }
 
   const aiEnabled = await isAiEnabled(env.DB);
   if (!aiEnabled) {
