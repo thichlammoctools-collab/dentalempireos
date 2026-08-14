@@ -94,23 +94,23 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2
               const ready = plan.generation_state === 'ready';
               return (
                 <article class="glass-card rounded-2xl border border-outline-variant/20 overflow-hidden">
-                  <header class="p-5 border-b border-outline-variant/15 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <header class="p-5 border-b border-outline-variant/15 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div class="min-w-0">
                       <p class="text-xs text-primary font-bold uppercase tracking-wider">{plan.scanner_title_vi ?? 'Scanner'} · cập nhật {formatDate(plan.updated_at)}</p>
                       <h2 class="text-lg font-bold text-on-surface mt-1">{plan.title ?? 'Kế hoạch hành động'}</h2>
                       <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">{plan.retention_visibility === 'legacy_source_bound' ? 'Kế hoạch legacy chỉ xem khi dữ liệu nguồn vẫn được lưu; không thể cập nhật việc hoặc tạo lần quét lại.' : plan.summary ?? (ready ? 'Cập nhật trạng thái từng việc để phản ánh tiến độ triển khai.' : 'Kế hoạch đang được chuẩn bị.')}</p>
                     </div>
-                    <div class="flex w-full items-stretch gap-2 sm:w-auto sm:min-w-[15rem]">
-                      <div class="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-primary/15 bg-primary/10 px-3 py-2 sm:flex-none">
-                        <span class="material-symbols-outlined text-lg text-primary">task_alt</span>
-                        <span class="min-w-0 leading-tight">
-                          <span class="block text-sm font-bold text-primary">{plan.completed_total}/{plan.action_total}</span>
-                          <span class="block text-[11px] font-medium text-primary/80">Hoàn thành</span>
+                    <div class="flex w-full flex-wrap items-stretch gap-2 md:w-auto md:justify-end">
+                      <div class="flex flex-1 items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 sm:flex-none">
+                        <span class="material-symbols-outlined text-lg text-emerald-500">task_alt</span>
+                        <span class="whitespace-nowrap leading-tight">
+                          <span class="block text-sm font-bold text-emerald-500">{plan.completed_total}/{plan.action_total}</span>
+                          <span class="block text-[11px] font-medium text-emerald-500/80">Hoàn thành</span>
                         </span>
                       </div>
-                      <div class="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-amber-500/15 bg-amber-500/10 px-3 py-2 sm:flex-none">
+                      <div class="flex flex-1 items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 sm:flex-none">
                         <span class="material-symbols-outlined text-lg text-amber-500">pending_actions</span>
-                        <span class="min-w-0 leading-tight">
+                        <span class="whitespace-nowrap leading-tight">
                           <span class="block text-sm font-bold text-amber-500">{plan.in_progress_total}</span>
                           <span class="block text-[11px] font-medium text-amber-500/80">Đang thực hiện</span>
                         </span>
