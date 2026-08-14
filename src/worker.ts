@@ -63,12 +63,11 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
   const now = new Date().toISOString();
   const { results = [] } = await env.DB.prepare(
     `SELECT response."id", response."pdf_combined_key", response."pdf_plan_key", response."pdf_analysis_key",
-            response."image_analysis_key", response."image_plan_key", intent."storage_key" AS "pending_pdf_key"
-     FROM "scanner_response" response
-     LEFT JOIN "scanner_pdf_artifact_intent" intent ON intent."response_id" = response."id"
-     WHERE response."expires_at" <= ?
-     ORDER BY response."expires_at" ASC
-     LIMIT ?`,
+             response."image_analysis_key", response."image_plan_key"
+      FROM "scanner_response" response
+      WHERE response."expires_at" <= ?
+      ORDER BY response."expires_at" ASC
+      LIMIT ?`,
   ).bind(now, SCANNER_RESPONSE_PURGE_BATCH_SIZE).all<{
     id: number;
     pdf_combined_key: string | null;
@@ -76,7 +75,6 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     pdf_analysis_key: string | null;
     image_analysis_key: string | null;
     image_plan_key: string | null;
-    pending_pdf_key: string | null;
   }>();
 
   let hasLegacyImageCreditRun = false;
@@ -219,33 +217,40 @@ async function reconcileScannerPdfArtifactIntents(env: Cloudflare.Env): Promise<
   if (!await hasTable(env.DB, 'scanner_pdf_artifact_intent')
     || !await hasTable(env.DB, 'scanner_retired_artifact_tombstone')) return;
   const { results = [] } = await env.DB.prepare(
-    `SELECT intent."response_id", intent."storage_key", intent."lease_token"
-     FROM "scanner_pdf_artifact_intent" intent
-     LEFT JOIN "scanner_response_operation_lease" lease
-       ON lease."response_id" = intent."response_id"
-       AND julianday(lease."lease_expires_at") > julianday('now')
-     WHERE lease."response_id" IS NULL
-     ORDER BY intent."updated_at" ASC
-     LIMIT ?`,
+    `SELECT intent."response_id", intent."storage_key", intent."operation_key", intent."lease_token"
+      FROM "scanner_pdf_artifact_intent" intent
+      LEFT JOIN "scanner_response_operation_lease" lease
+        ON lease."response_id" = intent."response_id"
+        AND lease."operation_key" = intent."operation_key"
+        AND lease."token" = intent."lease_token"
+        AND julianday(lease."lease_expires_at") > julianday('now')
+      WHERE lease."response_id" IS NULL
+      ORDER BY intent."updated_at" ASC
+      LIMIT ?`,
   ).bind(SCANNER_RESPONSE_PURGE_BATCH_SIZE).all<{
     response_id: number;
     storage_key: string;
+    operation_key: string;
     lease_token: string;
   }>();
 
   for (const intent of results) {
     try {
-      // This insert must complete before removing the FK-bound intent.
-      await env.DB.prepare(
-        `INSERT INTO "scanner_retired_artifact_tombstone"
-           ("storage_key","write_token","artifact_kind","retired_at","created_at")
-         VALUES (?,?,'pdf',datetime('now'),datetime('now'))
-         ON CONFLICT("storage_key") DO NOTHING`,
-      ).bind(intent.storage_key, intent.lease_token).run();
-      await env.DB.prepare(
-        `DELETE FROM "scanner_pdf_artifact_intent"
-         WHERE "response_id" = ? AND "storage_key" = ? AND "lease_token" = ?`,
-      ).bind(intent.response_id, intent.storage_key, intent.lease_token).run();
+      // Commit tombstone creation and removal of this exact token-scoped intent
+      // together; another outstanding intent for the response is never touched.
+      await env.DB.batch([
+        env.DB.prepare(
+          `INSERT INTO "scanner_retired_artifact_tombstone"
+             ("storage_key","write_token","artifact_kind","retired_at","created_at")
+           VALUES (?,?,'pdf',datetime('now'),datetime('now'))
+           ON CONFLICT("storage_key") DO NOTHING`,
+        ).bind(intent.storage_key, intent.lease_token),
+        env.DB.prepare(
+          `DELETE FROM "scanner_pdf_artifact_intent"
+           WHERE "response_id" = ? AND "storage_key" = ?
+             AND "operation_key" = ? AND "lease_token" = ?`,
+        ).bind(intent.response_id, intent.storage_key, intent.operation_key, intent.lease_token),
+      ]);
     } catch (error) {
       console.error('[scanner-retention] pending PDF intent tombstone failed; intent retained for retry', {
         responseId: intent.response_id,

@@ -135,6 +135,32 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Legacy plans can contain source-derived text and are readable only while the
+ * exact source response remains retained and has one canonical matching history
+ * owner. Normalized available plans deliberately do not depend on raw retention.
+ */
+export const readableScannerActionPlanClause = `
+  plan."retention_visibility" != 'unavailable'
+  AND (
+    plan."retention_visibility" != 'legacy_source_bound'
+    OR EXISTS (
+      SELECT 1
+      FROM "scanner_response" source_response
+      INNER JOIN "scanner_history" source_history
+        ON source_history."response_id" = source_response."id"
+      WHERE source_response."id" = plan."source_response_id"
+        AND julianday(source_response."expires_at") > julianday('now')
+        AND source_history."user_id" = plan."user_id"
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "scanner_history" competing_history
+          WHERE competing_history."response_id" = source_history."response_id"
+            AND competing_history."id" <> source_history."id"
+        )
+    )
+  )`;
+
 function id(): string {
   return crypto.randomUUID();
 }
@@ -658,7 +684,9 @@ export async function getScannerActionPlanForGenerationRun(
   userId: string,
 ): Promise<ScannerActionPlanRow | null> {
   return await db.prepare(
-    'SELECT * FROM "scanner_action_plan" WHERE "generation_run_id" = ? AND "user_id" = ?',
+    `SELECT plan.* FROM "scanner_action_plan" plan
+     WHERE plan."generation_run_id" = ? AND plan."user_id" = ?
+       AND ${readableScannerActionPlanClause}`,
   ).bind(generationRunId, userId).first<ScannerActionPlanRow>() ?? null;
 }
 
@@ -669,9 +697,10 @@ export async function getReadyScannerActionPlanForResponse(
   userId: string,
 ): Promise<ScannerActionPlanRow | null> {
   return await db.prepare(
-    `SELECT * FROM "scanner_action_plan"
-     WHERE "source_response_id" = ? AND "user_id" = ? AND "generation_state" = 'ready'
-     ORDER BY "updated_at" DESC, "id" ASC
+    `SELECT plan.* FROM "scanner_action_plan" plan
+     WHERE plan."source_response_id" = ? AND plan."user_id" = ? AND plan."generation_state" = 'ready'
+       AND ${readableScannerActionPlanClause}
+     ORDER BY plan."updated_at" DESC, plan."id" ASC
      LIMIT 1`,
   ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
 }
@@ -683,9 +712,10 @@ export async function getScannerActionPlanForResponseForUser(
   userId: string,
 ): Promise<ScannerActionPlanRow | null> {
   return await db.prepare(
-    `SELECT * FROM "scanner_action_plan"
-     WHERE "source_response_id" = ? AND "user_id" = ?
-     ORDER BY "updated_at" DESC, "id" ASC
+    `SELECT plan.* FROM "scanner_action_plan" plan
+     WHERE plan."source_response_id" = ? AND plan."user_id" = ?
+       AND ${readableScannerActionPlanClause}
+     ORDER BY plan."updated_at" DESC, plan."id" ASC
      LIMIT 1`,
   ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
 }
@@ -696,7 +726,9 @@ export async function getScannerActionPlanForUser(
   userId: string,
 ): Promise<ScannerActionPlanRow | null> {
   return await db.prepare(
-    'SELECT * FROM "scanner_action_plan" WHERE "id" = ? AND "user_id" = ?',
+    `SELECT plan.* FROM "scanner_action_plan" plan
+     WHERE plan."id" = ? AND plan."user_id" = ?
+       AND ${readableScannerActionPlanClause}`,
   ).bind(planId, userId).first<ScannerActionPlanRow>() ?? null;
 }
 
@@ -706,4 +738,18 @@ export async function isScannerActionPlanOwnedByUser(
   userId: string,
 ): Promise<boolean> {
   return Boolean(await getScannerActionPlanForUser(db, planId, userId));
+}
+
+/** Lists only plans readable by their owner under the retention policy. */
+export async function listReadableScannerActionPlansForUser(
+  db: D1Database,
+  userId: string,
+): Promise<ScannerActionPlanRow[]> {
+  const { results = [] } = await db.prepare(
+    `SELECT plan.* FROM "scanner_action_plan" plan
+     WHERE plan."user_id" = ? AND plan."status" = 'active'
+       AND ${readableScannerActionPlanClause}
+     ORDER BY plan."updated_at" DESC, plan."id" ASC`,
+  ).bind(userId).all<ScannerActionPlanRow>();
+  return results;
 }

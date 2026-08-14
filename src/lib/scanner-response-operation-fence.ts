@@ -235,18 +235,24 @@ export async function createScannerPdfArtifactIntent(
          AND current_lease."operation_key" = ? AND current_lease."token" = ?
          AND julianday(current_lease."lease_expires_at") > julianday('now')
          AND ${canonicalOwnerClause}
-     )
-     ON CONFLICT("response_id") DO UPDATE SET
-       "storage_key" = excluded."storage_key", "operation_key" = excluded."operation_key",
-       "lease_token" = excluded."lease_token", "updated_at" = excluded."updated_at"`,
+      )
+      ON CONFLICT("response_id", "lease_token") DO NOTHING`,
   ).bind(
     responseId, key, lease.operationKey, lease.token,
     responseId, userId, lease.operationKey, lease.token,
   ).run();
-  return (result.meta.changes ?? 0) === 1;
+  if ((result.meta.changes ?? 0) === 1) return true;
+
+  // Retrying the same active write token is safe and must retain its original
+  // cleanup handle; a different token/key never qualifies here.
+  return Boolean(await db.prepare(
+    `SELECT 1 FROM "scanner_pdf_artifact_intent"
+     WHERE "response_id" = ? AND "storage_key" = ?
+       AND "operation_key" = ? AND "lease_token" = ?`,
+  ).bind(responseId, key, lease.operationKey, lease.token).first());
 }
 
-/** Clears only the matching intent, preserving a newer lease holder's intent. */
+/** Clears only this successful write's append-only intent; every other lease remains independently recoverable. */
 export async function clearScannerPdfArtifactIntent(
   db: D1Database,
   responseId: number,

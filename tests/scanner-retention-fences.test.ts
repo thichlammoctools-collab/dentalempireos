@@ -30,6 +30,18 @@ test('PDF intent cleanup is bound to the exact tokenized lease', () => {
   assert.equal(scannerPdfArtifactIntentMatchesLease({ key: 'scanner-artifacts/a.pdf', token: 'lease-a', operationKey: 'pdf:analysis' }, 'scanner-artifacts/a.pdf', lease), false);
 });
 
+test('a new lease keeps its token-scoped cleanup key distinct from a stalled predecessor', () => {
+  const prefix = 'scanner-artifacts/free/user/42';
+  const stalled = buildScannerPdfArtifactKey(prefix, 'combined', 'v1', 'lease-stalled');
+  const replacement = buildScannerPdfArtifactKey(prefix, 'combined', 'v1', 'lease-replacement');
+  const stalledLease = { operationKey: scannerPdfOperationKey('combined'), token: 'lease-stalled' } as const;
+  const replacementLease = { operationKey: scannerPdfOperationKey('combined'), token: 'lease-replacement' } as const;
+
+  assert.notEqual(stalled, replacement);
+  assert.equal(scannerPdfArtifactIntentMatchesLease({ key: stalled, token: stalledLease.token, operationKey: stalledLease.operationKey }, stalled, stalledLease), true);
+  assert.equal(scannerPdfArtifactIntentMatchesLease({ key: replacement, token: replacementLease.token, operationKey: replacementLease.operationKey }, stalled, stalledLease), false);
+});
+
 test('new PDF artifact keys are unique per write token while legacy cached keys remain readable', () => {
   const prefix = 'scanner-artifacts/free/user/42';
   const oldKey = `${prefix}/combined-v1.pdf`;

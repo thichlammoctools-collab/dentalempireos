@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { createAuth } from '../../lib/auth';
-import type { ScannerActionPlanActionRow, ScannerActionPlanRow, ScannerActionStatus } from '../../lib/scanner-action-plan-db';
+import { readableScannerActionPlanClause, type ScannerActionPlanActionRow, type ScannerActionPlanRow, type ScannerActionStatus } from '../../lib/scanner-action-plan-db';
 
 export const prerender = false;
 
@@ -29,8 +29,9 @@ const { results = [] } = await env.DB.prepare(
    FROM "scanner_action_plan" plan
    INNER JOIN "survey_definition" definition ON definition."id" = plan."survey_id"
    LEFT JOIN "scanner_action_plan_action" action ON action."plan_id" = plan."id"
-   WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" != 'unavailable'
-   GROUP BY plan."id"
+    WHERE plan."user_id" = ? AND plan."status" = 'active'
+      AND ${readableScannerActionPlanClause}
+    GROUP BY plan."id"
    ORDER BY plan."updated_at" DESC, plan."id" ASC`,
 ).bind(session.user.id).all<PlanListRow>();
 
@@ -41,8 +42,9 @@ const actionRows = planIds.length === 0
   : (await env.DB.prepare(
     `SELECT action.* FROM "scanner_action_plan_action" action
      INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
-     WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" != 'unavailable'
-     ORDER BY plan."updated_at" DESC, action."position" ASC`,
+      WHERE plan."user_id" = ? AND plan."status" = 'active'
+        AND ${readableScannerActionPlanClause}
+      ORDER BY plan."updated_at" DESC, action."position" ASC`,
   ).bind(session.user.id).all<ScannerActionPlanActionRow>()).results ?? [];
 const actionsByPlan = new Map<string, ScannerActionPlanActionRow[]>();
 for (const action of actionRows) actionsByPlan.set(action.plan_id, [...(actionsByPlan.get(action.plan_id) ?? []), action]);
