@@ -358,7 +358,6 @@ const markdownFallbackHtml = post.content_md ? marked.parse(post.content_md) : '
       });
       if (!res.ok) throw new Error();
 
-      const richContent = richHandle?.getHTML() || '';
       const block = { id: postId, type: 'rich' as const, content: richContent, sort_order: 0 };
       await fetch('/api/admin/blog/blocks', {
         method: 'POST',
