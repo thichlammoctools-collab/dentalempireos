@@ -113,8 +113,12 @@
           }
           throw new Error(result.body.error || 'Không thể lưu thay đổi.');
         }
-        setMessage(container, 'Đã cập nhật trạng thái việc cần làm. Đang tải các chuyển đổi hợp lệ.');
-        loadPlan(container, planId);
+        // The PATCH response already contains the updated action and progress.
+        // Replace only this row so changing status does not flash the whole checklist.
+        var updatedAction = result.body.action;
+        item.replaceWith(renderAction(container, planId, updatedAction, readOnly));
+        text(container.querySelector('[data-progress-summary]'), summaryText(result.body.progress));
+        setMessage(container, 'Đã cập nhật trạng thái việc cần làm.');
       }).catch(function (error) {
         select.value = originalStatus;
         select.dataset.status = originalStatus;
