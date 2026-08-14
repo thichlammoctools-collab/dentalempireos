@@ -1,9 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { badRequest, json, notFound } from '../../../../lib/api-helpers';
-import { getScannerResponse, isScannerResponseExpired } from '../../../../lib/scanner-response-db';
-import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
-import { getUserByEmail } from '../../../../lib/user-db';
+import { getRetainedScannerResponseForOwner } from '../../../../lib/scanner-history-db';
 import { createAuth } from '../../../../lib/auth';
 import { canAccessScanner } from '../../../../lib/entitlement-check';
 
@@ -11,7 +9,7 @@ export const prerender = false;
 type ImageType = 'analysis' | 'plan';
 type AuthorizedImageRequest =
   | { error: Response }
-  | { id: number; type: ImageType; response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>> };
+  | { id: number; type: ImageType; response: NonNullable<Awaited<ReturnType<typeof getRetainedScannerResponseForOwner>>> };
 
 async function getAuthorizedImageRequest(params: Record<string, string | undefined>, request: Request): Promise<AuthorizedImageRequest> {
   const id = parseInt(params.id ?? '', 10);
@@ -23,14 +21,9 @@ async function getAuthorizedImageRequest(params: Record<string, string | undefin
   const session = await createAuth(env).api.getSession({ headers: request.headers });
   if (!session?.user) return { error: json({ error: 'Vui lòng đăng nhập' }, 401) };
 
-  const response = await getScannerResponse(env.DB, id);
+  const response = await getRetainedScannerResponseForOwner(env.DB, session.user.id, id);
+  // Do not distinguish a foreign ID from a missing or expired raw report.
   if (!response) return { error: notFound('Response not found') };
-  if (isScannerResponseExpired(response)) return { error: json({ error: 'Báo cáo này đã hết thời hạn lưu trữ.' }, 410) };
-  const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
-  const ownsByEmail = response.email
-    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
-    : false;
-  if (!owned && !ownsByEmail) return { error: json({ error: 'Không có quyền với kết quả này' }, 403) };
   if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
     return { error: json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.' }, 402) };
   }

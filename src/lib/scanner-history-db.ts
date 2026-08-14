@@ -1,5 +1,7 @@
 // Data access layer for scanner_history — tracks which user took which scanner.
 
+import type { ScannerResponseRow } from './scanner-response-db';
+
 export interface ScannerHistoryRow {
   id: number;
   user_id: string;
@@ -93,6 +95,24 @@ export async function isResponseOwnedByUser(
   return !!row;
 }
 
+/**
+ * Canonical raw-report access path. Joining history prevents exposing a raw
+ * response before ownership exists and returns null for missing, foreign, and
+ * expired IDs so sensitive endpoints do not enumerate reports.
+ */
+export async function getRetainedScannerResponseForOwner(
+  db: D1Database,
+  userId: string,
+  responseId: number,
+): Promise<ScannerResponseRow | null> {
+  return await db.prepare(
+    `SELECT response.* FROM "scanner_response" response
+     INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+     WHERE response."id" = ? AND history."user_id" = ? AND response."expires_at" > ?
+     LIMIT 1`,
+  ).bind(responseId, userId, new Date().toISOString()).first<ScannerResponseRow>() ?? null;
+}
+
 export async function getUserHistoryCount(
   db: D1Database,
   userId: string,
@@ -109,7 +129,20 @@ export async function getScannerUsage(
   userId: string,
   surveyId: string,
 ): Promise<{ used: number; limit: number; remaining: number }> {
-  const row = await db.prepare('SELECT COUNT(*) AS used FROM "scanner_history" WHERE "user_id" = ? AND "survey_id" = ?').bind(userId, surveyId).first<{ used: number }>();
+  // Settled reservations cover new durable submissions. Older history rows have
+  // no reservation and remain part of the quota until their normal retention
+  // cleanup. Counting both would double-count a new free result.
+  const row = await db.prepare(
+    `SELECT (
+       SELECT COUNT(*) FROM "scanner_history" history
+       LEFT JOIN "scanner_response" response ON response."id" = history."response_id"
+       LEFT JOIN "scanner_free_attempt_reservation" reservation ON reservation."submission_id" = response."submission_id"
+       WHERE history."user_id" = ? AND history."survey_id" = ? AND reservation."submission_id" IS NULL
+     ) + (
+       SELECT COUNT(*) FROM "scanner_free_attempt_reservation"
+       WHERE "user_id" = ? AND "survey_id" = ? AND "status" IN ('reserved', 'settled')
+     ) AS used`,
+  ).bind(userId, surveyId, userId, surveyId).first<{ used: number }>();
   const used = row?.used ?? 0;
   return {
     used,

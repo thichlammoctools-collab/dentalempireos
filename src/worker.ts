@@ -13,8 +13,38 @@ import {
   reclaimStaleScannerAiJobs,
   requeueScannerAiJob,
 } from './lib/ai-operations';
+import {
+  linkScannerSubmissionSnapshot,
+  listPendingScannerSubmissionSnapshots,
+} from './lib/scanner-submission-db';
 
 const SCANNER_RESPONSE_PURGE_BATCH_SIZE = 100;
+
+async function hasTable(db: D1Database, tableName: string): Promise<boolean> {
+  return Boolean(await db.prepare(
+    `SELECT 1 FROM "sqlite_master" WHERE "type" = 'table' AND "name" = ? LIMIT 1`,
+  ).bind(tableName).first());
+}
+
+async function recordScannerPurgeAttempt(
+  db: D1Database,
+  responseId: number,
+  status: 'pending' | 'artifacts_deleted' | 'completed',
+  error: string | null,
+): Promise<void> {
+  const timestamp = new Date().toISOString();
+  await db.prepare(
+    `INSERT INTO "scanner_response_purge"
+     ("response_id","status","attempt_count","last_error","created_at","updated_at","completed_at")
+     VALUES (?,?,1,?,?,?,CASE WHEN ? = 'completed' THEN ? ELSE NULL END)
+     ON CONFLICT("response_id") DO UPDATE SET
+       "status" = excluded."status",
+       "attempt_count" = "scanner_response_purge"."attempt_count" + 1,
+       "last_error" = excluded."last_error",
+       "updated_at" = excluded."updated_at",
+       "completed_at" = CASE WHEN excluded."status" = 'completed' THEN excluded."updated_at" ELSE "scanner_response_purge"."completed_at" END`,
+  ).bind(responseId, status, error, timestamp, timestamp, status, timestamp).run();
+}
 
 async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> {
   const now = new Date().toISOString();
@@ -33,6 +63,20 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     image_plan_key: string | null;
   }>();
 
+  let hasLegacyImageCreditRun = false;
+  let hasLegacyImageJob = false;
+  try {
+    hasLegacyImageCreditRun = await hasTable(env.DB, 'scanner_report_image_credit_run');
+    hasLegacyImageJob = await hasTable(env.DB, 'scanner_report_image_job');
+  } catch (error) {
+    // Do not risk raw-response deletion if schema inspection is unavailable;
+    // this response remains retryable and its failure is recorded per response.
+    console.error('[scanner-retention] legacy schema inspection failed; purge deferred', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+
   for (const response of results) {
     const keys = [
       response.pdf_combined_key,
@@ -41,27 +85,91 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
       response.image_analysis_key,
       response.image_plan_key,
     ].filter((key): key is string => Boolean(key));
-    await Promise.all(keys.map((key) => env.MEDIA.delete(key)));
 
-    await env.DB.batch([
-      // Improvement-loop plans retain normalized recommendations and score-only
-      // snapshots after raw Scanner answers expire. Detach every response link
-      // before deleting the source row; plans remain readable by their owner.
-      env.DB.prepare(
-        `UPDATE "scanner_action_plan"
-         SET "source_response_id" = NULL,
-             "source_response_purged_at" = COALESCE("source_response_purged_at", ?)
-         WHERE "source_response_id" = ?`,
-      ).bind(now, response.id),
-      env.DB.prepare(
-        'UPDATE "scanner_action_plan_score_snapshot" SET "response_id" = NULL WHERE "response_id" = ?',
-      ).bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_guest_report" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_history" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_credit_run" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_ai_job" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_response" WHERE "id" = ?').bind(response.id),
-    ]);
+    // R2 deletion is the privacy gate. If any artifact cannot be deleted, retain
+    // the raw D1 row and retry this response on the next schedule; logging each
+    // failed key keeps the failure observable without blocking later responses.
+    let artifactsDeleted = true;
+    for (const key of keys) {
+      try {
+        await env.MEDIA.delete(key);
+      } catch (error) {
+        artifactsDeleted = false;
+        console.error('[scanner-retention] artifact deletion failed; response retained for retry', {
+          responseId: response.id,
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    if (!artifactsDeleted) {
+      await recordScannerPurgeAttempt(env.DB, response.id, 'pending', 'artifact_delete_failed').catch((error) => {
+        console.error('[scanner-retention] unable to record artifact deletion failure', { responseId: response.id, error });
+      });
+      continue;
+    }
+
+    try {
+      await recordScannerPurgeAttempt(env.DB, response.id, 'artifacts_deleted', null);
+      const statements: D1PreparedStatement[] = [
+        // New normalized plans are retention-safe and remain readable. Legacy
+        // ai_plan-derived plans are not destructively rewritten; source purge
+        // marks them unavailable because their historical content may be raw.
+        env.DB.prepare(
+          `UPDATE "scanner_action_plan"
+           SET "source_response_id" = NULL,
+                "source_response_purged_at" = COALESCE("source_response_purged_at", ?),
+                "retention_visibility" = CASE
+                  WHEN "retention_visibility" = 'legacy_source_bound' THEN 'unavailable'
+                  ELSE "retention_visibility"
+                END
+           WHERE "source_response_id" = ?`,
+        ).bind(now, response.id),
+        env.DB.prepare('UPDATE "scanner_action_plan_score_snapshot" SET "response_id" = NULL WHERE "response_id" = ?').bind(response.id),
+        env.DB.prepare('DELETE FROM "scanner_guest_report" WHERE "response_id" = ?').bind(response.id),
+        env.DB.prepare('DELETE FROM "scanner_history" WHERE "response_id" = ?').bind(response.id),
+        env.DB.prepare('DELETE FROM "scanner_ai_job" WHERE "response_id" = ?').bind(response.id),
+      ];
+      // 0087 removes these tables, but long-retained deployments can still have
+      // them. Probe first: normal migrated D1 never prepares a nonexistent table.
+      if (hasLegacyImageCreditRun) statements.push(
+        env.DB.prepare('DELETE FROM "scanner_report_image_credit_run" WHERE "response_id" = ?').bind(response.id),
+      );
+      if (hasLegacyImageJob) statements.push(
+        env.DB.prepare('DELETE FROM "scanner_report_image_job" WHERE "response_id" = ?').bind(response.id),
+      );
+      // scanner_credit_run references scanner_response. Its audit row must remain
+      // after purge to preserve charged-run history, so detach instead of delete.
+      statements.push(
+        env.DB.prepare('UPDATE "scanner_credit_run" SET "response_id" = NULL, "updated_at" = ? WHERE "response_id" = ?').bind(now, response.id),
+        // Preserve durable idempotency identity after raw-response purge. A
+        // same-key replay can return a privacy-safe expired result, never create
+        // another report or attach a different plan.
+        env.DB.prepare(
+          `UPDATE "scanner_submission"
+           SET "response_id" = NULL,
+               "response_purged_at" = COALESCE("response_purged_at", ?),
+               "updated_at" = ?
+           WHERE "response_id" = ?
+              OR "id" = (
+                SELECT "submission_id" FROM "scanner_response"
+                WHERE "id" = ? AND "submission_id" IS NOT NULL
+              )`,
+        ).bind(now, now, response.id, response.id),
+        env.DB.prepare('DELETE FROM "scanner_response" WHERE "id" = ?').bind(response.id),
+      );
+      const outcome = await env.DB.batch(statements);
+      const deleted = outcome[outcome.length - 1]?.meta.changes ?? 0;
+      if (deleted !== 1) throw new Error('scanner_response delete did not affect exactly one row');
+      await recordScannerPurgeAttempt(env.DB, response.id, 'completed', null);
+      console.info('[scanner-retention] response purged', { responseId: response.id, artifactCount: keys.length });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await recordScannerPurgeAttempt(env.DB, response.id, 'artifacts_deleted', message).catch((recordError) => {
+        console.error('[scanner-retention] unable to record database purge failure', { responseId: response.id, error: recordError });
+      });
+      console.error('[scanner-retention] database purge failed; raw response retained for retry', { responseId: response.id, error: message });
+    }
   }
 
   try {
@@ -71,6 +179,28 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
   } catch (error) {
     // The guest-report tables may not exist until the corresponding migration runs.
     console.warn('[scanner-retention] Guest request cleanup skipped:', error);
+  }
+}
+
+async function retryPendingScannerSubmissionSnapshots(env: Cloudflare.Env): Promise<void> {
+  let pending;
+  try {
+    pending = await listPendingScannerSubmissionSnapshots(env.DB, SCANNER_RESPONSE_PURGE_BATCH_SIZE);
+  } catch (error) {
+    console.error('[scanner-rescan-link] unable to load pending submissions:', error);
+    return;
+  }
+  for (const submission of pending) {
+    try {
+      await linkScannerSubmissionSnapshot(env.DB, submission.id);
+    } catch (error) {
+      console.error('[scanner-rescan-link] snapshot retry failed:', {
+        submissionId: submission.id,
+        responseId: submission.response_id,
+        planId: submission.action_plan_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -137,6 +267,7 @@ export default {
   async scheduled(_controller: ScheduledController, env: Cloudflare.Env): Promise<void> {
     await Promise.all([
       purgeExpiredScannerResponses(env),
+      retryPendingScannerSubmissionSnapshots(env),
       reapStaleScannerAiJobs(env),
     ]);
   },

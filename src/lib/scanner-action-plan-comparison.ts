@@ -55,7 +55,7 @@ export async function getScannerActionPlanComparison(
   input: { planId: string; userId: string; rescanSnapshotId?: string },
 ): Promise<ScannerActionPlanComparison | null> {
   const plan = await getScannerActionPlanForUser(db, input.planId, input.userId);
-  if (!plan) return null;
+  if (!plan || plan.retention_visibility !== 'available') return null;
 
   const [snapshots, actions] = await Promise.all([
     getScannerActionPlanSnapshots(db, plan.id),

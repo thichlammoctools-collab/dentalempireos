@@ -28,7 +28,8 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   const planId = params.id?.trim();
   const actionId = params.actionId?.trim();
   if (!planId || !actionId || planId.length > MAX_ID_LENGTH || actionId.length > MAX_ID_LENGTH) return notFound('not_found');
-  if (!await getScannerActionPlanForUser(env.DB, planId, session.user.id)) return notFound('not_found');
+  const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
+  if (!plan || plan.retention_visibility === 'unavailable') return notFound('not_found');
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return badRequest('invalid_json');

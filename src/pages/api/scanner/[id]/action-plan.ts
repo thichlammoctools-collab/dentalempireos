@@ -17,6 +17,6 @@ export const GET: APIRoute = async ({ params, request }) => {
   const responseId = Number(params.id);
   if (!Number.isSafeInteger(responseId) || responseId <= 0) return notFound('not_found');
   const plan = await getScannerActionPlanForResponseForUser(env.DB, responseId, session.user.id);
-  if (!plan) return notFound('not_found');
+  if (!plan || plan.retention_visibility === 'unavailable') return notFound('not_found');
   return json({ planId: plan.id, generationState: plan.generation_state, status: plan.status });
 };

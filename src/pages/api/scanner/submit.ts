@@ -21,15 +21,34 @@ import {
 // AI now triggered on-demand via /api/scanner/run-ai
 import { createAuth } from '../../../lib/auth';
 import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
-import { addToHistory, getScannerUsage } from '../../../lib/scanner-history-db';
-import { getActiveCreditPricingRule, startScannerCreditRun, completeScannerCreditRun, failScannerCreditRun, InsufficientCreditsError } from '../../../lib/credit-db';
+import { addToHistory, FREE_SCANNER_ATTEMPT_LIMIT } from '../../../lib/scanner-history-db';
+import {
+  getActiveCreditPricingRule,
+  getScannerCreditRunByIdempotencyKey,
+  getCapturedScannerCreditRunPrice,
+  startScannerCreditRun,
+  completeScannerCreditRun,
+  failScannerCreditRun,
+  InsufficientCreditsError,
+} from '../../../lib/credit-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../../lib/site-analytics';
 import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from '../../../lib/scanner-guest-report';
 import { hashIp, subscribe } from '../../../lib/newsletter';
 import { sendGuestScannerReportEmail } from '../../../lib/resend';
 import { isGuestScannerSlug } from '../../../lib/guest-scanner';
-import { addScannerActionPlanRescanSnapshot, getScannerActionPlanForUser } from '../../../lib/scanner-action-plan-db';
+import {
+  createOrGetScannerSubmission,
+  getScannerSubmissionById,
+  fingerprintScannerSubmission,
+  getScannerSubmissionResponse,
+  linkScannerSubmissionSnapshot,
+  recordScannerSubmissionResponse,
+  ScannerSubmissionMismatchError,
+  reserveScannerFreeAttempt,
+  settleScannerFreeAttempt,
+  releaseScannerFreeAttempt,
+} from '../../../lib/scanner-submission-db';
 
 export const prerender = false;
 
@@ -92,23 +111,7 @@ export const POST: APIRoute = async (ctx) => {
     }
   }
 
-  // The server binds rescans to the authenticated plan owner. No client user,
-  // source response, or survey identity is accepted as authorization evidence.
-  if (requestedActionPlanId) {
-    const plan = await getScannerActionPlanForUser(env.DB, requestedActionPlanId, session!.user.id);
-    if (!plan || plan.status !== 'active' || plan.survey_id !== surveyId) {
-      return json({ error: 'invalid_action_plan' }, 404);
-    }
-  }
-
   const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', surveyId);
-  const usage = session?.user
-    ? await getScannerUsage(env.DB, session!.user.id, surveyId)
-    : { remaining: 1, limit: 1 };
-  const requiresCredits = !isGuestScanner && usage.remaining === 0;
-  if (requiresCredits && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
-    return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
-  }
 
   const clinicName = asString(body.clinic_name);
   if (!clinicName) {
@@ -142,53 +145,167 @@ export const POST: APIRoute = async (ctx) => {
 
   // Calculate scores
   const scoringRules = parseScoringRules(def.scoring_rules);
+  const ensureAuthenticatedHistory = async (responseId: number): Promise<void> => {
+    const scoringResult = await env.DB
+      .prepare('SELECT scores_json FROM scanner_response WHERE id = ?')
+      .bind(responseId)
+      .first<{ scores_json: string | null }>();
+    const parsedScores = scoringResult?.scores_json ? parseScores(scoringResult.scores_json) : {};
+    const totalScore = parsedScores.total ?? 0;
+    const level = getScoreLevel(totalScore, scoringRules ?? {
+      dimensions: [],
+      total_formula: 'average',
+      thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 },
+    }, lang);
+    await addToHistory(env.DB, {
+      user_id: session!.user.id,
+      survey_id: surveyId,
+      response_id: responseId,
+      score_total: totalScore,
+      score_label: level.label_vi,
+    });
+  };
 
   const clientIdempotencyKey = asString(ctx.request.headers.get('Idempotency-Key')) ?? asString(body.idempotency_key);
   if (clientIdempotencyKey && clientIdempotencyKey.length > 200) return badRequest('idempotency_key_too_long');
   const idempotencyKey = clientIdempotencyKey ?? crypto.randomUUID();
+  const submission = session?.user
+    ? await (async () => {
+      try {
+        return await createOrGetScannerSubmission(env.DB, {
+          userId: session.user.id,
+          surveyId,
+          idempotencyKey,
+          actionPlanId: requestedActionPlanId,
+          // Include every result-affecting authenticated input, but not profile-save
+          // preference or attribution. A same-key replay must mean the same result.
+          fingerprint: await fingerprintScannerSubmission({
+            surveyId, lang, ownerName: asString(body.owner_name), clinicName,
+            clinicAddress: asString(body.clinic_address), clinicPhone: asString(body.clinic_phone),
+            email, yearsInOperation: asInt(body.years_in_operation), staffCount: asInt(body.staff_count),
+            responses: responsesMap, actionPlanId: requestedActionPlanId,
+          }),
+        });
+      } catch (error) {
+        if (error instanceof ScannerSubmissionMismatchError) {
+          return null;
+        }
+        throw error;
+      }
+    })()
+    : null;
+  if (session?.user && !submission) {
+    return json({ error: 'idempotency_key_reused_with_different_request' }, 409);
+  }
   let creditRun: Awaited<ReturnType<typeof startScannerCreditRun>>['run'] | null = null;
+  let recoveredResponseId: number | null = null;
+  let freeAttemptReserved = false;
 
-  if (requiresCredits && pricingRule?.credit_amount != null) {
+  if (submission && !submission.created) {
+    // Re-read durable purge state after idempotency lookup. This closes the
+    // worker/retry interleave where the worker has marked purge but has not yet
+    // deleted the linked raw row.
+    const durableSubmission = await getScannerSubmissionById(env.DB, submission.submission.id);
+    if (!durableSubmission) return json({ error: 'scanner_submission_missing' }, 409);
+    const recoveredId = await getScannerSubmissionResponse(env.DB, durableSubmission);
+    if (durableSubmission.response_purged_at) {
+      return json({ error: 'scanner_response_expired', responseExpired: true }, 410);
+    }
+    if (recoveredId !== null) {
+      try {
+        const existingRun = await getScannerCreditRunByIdempotencyKey(env.DB, session!.user.id, idempotencyKey);
+        if (existingRun?.status === 'failed') {
+          // Fail closed before history can make the raw report accessible. The
+          // next block creates and settles the replacement reservation first.
+          getCapturedScannerCreditRunPrice(existingRun);
+          creditRun = existingRun;
+          recoveredResponseId = recoveredId;
+        } else if (existingRun) {
+          if (existingRun.status !== 'completed') {
+            await completeScannerCreditRun(env.DB, {
+              userId: session!.user.id, runId: existingRun.id, responseId: recoveredId,
+            });
+          }
+          await ensureAuthenticatedHistory(recoveredId);
+        } else {
+          await settleScannerFreeAttempt(env.DB, submission.submission.id);
+          await ensureAuthenticatedHistory(recoveredId);
+        }
+
+        if (!creditRun) {
+          let snapshotStatus = submission.submission.snapshot_status;
+          if (snapshotStatus === 'pending') {
+            try {
+              snapshotStatus = await linkScannerSubmissionSnapshot(env.DB, submission.submission.id);
+            } catch (error) {
+              console.error('[submit] pending rescan snapshot recovery failed:', error);
+            }
+          }
+          return json({ success: true, id: recoveredId, redirect: `/scanner/result/${recoveredId}`, snapshotStatus, warning: snapshotStatus === 'pending' ? 'rescan_snapshot_pending' : undefined });
+        }
+      } catch (error) {
+        console.error('[submit] settlement recovery failed:', error);
+        return json({ error: 'Không thể hoàn tất kết quả trước đó. Vui lòng thử lại cùng Idempotency-Key.' }, 500);
+      }
+    }
+  }
+
+  if (session?.user && !creditRun) {
+    const existingRun = await getScannerCreditRunByIdempotencyKey(env.DB, session.user.id, idempotencyKey);
+    if (existingRun) {
+      creditRun = existingRun;
+    } else {
+      const reservedFree = await reserveScannerFreeAttempt(env.DB, {
+        submission: submission!.submission,
+        limit: FREE_SCANNER_ATTEMPT_LIMIT,
+      });
+      freeAttemptReserved = reservedFree.reservation?.status === 'reserved';
+      if (!reservedFree.reservation && (!pricingRule?.credit_amount || pricingRule.credit_amount <= 0)) {
+        return json({ error: 'Scanner này chưa được cấu hình giá Credits. Vui lòng liên hệ quản trị viên.' }, 503);
+      }
+    }
+  }
+
+  // An existing completed run is returned above. A remaining existing run is
+  // either a failed same-key recovery or a reservation that this request owns.
+  const requiresCredits = !isGuestScanner && Boolean(session?.user) && !freeAttemptReserved;
+  if (requiresCredits && (creditRun !== null || pricingRule?.credit_amount != null)) {
     try {
       const started = await startScannerCreditRun(env.DB, {
         userId: session!.user.id,
         surveyId,
         idempotencyKey,
-        credits: pricingRule.credit_amount,
-        pricingRuleId: pricingRule.id,
+        // Also call the starter for a reserved same-key run. It repairs the
+        // legacy released-reservation split state before any response/history
+        // work; an intact reservation remains an in-progress conflict below.
+        price: creditRun
+          ? getCapturedScannerCreditRunPrice(creditRun)
+          : {
+            credits: pricingRule!.credit_amount!,
+            priceSnapshot: {
+              ruleId: pricingRule!.id,
+              ruleVersion: pricingRule!.rule_version,
+              credits: pricingRule!.credit_amount!,
+            },
+          },
       });
       creditRun = started.run;
       if (!started.created && creditRun.status === 'completed' && creditRun.response_id != null) {
-        // Recover a prior request that completed payment but was interrupted
-        // before the optional snapshot write. The DAL makes this idempotent.
-        if (requestedActionPlanId) {
-          try {
-            await addScannerActionPlanRescanSnapshot(env.DB, {
-              planId: requestedActionPlanId,
-              userId: session!.user.id,
-              responseId: creditRun.response_id,
-            });
-          } catch (err) {
-            console.error('[submit] idempotent action plan rescan recovery failed:', err);
-            return json({ error: 'Không thể liên kết lần quét lại. Vui lòng thử lại sau.' }, 500);
-          }
-        }
         return json({ success: true, id: creditRun.response_id, redirect: `/scanner/result/${creditRun.response_id}` });
       }
       if (!started.created && creditRun.status === 'reserved') {
-        return json({ error: 'Yêu cầu đang được xử lý. Vui lòng thử lại sau ít phút.' }, 409);
-      }
-      if (!started.created && creditRun.status === 'failed') {
-        return json({ error: 'Yêu cầu trước đó không hoàn tất. Hãy gửi lại với một Idempotency-Key mới.' }, 409);
+        if (recoveredResponseId !== null) {
+          // Recovery owns a response but its earlier settlement did not finish.
+          // Continue below and settle this exact durable run.
+        } else {
+          // A concurrent same-key request owns the reservation and may still be
+          // creating the response, so do not create a competing flow.
+          return json({ error: 'Yêu cầu đang được xử lý. Vui lòng thử lại cùng Idempotency-Key.' }, 409);
+        }
       }
     } catch (err) {
       if (err instanceof InsufficientCreditsError) {
-        return json({
-          error: 'Bạn không đủ Credits để thực hiện Scanner này.',
-          requiresPayment: true,
-          upgradeUrl: '/account/wallet',
-          upgrade_url: '/account/wallet',
-        }, 402);
+        return json({ error: 'Bạn không đủ Credits để thực hiện Scanner này.', requiresPayment: true, upgradeUrl: '/account/wallet', upgrade_url: '/account/wallet' }, 402);
       }
       console.error('[submit] reserve Scanner Credits failed:', err);
       return json({ error: 'Không thể giữ Credits cho Scanner. Vui lòng thử lại.' }, 500);
@@ -204,26 +321,36 @@ export const POST: APIRoute = async (ctx) => {
   const expiresAt = getScannerRetentionExpiry(retentionTier);
   let id: number;
   try {
-    ({ id } = await createScannerResponse(env.DB, {
-      survey_id: surveyId,
-      lang,
-      owner_name: isGuestScanner ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
-      clinic_name: clinicName,
-      clinic_address: asString(body.clinic_address),
-      clinic_phone: asString(body.clinic_phone),
-      email,
-      years_in_operation: asInt(body.years_in_operation),
-      staff_count: asInt(body.staff_count),
-      retention_tier: retentionTier,
-      expires_at: expiresAt,
-      responses: responsesMap,
-    }, scoringRules));
+    if (recoveredResponseId !== null) {
+      id = recoveredResponseId;
+    } else {
+      ({ id } = await createScannerResponse(env.DB, {
+        survey_id: surveyId,
+        lang,
+        owner_name: isGuestScanner ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
+        clinic_name: clinicName,
+        clinic_address: asString(body.clinic_address),
+        clinic_phone: asString(body.clinic_phone),
+        email,
+        years_in_operation: asInt(body.years_in_operation),
+        staff_count: asInt(body.staff_count),
+        retention_tier: retentionTier,
+        expires_at: expiresAt,
+        submission_id: submission?.submission.id ?? null,
+        responses: responsesMap,
+      }, scoringRules));
+    }
   } catch (err) {
     if (creditRun) await failScannerCreditRun(env.DB, {
       userId: session!.user.id, runId: creditRun.id, reason: 'scanner_response_creation_failed',
     });
+    if (submission && freeAttemptReserved) {
+      await releaseScannerFreeAttempt(env.DB, submission.submission.id);
+    }
     throw err;
   }
+
+  if (submission) await recordScannerSubmissionResponse(env.DB, submission.submission, id);
 
   if (isGuestScanner) {
     const report = await createGuestReport(env.DB, {
@@ -262,19 +389,6 @@ export const POST: APIRoute = async (ctx) => {
     return json({ success: true, id, redirect: `/scanner/report/${report.token}`, reportExpiresAt: report.expiresAt }, 201);
   }
 
-  // Add to scanner history
-  const scoringResult = await env.DB
-    .prepare('SELECT scores_json FROM scanner_response WHERE id = ?')
-    .bind(id)
-    .first<{ scores_json: string | null }>();
-  const parsedScores = scoringResult?.scores_json ? parseScores(scoringResult.scores_json) : {};
-  const totalScore = parsedScores.total ?? 0;
-  const level = getScoreLevel(totalScore, scoringRules ?? {
-    dimensions: [],
-    total_formula: 'average',
-    thresholds: { excellent: 75, good: 55, needs_work: 35, critical: 0 },
-  }, lang);
-
   // Upsert clinic profile if user wants to save — non-critical
   const saveProfile = body.save_profile === true;
   if (saveProfile) {
@@ -286,55 +400,47 @@ export const POST: APIRoute = async (ctx) => {
     }).catch((err) => console.error('[submit] upsertClinicProfile failed:', err));
   }
 
-  // The result page verifies ownership from scanner_history. Await this write so
-  // the redirect never reaches the result before the authorization row exists.
-  try {
-    await addToHistory(env.DB, {
-      user_id: session!.user.id,
-      survey_id: surveyId,
-      response_id: id,
-      score_total: totalScore,
-      score_label: level.label_vi,
-    });
-  } catch (err) {
-    if (creditRun) await failScannerCreditRun(env.DB, {
-      userId: session!.user.id, runId: creditRun.id, reason: 'scanner_history_creation_failed',
-    });
-    console.error('[submit] addToHistory failed:', err);
-    return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại.' }, 500);
-  }
-
-  if (creditRun && pricingRule?.credit_amount != null) {
+  // Paid reports stay inaccessible until their reservation has settled. This is
+  // crucial for a recovered failed run: history is the raw-report authority.
+  if (creditRun) {
     try {
       await completeScannerCreditRun(env.DB, {
         userId: session!.user.id,
         runId: creditRun.id,
         responseId: id,
-        credits: pricingRule.credit_amount,
-        priceSnapshot: {
-          ruleId: pricingRule.id,
-          ruleVersion: pricingRule.rule_version,
-          credits: pricingRule.credit_amount,
-        },
       });
     } catch (err) {
       console.error('[submit] settle Scanner Credits failed:', err);
-      return json({ error: 'Kết quả đã được lưu nhưng không thể hoàn tất thanh toán Credits. Vui lòng liên hệ quản trị viên.' }, 500);
+      return json({ error: 'Không thể hoàn tất thanh toán Credits. Vui lòng thử lại cùng Idempotency-Key.' }, 500);
     }
   }
 
-  // Snapshot only after history ownership exists. This preserves guest, credit,
-  // and idempotency behaviour while making an authenticated rescan durable.
-  if (requestedActionPlanId) {
+  // The result page verifies ownership from scanner_history. Await this write so
+  // the redirect never reaches the result before the authorization row exists.
+  try {
+    await ensureAuthenticatedHistory(id);
+  } catch (err) {
+    // The response is already durable and submission-bound. Keep either
+    // reservation intact so the same key can finish history/settlement; releasing
+    // here would create an unpaid raw response and a free-slot leak/race.
+    console.error('[submit] addToHistory failed:', err);
+    return json({ error: 'Không thể lưu quyền truy cập kết quả. Vui lòng thử lại cùng Idempotency-Key.' }, 500);
+  }
+
+  if (submission && freeAttemptReserved) {
+    await settleScannerFreeAttempt(env.DB, submission.submission.id);
+  }
+
+  // The result and (if paid) settlement are already durable. A snapshot failure
+  // remains pending on this same submission and is retried without a new key,
+  // response, or credit reservation.
+  let snapshotStatus: 'not_requested' | 'linked' | 'pending' = 'not_requested';
+  if (submission) {
     try {
-      await addScannerActionPlanRescanSnapshot(env.DB, {
-        planId: requestedActionPlanId,
-        userId: session!.user.id,
-        responseId: id,
-      });
-    } catch (err) {
-      console.error('[submit] action plan rescan snapshot failed:', err);
-      return json({ error: 'Kết quả đã được lưu nhưng không thể liên kết lần quét lại. Vui lòng thử lại với Idempotency-Key mới.' }, 500);
+      snapshotStatus = await linkScannerSubmissionSnapshot(env.DB, submission.submission.id);
+    } catch (error) {
+      snapshotStatus = 'pending';
+      console.error('[submit] action plan rescan snapshot deferred:', error);
     }
   }
 
@@ -352,6 +458,8 @@ export const POST: APIRoute = async (ctx) => {
       success: true,
       id,
       redirect: `/scanner/result/${id}`,
+      snapshotStatus,
+      warning: snapshotStatus === 'pending' ? 'rescan_snapshot_pending' : undefined,
     },
     201,
   );

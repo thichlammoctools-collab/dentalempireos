@@ -9,15 +9,12 @@ import {
   parseScaleLabels,
 } from '../../../lib/survey-config-db';
 import {
-  getScannerResponse,
-  isScannerResponseExpired,
   parseScores,
   parseResponses,
 } from '../../../lib/scanner-response-db';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
-import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
-import { getUserByEmail } from '../../../lib/user-db';
+import { getRetainedScannerResponseForOwner } from '../../../lib/scanner-history-db';
 import { getClinicProfile } from '../../../lib/clinic-profile-db';
 import { canAccessScanner } from '../../../lib/entitlement-check';
 
@@ -30,31 +27,17 @@ if (!id || Number.isNaN(id)) {
   return Astro.redirect('/');
 }
 
-const response = await getScannerResponse(env.DB, id);
-if (!response) {
-  return new Response('Response not found', { status: 404 });
-}
-if (isScannerResponseExpired(response)) {
-  return new Response('Báo cáo này đã hết thời hạn lưu trữ.', { status: 410 });
-}
-
 // Auth check — require login (middleware already redirected, but double-check)
 const currentUser = Astro.locals.user;
 if (!currentUser) {
   return Astro.redirect(`/login?redirect=/scanner/result/${id}`);
 }
 
-// Ownership check — must own this response (via scanner_history or email match)
-const owned = await isResponseOwnedByUser(env.DB, currentUser.id, id);
-const ownsByEmail = response.email
-  ? (await getUserByEmail(env.DB, response.email))?.id === currentUser.id
-  : false;
-
-if (!owned && !ownsByEmail) {
-  return new Response(
-    'Bạn không có quyền xem kết quả này.',
-    { status: 403 },
-  );
+// scanner_history is the canonical report owner. Do not use a matching email as
+// authority for any raw Scanner report; this also keeps expired IDs unavailable.
+const response = await getRetainedScannerResponseForOwner(env.DB, currentUser.id, id);
+if (!response) {
+  return new Response('Response not found', { status: 404 });
 }
 
 const full = await getSurveyDefinitionFull(env.DB, response.survey_id);

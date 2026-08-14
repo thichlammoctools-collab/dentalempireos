@@ -7,11 +7,9 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
-import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
+import { getRetainedScannerResponseForOwner } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
-import { getScannerResponse } from '../../../lib/scanner-response-db';
 import { canAccessScanner } from '../../../lib/entitlement-check';
-import { getUserByEmail } from '../../../lib/user-db';
 import {
   claimScannerAiJobDispatch,
   confirmScannerAiJobDispatched,
@@ -44,18 +42,10 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: 'Vui lòng đăng nhập' }, 401);
   }
 
-  const response = await getScannerResponse(env.DB, responseId);
+  const response = await getRetainedScannerResponseForOwner(env.DB, session.user.id, responseId);
+  // This AI endpoint reads raw answers. Missing, foreign, and expired IDs must
+  // not be distinguishable, and email is never authorization evidence.
   if (!response) return json({ error: 'Không tìm thấy kết quả này' }, 404);
-
-  const owned = await isResponseOwnedByUser(env.DB, session.user.id, responseId);
-  const ownsByEmail = response.email
-    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
-    : false;
-  // Keep legacy email-matched access for transient analysis reports, but plans
-  // create durable user-owned records and require scanner_history ownership.
-  if (!owned && (type === 'plan' || !ownsByEmail)) {
-    return json({ error: 'Không có quyền với kết quả này' }, 403);
-  }
 
   if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
      return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);

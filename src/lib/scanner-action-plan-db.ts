@@ -590,6 +590,7 @@ export async function addScannerActionPlanRescanSnapshot(
   if (!plan) throw new Error('Scanner action plan not found.');
 
   if (plan.status === 'archived') throw new Error('Archived Scanner action plans cannot be modified.');
+  if (plan.retention_visibility !== 'available') throw new Error('Scanner action plan is unavailable after source retention expiry.');
 
   const response = await getUnexpiredOwnedScannerResponse(db, input.responseId, input.userId);
   if (!response || response.survey_id !== plan.survey_id) {

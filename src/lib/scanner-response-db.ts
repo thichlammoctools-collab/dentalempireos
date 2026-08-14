@@ -100,6 +100,8 @@ export interface ScannerResponseInput {
   staff_count?: number | null;
   retention_tier: ScannerRetentionTier;
   expires_at: string;
+  /** Authenticated submissions are idempotently bound before this raw row exists. */
+  submission_id?: string | null;
   responses: ResponseMap;
 }
 
@@ -186,6 +188,12 @@ export async function createScannerResponse(
   input: ScannerResponseInput,
   scoringRules: ScoringRules | null,
 ): Promise<{ id: number; scores: Record<string, number> }> {
+  if (input.submission_id) {
+    const existing = await db.prepare(
+      'SELECT "id", "scores_json" FROM "scanner_response" WHERE "submission_id" = ?',
+    ).bind(input.submission_id).first<{ id: number; scores_json: string | null }>();
+    if (existing) return { id: existing.id, scores: parseScores(existing.scores_json) };
+  }
   const scores = scoringRules
     ? calculateAllScores(input.responses, scoringRules)
     : {};
@@ -196,8 +204,8 @@ export async function createScannerResponse(
       .prepare(
         `INSERT INTO "scanner_response"
            ("survey_id","lang","owner_name","clinic_name","clinic_address","clinic_phone","email",
-            "years_in_operation","staff_count","retention_tier","expires_at","responses_json","scores_json")
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+             "years_in_operation","staff_count","retention_tier","expires_at","submission_id","responses_json","scores_json")
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          RETURNING "id"`,
       )
       .bind(
@@ -212,11 +220,18 @@ export async function createScannerResponse(
         input.staff_count ?? null,
         input.retention_tier,
         input.expires_at,
+        input.submission_id ?? null,
         JSON.stringify(input.responses),
         JSON.stringify(scores),
       )
       .first<{ id: number }>();
   } catch (err) {
+    if (input.submission_id) {
+      const raced = await db.prepare(
+        'SELECT "id", "scores_json" FROM "scanner_response" WHERE "submission_id" = ?',
+      ).bind(input.submission_id).first<{ id: number; scores_json: string | null }>();
+      if (raced) return { id: raced.id, scores: parseScores(raced.scores_json) };
+    }
     console.error('[scanner-response-db] Insert failed:', err);
     throw new Error('Không thể lưu kết quả khảo sát. Vui lòng thử lại.');
   }
@@ -368,8 +383,10 @@ export function getScannerSourceFreeText(
     .map((question) => responses[question.question_id])
     .filter((value): value is string | number | boolean => value !== undefined && value !== null)
     .map((value) => String(value).replace(/\s+/g, ' ').trim().slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_LENGTH))
-    // Tiny fragments are too likely to occur by coincidence in AI output.
-    .filter((value) => value.length >= 12)
+    // Kept for the plan-retention PII guard: free-text source values must never
+    // be copied into the durable normalized action plan. Short identifiers are
+    // retained too; the guard uses token-aware matching for those values.
+    .filter(Boolean)
     .slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_VALUES);
 }
 

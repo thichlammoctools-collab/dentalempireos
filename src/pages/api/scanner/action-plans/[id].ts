@@ -35,7 +35,9 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!planId || planId.length > 100) return notFound('not_found');
   const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
   // Keep cross-user access non-enumerating, including for plans whose source was purged.
-  if (!plan) return notFound('not_found');
+  // Legacy plans are intentionally withheld after source retention expiry rather
+  // than rewritten, because historical ai_plan text was not PII-guarded.
+  if (!plan || plan.retention_visibility === 'unavailable') return notFound('not_found');
 
   const includeAudit = new URL(request.url).searchParams.get('include_audit') === '1';
   const [actions, snapshots, audit] = await Promise.all([

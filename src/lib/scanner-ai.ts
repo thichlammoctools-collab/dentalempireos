@@ -248,13 +248,33 @@ function assertNoPlanPii(plan: StructuredScannerActionPlan, sourcePii: string[])
   const content = [plan.title, plan.summary, ...plan.actions.flatMap((action) => [action.title, action.description ?? ''])]
     .map(normalizeForPiiCheck)
     .join('\n');
-  const sourceValues = sourcePii.map(normalizeForPiiCheck).filter((value) => value.length >= 3);
-  if (sourceValues.some((value) => content.includes(value))) {
+  // Include identifiable top-level fields and meaningful free-text answers.
+  // Persisted plans survive raw-response retention; none of these source strings
+  // may be copied into an otherwise normalized recommendation.
+  const sourceValues = sourcePii.map(normalizeForPiiCheck).filter(Boolean);
+  // Short standalone identifiers (for example initials or short clinic codes)
+  // are unsafe to silently ignore, but matching them inside ordinary language
+  // would be far too broad. Match short values only as complete tokens.
+  const echoesSourceValue = (value: string): boolean => value.length >= 3
+    ? content.includes(value)
+    : new RegExp(`(^|[^\\p{L}\\p{N}])${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?=$|[^\\p{L}\\p{N}])`, 'iu').test(content);
+  if (sourceValues.some(echoesSourceValue)) {
     throw new InvalidScannerActionPlanOutputError('AI plan output contains source personal data.');
   }
   if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(content) || /(?:\+?\d[\s().-]*){8,}\d/.test(content)) {
     throw new InvalidScannerActionPlanOutputError('AI plan output contains contact information.');
   }
+}
+
+export function getScannerPlanSourcePii(response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>, freeText: string[]): string[] {
+  return [
+    response.owner_name ?? '',
+    response.clinic_name ?? '',
+    response.clinic_address ?? '',
+    response.clinic_phone ?? '',
+    response.email ?? '',
+    ...freeText,
+  ];
 }
 
 export function parseStructuredScannerActionPlan(output: string, sourcePii: string[] = []): StructuredScannerActionPlan {
@@ -615,7 +635,10 @@ export async function runPlanAnalysis(
     const completion = await doPlanWithFallback(db, response, full, config, scoringRules, modelConfig);
     const structuredPlan = parseStructuredScannerActionPlan(
       completion.text,
-      getScannerSourceFreeText(response, full.sections.flatMap((section) => section.questions)),
+      getScannerPlanSourcePii(
+        response,
+        getScannerSourceFreeText(response, full.sections.flatMap((section) => section.questions)),
+      ),
     );
     const planMarkdown = renderStructuredScannerActionPlanMarkdown(structuredPlan, response.lang === 'en' ? 'en' : 'vi');
 

@@ -738,49 +738,169 @@ export interface ScannerCreditRun {
   reservation_id: string;
   response_id: number | null;
   status: 'reserved' | 'completed' | 'failed';
+  retry_token: string | null;
+  credit_amount: number | null;
+  price_snapshot_json: string | null;
   created_at: string;
   updated_at: string;
 }
 
+export async function getScannerCreditRunByIdempotencyKey(
+  db: D1Database,
+  userId: string,
+  idempotencyKey: string,
+): Promise<ScannerCreditRun | null> {
+  return db.prepare(
+    'SELECT * FROM "scanner_credit_run" WHERE "user_id" = ? AND "idempotency_key" = ?',
+  ).bind(userId, idempotencyKey).first<ScannerCreditRun>() ?? null;
+}
+
+export interface ScannerCreditRunPrice {
+  credits: number;
+  priceSnapshot: Record<string, unknown>;
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+/**
+ * A retry must be priced from the immutable capture made with the original run.
+ * Rows predating that capture cannot safely be recovered and must fail closed.
+ */
+export function getCapturedScannerCreditRunPrice(run: ScannerCreditRun): ScannerCreditRunPrice {
+  if (!isPositiveSafeInteger(run.credit_amount) || !run.price_snapshot_json) {
+    throw new Error('Scanner Credit run lacks a durable price capture.');
+  }
+
+  let priceSnapshot: unknown;
+  try {
+    priceSnapshot = JSON.parse(run.price_snapshot_json);
+  } catch {
+    throw new Error('Scanner Credit run has an invalid durable price snapshot.');
+  }
+  if (!priceSnapshot || Array.isArray(priceSnapshot) || typeof priceSnapshot !== 'object'
+    || !isPositiveSafeInteger((priceSnapshot as Record<string, unknown>).credits)
+    || (priceSnapshot as Record<string, unknown>).credits !== run.credit_amount) {
+    throw new Error('Scanner Credit run has inconsistent durable price capture.');
+  }
+  return { credits: run.credit_amount, priceSnapshot: priceSnapshot as Record<string, unknown> };
+}
+
 export async function startScannerCreditRun(
   db: D1Database,
-  input: { userId: string; surveyId: string; idempotencyKey: string; credits: number; pricingRuleId: string },
+  input: { userId: string; surveyId: string; idempotencyKey: string; price: ScannerCreditRunPrice },
 ): Promise<{ run: ScannerCreditRun; created: boolean }> {
-  const existing = await db.prepare(
-    'SELECT * FROM "scanner_credit_run" WHERE "user_id" = ? AND "idempotency_key" = ?',
-  ).bind(input.userId, input.idempotencyKey).first<ScannerCreditRun>();
-  if (existing) return { run: existing, created: false };
+  let existing = await getScannerCreditRunByIdempotencyKey(db, input.userId, input.idempotencyKey);
+  if (existing?.survey_id !== undefined && existing.survey_id !== input.surveyId) {
+    throw new Error('Scanner Credit run does not match this survey.');
+  }
 
-  const runId = id();
+  // Recover the split state left by the pre-atomic failure path: its reservation
+  // was released but the run remained reserved. This does not expose a response;
+  // it only makes the run eligible for the normal same-key replacement flow.
+  if (existing?.status === 'reserved') {
+    const reservation = await db.prepare(
+      'SELECT "status" FROM "credit_reservation" WHERE "id" = ?',
+    ).bind(existing.reservation_id).first<Pick<CreditReservation, 'status'>>();
+    if (reservation?.status === 'released') {
+      getCapturedScannerCreditRunPrice(existing);
+      const repaired = await db.prepare(
+        `UPDATE "scanner_credit_run"
+         SET "status" = 'failed', "retry_token" = NULL, "updated_at" = ?
+         WHERE "id" = ? AND "status" = 'reserved'
+           AND EXISTS (
+             SELECT 1 FROM "credit_reservation"
+             WHERE "id" = "scanner_credit_run"."reservation_id" AND "status" = 'released'
+           )`,
+      ).bind(now(), existing.id).run();
+      if ((repaired.meta.changes ?? 0) === 1) {
+        existing = await getScannerCreditRunByIdempotencyKey(db, input.userId, input.idempotencyKey);
+      } else {
+        const raced = await getScannerCreditRunByIdempotencyKey(db, input.userId, input.idempotencyKey);
+        if (!raced) throw new Error('Scanner Credit retry run disappeared');
+        existing = raced;
+      }
+    }
+  }
+  if (existing && existing.status !== 'failed') return { run: existing, created: false };
+
+  // A failed same-key run must use its original durable capture, never today's
+  // active pricing rule. Validate before claiming/releasing any replacement.
+  const price = existing ? getCapturedScannerCreditRunPrice(existing) : input.price;
+  if (!isPositiveSafeInteger(price.credits) || !isPositiveSafeInteger(price.priceSnapshot.credits)
+    || price.priceSnapshot.credits !== price.credits) {
+    throw new Error('Scanner Credit run requires a valid price capture.');
+  }
+  const priceSnapshotJson = json(price.priceSnapshot);
+
+  // A failure before response creation is retryable with the same request key.
+  // Elect one replacement reservation atomically. Concurrent retries see the
+  // retry token and reuse that same run/reservation rather than double-charging.
+  const retryToken = existing ? crypto.randomUUID() : null;
+  if (existing) {
+    const claimed = await db.prepare(
+      `UPDATE "scanner_credit_run" SET "retry_token" = ?, "updated_at" = ?
+       WHERE "id" = ? AND "status" = 'failed' AND "retry_token" IS NULL`,
+    ).bind(retryToken, now(), existing.id).run();
+    if ((claimed.meta.changes ?? 0) !== 1) {
+      const raced = await getScannerCreditRunByIdempotencyKey(db, input.userId, input.idempotencyKey);
+      if (raced) return { run: raced, created: false };
+      throw new Error('Scanner Credit retry run disappeared');
+    }
+  }
+
+  const runId = existing?.id ?? id();
+  const reservationKey = existing ? `scanner:${input.idempotencyKey}:retry:${retryToken}` : `scanner:${input.idempotencyKey}`;
   const reserved = await reserveCredits(db, {
     userId: input.userId,
-    amount: input.credits,
+    amount: price.credits,
     featureType: 'scanner',
-    businessObjectId: runId,
-    idempotencyKey: `scanner:${input.idempotencyKey}`,
-    metadata: { surveyId: input.surveyId, pricingRuleId: input.pricingRuleId },
+    // credit_reservation has one business object per feature/account. A released
+    // pre-response run needs a distinct reservation object on same-key retry;
+    // settlement remains keyed to the stable Scanner run ID below.
+    businessObjectId: existing ? `${runId}:retry:${retryToken}` : runId,
+    idempotencyKey: reservationKey,
+    metadata: { surveyId: input.surveyId, priceSnapshot: price.priceSnapshot },
   });
   const timestamp = now();
   try {
-    await db.prepare(
-      `INSERT INTO "scanner_credit_run"
-       ("id","user_id","survey_id","idempotency_key","reservation_id","response_id","status","created_at","updated_at")
-       VALUES (?,?,?,?,?,NULL,'reserved',?,?)`,
-    ).bind(runId, input.userId, input.surveyId, input.idempotencyKey, reserved.reservation.id, timestamp, timestamp).run();
+    if (existing) {
+      const restored = await db.prepare(
+        `UPDATE "scanner_credit_run"
+         SET "reservation_id" = ?, "response_id" = NULL, "status" = 'reserved', "retry_token" = NULL,
+             "updated_at" = ?
+         WHERE "id" = ? AND "status" = 'failed' AND "retry_token" = ?`,
+      ).bind(reserved.reservation.id, timestamp, runId, retryToken).run();
+      if ((restored.meta.changes ?? 0) !== 1) throw new Error('Unable to restore Scanner Credit run');
+    } else {
+      await db.prepare(
+        `INSERT INTO "scanner_credit_run"
+         ("id","user_id","survey_id","idempotency_key","reservation_id","response_id","status","retry_token","credit_amount","price_snapshot_json","created_at","updated_at")
+         VALUES (?,?,?,?,?,NULL,'reserved',NULL,?,?,?,?)`,
+      ).bind(runId, input.userId, input.surveyId, input.idempotencyKey, reserved.reservation.id,
+        price.credits, priceSnapshotJson, timestamp, timestamp).run();
+    }
   } catch (error) {
-    const duplicate = await db.prepare(
-      'SELECT * FROM "scanner_credit_run" WHERE "user_id" = ? AND "idempotency_key" = ?',
-    ).bind(input.userId, input.idempotencyKey).first<ScannerCreditRun>();
-    if (duplicate) return { run: duplicate, created: false };
     if (reserved.created) await releaseReservation(db, {
       userId: input.userId, reservationId: reserved.reservation.id, reason: 'scanner_run_creation_failed',
     });
+    if (existing) {
+      await db.prepare(
+        `UPDATE "scanner_credit_run" SET "retry_token" = NULL, "updated_at" = ?
+         WHERE "id" = ? AND "status" = 'failed' AND "retry_token" = ?`,
+      ).bind(now(), runId, retryToken).run();
+    }
+    const duplicate = await getScannerCreditRunByIdempotencyKey(db, input.userId, input.idempotencyKey);
+    if (duplicate && duplicate.status !== 'failed') return { run: duplicate, created: false };
     throw error;
   }
   return {
     run: {
       id: runId, user_id: input.userId, survey_id: input.surveyId, idempotency_key: input.idempotencyKey,
-      reservation_id: reserved.reservation.id, response_id: null, status: 'reserved', created_at: timestamp, updated_at: timestamp,
+      reservation_id: reserved.reservation.id, response_id: null, status: 'reserved', retry_token: null,
+      credit_amount: price.credits, price_snapshot_json: priceSnapshotJson,
+      created_at: existing?.created_at ?? timestamp, updated_at: timestamp,
     },
     created: true,
   };
@@ -788,7 +908,7 @@ export async function startScannerCreditRun(
 
 export async function completeScannerCreditRun(
   db: D1Database,
-  input: { userId: string; runId: string; responseId: number; credits: number; priceSnapshot: unknown },
+  input: { userId: string; runId: string; responseId: number },
 ): Promise<CreditConsumption> {
   const run = await db.prepare(
     'SELECT * FROM "scanner_credit_run" WHERE "id" = ? AND "user_id" = ?',
@@ -803,6 +923,7 @@ export async function completeScannerCreditRun(
     return existing;
   }
   if (run.status !== 'reserved') throw new Error(`Scanner Credit run is ${run.status}`);
+  const price = getCapturedScannerCreditRunPrice(run);
 
   const existing = await db.prepare(
     `SELECT * FROM "credit_consumption"
@@ -810,8 +931,8 @@ export async function completeScannerCreditRun(
   ).bind(run.id).first<CreditConsumption>();
   const consumption = existing ?? await settleReservation(db, {
     userId: input.userId, reservationId: run.reservation_id, featureType: 'scanner',
-    businessObjectId: run.id, chargeType: 'full_run', credits: input.credits,
-    priceSnapshot: input.priceSnapshot, quantitySnapshot: { responseId: input.responseId },
+    businessObjectId: run.id, chargeType: 'full_run', credits: price.credits,
+    priceSnapshot: price.priceSnapshot, quantitySnapshot: { responseId: input.responseId },
   });
   const result = await db.prepare(
     `UPDATE "scanner_credit_run" SET "response_id" = ?, "status" = 'completed', "updated_at" = ?
@@ -829,11 +950,44 @@ export async function failScannerCreditRun(
     'SELECT * FROM "scanner_credit_run" WHERE "id" = ? AND "user_id" = ?',
   ).bind(input.runId, input.userId).first<ScannerCreditRun>();
   if (!run || run.status !== 'reserved') return;
-  await releaseReservation(db, { userId: input.userId, reservationId: run.reservation_id, reason: input.reason });
-  await db.prepare(
-    `UPDATE "scanner_credit_run" SET "status" = 'failed', "updated_at" = ?
-     WHERE "id" = ? AND "status" = 'reserved'`,
-  ).bind(now(), run.id).run();
+  // Do not release a reservation into a retryable failed state without the
+  // immutable price data that a later same-key recovery must charge.
+  getCapturedScannerCreditRunPrice(run);
+  const account = await ensureCreditAccount(db, input.userId);
+  const timestamp = now();
+  const result = await db.batch([
+    // Mark the run failed first in the transaction, then release its reservation.
+    // D1 batch is transactional, so a crash cannot leave a released reservation
+    // attached to a still-reserved run.
+    db.prepare(
+      `UPDATE "scanner_credit_run" SET "status" = 'failed', "retry_token" = NULL, "updated_at" = ?
+       WHERE "id" = ? AND "user_id" = ? AND "status" = 'reserved'`,
+    ).bind(timestamp, run.id, input.userId),
+    db.prepare(
+      `UPDATE "credit_reservation"
+       SET "status" = 'released', "released_at" = ?, "updated_at" = ?
+       WHERE "id" = ? AND "status" = 'reserved' AND changes() = 1`,
+    ).bind(timestamp, timestamp, run.reservation_id),
+    db.prepare(
+      `UPDATE "credit_account"
+       SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
+       WHERE "id" = ? AND "reserved_credits" >= ? AND changes() = 1`,
+    ).bind(run.credit_amount, run.credit_amount, timestamp, account.id, run.credit_amount),
+    db.prepare(
+      `INSERT INTO "credit_ledger_entry"
+       ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
+       SELECT ?,?,'release',?,?,?,?,NULL,?, '{}',? WHERE changes() = 1`,
+    ).bind(id(), account.id, run.credit_amount, 'scanner', run.id,
+      `release:${run.reservation_id}`, input.reason, timestamp),
+  ]);
+  if ((result[0].meta.changes ?? 0) !== 1) {
+    const current = await db.prepare(
+      'SELECT "status" FROM "scanner_credit_run" WHERE "id" = ? AND "user_id" = ?',
+    ).bind(run.id, input.userId).first<Pick<ScannerCreditRun, 'status'>>();
+    if (current?.status === 'reserved') {
+      throw new Error('Unable to atomically fail Scanner Credit run');
+    }
+  }
 }
 
 export async function getActiveCreditPricingRule(

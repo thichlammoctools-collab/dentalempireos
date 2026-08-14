@@ -4,10 +4,9 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
-import { getScannerResponse, isScannerResponseExpired, setScannerPdfKey } from '../../../../lib/scanner-response-db';
+import { setScannerPdfKey } from '../../../../lib/scanner-response-db';
 import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
-import { isResponseOwnedByUser } from '../../../../lib/scanner-history-db';
-import { getUserByEmail } from '../../../../lib/user-db';
+import { getRetainedScannerResponseForOwner } from '../../../../lib/scanner-history-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
 import { canAccessScanner } from '../../../../lib/entitlement-check';
@@ -22,15 +21,9 @@ export const GET: APIRoute = async ({ params, request }) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) return json({ error: 'Vui lòng đăng nhập' }, 401);
 
-  const response = await getScannerResponse(env.DB, id);
+  const response = await getRetainedScannerResponseForOwner(env.DB, session.user.id, id);
+  // Keep foreign, missing, and expired reports non-enumerating on raw/PDF APIs.
   if (!response) return notFound('Response not found');
-  if (isScannerResponseExpired(response)) return json({ error: 'Báo cáo này đã hết thời hạn lưu trữ.' }, 410);
-
-  const owned = await isResponseOwnedByUser(env.DB, session.user.id, id);
-  const ownsByEmail = response.email
-    ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
-    : false;
-  if (!owned && !ownsByEmail) return json({ error: 'Không có quyền với kết quả này' }, 403);
 
   const requestedType = new URL(request.url).searchParams.get('type');
   const type: ScannerPdfType = requestedType === 'plan' || requestedType === 'analysis' ? requestedType : 'combined';
