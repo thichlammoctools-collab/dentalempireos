@@ -37,14 +37,23 @@
       content.appendChild(description);
     }
 
-    var meta = document.createElement('p');
+    var meta = document.createElement('div');
     meta.className = 'action-plan-checklist__meta';
-    var details = [];
-    if (action.category) details.push(action.category);
-    if (action.priority) details.push('Ưu tiên ' + (action.priority === 'high' ? 'cao' : action.priority === 'low' ? 'thấp' : 'vừa'));
-    if (action.target_days !== null && action.target_days !== undefined) details.push('Mục tiêu ' + action.target_days + ' ngày');
-    meta.textContent = details.join(' · ');
-    if (details.length) content.appendChild(meta);
+    var hasMeta = false;
+    function addTag(value, modifier) {
+      var tag = document.createElement('span');
+      tag.className = 'action-plan-checklist__tag' + (modifier ? ' action-plan-checklist__tag--' + modifier : '');
+      tag.textContent = value;
+      meta.appendChild(tag);
+      hasMeta = true;
+    }
+    if (action.category) addTag(action.category, 'category');
+    if (action.priority) {
+      var priorityLabel = action.priority === 'high' ? 'Ưu tiên cao' : action.priority === 'low' ? 'Ưu tiên thấp' : 'Ưu tiên vừa';
+      addTag(priorityLabel, 'priority-' + action.priority);
+    }
+    if (action.target_days !== null && action.target_days !== undefined) addTag('Mục tiêu ' + action.target_days + ' ngày', 'target');
+    if (hasMeta) content.appendChild(meta);
 
     var label = document.createElement('label');
     label.className = 'action-plan-checklist__status-label';

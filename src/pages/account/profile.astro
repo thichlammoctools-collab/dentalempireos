@@ -418,7 +418,7 @@ function statusInfo(status: string) {
               <div class="flex flex-col gap-3">
                 {scannerAssets.map(entry => (
                   <div class="rounded-xl bg-surface-container-low border border-outline-variant/40 hover:border-primary/50 transition-colors p-3">
-                    <a href={`/scanner/result/${entry.responseId}`} class="block text-sm font-semibold text-white hover:text-primary transition-colors truncate mb-2">
+                    <a href={`/scanner/result/${entry.responseId}`} class="block text-sm font-semibold text-on-surface hover:text-primary transition-colors truncate mb-2">
                       {entry.scannerTitle}
                     </a>
                     <div class="flex flex-wrap gap-2">
