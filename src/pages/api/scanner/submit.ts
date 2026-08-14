@@ -29,6 +29,7 @@ import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from
 import { hashIp, subscribe } from '../../../lib/newsletter';
 import { sendGuestScannerReportEmail } from '../../../lib/resend';
 import { isGuestScannerSlug } from '../../../lib/guest-scanner';
+import { addScannerActionPlanRescanSnapshot, getScannerActionPlanForUser } from '../../../lib/scanner-action-plan-db';
 
 export const prerender = false;
 
@@ -44,6 +45,13 @@ function asInt(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   const n = parseInt(String(v), 10);
   return Number.isFinite(n) ? n : null;
+}
+
+function actionPlanId(v: unknown): string | null {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') return null;
+  const value = v.trim();
+  return value && value.length <= 100 && /^[a-zA-Z0-9-]+$/.test(value) ? value : null;
 }
 
 export const POST: APIRoute = async (ctx) => {
@@ -65,7 +73,10 @@ export const POST: APIRoute = async (ctx) => {
   if (!def) return badRequest('Survey not found');
   if (def.status !== 'active') return badRequest('Survey is not active');
 
+  const requestedActionPlanId = actionPlanId(body.action_plan_id);
+  if (body.action_plan_id !== undefined && !requestedActionPlanId) return badRequest('invalid_action_plan_id');
   const isGuestScanner = !session?.user && isGuestScannerSlug(def.slug);
+  if (requestedActionPlanId && !session?.user) return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
   if (!session?.user && !isGuestScanner) {
     return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
   }
@@ -78,6 +89,15 @@ export const POST: APIRoute = async (ctx) => {
     const ipHash = await hashIp(ip);
     if (!ipHash || !await checkGuestRequestRateLimit(env.DB, ipHash)) {
       return json({ error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }, 429);
+    }
+  }
+
+  // The server binds rescans to the authenticated plan owner. No client user,
+  // source response, or survey identity is accepted as authorization evidence.
+  if (requestedActionPlanId) {
+    const plan = await getScannerActionPlanForUser(env.DB, requestedActionPlanId, session!.user.id);
+    if (!plan || plan.status !== 'active' || plan.survey_id !== surveyId) {
+      return json({ error: 'invalid_action_plan' }, 404);
     }
   }
 
@@ -124,6 +144,7 @@ export const POST: APIRoute = async (ctx) => {
   const scoringRules = parseScoringRules(def.scoring_rules);
 
   const clientIdempotencyKey = asString(ctx.request.headers.get('Idempotency-Key')) ?? asString(body.idempotency_key);
+  if (clientIdempotencyKey && clientIdempotencyKey.length > 200) return badRequest('idempotency_key_too_long');
   const idempotencyKey = clientIdempotencyKey ?? crypto.randomUUID();
   let creditRun: Awaited<ReturnType<typeof startScannerCreditRun>>['run'] | null = null;
 
@@ -138,6 +159,20 @@ export const POST: APIRoute = async (ctx) => {
       });
       creditRun = started.run;
       if (!started.created && creditRun.status === 'completed' && creditRun.response_id != null) {
+        // Recover a prior request that completed payment but was interrupted
+        // before the optional snapshot write. The DAL makes this idempotent.
+        if (requestedActionPlanId) {
+          try {
+            await addScannerActionPlanRescanSnapshot(env.DB, {
+              planId: requestedActionPlanId,
+              userId: session!.user.id,
+              responseId: creditRun.response_id,
+            });
+          } catch (err) {
+            console.error('[submit] idempotent action plan rescan recovery failed:', err);
+            return json({ error: 'Không thể liên kết lần quét lại. Vui lòng thử lại sau.' }, 500);
+          }
+        }
         return json({ success: true, id: creditRun.response_id, redirect: `/scanner/result/${creditRun.response_id}` });
       }
       if (!started.created && creditRun.status === 'reserved') {
@@ -285,6 +320,21 @@ export const POST: APIRoute = async (ctx) => {
     } catch (err) {
       console.error('[submit] settle Scanner Credits failed:', err);
       return json({ error: 'Kết quả đã được lưu nhưng không thể hoàn tất thanh toán Credits. Vui lòng liên hệ quản trị viên.' }, 500);
+    }
+  }
+
+  // Snapshot only after history ownership exists. This preserves guest, credit,
+  // and idempotency behaviour while making an authenticated rescan durable.
+  if (requestedActionPlanId) {
+    try {
+      await addScannerActionPlanRescanSnapshot(env.DB, {
+        planId: requestedActionPlanId,
+        userId: session!.user.id,
+        responseId: id,
+      });
+    } catch (err) {
+      console.error('[submit] action plan rescan snapshot failed:', err);
+      return json({ error: 'Kết quả đã được lưu nhưng không thể liên kết lần quét lại. Vui lòng thử lại với Idempotency-Key mới.' }, 500);
     }
   }
 

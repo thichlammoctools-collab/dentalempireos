@@ -41,24 +41,6 @@ export async function reserveAiQuota(
   return { allowed: (result.meta.changes ?? 0) > 0, used: row?.used ?? 0, limit };
 }
 
-export async function claimScannerAiJob(
-  db: D1Database,
-  responseId: number,
-  jobType: 'analysis' | 'plan',
-): Promise<{ claimed: boolean; runId: string }> {
-  const runId = crypto.randomUUID();
-  const inserted = await db.prepare(
-    `INSERT OR IGNORE INTO "scanner_ai_job" ("response_id","job_type","run_id") VALUES (?,?,?)`,
-  ).bind(responseId, jobType, runId).run();
-  if ((inserted.meta.changes ?? 0) > 0) return { claimed: true, runId };
-
-  const updated = await db.prepare(
-    `UPDATE "scanner_ai_job" SET "run_id" = ?, "status" = 'running', "claimed_at" = datetime('now')
-     WHERE "response_id" = ? AND "job_type" = ? AND ("status" <> 'running' OR "claimed_at" < datetime('now', '-15 minutes'))`,
-  ).bind(runId, responseId, jobType).run();
-  return { claimed: (updated.meta.changes ?? 0) > 0, runId };
-}
-
 export type ScannerAiJobType = 'analysis' | 'plan';
 
 type ScannerAiResponseStatus = 'queued' | 'running' | 'done' | 'failed';
@@ -324,20 +306,6 @@ export async function failScannerAiJobWithResponseStatus(
     ).bind(errorMessage.slice(0, 500), responseId, jobType, runId),
   ]);
   return (results[0]?.meta.changes ?? 0) === 1 && (results[1]?.meta.changes ?? 0) === 1;
-}
-
-/** @deprecated Use the fenced completion or failure transition with the response status. */
-export async function finishScannerAiJob(
-  db: D1Database,
-  responseId: number,
-  jobType: ScannerAiJobType,
-  runId: string,
-  status: 'done' | 'failed',
-  errorMessage?: string,
-): Promise<boolean> {
-  return status === 'done'
-    ? false
-    : failScannerAiJobWithResponseStatus(db, responseId, jobType, runId, errorMessage ?? 'Scanner AI job failed');
 }
 
 export async function isScannerAiJobRunning(

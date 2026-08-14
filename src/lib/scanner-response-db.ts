@@ -62,6 +62,32 @@ export function isScannerResponseExpired(response: Pick<ScannerResponseRow, 'exp
 
 // ── Input Types ─────────────────────────────────────────
 
+export interface ScannerResponsePollingDto {
+  ai_analysis: string | null;
+  ai_plan: string | null;
+  ai_analysis_status: string;
+  ai_plan_status: string;
+}
+
+/**
+ * The raw Scanner response contains contact data and unredacted answers. Raw
+ * reads must be authorized through scanner_history; polling receives this DTO
+ * instead of a database row.
+ */
+export async function getOwnedScannerResponsePollingDto(
+  db: D1Database,
+  responseId: number,
+  userId: string,
+): Promise<ScannerResponsePollingDto | null> {
+  return await db.prepare(
+    `SELECT response."ai_analysis", response."ai_plan", response."ai_analysis_status", response."ai_plan_status"
+     FROM "scanner_response" response
+     INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+     WHERE response."id" = ? AND history."user_id" = ? AND response."expires_at" > ?
+     LIMIT 1`,
+  ).bind(responseId, userId, new Date().toISOString()).first<ScannerResponsePollingDto>() ?? null;
+}
+
 export interface ScannerResponseInput {
   survey_id: string;
   lang?: string;
@@ -342,7 +368,8 @@ export function getScannerSourceFreeText(
     .map((question) => responses[question.question_id])
     .filter((value): value is string | number | boolean => value !== undefined && value !== null)
     .map((value) => String(value).replace(/\s+/g, ' ').trim().slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_LENGTH))
-    .filter((value) => value.length >= 3)
+    // Tiny fragments are too likely to occur by coincidence in AI output.
+    .filter((value) => value.length >= 12)
     .slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_VALUES);
 }
 
@@ -398,30 +425,6 @@ export function buildAiContext(
     scores,
     responses: enrichedResponses,
   };
-}
-
-// ── AI Status helpers ────────────────────────────────
-
-export async function updateAiAnalysisStatus(
-  db: D1Database,
-  id: number,
-  status: 'pending' | 'queued' | 'running' | 'done' | 'failed',
-): Promise<void> {
-  await db
-    .prepare(`UPDATE "scanner_response" SET "ai_analysis_status" = ? WHERE "id" = ?`)
-    .bind(status, id)
-    .run();
-}
-
-export async function updateAiPlanStatus(
-  db: D1Database,
-  id: number,
-  status: 'pending' | 'queued' | 'running' | 'done' | 'failed',
-): Promise<void> {
-  await db
-    .prepare(`UPDATE "scanner_response" SET "ai_plan_status" = ? WHERE "id" = ?`)
-    .bind(status, id)
-    .run();
 }
 
 // ── Re-export commonly used scoring helpers ────────────

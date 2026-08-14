@@ -29,6 +29,7 @@ import {
 } from './ai-operations';
 import {
   createOrGetScannerActionPlan,
+  getReadyScannerActionPlanForResponse,
   getScannerActionPlanActions,
   getScannerActionPlanForGenerationRun,
   persistScannerActionPlanActionSet,
@@ -583,7 +584,8 @@ export async function runPlanAnalysis(
     // If a prior attempt committed the normalized set but crashed before the
     // response artifact/job transition, finalize from the database without a
     // second provider call or any reliance on new model output.
-    const committedPlan = await getScannerActionPlanForGenerationRun(db, jobRunId, ownerId);
+    const committedPlan = await getScannerActionPlanForGenerationRun(db, jobRunId, ownerId)
+      ?? await getReadyScannerActionPlanForResponse(db, responseId, ownerId);
     if (committedPlan?.generation_state === 'ready') {
       const committedActions = await getScannerActionPlanActions(db, committedPlan.id);
       if (committedActions.length < 4) throw new Error('Ready Scanner action plan has no complete action set.');
@@ -611,14 +613,10 @@ export async function runPlanAnalysis(
 
     const planStartedAt = Date.now();
     const completion = await doPlanWithFallback(db, response, full, config, scoringRules, modelConfig);
-    const structuredPlan = parseStructuredScannerActionPlan(completion.text, [
-      response.owner_name ?? '',
-      response.clinic_name ?? '',
-      response.clinic_address ?? '',
-      response.clinic_phone ?? '',
-      response.email ?? '',
-      ...getScannerSourceFreeText(response, full.sections.flatMap((section) => section.questions)),
-    ]);
+    const structuredPlan = parseStructuredScannerActionPlan(
+      completion.text,
+      getScannerSourceFreeText(response, full.sections.flatMap((section) => section.questions)),
+    );
     const planMarkdown = renderStructuredScannerActionPlanMarkdown(structuredPlan, response.lang === 'en' ? 'en' : 'vi');
 
     // Claim first and commit every normalized action atomically. A duplicate queue

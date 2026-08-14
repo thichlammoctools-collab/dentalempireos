@@ -16,6 +16,8 @@ export interface ScannerActionPlanRow {
   survey_id: string;
   source_response_id: number | null;
   source_response_purged_at: string | null;
+  /** Legacy plans are withheld after source deletion instead of rewriting possibly PII-bearing content. */
+  retention_visibility: 'available' | 'legacy_source_bound' | 'unavailable';
   generation_run_id: string;
   generation_state: ScannerActionPlanGenerationState;
   generation_provenance: ScannerActionPlanGenerationProvenance;
@@ -59,6 +61,30 @@ export interface ScannerActionPlanActionProgressRow {
   status: ScannerActionStatus;
   note: string | null;
   created_at: string;
+}
+
+export interface UpdateScannerActionPlanActionProgressInput {
+  planId: string;
+  actionId: string;
+  userId: string;
+  status?: ScannerActionStatus;
+  note?: string | null;
+  /** Exact action.updated_at returned by a prior read. */
+  expectedUpdatedAt: string;
+}
+
+export class ScannerActionPlanConcurrencyError extends Error {
+  constructor() {
+    super('Scanner action was updated by another request.');
+    this.name = 'ScannerActionPlanConcurrencyError';
+  }
+}
+
+export class ScannerActionPlanTransitionError extends Error {
+  constructor() {
+    super('Scanner action status transition is not allowed.');
+    this.name = 'ScannerActionPlanTransitionError';
+  }
 }
 
 interface ScannerResponseScoreRow {
@@ -234,6 +260,7 @@ export async function createOrGetScannerActionPlan(
     survey_id: response.survey_id,
     source_response_id: response.id,
     source_response_purged_at: null,
+    retention_visibility: 'available',
     generation_run_id: input.generationRunId,
     generation_state: 'pending',
     generation_provenance: 'phase_1b_queue',
@@ -249,12 +276,12 @@ export async function createOrGetScannerActionPlan(
     const results = await db.batch([
       db.prepare(
         `INSERT INTO "scanner_action_plan"
-         ("id","user_id","survey_id","source_response_id","source_response_purged_at","generation_run_id","generation_state","generation_provenance","status","title","summary","created_at","updated_at")
-         SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?
+         ("id","user_id","survey_id","source_response_id","source_response_purged_at","retention_visibility","generation_run_id","generation_state","generation_provenance","status","title","summary","created_at","updated_at")
+          SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?
          WHERE ${activePlanLeaseExists(input.activeLease)}`,
       ).bind(
         plan.id, plan.user_id, plan.survey_id, plan.source_response_id, plan.source_response_purged_at,
-        plan.generation_run_id, plan.generation_state, plan.generation_provenance, plan.status,
+        plan.retention_visibility, plan.generation_run_id, plan.generation_state, plan.generation_provenance, plan.status,
         plan.title, plan.summary, plan.created_at, plan.updated_at,
         ...activePlanLeaseBindings(input.activeLease),
       ),
@@ -340,6 +367,33 @@ export async function getScannerActionPlanActions(
   return results;
 }
 
+export async function getScannerActionPlanSnapshots(
+  db: D1Database,
+  planId: string,
+): Promise<ScannerActionPlanScoreSnapshotRow[]> {
+  const { results = [] } = await db.prepare(
+    `SELECT * FROM "scanner_action_plan_score_snapshot"
+     WHERE "plan_id" = ?
+     ORDER BY CASE WHEN "snapshot_kind" = 'baseline' THEN 0 ELSE 1 END,
+              "response_created_at" ASC, "created_at" ASC, "id" ASC`,
+  ).bind(planId).all<ScannerActionPlanScoreSnapshotRow>();
+  return results;
+}
+
+export async function getScannerActionPlanActionProgress(
+  db: D1Database,
+  planId: string,
+): Promise<ScannerActionPlanActionProgressRow[]> {
+  const { results = [] } = await db.prepare(
+    `SELECT progress.*
+     FROM "scanner_action_plan_action_progress" progress
+     INNER JOIN "scanner_action_plan_action" action ON action."id" = progress."action_id"
+     WHERE action."plan_id" = ?
+     ORDER BY progress."created_at" ASC, progress."id" ASC`,
+  ).bind(planId).all<ScannerActionPlanActionProgressRow>();
+  return results;
+}
+
 /**
  * Persists one generated action set in a single D1 batch. The plan becomes
  * ready only alongside every normalized action, and retries for the same run
@@ -352,6 +406,7 @@ export async function persistScannerActionPlanActionSet(
   const plan = await getScannerActionPlanForUser(db, input.planId, input.userId);
   if (!plan) throw new Error('Scanner action plan not found.');
   if (plan.status === 'archived') throw new Error('Archived Scanner action plans cannot be modified.');
+  if (plan.retention_visibility !== 'available') throw new Error('Scanner action plan is unavailable after source retention expiry.');
   if (plan.generation_run_id !== input.generationRunId) {
     throw new Error('Plan generation run does not match this action plan.');
   }
@@ -417,6 +472,7 @@ export async function createScannerActionPlanAction(
   const plan = await getScannerActionPlanForUser(db, input.planId, input.userId);
   if (!plan) throw new Error('Scanner action plan not found.');
   if (plan.status === 'archived') throw new Error('Archived Scanner action plans cannot be modified.');
+  if (plan.retention_visibility !== 'available') throw new Error('Scanner action plan is unavailable after source retention expiry.');
 
   const createdAt = timestamp();
   const action = normalizeAction(input, plan.id, createdAt);
@@ -443,49 +499,62 @@ export async function createScannerActionPlanAction(
   return action;
 }
 
+const ACTION_STATUS_TRANSITIONS: Record<ScannerActionStatus, readonly ScannerActionStatus[]> = {
+  not_started: ['in_progress', 'completed', 'skipped'],
+  in_progress: ['not_started', 'completed', 'skipped'],
+  completed: ['in_progress'],
+  skipped: ['not_started', 'in_progress'],
+};
+
+/**
+ * Appends an immutable progress event and updates the action atomically.
+ * A status change needs an exact `updated_at` version from a prior owner read;
+ * retrying the same status with a new note is allowed as an audit annotation.
+ */
 export async function recordScannerActionPlanActionProgress(
   db: D1Database,
-  input: {
-    actionId: string;
-    userId: string;
-    status: ScannerActionStatus;
-    note?: string | null;
-  },
+  input: UpdateScannerActionPlanActionProgressInput,
 ): Promise<ScannerActionPlanActionProgressRow> {
-  if (!isActionStatus(input.status)) throw new Error('Action status is invalid.');
+  if (input.status !== undefined && !isActionStatus(input.status)) throw new Error('Action status is invalid.');
+  if (!input.expectedUpdatedAt.trim()) throw new Error('Action version is required.');
 
   const action = await db.prepare(
     `SELECT action.*, plan."id" AS "plan_id"
      FROM "scanner_action_plan_action" action
      INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
-     WHERE action."id" = ? AND plan."user_id" = ? AND plan."status" = 'active'`,
-  ).bind(input.actionId, input.userId).first<ScannerActionPlanActionRow>();
+     WHERE action."id" = ? AND action."plan_id" = ? AND plan."user_id" = ? AND plan."status" = 'active'`,
+  ).bind(input.actionId, input.planId, input.userId).first<ScannerActionPlanActionRow>();
   if (!action) throw new Error('Scanner action not found or its plan is archived.');
+  if (action.updated_at !== input.expectedUpdatedAt) throw new ScannerActionPlanConcurrencyError();
+  const nextStatus = input.status ?? action.status;
+  if (action.status !== nextStatus && !ACTION_STATUS_TRANSITIONS[action.status].includes(nextStatus)) {
+    throw new ScannerActionPlanTransitionError();
+  }
 
   const createdAt = timestamp();
   const progress: ScannerActionPlanActionProgressRow = {
     id: id(),
     action_id: action.id,
     user_id: input.userId,
-    status: input.status,
+    status: nextStatus,
     note: input.note ?? null,
     created_at: createdAt,
   };
-  const completedAt = input.status === 'completed' ? createdAt : null;
+  const completedAt = nextStatus === 'completed'
+    ? createdAt
+    : action.status === 'completed' ? null : action.completed_at;
 
   const results = await db.batch([
-    // Update the action only while its parent remains active. Later statements
-    // use the same active-parent predicate, preventing archived-plan TOCTOU writes.
     db.prepare(
       `UPDATE "scanner_action_plan_action"
        SET "status" = ?, "completed_at" = ?, "updated_at" = ?
-       WHERE "id" = ?
+       WHERE "id" = ? AND "updated_at" = ?
          AND EXISTS (
            SELECT 1 FROM "scanner_action_plan"
            WHERE "id" = "scanner_action_plan_action"."plan_id"
              AND "user_id" = ? AND "status" = 'active'
          )`,
-    ).bind(progress.status, completedAt, createdAt, action.id, input.userId),
+    ).bind(progress.status, completedAt, createdAt, action.id, input.expectedUpdatedAt, input.userId),
     db.prepare(
       `INSERT INTO "scanner_action_plan_action_progress"
        ("id","action_id","user_id","status","note","created_at")
@@ -493,17 +562,17 @@ export async function recordScannerActionPlanActionProgress(
        WHERE EXISTS (
          SELECT 1 FROM "scanner_action_plan_action" action
          INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
-         WHERE action."id" = ? AND plan."user_id" = ? AND plan."status" = 'active'
+         WHERE action."id" = ? AND action."updated_at" = ? AND plan."user_id" = ? AND plan."status" = 'active'
        )`,
     ).bind(
       progress.id, progress.action_id, progress.user_id, progress.status,
-      progress.note, progress.created_at, action.id, input.userId,
+      progress.note, progress.created_at, action.id, createdAt, input.userId,
     ),
     db.prepare('UPDATE "scanner_action_plan" SET "updated_at" = ? WHERE "id" = ? AND "user_id" = ? AND "status" = \'active\'')
       .bind(createdAt, action.plan_id, input.userId),
   ]);
-  if ((results[0]?.meta.changes ?? 0) !== 1) {
-    throw new Error('Scanner action not found or its plan is archived.');
+  if ((results[0]?.meta.changes ?? 0) !== 1 || (results[1]?.meta.changes ?? 0) !== 1) {
+    throw new ScannerActionPlanConcurrencyError();
   }
 
   return progress;
@@ -522,6 +591,12 @@ export async function addScannerActionPlanRescanSnapshot(
   if (!response || response.survey_id !== plan.survey_id) {
     throw new Error('Scanner response is expired, missing, or does not match this action plan.');
   }
+
+  const existing = await db.prepare(
+    `SELECT * FROM "scanner_action_plan_score_snapshot"
+     WHERE "plan_id" = ? AND "response_id" = ? AND "snapshot_kind" = 'rescan'`,
+  ).bind(plan.id, response.id).first<ScannerActionPlanScoreSnapshotRow>();
+  if (existing) return existing;
 
   const scores = parseScores(response.scores_json);
   const snapshot: ScannerActionPlanScoreSnapshotRow = {
@@ -553,6 +628,11 @@ export async function addScannerActionPlanRescanSnapshot(
       .bind(snapshot.created_at, plan.id, input.userId),
   ]);
   if ((results[0]?.meta.changes ?? 0) !== 1) {
+    const raced = await db.prepare(
+      `SELECT * FROM "scanner_action_plan_score_snapshot"
+       WHERE "plan_id" = ? AND "response_id" = ? AND "snapshot_kind" = 'rescan'`,
+    ).bind(plan.id, response.id).first<ScannerActionPlanScoreSnapshotRow>();
+    if (raced) return raced;
     throw new Error('Scanner action plan is no longer active.');
   }
 
@@ -567,6 +647,34 @@ export async function getScannerActionPlanForGenerationRun(
   return await db.prepare(
     'SELECT * FROM "scanner_action_plan" WHERE "generation_run_id" = ? AND "user_id" = ?',
   ).bind(generationRunId, userId).first<ScannerActionPlanRow>() ?? null;
+}
+
+/** Finds the single canonical owner plan for recovery after a lease is fenced. */
+export async function getReadyScannerActionPlanForResponse(
+  db: D1Database,
+  responseId: number,
+  userId: string,
+): Promise<ScannerActionPlanRow | null> {
+  return await db.prepare(
+    `SELECT * FROM "scanner_action_plan"
+     WHERE "source_response_id" = ? AND "user_id" = ? AND "generation_state" = 'ready'
+     ORDER BY "updated_at" DESC, "id" ASC
+     LIMIT 1`,
+  ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
+}
+
+/** Resolves a non-purged source response to its owner plan without email fallback. */
+export async function getScannerActionPlanForResponseForUser(
+  db: D1Database,
+  responseId: number,
+  userId: string,
+): Promise<ScannerActionPlanRow | null> {
+  return await db.prepare(
+    `SELECT * FROM "scanner_action_plan"
+     WHERE "source_response_id" = ? AND "user_id" = ?
+     ORDER BY "updated_at" DESC, "id" ASC
+     LIMIT 1`,
+  ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
 }
 
 export async function getScannerActionPlanForUser(
