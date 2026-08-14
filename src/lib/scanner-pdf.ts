@@ -638,11 +638,16 @@ function ctxLabel(lang: 'vi' | 'en', vi: string, en: string) {
   return lang === 'vi' ? vi : en;
 }
 
-function planField(text: string, lang: 'vi' | 'en'): { label: string; value: string; color: ReturnType<typeof rgb> } {
+type PlanFieldKind = 'category' | 'priority' | 'target' | 'detail';
+
+function planField(text: string, lang: 'vi' | 'en'): { label: string; value: string; color: ReturnType<typeof rgb>; kind: PlanFieldKind } {
   const match = text.match(/^([^:：]+)\s*[:：]\s*(.*)$/s);
   const label = match?.[1]?.trim() ?? '';
   const value = match?.[2]?.trim() ?? text;
   const normalized = label.toLowerCase();
+  const isCategory = normalized.includes(lang === 'vi' ? 'danh mục' : 'category');
+  const isPriority = normalized.includes(lang === 'vi' ? 'ưu tiên' : 'priority');
+  const isTarget = normalized.includes(lang === 'vi' ? 'mục tiêu hoàn thành' : 'target completion');
   const isObjective = normalized.includes(lang === 'vi' ? 'mục tiêu' : 'objective');
   const isDone = normalized.includes(lang === 'vi' ? 'hoàn thành' : 'done when');
   const isOwner = normalized.includes(lang === 'vi' ? 'phụ trách' : 'owner') || normalized.includes(lang === 'vi' ? 'thời hạn' : 'due date');
@@ -650,6 +655,7 @@ function planField(text: string, lang: 'vi' | 'en'): { label: string; value: str
     label: label || ctxLabel(lang, 'Chi tiết', 'Details'),
     value,
     color: isDone ? SUCCESS : isObjective ? NAVY : isOwner ? MUTED : AMBER,
+    kind: isCategory ? 'category' : isPriority ? 'priority' : isTarget ? 'target' : 'detail',
   };
 }
 
@@ -672,17 +678,67 @@ function drawPlanWeek(ctx: PdfContext, title: string, weekIndex: number) {
   ctx.y -= 50;
 }
 
+interface PlanTag {
+  text: string;
+  color: ReturnType<typeof rgb>;
+}
+
+function planTag(field: ReturnType<typeof planField>, lang: 'vi' | 'en'): PlanTag | null {
+  if (field.kind === 'category') return { text: `${ctxLabel(lang, 'Danh mục', 'Category')}: ${field.value}`, color: MUTED };
+  if (field.kind === 'priority') {
+    const high = /cao|high/i.test(field.value);
+    const low = /thấp|low/i.test(field.value);
+    return { text: `${ctxLabel(lang, 'Ưu tiên', 'Priority')}: ${field.value}`, color: high ? DANGER : low ? MUTED : WARN };
+  }
+  if (field.kind === 'target') return { text: `${ctxLabel(lang, 'Mục tiêu', 'Target')}: ${field.value}`, color: NAVY };
+  return null;
+}
+
+function planTagRows(tags: PlanTag[], font: PDFFont, maxWidth: number): PlanTag[][] {
+  const rows: PlanTag[][] = [];
+  let row: PlanTag[] = [];
+  let usedWidth = 0;
+  for (const tag of tags) {
+    const tagWidth = font.widthOfTextAtSize(tag.text, 7.5) + 14;
+    const gap = row.length ? 5 : 0;
+    if (row.length && usedWidth + gap + tagWidth > maxWidth) {
+      rows.push(row);
+      row = [];
+      usedWidth = 0;
+    }
+    row.push(tag);
+    usedWidth += (row.length > 1 ? 5 : 0) + tagWidth;
+  }
+  if (row.length) rows.push(row);
+  return rows;
+}
+
+function drawPlanTagRows(ctx: PdfContext, rows: PlanTag[][], x: number, y: number) {
+  for (const row of rows) {
+    let tagX = x;
+    for (const tag of row) {
+      const width = ctx.fontBold.widthOfTextAtSize(tag.text, 7.5) + 14;
+      ctx.page.drawRectangle({ x: tagX, y: y - 16, width, height: 17, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawText(tag.text, { x: tagX + 7, y: y - 11, size: 7.5, font: ctx.fontBold, color: tag.color });
+      tagX += width + 5;
+    }
+    y -= 22;
+  }
+}
+
 function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number, isLast: boolean) {
   const timelineX = MARGIN_X + 18;
   const cardX = MARGIN_X + 42;
   const cardWidth = CONTENT_WIDTH - 42;
   const fields = action.content.flatMap((text) => text.split('\n').filter(Boolean)).map((text) => planField(text, ctx.lang));
-  const fieldLines = fields.map((field) => ({
+  const tags = fields.map((field) => planTag(field, ctx.lang)).filter((tag): tag is PlanTag => tag !== null);
+  const tagRows = planTagRows(tags, ctx.fontBold, cardWidth - 30);
+  const fieldLines = fields.filter((field) => field.kind === 'detail').map((field) => ({
     ...field,
     lines: wrapText(field.value, ctx.font, 9.5, cardWidth - 30),
   }));
   const titleLines = wrapText(action.title, ctx.fontBold, 10, cardWidth - 18);
-  const cardHeight = 18 + titleLines.length * 13 + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0) + 10;
+  const cardHeight = 18 + titleLines.length * 13 + tagRows.length * 22 + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0) + 10;
   const needed = cardHeight + 22;
   ensureSpace(ctx, needed);
 
@@ -720,6 +776,10 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     y -= 13;
   });
   y -= 3;
+  if (tagRows.length) {
+    drawPlanTagRows(ctx, tagRows, cardX + 15, y);
+    y -= tagRows.length * 22;
+  }
   for (const field of fieldLines) {
     ctx.page.drawText(field.label, { x: cardX + 15, y, size: 8.5, font: ctx.fontBold, color: field.color });
     y -= 13;

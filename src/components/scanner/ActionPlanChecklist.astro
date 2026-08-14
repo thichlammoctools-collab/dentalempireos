@@ -58,6 +58,11 @@ const { planId, compact = false, readOnly = false } = Astro.props;
   .action-plan-checklist__tag--priority-medium { color: var(--color-on-tertiary-container); background: color-mix(in srgb, var(--color-warning-container) 72%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-outline-variant)); }
   .action-plan-checklist__tag--priority-low { color: var(--color-on-surface-variant); background: var(--color-surface-container-high); }
   .action-plan-checklist__tag--target { color: var(--color-on-primary-container); background: color-mix(in srgb, var(--color-primary-container) 56%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-outline-variant)); }
+  .dark .action-plan-checklist__tag--category { color: var(--color-secondary-fixed); }
+  .dark .action-plan-checklist__tag--priority-high { color: var(--color-error); }
+  .dark .action-plan-checklist__tag--priority-medium { color: var(--color-tertiary-fixed); }
+  .dark .action-plan-checklist__tag--priority-low { color: var(--color-on-surface); }
+  .dark .action-plan-checklist__tag--target { color: var(--color-primary-fixed); }
   .action-plan-checklist__status-label { display: grid; gap: .3rem; align-self: start; color: var(--color-on-surface-variant); font-size: .7rem; font-weight: 700; letter-spacing: .01em; }
   .action-plan-checklist__status {
     --status-color: var(--color-primary);
