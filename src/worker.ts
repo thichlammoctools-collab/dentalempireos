@@ -17,6 +17,10 @@ import {
   linkScannerSubmissionSnapshot,
   listPendingScannerSubmissionSnapshots,
 } from './lib/scanner-submission-db';
+import {
+  cleanupScannerActionPlanReminders,
+  scheduleScannerActionPlanReminders,
+} from './lib/scanner-action-plan-reminders';
 
 const SCANNER_RESPONSE_PURGE_BATCH_SIZE = 100;
 
@@ -161,6 +165,9 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
       const outcome = await env.DB.batch(statements);
       const deleted = outcome[outcome.length - 1]?.meta.changes ?? 0;
       if (deleted !== 1) throw new Error('scanner_response delete did not affect exactly one row');
+      // Normalized plans and their opaque reminder ledger survive raw-response
+      // purge. Legacy plans become unavailable and their reminder metadata is
+      // removed by the scheduled lifecycle cleanup.
       await recordScannerPurgeAttempt(env.DB, response.id, 'completed', null);
       console.info('[scanner-retention] response purged', { responseId: response.id, artifactCount: keys.length });
     } catch (error) {
@@ -269,6 +276,12 @@ export default {
       purgeExpiredScannerResponses(env),
       retryPendingScannerSubmissionSnapshots(env),
       reapStaleScannerAiJobs(env),
+      // Each reminder candidate is claimed and finalized independently, so a
+      // single bad row cannot block the ten-minute scheduled run.
+      scheduleScannerActionPlanReminders(env.DB),
+      cleanupScannerActionPlanReminders(env.DB).catch((error) => {
+        console.error('[scanner-reminders] lifecycle cleanup failed', error);
+      }),
     ]);
   },
 

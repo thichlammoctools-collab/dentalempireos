@@ -2,15 +2,17 @@
 interface Props {
   planId: string;
   compact?: boolean;
+  readOnly?: boolean;
 }
 
-const { planId, compact = false } = Astro.props;
+const { planId, compact = false, readOnly = false } = Astro.props;
 ---
 
 <section
   class:list={['action-plan-checklist', compact && 'action-plan-checklist--compact']}
   data-action-plan-checklist
   data-plan-id={planId}
+  data-read-only={readOnly ? 'true' : 'false'}
   aria-labelledby={`action-plan-heading-${planId}`}
 >
   <div class="action-plan-checklist__header">
@@ -20,7 +22,7 @@ const { planId, compact = false } = Astro.props;
     </div>
     <span class="action-plan-checklist__summary" data-progress-summary>Đang tải tiến độ…</span>
   </div>
-  <p class="action-plan-checklist__message" data-plan-message aria-live="polite">Đang tải các việc cần làm của bạn.</p>
+  <p id={`action-plan-read-only-${planId}`} class="action-plan-checklist__message" data-plan-message aria-live="polite">Đang tải các việc cần làm của bạn.</p>
   <div class="action-plan-checklist__actions" data-plan-actions></div>
   <div class="action-plan-checklist__footer" data-plan-footer hidden>
     <a data-plan-detail class="action-plan-checklist__link">
@@ -34,7 +36,7 @@ const { planId, compact = false } = Astro.props;
   </div>
 </section>
 
-<script src="/scripts/action-plan-checklist.js?v=20260814-phase3" is:inline></script>
+<script src="/scripts/action-plan-checklist.js?v=20260814-phase3-review" is:inline></script>
 
 <style>
   .action-plan-checklist { margin: 0 0 1.25rem; padding: 1.25rem; color: var(--color-on-surface); background: var(--color-surface); border: 1px solid var(--color-outline-variant); border-radius: 1rem; }

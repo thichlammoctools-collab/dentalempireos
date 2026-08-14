@@ -9,6 +9,7 @@ import { createAuth } from '../../../../../../lib/auth';
 import {
   ScannerActionPlanConcurrencyError,
   ScannerActionPlanTransitionError,
+  getNextScannerActionStatuses,
   getScannerActionPlanForUser,
   recordScannerActionPlanActionProgress,
   type ScannerActionStatus,
@@ -30,6 +31,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   if (!planId || !actionId || planId.length > MAX_ID_LENGTH || actionId.length > MAX_ID_LENGTH) return notFound('not_found');
   const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
   if (!plan || plan.retention_visibility === 'unavailable') return notFound('not_found');
+  if (plan.retention_visibility === 'legacy_source_bound') return json({ error: 'action_plan_read_only' }, 403);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return badRequest('invalid_json');
@@ -61,7 +63,10 @@ export const PATCH: APIRoute = async ({ params, request }) => {
        INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
        WHERE action."id" = ? AND action."plan_id" = ? AND plan."user_id" = ?`,
     ).bind(actionId, planId, session.user.id).first();
-    return json({ action, progress });
+    return json({
+      action: action ? { ...action, next_statuses: getNextScannerActionStatuses(action.status as ScannerActionStatus) } : null,
+      progress,
+    });
   } catch (error) {
     if (error instanceof ScannerActionPlanTransitionError) return json({ error: 'invalid_status_transition' }, 409);
     if (error instanceof ScannerActionPlanConcurrencyError) return json({ error: 'action_version_conflict' }, 409);

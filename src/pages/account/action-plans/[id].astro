@@ -14,7 +14,8 @@ if (!session?.user) return Astro.redirect(`/login?redirect=/account/action-plans
 if (!planId || planId.length > 100) return new Response('Not found', { status: 404 });
 
 const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
-if (!plan || plan.retention_visibility !== 'available') return new Response('Not found', { status: 404 });
+if (!plan || plan.retention_visibility === 'unavailable') return new Response('Not found', { status: 404 });
+const isReadOnly = plan.retention_visibility === 'legacy_source_bound';
 const survey = await env.DB.prepare('SELECT "title_vi" FROM "survey_definition" WHERE "id" = ?').bind(plan.survey_id).first<{ title_vi: string }>();
 const sourceResultHref = plan.source_response_id === null ? null : `/scanner/result/${plan.source_response_id}`;
 ---
@@ -29,12 +30,13 @@ const sourceResultHref = plan.source_response_id === null ? null : `/scanner/res
         <p class="text-xs font-bold uppercase tracking-[.14em] text-primary">{survey?.title_vi ?? 'Scanner'}</p>
         <h1 class="mt-2 text-2xl font-bold text-on-surface">{plan.title ?? 'Kế hoạch hành động'}</h1>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-on-surface-variant">{plan.summary ?? 'Theo dõi và cập nhật từng việc ưu tiên trong kế hoạch này.'}</p>
+        {isReadOnly && <p class="mt-3 text-sm leading-relaxed text-on-surface-variant" role="status">Đây là kế hoạch legacy chỉ xem khi dữ liệu nguồn vẫn được lưu. Bạn không thể cập nhật việc hoặc tạo lần quét lại từ kế hoạch này.</p>}
         <div class="mt-4 flex flex-wrap gap-3 text-sm">
           {sourceResultHref && <a href={sourceResultHref} class="inline-flex items-center gap-1.5 font-semibold text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-base">description</span>Xem kết quả Scanner</a>}
           <a href={`/account/action-plans/${plan.id}/comparison`} class="inline-flex items-center gap-1.5 font-semibold text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-base">compare_arrows</span>So sánh lần quét lại</a>
         </div>
       </header>
-      <ActionPlanChecklist planId={plan.id} />
+      <ActionPlanChecklist planId={plan.id} readOnly={isReadOnly} />
     </main>
   </div>
 </BaseLayout>

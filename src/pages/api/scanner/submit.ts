@@ -5,7 +5,7 @@
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, badRequest } from '../../../lib/api-helpers';
+import { json, badRequest, notFound } from '../../../lib/api-helpers';
 import {
   getSurveyDefinitionById,
   parseScoringRules,
@@ -37,6 +37,7 @@ import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from
 import { hashIp, subscribe } from '../../../lib/newsletter';
 import { sendGuestScannerReportEmail } from '../../../lib/resend';
 import { isGuestScannerSlug } from '../../../lib/guest-scanner';
+import { getScannerActionPlanForUser } from '../../../lib/scanner-action-plan-db';
 import {
   createOrGetScannerSubmission,
   getScannerSubmissionById,
@@ -98,6 +99,19 @@ export const POST: APIRoute = async (ctx) => {
   if (requestedActionPlanId && !session?.user) return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
   if (!session?.user && !isGuestScanner) {
     return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
+  }
+  if (requestedActionPlanId && session?.user) {
+    // Look up only within the current owner's plans. A missing, foreign, or
+    // different-survey plan remains non-enumerating; retained owner plans get
+    // an explicit policy response before creating a submission or reserving credits.
+    const actionPlan = await getScannerActionPlanForUser(env.DB, requestedActionPlanId, session.user.id);
+    if (!actionPlan || actionPlan.survey_id !== surveyId) return notFound('not_found');
+    if (actionPlan.retention_visibility === 'legacy_source_bound') {
+      return json({ error: 'action_plan_read_only' }, 403);
+    }
+    if (actionPlan.retention_visibility === 'unavailable') {
+      return json({ error: 'action_plan_unavailable' }, 410);
+    }
   }
   const guestLead = isGuestScanner ? validateGuestLead(body) : null;
   if (isGuestScanner && !guestLead) {

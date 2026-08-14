@@ -29,7 +29,7 @@ const { results = [] } = await env.DB.prepare(
    FROM "scanner_action_plan" plan
    INNER JOIN "survey_definition" definition ON definition."id" = plan."survey_id"
    LEFT JOIN "scanner_action_plan_action" action ON action."plan_id" = plan."id"
-   WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" = 'available'
+   WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" != 'unavailable'
    GROUP BY plan."id"
    ORDER BY plan."updated_at" DESC, plan."id" ASC`,
 ).bind(session.user.id).all<PlanListRow>();
@@ -41,7 +41,7 @@ const actionRows = planIds.length === 0
   : (await env.DB.prepare(
     `SELECT action.* FROM "scanner_action_plan_action" action
      INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
-     WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" = 'available'
+     WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" != 'unavailable'
      ORDER BY plan."updated_at" DESC, action."position" ASC`,
   ).bind(session.user.id).all<ScannerActionPlanActionRow>()).results ?? [];
 const actionsByPlan = new Map<string, ScannerActionPlanActionRow[]>();
@@ -96,9 +96,10 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2
                     <div class="min-w-0">
                       <p class="text-xs text-primary font-bold uppercase tracking-wider">{plan.scanner_title_vi ?? 'Scanner'} · cập nhật {formatDate(plan.updated_at)}</p>
                       <h2 class="text-lg font-bold text-on-surface mt-1">{plan.title ?? 'Kế hoạch hành động'}</h2>
-                      <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">{plan.summary ?? (ready ? 'Cập nhật trạng thái từng việc để phản ánh tiến độ triển khai.' : 'Kế hoạch đang được chuẩn bị.')}</p>
+                      <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">{plan.retention_visibility === 'legacy_source_bound' ? 'Kế hoạch legacy chỉ xem khi dữ liệu nguồn vẫn được lưu; không thể cập nhật việc hoặc tạo lần quét lại.' : plan.summary ?? (ready ? 'Cập nhật trạng thái từng việc để phản ánh tiến độ triển khai.' : 'Kế hoạch đang được chuẩn bị.')}</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
+                      {plan.retention_visibility === 'legacy_source_bound' && <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-surface-container text-on-surface-variant">Chỉ xem</span>}
                       <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary">{plan.completed_total}/{plan.action_total} hoàn thành</span>
                       {plan.in_progress_total > 0 && <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-amber-500/10 text-amber-500">{plan.in_progress_total} đang làm</span>}
                     </div>

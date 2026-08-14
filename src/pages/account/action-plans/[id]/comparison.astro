@@ -14,7 +14,8 @@ if (!session?.user) return Astro.redirect(`/login?redirect=/account/action-plans
 if (!planId || planId.length > 100) return new Response('Not found', { status: 404 });
 
 const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
-if (!plan || plan.retention_visibility !== 'available') return new Response('Not found', { status: 404 });
+if (!plan || plan.retention_visibility === 'unavailable') return new Response('Not found', { status: 404 });
+const isReadOnly = plan.retention_visibility === 'legacy_source_bound';
 const selectedSnapshot = Astro.url.searchParams.get('rescan_snapshot_id')?.trim() || undefined;
 const comparison = await getScannerActionPlanComparison(env.DB, { planId, userId: session.user.id, rescanSnapshotId: selectedSnapshot });
 if (!comparison) return new Response('Not found', { status: 404 });
@@ -38,6 +39,7 @@ const statusLabels = { not_started: 'Chưa bắt đầu', in_progress: 'Đang th
         <p class="text-xs font-bold uppercase tracking-[.14em] text-primary">{survey?.title_vi ?? 'Scanner'}</p>
         <h1 class="mt-2 text-2xl font-bold text-on-surface">So sánh lần quét lại</h1>
         <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Đây là đối chiếu các điểm số được lưu ở từng thời điểm. Thay đổi được hiển thị trung tính và không xác định nguyên nhân hay quy kết kết quả cho các hành động trong kế hoạch.</p>
+        {isReadOnly && <p class="mt-3 text-sm leading-relaxed text-on-surface-variant" role="status">Kế hoạch legacy này chỉ xem trong thời gian dữ liệu nguồn còn được lưu; không thể tạo thêm lần quét lại được liên kết.</p>}
       </header>
 
       {snapshots.length === 0 || comparison.reason === 'no_rescan' ? (
@@ -45,7 +47,7 @@ const statusLabels = { not_started: 'Chưa bắt đầu', in_progress: 'Đang th
           <span class="material-symbols-outlined text-5xl text-on-surface-variant/30">compare_arrows</span>
           <h2 class="mt-3 text-lg font-bold text-on-surface">Chưa có lần quét lại được liên kết</h2>
           <p class="mt-2 text-sm text-on-surface-variant">Thực hiện lại cùng Scanner từ kế hoạch để tạo mốc đối chiếu. Kết quả sẽ xuất hiện khi lần quét lại được lưu.</p>
-          <a href={`/scanner/${survey?.slug ?? ''}?action_plan_id=${encodeURIComponent(plan.id)}`} class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:opacity-90"><span class="material-symbols-outlined text-base">refresh</span>Quét lại Scanner</a>
+          {!isReadOnly && <a href={`/scanner/${survey?.slug ?? ''}?action_plan_id=${encodeURIComponent(plan.id)}`} class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:opacity-90"><span class="material-symbols-outlined text-base">refresh</span>Quét lại Scanner</a>}
         </section>
       ) : comparison.reason === 'no_baseline' || comparison.reason === 'invalid_scores' ? (
         <section class="glass-card rounded-2xl border border-outline-variant/20 p-8 text-center"><span class="material-symbols-outlined text-5xl text-on-surface-variant/30">error_outline</span><h2 class="mt-3 text-lg font-bold text-on-surface">Chưa thể tạo đối chiếu hoàn chỉnh</h2><p class="mt-2 text-sm text-on-surface-variant">Một hoặc nhiều mốc điểm số không còn đủ dữ liệu đã chuẩn hóa để so sánh.</p></section>

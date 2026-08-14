@@ -8,6 +8,7 @@ import { createAuth } from '../../../../lib/auth';
 import {
   getScannerActionPlanActionProgress,
   getScannerActionPlanActions,
+  getNextScannerActionStatuses,
   getScannerActionPlanForUser,
   getScannerActionPlanSnapshots,
   type ScannerActionStatus,
@@ -47,7 +48,10 @@ export const GET: APIRoute = async ({ params, request }) => {
   ]);
   return json({
     plan,
-    actions,
+    actions: actions.map((action) => ({
+      ...action,
+      next_statuses: getNextScannerActionStatuses(action.status),
+    })),
     progressSummary: actionSummary(actions),
     snapshots: snapshots.map((snapshot) => ({
       id: snapshot.id,

@@ -506,6 +506,11 @@ const ACTION_STATUS_TRANSITIONS: Record<ScannerActionStatus, readonly ScannerAct
   skipped: ['not_started', 'in_progress'],
 };
 
+/** The server-authoritative statuses that may follow an action's current status. */
+export function getNextScannerActionStatuses(status: ScannerActionStatus): readonly ScannerActionStatus[] {
+  return ACTION_STATUS_TRANSITIONS[status];
+}
+
 /**
  * Appends an immutable progress event and updates the action atomically.
  * A status change needs an exact `updated_at` version from a prior owner read;

@@ -10,6 +10,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "test": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "test:scanner-reminders": "node --experimental-strip-types --test tests/scanner-action-plan-reminders.test.ts",
     "portfolio:source": "node scripts/clinical-content-portfolio-deck.mjs",
     "portfolio:pdf": "npm run portfolio:source && node scripts/render-clinical-content-portfolio.mjs",
     "resources:generate": "node --experimental-strip-types scripts/generate-clinic-resources.mjs",

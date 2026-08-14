@@ -143,8 +143,9 @@ const retentionLabel = response.retention_tier === 'credit_paid'
   ? (lang === 'vi' ? 'Lượt dùng Credits · lưu 365 ngày' : 'Credit-paid attempt · stored for 365 days')
   : (lang === 'vi' ? 'Lượt miễn phí · lưu 30 ngày' : 'Free attempt · stored for 30 days');
 const actionPlan = await getScannerActionPlanForResponseForUser(env.DB, id, currentUser.id);
-const availableActionPlan = actionPlan?.retention_visibility === 'available' ? actionPlan : null;
-const rescanHref = availableActionPlan ? `/scanner/${definition.slug}?action_plan_id=${encodeURIComponent(availableActionPlan.id)}` : `/scanner/${definition.slug}`;
+const visibleActionPlan = actionPlan?.retention_visibility !== 'unavailable' ? actionPlan : null;
+const editableActionPlan = visibleActionPlan?.retention_visibility === 'available' ? visibleActionPlan : null;
+const rescanHref = editableActionPlan ? `/scanner/${definition.slug}?action_plan_id=${encodeURIComponent(editableActionPlan.id)}` : `/scanner/${definition.slug}`;
 
 // Cross-sell suggestions: pick 2 other active surveys
 let crossSells: Array<{ id: string; slug: string; title_vi: string; title_en: string; description_vi: string | null }> = [];
@@ -209,10 +210,10 @@ try {
         </button>
         <a href={rescanHref} class="btn btn-ghost">
           <span class="material-symbols-outlined text-base">refresh</span>
-          {availableActionPlan ? (lang === 'vi' ? 'Quét lại để so sánh' : 'Rescan for comparison') : (lang === 'vi' ? 'Làm khảo sát mới' : 'New survey')}
+          {editableActionPlan ? (lang === 'vi' ? 'Quét lại để so sánh' : 'Rescan for comparison') : (lang === 'vi' ? 'Làm khảo sát mới' : 'New survey')}
         </a>
-        {availableActionPlan && (
-          <a href={`/account/action-plans/${availableActionPlan.id}`} class="btn btn-ghost">
+        {visibleActionPlan && (
+          <a href={`/account/action-plans/${visibleActionPlan.id}`} class="btn btn-ghost">
             <span class="material-symbols-outlined text-base">assignment</span>
             <span>{lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'}</span>
           </a>
@@ -223,6 +224,10 @@ try {
         </a>
       </div>
     </header>
+
+    {visibleActionPlan?.retention_visibility === 'legacy_source_bound' && (
+      <p class="report-context" role="status"><span class="material-symbols-outlined" aria-hidden="true">visibility</span><span>{lang === 'vi' ? 'Kế hoạch legacy đang ở chế độ chỉ xem trong thời gian kết quả nguồn còn được lưu. Không thể cập nhật việc hoặc tạo lần quét lại được liên kết.' : 'This legacy plan is read-only while its source result is retained. Action updates and linked rescans are unavailable.'}</span></p>
+    )}
 
     <div class="card score-card">
       <div class="report-context">
@@ -471,8 +476,8 @@ try {
       )}
     </div>
 
-    {availableActionPlan && (
-      <ActionPlanChecklist planId={availableActionPlan.id} compact={true} />
+    {visibleActionPlan && (
+      <ActionPlanChecklist planId={visibleActionPlan.id} compact={true} readOnly={visibleActionPlan.retention_visibility === 'legacy_source_bound'} />
     )}
 
     <div class="card analysis-card" id="analysis-section">

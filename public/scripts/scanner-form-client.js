@@ -59,6 +59,20 @@
       : ((surveyData.translations_en && surveyData.translations_en[key]) || fallbackEn);
   }
 
+  function getSubmitErrorMessage(error) {
+    if (error === 'action_plan_read_only') {
+      return currentLang === 'vi'
+        ? 'Kế hoạch hành động này chỉ xem và không thể tạo lần quét lại được liên kết.'
+        : 'This action plan is read-only and cannot be used for a linked rescan.';
+    }
+    if (error === 'action_plan_unavailable') {
+      return currentLang === 'vi'
+        ? 'Kế hoạch hành động này không còn khả dụng để tạo lần quét lại được liên kết.'
+        : 'This action plan is no longer available for a linked rescan.';
+    }
+    return error === 'not_found' ? 'Submit failed' : (error || 'Submit failed');
+  }
+
   function escapeHtml(s) {
     if (!s) return '';
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -522,7 +536,7 @@
           submitError.textContent = 'Ba lượt miễn phí đã dùng hết. Vui lòng nạp Credits để thực hiện lượt tiếp theo.';
           scannerUnavailable = true;
         } else {
-          submitError.textContent = err.message || 'Submit failed';
+          submitError.textContent = getSubmitErrorMessage(err.message);
         }
         submitError.classList.remove('hidden');
       }

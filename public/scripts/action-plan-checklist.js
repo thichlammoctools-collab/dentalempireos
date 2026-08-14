@@ -18,7 +18,7 @@
     return summary.completed + '/' + summary.total + ' hoàn thành';
   }
 
-  function renderAction(container, planId, action) {
+  function renderAction(container, planId, action, readOnly) {
     var item = document.createElement('article');
     item.className = 'action-plan-checklist__action';
     item.dataset.actionId = action.id;
@@ -52,16 +52,23 @@
     var select = document.createElement('select');
     select.className = 'action-plan-checklist__status';
     select.setAttribute('aria-label', 'Cập nhật trạng thái: ' + action.title);
-    Object.keys(labels).forEach(function (status) {
+    var permittedStatuses = [action.status].concat(action.next_statuses || []);
+    permittedStatuses.filter(function (status, index, all) {
+      return Object.prototype.hasOwnProperty.call(labels, status) && all.indexOf(status) === index;
+    }).forEach(function (status) {
       var option = document.createElement('option');
       option.value = status;
       option.textContent = labels[status];
       option.selected = status === action.status;
       select.appendChild(option);
     });
+    if (readOnly) {
+      select.disabled = true;
+      select.setAttribute('aria-describedby', 'action-plan-read-only-' + planId);
+    }
     label.appendChild(select);
 
-    select.addEventListener('change', function () {
+    if (!readOnly) select.addEventListener('change', function () {
       var originalStatus = action.status;
       var nextStatus = select.value;
       var expectedUpdatedAt = item.dataset.updatedAt;
@@ -78,18 +85,25 @@
         return { response: response, body: body };
       }).then(function (result) {
         if (!result.response.ok || !result.body.action) {
-          if (result.response.status === 409) {
+          if (result.response.status === 409 && result.body.error === 'invalid_status_transition') {
+            setMessage(container, 'Trạng thái vừa chọn không còn hợp lệ từ trạng thái hiện tại. Đang tải lại các chuyển đổi hợp lệ.');
+            loadPlan(container, planId);
+            return;
+          }
+          if (result.response.status === 409 && result.body.error === 'action_version_conflict') {
             setMessage(container, 'Việc này vừa được cập nhật ở nơi khác. Đang tải lại trạng thái mới nhất.');
+            loadPlan(container, planId);
+            return;
+          }
+          if (result.response.status === 403 && result.body.error === 'action_plan_read_only') {
+            setMessage(container, 'Kế hoạch legacy này chỉ xem khi dữ liệu nguồn còn được lưu.');
             loadPlan(container, planId);
             return;
           }
           throw new Error(result.body.error || 'Không thể lưu thay đổi.');
         }
-        action = result.body.action;
-        item.dataset.updatedAt = action.updated_at;
-        select.value = action.status;
-        setMessage(container, 'Đã cập nhật trạng thái việc cần làm.');
-        loadSummary(container, planId);
+        setMessage(container, 'Đã cập nhật trạng thái việc cần làm. Đang tải các chuyển đổi hợp lệ.');
+        loadPlan(container, planId);
       }).catch(function (error) {
         select.value = originalStatus;
         setMessage(container, error instanceof Error ? error.message : 'Không thể lưu thay đổi.');
@@ -107,20 +121,12 @@
     text(container.querySelector('[data-plan-message]'), value);
   }
 
-  function loadSummary(container, planId) {
-    fetch('/api/scanner/action-plans/' + encodeURIComponent(planId), { credentials: 'include' })
-      .then(function (response) { return response.ok ? response.json() : Promise.reject(new Error('Không thể tải tiến độ.')); })
-      .then(function (data) {
-        text(container.querySelector('[data-progress-summary]'), summaryText(data.progressSummary));
-      })
-      .catch(function () { /* retain previous summary */ });
-  }
-
   function loadPlan(container, planId) {
     var actionsNode = container.querySelector('[data-plan-actions]');
     var footer = container.querySelector('[data-plan-footer]');
     var detailLink = container.querySelector('[data-plan-detail]');
     var comparisonLink = container.querySelector('[data-plan-comparison]');
+    var readOnly = container.dataset.readOnly === 'true';
     if (!actionsNode) return;
 
     actionsNode.replaceChildren();
@@ -134,14 +140,20 @@
       .then(function (data) {
         text(container.querySelector('[data-progress-summary]'), summaryText(data.progressSummary));
         var plan = data.plan;
+        readOnly = readOnly || plan.retention_visibility === 'legacy_source_bound';
+        if (readOnly) {
+          setMessage(container, 'Kế hoạch legacy này chỉ xem khi dữ liệu nguồn còn được lưu. Không thể cập nhật trạng thái việc hoặc tạo lần quét lại.');
+        }
         if (data.actions.length === 0) {
-          setMessage(container, plan.generation_state === 'pending'
-            ? 'Kế hoạch đang được chuẩn bị. Hãy quay lại sau ít phút.'
-            : 'Kế hoạch chưa có việc cần làm để hiển thị.');
+          if (!readOnly) {
+            setMessage(container, plan.generation_state === 'pending'
+              ? 'Kế hoạch đang được chuẩn bị. Hãy quay lại sau ít phút.'
+              : 'Kế hoạch chưa có việc cần làm để hiển thị.');
+          }
         } else {
-          setMessage(container, plan.summary || 'Cập nhật tiến độ từng việc để theo dõi quá trình thực hiện.');
+          if (!readOnly) setMessage(container, plan.summary || 'Cập nhật tiến độ từng việc để theo dõi quá trình thực hiện.');
           data.actions.forEach(function (action) {
-            actionsNode.appendChild(renderAction(container, planId, action));
+            actionsNode.appendChild(renderAction(container, planId, action, readOnly));
           });
         }
         if (footer && detailLink) {
