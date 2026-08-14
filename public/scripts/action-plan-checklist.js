@@ -70,11 +70,11 @@
     label.appendChild(select);
 
     if (!readOnly) select.addEventListener('change', function () {
-       var originalStatus = action.status;
-       var nextStatus = select.value;
-       var expectedUpdatedAt = item.dataset.updatedAt;
-       select.dataset.status = nextStatus;
-       select.disabled = true;
+      var originalStatus = action.status;
+      var nextStatus = select.value;
+      var expectedUpdatedAt = item.dataset.updatedAt;
+      select.dataset.status = nextStatus;
+      select.disabled = true;
       setMessage(container, 'Đang lưu thay đổi…');
 
       fetch('/api/scanner/action-plans/' + encodeURIComponent(planId) + '/actions/' + encodeURIComponent(action.id), {
@@ -106,10 +106,10 @@
         }
         setMessage(container, 'Đã cập nhật trạng thái việc cần làm. Đang tải các chuyển đổi hợp lệ.');
         loadPlan(container, planId);
-       }).catch(function (error) {
-         select.value = originalStatus;
-         select.dataset.status = originalStatus;
-         setMessage(container, error instanceof Error ? error.message : 'Không thể lưu thay đổi.');
+      }).catch(function (error) {
+        select.value = originalStatus;
+        select.dataset.status = originalStatus;
+        setMessage(container, error instanceof Error ? error.message : 'Không thể lưu thay đổi.');
       }).finally(function () {
         select.disabled = false;
       });
