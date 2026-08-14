@@ -607,6 +607,11 @@ interface PlanWeek {
   actions: PlanAction[];
 }
 
+function cleanPlanTitle(value: string): string {
+  // AI markdown occasionally retains an escape slash before punctuation in headings.
+  return value.replace(/\\(?=\s|[-–—:：])/g, '').replace(/\\+$/g, '').trim();
+}
+
 function parsePlanMarkdown(markdown: string): PlanWeek[] {
   marked.setOptions({ gfm: true, breaks: true });
   const weeks: PlanWeek[] = [];
@@ -615,7 +620,7 @@ function parsePlanMarkdown(markdown: string): PlanWeek[] {
 
   for (const token of marked.lexer(markdown)) {
     if (token.type === 'heading' && token.depth === 2) {
-      week = { title: stripMarkdown(tokenText(token)), actions: [] };
+      week = { title: cleanPlanTitle(stripMarkdown(tokenText(token))), actions: [] };
       weeks.push(week);
       action = null;
     } else if (token.type === 'heading' && token.depth === 3) {
@@ -623,7 +628,7 @@ function parsePlanMarkdown(markdown: string): PlanWeek[] {
         week = { title: ctxLabel('vi', 'Kế hoạch hành động', 'Action plan'), actions: [] };
         weeks.push(week);
       }
-      action = { title: stripMarkdown(tokenText(token)), content: [] };
+      action = { title: cleanPlanTitle(stripMarkdown(tokenText(token))), content: [] };
       week.actions.push(action);
     } else if (action) {
       const text = stripMarkdown(tokenText(token)).trim();
@@ -718,7 +723,11 @@ function drawPlanTagRows(ctx: PdfContext, rows: PlanTag[][], x: number, y: numbe
     let tagX = x;
     for (const tag of row) {
       const width = ctx.fontBold.widthOfTextAtSize(tag.text, 7.5) + 14;
-      ctx.page.drawRectangle({ x: tagX, y: y - 16, width, height: 17, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
+      const height = 17;
+      const radius = height / 2;
+      ctx.page.drawRectangle({ x: tagX + radius, y: y - 16, width: width - height, height, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawCircle({ x: tagX + radius, y: y - 16 + radius, size: radius, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawCircle({ x: tagX + width - radius, y: y - 16 + radius, size: radius, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
       ctx.page.drawText(tag.text, { x: tagX + 7, y: y - 11, size: 7.5, font: ctx.fontBold, color: tag.color });
       tagX += width + 5;
     }
