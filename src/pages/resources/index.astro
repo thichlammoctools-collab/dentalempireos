@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { listResources, countResources } from '../../lib/resource-db';
+import { RESOURCE_CATEGORIES } from '../../lib/resource-types';
 import { canAccessResource } from '../../lib/entitlement-check';
 import ContentRedemptionButton from '../../components/credits/ContentRedemptionButton.astro';
 import { getActiveCreditPricingRule } from '../../lib/credit-db';
@@ -17,8 +18,8 @@ const category = Astro.url.searchParams.get('cat') ?? '';
 const search = Astro.url.searchParams.get('q') ?? '';
 
 const [resources, total] = await Promise.all([
-  listResources(db, { search: search || undefined, category: category || undefined }),
-  countResources(db, { search: search || undefined, category: category || undefined }),
+  listResources(db, { search: search || undefined, category: category || undefined, publicOnly: true, includeAssets: true }),
+  countResources(db, { search: search || undefined, category: category || undefined, publicOnly: true }),
 ]);
 
 const paginated = resources.slice((page - 1) * perPage, page * perPage);
@@ -28,14 +29,14 @@ const accessByResourceId = new Map(
   await Promise.all(
     paginated.map(async (resource) => [
       resource.id,
-      resource.tier !== 'premium' || await canAccessResource(db, user?.id, resource.id),
+      resource.access_mode !== 'credits' || await canAccessResource(db, user?.id, resource.id),
     ] as const),
   ),
 );
 const creditPriceByResourceId = new Map(
   await Promise.all(
     paginated
-      .filter((resource) => resource.tier === 'premium' && !accessByResourceId.get(resource.id))
+       .filter((resource) => resource.access_mode === 'credits' && !accessByResourceId.get(resource.id))
       .map(async (resource) => {
         const rule = await getActiveCreditPricingRule(db, 'resource', resource.id);
         const credits = rule?.credit_amount;
@@ -46,10 +47,7 @@ const creditPriceByResourceId = new Map(
 
 const categories = [
   { value: '', label: 'Tất cả', count: total },
-  { value: 'sops', label: 'Quy trình SOPs', count: 0 },
-  { value: 'checklists', label: 'Checklists', count: 0 },
-  { value: 'excel', label: 'Bảng tính Excel', count: 0 },
-  { value: 'marketing', label: 'Marketing', count: 0 },
+  ...RESOURCE_CATEGORIES.map((categoryOption) => ({ ...categoryOption, count: 0 })),
 ];
 
 const tierLabel: Record<string, string> = {
@@ -93,6 +91,10 @@ function resourceUrl(fileUrl: string): string {
   if (fileUrl.startsWith('/media/')) return fileUrl;
   if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
   return `/media/${fileUrl}`;
+}
+
+function downloadableAssets(resource: typeof paginated[number]) {
+  return resource.assets?.filter((asset) => asset.asset_role === 'download') ?? [];
 }
 ---
 
@@ -199,11 +201,11 @@ function resourceUrl(fileUrl: string): string {
                         <span
                           class={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${getTierColor(res.tier)}`}
                         >
-                          {res.tier === 'premium' && !accessByResourceId.get(res.id) ? 'Cần mở khóa' : tierLabel[res.tier] ?? res.tier}
-                        </span>
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
-                          .{res.file_ext}
-                        </span>
+                           {res.access_mode === 'credits' && !accessByResourceId.get(res.id) ? 'Cần mở khóa' : res.access_mode === 'credits' ? 'Đã mở khóa' : 'Miễn phí'}
+                         </span>
+                         <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">
+                           {downloadableAssets(res).map((asset) => `.${asset.file_ext.toUpperCase()}`).join(' · ') || `.${res.file_ext.toUpperCase()}`}
+                         </span>
                         {res.tag && (
                           <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant">
                             {res.tag}
@@ -218,43 +220,46 @@ function resourceUrl(fileUrl: string): string {
 
                     <!-- Action -->
                     <div class="shrink-0 sm:w-auto">
-                      {res.tier === 'premium' && !accessByResourceId.get(res.id) ? (
-                        creditPriceByResourceId.get(res.id) ? (
-                          <ContentRedemptionButton
-                            contentType="resource"
-                            contentId={res.id}
-                            successUrl={resourceUrl(res.file_url)}
-                            label={`Mở khóa · ${creditPriceByResourceId.get(res.id)} Credits`}
-                            class="bg-amber-500 text-black hover:bg-amber-400"
-                          />
-                        ) : (
-                          <span class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant/50 text-xs font-semibold text-on-surface-variant" title="Tài liệu chưa được cấu hình giá Credits.">
-                            <span class="material-symbols-outlined text-[18px]">schedule</span>
-                            Chưa mở khóa
-                          </span>
-                        )
-                      ) : res.file_url ? (
-                        <a
-                          href={resourceUrl(res.file_url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-track-cta={`resource_download_${res.id}`}
-                          data-track-placement="resources_list"
-                          class={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                            res.tier === 'premium'
-                              ? 'bg-amber-500 hover:bg-amber-400 text-black'
-                              : 'btn-primary-metallic'
-                          }`}
-                        >
-                          <span class="material-symbols-outlined text-[18px]">download</span>
-                          Tải về
-                        </a>
-                      ) : (
-                        <span class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-50">
-                          <span class="material-symbols-outlined text-[18px]">download</span>
-                          Sắp ra mắt
-                        </span>
-                      )}
+                       {res.access_mode === 'credits' && !accessByResourceId.get(res.id) ? (
+                         creditPriceByResourceId.get(res.id) ? (
+                           <ContentRedemptionButton
+                             contentType="resource"
+                             contentId={res.id}
+                             successUrl="/resources"
+                             label={`Mở khóa · ${creditPriceByResourceId.get(res.id)} Credits`}
+                             class="bg-amber-500 text-black hover:bg-amber-400"
+                           />
+                         ) : (
+                           <span class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant/50 text-xs font-semibold text-on-surface-variant" title="Tài liệu chưa được cấu hình giá Credits.">
+                             <span class="material-symbols-outlined text-[18px]">schedule</span>
+                             Sắp mở khóa
+                           </span>
+                         )
+                       ) : downloadableAssets(res).length > 0 ? (
+                         <div class="flex flex-wrap gap-2">
+                           {downloadableAssets(res).map((asset) => (
+                             <a
+                               href={resourceUrl(asset.storage_key)}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               data-track-cta={`resource_download_${res.id}_${asset.file_ext}`}
+                               data-track-placement="resources_list"
+                               class={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${res.access_mode === 'credits' ? 'bg-amber-500 hover:bg-amber-400 text-black' : 'btn-primary-metallic'}`}
+                             >
+                               <span class="material-symbols-outlined text-[18px]">download</span>
+                               {asset.file_ext.toUpperCase()}
+                             </a>
+                           ))}
+                         </div>
+                       ) : res.file_url ? (
+                         <a href={resourceUrl(res.file_url)} target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm btn-primary-metallic">
+                           <span class="material-symbols-outlined text-[18px]">download</span>Tải về
+                         </a>
+                       ) : (
+                         <span class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-50">
+                           <span class="material-symbols-outlined text-[18px]">download</span>Sắp ra mắt
+                         </span>
+                       )}
                     </div>
                   </div>
                 </article>

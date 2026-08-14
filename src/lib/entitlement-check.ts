@@ -81,7 +81,7 @@ export async function canAccessResource(
   resourceId: string,
 ): Promise<boolean> {
   const resource = await getResource(db, resourceId);
-  if (!resource) return false;
-  if (resource.tier !== 'premium') return true;
+  if (!resource || resource.status === 'archived') return false;
+  if (resource.access_mode === 'free') return true;
   return hasUserContentGrant(db, userId, 'resource', resourceId);
 }

@@ -71,7 +71,16 @@ const surveyData = {
   title_en: definition.title_en || definition.title_vi,
   description_vi: definition.description_vi || '',
   description_en: definition.description_en || '',
-  lead_fields: parseLeadFields(definition.lead_fields),
+  lead_fields: {
+    ...parseLeadFields(definition.lead_fields),
+    clinic_phone: parseLeadFields(definition.lead_fields).clinic_phone ?? {
+      label_vi: 'Số điện thoại phòng khám',
+      label_en: 'Clinic phone number',
+      placeholder_vi: '0901 234 567',
+      placeholder_en: '0901 234 567',
+      type: 'tel' as const,
+    },
+  },
   translations_vi: parseUiTranslations(definition.translations_vi, 'vi'),
   translations_en: parseUiTranslations(definition.translations_en, 'en'),
   sections: sections.map((s) => ({

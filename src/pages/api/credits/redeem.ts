@@ -48,8 +48,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!durationDays || durationDays < 1 || durationDays > 365) return badRequest('Số ngày phải từ 1 đến 365');
     credits = durationDays;
   } else {
-    const resource = await getResource(env.DB, contentId);
-    if (!resource || resource.tier !== 'premium') return json({ error: 'Tài liệu Premium không tồn tại.' }, 404);
+    const resource = await getResource(env.DB, contentId, true);
+    if (!resource || resource.status !== 'published' || resource.access_mode !== 'credits' || !resource.assets?.some((asset) => asset.asset_role === 'download')) {
+      return json({ error: 'Tài liệu Premium không tồn tại hoặc chưa sẵn sàng mở khóa.' }, 404);
+    }
     pricingRule = await getActiveCreditPricingRule(env.DB, 'resource', contentId);
     credits = pricingRule?.credit_amount ?? 0;
   }

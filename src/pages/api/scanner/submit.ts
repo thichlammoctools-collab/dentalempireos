@@ -175,6 +175,7 @@ export const POST: APIRoute = async (ctx) => {
       owner_name: isGuestScanner ? guestLead!.ownerName : (asString(body.owner_name) ?? session!.user.name ?? null),
       clinic_name: clinicName,
       clinic_address: asString(body.clinic_address),
+      clinic_phone: asString(body.clinic_phone),
       email,
       years_in_operation: asInt(body.years_in_operation),
       staff_count: asInt(body.staff_count),

@@ -66,7 +66,7 @@
     if (!container) return;
     container.innerHTML = '';
     var lead = surveyData.lead_fields || {};
-    var order = ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'];
+    var order = ['owner_name', 'clinic_name', 'clinic_address', 'clinic_phone', 'email', 'years_in_operation', 'staff_count'];
 
     order.forEach(function (fieldName) {
       var cfg = lead[fieldName];
@@ -281,7 +281,7 @@
         }
       }
 
-      ['owner_name', 'clinic_name', 'clinic_address', 'email', 'years_in_operation', 'staff_count'].forEach(function (k) {
+      ['owner_name', 'clinic_name', 'clinic_address', 'clinic_phone', 'email', 'years_in_operation', 'staff_count'].forEach(function (k) {
         var el = document.querySelector('[name="' + k + '"]');
         if (el) answers[k] = el.value || null;
       });
@@ -377,7 +377,7 @@
     // Collect ALL form inputs (including hidden intro fields)
     document.querySelectorAll('input, textarea').forEach(function (el) {
       var input = el;
-      if (input.name && (input.type === 'text' || input.type === 'email' || input.type === 'number' || input.tagName === 'TEXTAREA')) {
+      if (input.name && (input.type === 'text' || input.type === 'email' || input.type === 'number' || input.type === 'tel' || input.tagName === 'TEXTAREA')) {
         if (input.value) answers[input.name] = input.value;
       }
     });

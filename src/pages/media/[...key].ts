@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json } from '../../lib/api-helpers';
 import { canAccessBook, canAccessResource } from '../../lib/entitlement-check';
+import { getResourceAssetByStorageKey } from '../../lib/resource-db';
 
 export const prerender = false;
 
@@ -31,27 +32,29 @@ async function canAccessBookMedia(key: string, userId?: string): Promise<boolean
 }
 
 async function canAccessResourceMedia(key: string, userId?: string): Promise<boolean | null> {
-  const resource = await env.DB
-    .prepare('SELECT "id" FROM "resource" WHERE "file_url" = ? OR "file_url" = ? LIMIT 1')
-    .bind(key, `/media/${key}`)
-    .first<{ id: string }>();
+  const asset = await getResourceAssetByStorageKey(env.DB, key);
+  if (asset) {
+    // Resource drafts never leak through a known R2 key. Admin preview is served
+    // through the same authenticated admin session, handled by middleware.
+    if (asset.status !== 'published') return false;
+    return canAccessResource(env.DB, userId, asset.id);
+  }
 
-  // Null means this key is not a managed resource.
-  if (!resource) return null;
-  return canAccessResource(env.DB, userId, resource.id);
+  // Compatibility for existing records that have not been backfilled yet.
+  const legacy = await env.DB.prepare(
+    'SELECT "id", "status" FROM "resource" WHERE ("file_url" = ? OR "file_url" = ?) LIMIT 1',
+  ).bind(key, `/media/${key}`).first<{ id: string; status: string }>();
+  if (!legacy) return null;
+  if (legacy.status !== 'published') return false;
+  return canAccessResource(env.DB, userId, legacy.id);
 }
 
 async function canAccessMedia(key: string, userId?: string): Promise<boolean> {
-  const accessChecks = await Promise.all([
-    canAccessBookMedia(key, userId),
-    canAccessResourceMedia(key, userId),
-  ]);
-  const applicableChecks = accessChecks.filter((hasAccess): hasAccess is boolean => hasAccess !== null);
-
-  // A file may be referenced by more than one content type. It is public when
-  // any assigned parent is public; deny it only when every known parent denies
-  // access. Preserve the existing public behavior for unassigned R2 keys.
-  return applicableChecks.length === 0 || applicableChecks.some(Boolean);
+  const [bookAccess, resourceAccess] = await Promise.all([canAccessBookMedia(key, userId), canAccessResourceMedia(key, userId)]);
+  // Resource objects must always be catalog-referenced. Unknown keys retain the
+  // existing book-media behavior only; resources/ is deliberately closed.
+  if (resourceAccess !== null) return resourceAccess;
+  return bookAccess ?? !key.startsWith('resources/');
 }
 
 // GET /media/[...key] — serve file from R2 with caching

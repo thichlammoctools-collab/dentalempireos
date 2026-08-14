@@ -22,6 +22,7 @@ export interface ScannerResponseRow {
   owner_name: string | null;
   clinic_name: string | null;
   clinic_address: string | null;
+  clinic_phone: string | null;
   email: string | null;
   years_in_operation: number | null;
   staff_count: number | null;
@@ -67,6 +68,7 @@ export interface ScannerResponseInput {
   owner_name?: string | null;
   clinic_name?: string | null;
   clinic_address?: string | null;
+  clinic_phone?: string | null;
   email?: string | null;
   years_in_operation?: number | null;
   staff_count?: number | null;
@@ -167,9 +169,9 @@ export async function createScannerResponse(
     result = await db
       .prepare(
         `INSERT INTO "scanner_response"
-           ("survey_id","lang","owner_name","clinic_name","clinic_address","email",
+           ("survey_id","lang","owner_name","clinic_name","clinic_address","clinic_phone","email",
             "years_in_operation","staff_count","retention_tier","expires_at","responses_json","scores_json")
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
          RETURNING "id"`,
       )
       .bind(
@@ -178,6 +180,7 @@ export async function createScannerResponse(
         input.owner_name ?? null,
         input.clinic_name ?? null,
         input.clinic_address ?? null,
+        input.clinic_phone ?? null,
         input.email ?? null,
         input.years_in_operation ?? null,
         input.staff_count ?? null,

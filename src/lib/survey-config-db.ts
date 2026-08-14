@@ -14,13 +14,14 @@ export interface LeadFieldConfig {
   required?: boolean;
   placeholder_vi?: string;
   placeholder_en?: string;
-  type?: 'text' | 'email' | 'number';
+  type?: 'text' | 'email' | 'number' | 'tel';
 }
 
 export interface LeadFieldsConfig {
   owner_name?: LeadFieldConfig;
   clinic_name?: LeadFieldConfig;
   clinic_address?: LeadFieldConfig;
+  clinic_phone?: LeadFieldConfig;
   email?: LeadFieldConfig;
   years_in_operation?: LeadFieldConfig;
   staff_count?: LeadFieldConfig;
