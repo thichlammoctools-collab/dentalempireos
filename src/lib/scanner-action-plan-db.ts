@@ -525,6 +525,10 @@ export async function recordScannerActionPlanActionProgress(
      WHERE action."id" = ? AND action."plan_id" = ? AND plan."user_id" = ? AND plan."status" = 'active'`,
   ).bind(input.actionId, input.planId, input.userId).first<ScannerActionPlanActionRow>();
   if (!action) throw new Error('Scanner action not found or its plan is archived.');
+  const ownerPlan = await getScannerActionPlanForUser(db, input.planId, input.userId);
+  if (ownerPlan?.retention_visibility !== 'available') {
+    throw new Error('Scanner action plan is unavailable after source retention expiry.');
+  }
   if (action.updated_at !== input.expectedUpdatedAt) throw new ScannerActionPlanConcurrencyError();
   const nextStatus = input.status ?? action.status;
   if (action.status !== nextStatus && !ACTION_STATUS_TRANSITIONS[action.status].includes(nextStatus)) {
