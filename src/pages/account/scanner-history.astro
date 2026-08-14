@@ -64,9 +64,14 @@ function scoreColor(label: string | null): { bg: string; text: string; border: s
           <p class="text-sm text-on-surface-variant mt-2">Xem mọi lần đánh giá hoặc đi sâu vào hành trình của từng Scanner.</p>
           <p class="text-xs text-on-surface-variant mt-2">Lượt miễn phí được lưu 30 ngày; lượt dùng Credits được lưu 365 ngày.</p>
         </div>
-        <a href="/scanner" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold hover:opacity-90 transition-opacity">
-          <span class="material-symbols-outlined text-base">add</span>Check mới
-        </a>
+        <div class="flex flex-wrap gap-2">
+          <a href="/account/action-plans" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant text-on-surface text-sm font-bold hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-base">assignment</span>Kế hoạch hành động
+          </a>
+          <a href="/scanner" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-base">add</span>Check mới
+          </a>
+        </div>
       </header>
 
       {history.length === 0 ? (

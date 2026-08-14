@@ -1,0 +1,71 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../../../lib/auth';
+import { getScannerActionPlanForUser } from '../../../../lib/scanner-action-plan-db';
+import { getScannerActionPlanComparison } from '../../../../lib/scanner-action-plan-comparison';
+
+export const prerender = false;
+
+const planId = Astro.params.id?.trim() ?? '';
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session?.user) return Astro.redirect(`/login?redirect=/account/action-plans/${encodeURIComponent(planId)}/comparison`);
+if (!planId || planId.length > 100) return new Response('Not found', { status: 404 });
+
+const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
+if (!plan || plan.retention_visibility !== 'available') return new Response('Not found', { status: 404 });
+const selectedSnapshot = Astro.url.searchParams.get('rescan_snapshot_id')?.trim() || undefined;
+const comparison = await getScannerActionPlanComparison(env.DB, { planId, userId: session.user.id, rescanSnapshotId: selectedSnapshot });
+if (!comparison) return new Response('Not found', { status: 404 });
+
+const survey = await env.DB.prepare('SELECT "title_vi", "slug" FROM "survey_definition" WHERE "id" = ?').bind(plan.survey_id).first<{ title_vi: string; slug: string }>();
+const snapshots = (await env.DB.prepare(
+  `SELECT "id", "response_created_at", "score_total" FROM "scanner_action_plan_score_snapshot"
+   WHERE "plan_id" = ? AND "snapshot_kind" = 'rescan' ORDER BY "response_created_at" ASC, "id" ASC`,
+).bind(planId).all<{ id: string; response_created_at: string; score_total: number | null }>()).results ?? [];
+const formatScore = (value: number | null) => value === null ? '—' : value.toFixed(1);
+const formatDelta = (value: number | null) => value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(1)}`;
+const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+const statusLabels = { not_started: 'Chưa bắt đầu', in_progress: 'Đang thực hiện', completed: 'Hoàn thành', skipped: 'Bỏ qua' };
+---
+
+<BaseLayout title="So sánh Scanner | Dental Empire OS" description="Đối chiếu các điểm số Scanner đã lưu." noindex={true}>
+  <div class="min-h-screen bg-surface pt-24 pb-16">
+    <main class="max-w-[860px] mx-auto px-4 md:px-6">
+      <nav class="mb-5" aria-label="Điều hướng so sánh"><a href={`/account/action-plans/${plan.id}`} class="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"><span class="material-symbols-outlined text-base">arrow_back</span>Quay lại kế hoạch</a></nav>
+      <header class="glass-card rounded-2xl border border-outline-variant/20 p-5 md:p-6 mb-5">
+        <p class="text-xs font-bold uppercase tracking-[.14em] text-primary">{survey?.title_vi ?? 'Scanner'}</p>
+        <h1 class="mt-2 text-2xl font-bold text-on-surface">So sánh lần quét lại</h1>
+        <p class="mt-2 text-sm leading-relaxed text-on-surface-variant">Đây là đối chiếu các điểm số được lưu ở từng thời điểm. Thay đổi được hiển thị trung tính và không xác định nguyên nhân hay quy kết kết quả cho các hành động trong kế hoạch.</p>
+      </header>
+
+      {snapshots.length === 0 || comparison.reason === 'no_rescan' ? (
+        <section class="glass-card rounded-2xl border border-outline-variant/20 p-8 text-center">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant/30">compare_arrows</span>
+          <h2 class="mt-3 text-lg font-bold text-on-surface">Chưa có lần quét lại được liên kết</h2>
+          <p class="mt-2 text-sm text-on-surface-variant">Thực hiện lại cùng Scanner từ kế hoạch để tạo mốc đối chiếu. Kết quả sẽ xuất hiện khi lần quét lại được lưu.</p>
+          <a href={`/scanner/${survey?.slug ?? ''}?action_plan_id=${encodeURIComponent(plan.id)}`} class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:opacity-90"><span class="material-symbols-outlined text-base">refresh</span>Quét lại Scanner</a>
+        </section>
+      ) : comparison.reason === 'no_baseline' || comparison.reason === 'invalid_scores' ? (
+        <section class="glass-card rounded-2xl border border-outline-variant/20 p-8 text-center"><span class="material-symbols-outlined text-5xl text-on-surface-variant/30">error_outline</span><h2 class="mt-3 text-lg font-bold text-on-surface">Chưa thể tạo đối chiếu hoàn chỉnh</h2><p class="mt-2 text-sm text-on-surface-variant">Một hoặc nhiều mốc điểm số không còn đủ dữ liệu đã chuẩn hóa để so sánh.</p></section>
+      ) : (
+        <>
+          {snapshots.length > 1 && (
+            <form class="glass-card rounded-xl border border-outline-variant/20 p-4 mb-5" method="get">
+              <label for="rescan-snapshot" class="block text-sm font-bold text-on-surface">Chọn lần quét lại</label>
+              <div class="mt-2 flex flex-col gap-2 sm:flex-row"><select id="rescan-snapshot" name="rescan_snapshot_id" class="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface"><option value="">Mới nhất</option>{snapshots.map((snapshot) => <option value={snapshot.id} selected={snapshot.id === selectedSnapshot}>{formatDate(snapshot.response_created_at)} · {formatScore(snapshot.score_total)} điểm</option>)}</select><button class="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary">Cập nhật</button></div>
+            </form>
+          )}
+          <section class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5" aria-label="Điểm tổng hợp">
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Mốc ban đầu</p><p class="mt-1 text-2xl font-bold text-on-surface">{formatScore(comparison.totals.baseline)}</p></div>
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Lần quét lại</p><p class="mt-1 text-2xl font-bold text-on-surface">{formatScore(comparison.totals.rescan)}</p></div>
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Chênh lệch ghi nhận</p><p class="mt-1 text-2xl font-bold text-on-surface">{formatDelta(comparison.totals.delta)}</p></div>
+          </section>
+          <section class="glass-card rounded-2xl border border-outline-variant/20 overflow-hidden mb-5"><header class="p-5 border-b border-outline-variant/15"><h2 class="font-bold text-on-surface">Theo nhóm điểm</h2></header>{comparison.dimensions.length === 0 ? <p class="p-5 text-sm text-on-surface-variant">Không có nhóm điểm phù hợp để hiển thị.</p> : <div class="divide-y divide-outline-variant/15">{comparison.dimensions.map((dimension) => <div class="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center p-4 text-sm"><span class="min-w-0 font-semibold text-on-surface break-words">{dimension.dimension}</span><span class="text-on-surface-variant">{formatScore(dimension.baseline)}</span><span class="text-on-surface-variant">{formatScore(dimension.rescan)}</span><span class="font-bold text-on-surface">{formatDelta(dimension.delta)}</span></div>)}</div>}</section>
+          <section class="glass-card rounded-2xl border border-outline-variant/20 p-5"><h2 class="font-bold text-on-surface">Tóm tắt trạng thái hành động</h2><div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">{Object.entries(comparison.actionStatusSummary).map(([status, count]) => <div class="rounded-xl bg-surface-container p-3"><p class="text-xs text-on-surface-variant">{statusLabels[status as keyof typeof statusLabels]}</p><p class="mt-1 text-xl font-bold text-on-surface">{count}</p></div>)}</div></section>
+        </>
+      )}
+    </main>
+  </div>
+</BaseLayout>

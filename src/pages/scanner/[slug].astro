@@ -35,6 +35,8 @@ if (full.definition.status !== 'active') {
 }
 
 const { definition, sections } = full;
+const requestedActionPlanId = Astro.url.searchParams.get('action_plan_id')?.trim() ?? '';
+const rescanActionPlanId = /^[a-zA-Z0-9-]{1,100}$/.test(requestedActionPlanId) ? requestedActionPlanId : null;
 
 const pricingRule = await getActiveCreditPricingRule(env.DB, 'scanner', definition.id);
 const scannerPrice = pricingRule?.credit_amount ?? 0;
@@ -140,6 +142,7 @@ const defaultScaleEn: Record<string, string> = {
         data-default-lang="vi"
         data-survey-id={surveyData.id}
         data-survey-slug={surveyData.slug}
+        data-action-plan-id={rescanActionPlanId ?? ''}
         data-survey={JSON.stringify(surveyData)}
         data-clinic={clinicProfile || currentUser?.email ? JSON.stringify({
           ...(clinicProfile || {}),

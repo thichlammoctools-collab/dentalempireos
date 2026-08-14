@@ -10,6 +10,7 @@
   var clinicProfile = rawProfile ? JSON.parse(rawProfile) : null;
   var scannerUnavailable = wrap.dataset.scannerUnavailable === 'true';
   var isGuestReport = wrap.dataset.guestReport === 'true';
+  var actionPlanId = wrap.dataset.actionPlanId || null;
   var defaultScaleVi = JSON.parse(wrap.dataset.scaleVi || '{}');
   var defaultScaleEn = JSON.parse(wrap.dataset.scaleEn || '{}');
   var STORAGE_KEY = 'dentalempire-scanner-draft-' + surveyData.id;
@@ -471,6 +472,7 @@
       save_profile: saveChecked,
       marketing_consent: marketingConsent,
       anonymous_id: anonymousId,
+      action_plan_id: actionPlanId,
     });
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
 

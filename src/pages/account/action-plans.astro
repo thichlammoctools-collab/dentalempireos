@@ -1,0 +1,135 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { createAuth } from '../../lib/auth';
+import type { ScannerActionPlanActionRow, ScannerActionPlanRow, ScannerActionStatus } from '../../lib/scanner-action-plan-db';
+
+export const prerender = false;
+
+const auth = createAuth(env);
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session?.user) return Astro.redirect('/login?redirect=/account/action-plans');
+
+type PlanListRow = ScannerActionPlanRow & {
+  scanner_title_vi: string | null;
+  source_response_id: number | null;
+  action_total: number;
+  completed_total: number;
+  in_progress_total: number;
+  rescan_total: number;
+};
+
+const { results = [] } = await env.DB.prepare(
+  `SELECT plan.*, definition."title_vi" AS "scanner_title_vi",
+          COUNT(action."id") AS "action_total",
+          COALESCE(SUM(CASE WHEN action."status" = 'completed' THEN 1 ELSE 0 END), 0) AS "completed_total",
+          COALESCE(SUM(CASE WHEN action."status" = 'in_progress' THEN 1 ELSE 0 END), 0) AS "in_progress_total",
+          (SELECT COUNT(*) FROM "scanner_action_plan_score_snapshot" snapshot
+             WHERE snapshot."plan_id" = plan."id" AND snapshot."snapshot_kind" = 'rescan') AS "rescan_total"
+   FROM "scanner_action_plan" plan
+   INNER JOIN "survey_definition" definition ON definition."id" = plan."survey_id"
+   LEFT JOIN "scanner_action_plan_action" action ON action."plan_id" = plan."id"
+   WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" = 'available'
+   GROUP BY plan."id"
+   ORDER BY plan."updated_at" DESC, plan."id" ASC`,
+).bind(session.user.id).all<PlanListRow>();
+
+const plans = results ?? [];
+const planIds = plans.map((plan) => plan.id);
+const actionRows = planIds.length === 0
+  ? []
+  : (await env.DB.prepare(
+    `SELECT action.* FROM "scanner_action_plan_action" action
+     INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
+     WHERE plan."user_id" = ? AND plan."status" = 'active' AND plan."retention_visibility" = 'available'
+     ORDER BY plan."updated_at" DESC, action."position" ASC`,
+  ).bind(session.user.id).all<ScannerActionPlanActionRow>()).results ?? [];
+const actionsByPlan = new Map<string, ScannerActionPlanActionRow[]>();
+for (const action of actionRows) actionsByPlan.set(action.plan_id, [...(actionsByPlan.get(action.plan_id) ?? []), action]);
+
+const activeCount = plans.filter((plan) => plan.action_total > plan.completed_total).length;
+const statusLabel: Record<ScannerActionStatus, string> = {
+  not_started: 'Chưa bắt đầu',
+  in_progress: 'Đang thực hiện',
+  completed: 'Hoàn thành',
+  skipped: 'Bỏ qua',
+};
+const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+---
+
+<BaseLayout title="Kế hoạch hành động | Dental Empire OS" description="Theo dõi các việc ưu tiên từ Scanner." noindex={true}>
+  <div class="min-h-screen bg-surface pt-24 pb-16">
+    <main class="max-w-[1100px] mx-auto px-4 md:px-6">
+      <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6 md:mb-8">
+        <div>
+          <p class="text-xs font-bold tracking-[0.14em] uppercase text-primary mb-2">Vận hành theo kế hoạch</p>
+          <h1 class="text-2xl md:text-3xl font-bold text-on-surface">Kế hoạch hành động</h1>
+          <p class="text-sm text-on-surface-variant mt-2 max-w-2xl">Theo dõi việc ưu tiên từ các lần Scanner. Tiến độ này được lưu độc lập với báo cáo chi tiết.</p>
+        </div>
+        <a href="/account/scanner-history" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant text-on-surface text-sm font-bold hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-base">history</span>Lịch sử Check
+        </a>
+      </header>
+
+      {plans.length === 0 ? (
+        <section class="glass-card rounded-2xl p-10 md:p-16 border border-outline-variant/20 text-center">
+          <span class="material-symbols-outlined text-6xl text-on-surface-variant/30 block mb-4">assignment</span>
+          <h2 class="text-lg font-bold text-on-surface mb-2">Chưa có kế hoạch hành động đang hoạt động</h2>
+          <p class="text-sm text-on-surface-variant max-w-md mx-auto mb-6">Hoàn tất một Scanner và chờ kế hoạch được tạo để bắt đầu theo dõi các việc ưu tiên tại đây.</p>
+          <a href="/scanner" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:opacity-90"><span class="material-symbols-outlined text-base">fact_check</span>Khám phá Scanner</a>
+        </section>
+      ) : (
+        <>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Kế hoạch đang theo dõi</p><p class="text-2xl font-bold text-on-surface mt-1">{plans.length}</p></div>
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Còn việc cần làm</p><p class="text-2xl font-bold text-on-surface mt-1">{activeCount}</p></div>
+            <div class="glass-card rounded-xl border border-outline-variant/20 p-4"><p class="text-xs text-on-surface-variant">Đã có lần quét lại</p><p class="text-2xl font-bold text-on-surface mt-1">{plans.filter((plan) => plan.rescan_total > 0).length}</p></div>
+          </div>
+
+          <div class="grid gap-4">
+            {plans.map((plan) => {
+              const actions = actionsByPlan.get(plan.id) ?? [];
+              const ready = plan.generation_state === 'ready';
+              return (
+                <article class="glass-card rounded-2xl border border-outline-variant/20 overflow-hidden">
+                  <header class="p-5 border-b border-outline-variant/15 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0">
+                      <p class="text-xs text-primary font-bold uppercase tracking-wider">{plan.scanner_title_vi ?? 'Scanner'} · cập nhật {formatDate(plan.updated_at)}</p>
+                      <h2 class="text-lg font-bold text-on-surface mt-1">{plan.title ?? 'Kế hoạch hành động'}</h2>
+                      <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">{plan.summary ?? (ready ? 'Cập nhật trạng thái từng việc để phản ánh tiến độ triển khai.' : 'Kế hoạch đang được chuẩn bị.')}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary">{plan.completed_total}/{plan.action_total} hoàn thành</span>
+                      {plan.in_progress_total > 0 && <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-amber-500/10 text-amber-500">{plan.in_progress_total} đang làm</span>}
+                    </div>
+                  </header>
+                  <div class="p-5">
+                    {!ready ? (
+                      <p class="text-sm text-on-surface-variant">Kế hoạch chưa sẵn sàng. Trạng thái sẽ tự cập nhật sau khi xử lý hoàn tất.</p>
+                    ) : actions.length === 0 ? (
+                      <p class="text-sm text-on-surface-variant">Kế hoạch này chưa có việc cần làm để hiển thị.</p>
+                    ) : (
+                      <ol class="grid gap-2" aria-label={`Việc cần làm của ${plan.title ?? 'kế hoạch'}`}>
+                        {actions.slice(0, 3).map((action) => (
+                          <li class="flex items-start justify-between gap-3 rounded-xl bg-surface-container p-3">
+                            <span class="min-w-0"><span class="block text-sm font-semibold text-on-surface">{action.title}</span>{action.target_days !== null && <span class="block text-xs text-on-surface-variant mt-1">Mục tiêu {action.target_days} ngày</span>}</span>
+                            <span class="shrink-0 text-xs font-bold text-on-surface-variant">{statusLabel[action.status]}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    <div class="mt-4 pt-4 border-t border-outline-variant/15 flex flex-wrap gap-3">
+                      <a href={`/account/action-plans/${plan.id}`} class="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline">Mở kế hoạch <span class="material-symbols-outlined text-base">arrow_forward</span></a>
+                      {plan.source_response_id !== null && <a href={`/scanner/result/${plan.source_response_id}`} class="inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-primary">Xem kết quả <span class="material-symbols-outlined text-base">description</span></a>}
+                      {plan.rescan_total > 0 && <a href={`/account/action-plans/${plan.id}/comparison`} class="inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-primary">So sánh <span class="material-symbols-outlined text-base">compare_arrows</span></a>}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </main>
+  </div>
+</BaseLayout>

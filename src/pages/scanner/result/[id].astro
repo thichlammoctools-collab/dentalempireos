@@ -17,6 +17,8 @@ import { getChaptersByRefs, getChapterExcerpt } from '../../../lib/book-db';
 import { getRetainedScannerResponseForOwner } from '../../../lib/scanner-history-db';
 import { getClinicProfile } from '../../../lib/clinic-profile-db';
 import { canAccessScanner } from '../../../lib/entitlement-check';
+import { getScannerActionPlanForResponseForUser } from '../../../lib/scanner-action-plan-db';
+import ActionPlanChecklist from '../../../components/scanner/ActionPlanChecklist.astro';
 
 export const prerender = false;
 
@@ -140,6 +142,9 @@ const expiryDate = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
 const retentionLabel = response.retention_tier === 'credit_paid'
   ? (lang === 'vi' ? 'Lượt dùng Credits · lưu 365 ngày' : 'Credit-paid attempt · stored for 365 days')
   : (lang === 'vi' ? 'Lượt miễn phí · lưu 30 ngày' : 'Free attempt · stored for 30 days');
+const actionPlan = await getScannerActionPlanForResponseForUser(env.DB, id, currentUser.id);
+const availableActionPlan = actionPlan?.retention_visibility === 'available' ? actionPlan : null;
+const rescanHref = availableActionPlan ? `/scanner/${definition.slug}?action_plan_id=${encodeURIComponent(availableActionPlan.id)}` : `/scanner/${definition.slug}`;
 
 // Cross-sell suggestions: pick 2 other active surveys
 let crossSells: Array<{ id: string; slug: string; title_vi: string; title_en: string; description_vi: string | null }> = [];
@@ -202,9 +207,16 @@ try {
           <span class="material-symbols-outlined text-base">share</span>
           <span>{lang === 'vi' ? 'Chia sẻ' : 'Share'}</span>
         </button>
-        <a href={`/scanner/${definition.slug}`} class="btn btn-ghost">
-          {lang === 'vi' ? 'Làm khảo sát mới' : 'New survey'}
+        <a href={rescanHref} class="btn btn-ghost">
+          <span class="material-symbols-outlined text-base">refresh</span>
+          {availableActionPlan ? (lang === 'vi' ? 'Quét lại để so sánh' : 'Rescan for comparison') : (lang === 'vi' ? 'Làm khảo sát mới' : 'New survey')}
         </a>
+        {availableActionPlan && (
+          <a href={`/account/action-plans/${availableActionPlan.id}`} class="btn btn-ghost">
+            <span class="material-symbols-outlined text-base">assignment</span>
+            <span>{lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'}</span>
+          </a>
+        )}
         <a href="/account/scanner-history" class="btn btn-ghost">
           <span class="material-symbols-outlined text-base">history</span>
           <span>{lang === 'vi' ? 'Lịch sử' : 'History'}</span>
@@ -459,6 +471,10 @@ try {
       )}
     </div>
 
+    {availableActionPlan && (
+      <ActionPlanChecklist planId={availableActionPlan.id} compact={true} />
+    )}
+
     <div class="card analysis-card" id="analysis-section">
       <div class="report-section-header">
         <div class="report-section-heading">
@@ -617,9 +633,10 @@ try {
   .score-card { order: 1; }
   .insight-card { order: 2; }
   .reading-card { order: 3; }
-  .analysis-card { order: 4; }
-  .plan-card { order: 5; }
-  .cross-sell-card { order: 6; }
+   .analysis-card { order: 4; }
+   .action-plan-checklist { order: 5; }
+   .plan-card { order: 6; }
+   .cross-sell-card { order: 7; }
   .report-locked-state { display: grid; place-items: center; gap: .5rem; min-height: 7rem; color: var(--color-on-surface-variant); text-align: center; }
   .report-locked-state .material-symbols-outlined { color: var(--color-tertiary); }
   .report-confirm-dialog { position: fixed; top: 50%; left: 50%; width: min(28rem, calc(100% - 2rem)); margin: 0; padding: 0; transform: translate(-50%, -50%); color: var(--color-on-surface); background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); border-radius: 1rem; box-shadow: 0 1.5rem 4rem var(--color-elevated-shadow); }

@@ -1,0 +1,68 @@
+---
+interface Props {
+  planId: string;
+  compact?: boolean;
+}
+
+const { planId, compact = false } = Astro.props;
+---
+
+<section
+  class:list={['action-plan-checklist', compact && 'action-plan-checklist--compact']}
+  data-action-plan-checklist
+  data-plan-id={planId}
+  aria-labelledby={`action-plan-heading-${planId}`}
+>
+  <div class="action-plan-checklist__header">
+    <div>
+      <p class="action-plan-checklist__eyebrow">Kế hoạch hành động</p>
+      <h2 id={`action-plan-heading-${planId}`} class="action-plan-checklist__title">Danh sách ưu tiên</h2>
+    </div>
+    <span class="action-plan-checklist__summary" data-progress-summary>Đang tải tiến độ…</span>
+  </div>
+  <p class="action-plan-checklist__message" data-plan-message aria-live="polite">Đang tải các việc cần làm của bạn.</p>
+  <div class="action-plan-checklist__actions" data-plan-actions></div>
+  <div class="action-plan-checklist__footer" data-plan-footer hidden>
+    <a data-plan-detail class="action-plan-checklist__link">
+      Mở kế hoạch đầy đủ
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+    </a>
+    <a data-plan-comparison class="action-plan-checklist__link" hidden>
+      So sánh lần quét lại
+      <span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span>
+    </a>
+  </div>
+</section>
+
+<script src="/scripts/action-plan-checklist.js?v=20260814-phase3" is:inline></script>
+
+<style>
+  .action-plan-checklist { margin: 0 0 1.25rem; padding: 1.25rem; color: var(--color-on-surface); background: var(--color-surface); border: 1px solid var(--color-outline-variant); border-radius: 1rem; }
+  .action-plan-checklist__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .action-plan-checklist__eyebrow { margin: 0 0 .2rem; color: var(--color-primary); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .action-plan-checklist__title { margin: 0; font-size: 1.15rem; font-weight: 750; }
+  .action-plan-checklist__summary { flex: none; padding: .3rem .55rem; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary-container) 58%, transparent); border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+  .action-plan-checklist__message { margin: .75rem 0 0; color: var(--color-on-surface-variant); font-size: .85rem; line-height: 1.5; }
+  .action-plan-checklist__actions { display: grid; gap: .65rem; margin-top: 1rem; }
+  .action-plan-checklist__action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; padding: .85rem; background: var(--color-surface-container); border: 1px solid var(--color-outline-variant); border-radius: .75rem; }
+  .action-plan-checklist__action-title { margin: 0; color: var(--color-on-surface); font-size: .9rem; font-weight: 700; line-height: 1.4; }
+  .action-plan-checklist__action-description { margin: .3rem 0 0; color: var(--color-on-surface-variant); font-size: .78rem; line-height: 1.5; }
+  .action-plan-checklist__meta { display: flex; flex-wrap: wrap; gap: .35rem .5rem; margin-top: .5rem; color: var(--color-on-surface-variant); font-size: .72rem; }
+  .action-plan-checklist__status-label { display: grid; gap: .25rem; align-self: start; color: var(--color-on-surface-variant); font-size: .7rem; font-weight: 700; }
+  .action-plan-checklist__status { min-width: 8.5rem; padding: .45rem .5rem; color: var(--color-on-surface); background: var(--color-surface); border: 1px solid var(--color-outline-variant); border-radius: .45rem; font: inherit; }
+  .action-plan-checklist__status:focus-visible, .action-plan-checklist__link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .action-plan-checklist__footer { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--color-outline-variant); }
+  .action-plan-checklist__link { display: inline-flex; align-items: center; gap: .25rem; color: var(--color-primary); font-size: .82rem; font-weight: 700; text-decoration: none; }
+  .action-plan-checklist__link:hover { text-decoration: underline; }
+  .action-plan-checklist__link .material-symbols-outlined { font-size: 1rem; }
+  .action-plan-checklist--compact { margin: 0; border-radius: .75rem; }
+  .action-plan-checklist--compact .action-plan-checklist__action-description { display: none; }
+  @media (max-width: 640px) {
+    .action-plan-checklist { padding: 1rem; }
+    .action-plan-checklist__header, .action-plan-checklist__action { grid-template-columns: 1fr; }
+    .action-plan-checklist__header { display: grid; }
+    .action-plan-checklist__summary { justify-self: start; }
+    .action-plan-checklist__status-label { width: 100%; }
+    .action-plan-checklist__status { width: 100%; }
+  }
+</style>
