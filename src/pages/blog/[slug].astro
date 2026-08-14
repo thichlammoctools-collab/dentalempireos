@@ -349,7 +349,7 @@ const breadcrumbSchema = {
 
       <!-- Content -->
       <article>
-        <div class="reader-content" id="article-content">
+        <div class="reader-content prose max-w-none dark:prose-invert" id="article-content">
           {canReadPost && blocks.length > 0 ? (
             <div class="blocks-render flex flex-col gap-6" id="blocks-container" data-post-id={post.id}>
               {blocks.map((block: BlogBlock) => {
@@ -392,7 +392,7 @@ const breadcrumbSchema = {
               })}
             </div>
           ) : canReadPost ? (
-            <div set:html={htmlContent}></div>
+            <div class="block-text" set:html={htmlContent}></div>
           ) : (
             <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 sm:p-8 text-center">
               <span class="material-symbols-outlined text-4xl text-amber-400 mb-3">workspace_premium</span>
