@@ -1,5 +1,12 @@
 export type AiQuotaFeature = 'website_chat' | 'mentor_chat' | 'scanner_analysis' | 'scanner_plan';
 
+/**
+ * The provider client times out individual calls at 60 seconds, but fallback
+ * providers and transport cleanup may take longer. Keep the lease comfortably
+ * above that bounded work so normal queue redelivery cannot overlap a live call.
+ */
+export const SCANNER_AI_JOB_LEASE_SECONDS = 15 * 60;
+
 const DEFAULT_LIMITS: Record<AiQuotaFeature, number> = {
   website_chat: 30,
   mentor_chat: 60,
@@ -79,11 +86,13 @@ export async function startQueuedScannerAiJob(
   jobType: 'analysis' | 'plan',
   runId: string,
 ): Promise<boolean> {
+  // A duplicate delivery may only claim a queued job. A running lease is held
+  // exclusively until the scheduled reaper explicitly requeues this same run.
   const result = await db.prepare(
     `UPDATE "scanner_ai_job"
-     SET "status" = 'running', "started_at" = COALESCE("started_at", datetime('now')),
+     SET "status" = 'running', "started_at" = datetime('now'), "claimed_at" = datetime('now'),
          "attempt_count" = "attempt_count" + 1, "error_message" = NULL
-     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" IN ('queued', 'running')`,
+     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'queued'`,
   ).bind(responseId, jobType, runId).run();
   return (result.meta.changes ?? 0) > 0;
 }
@@ -93,12 +102,61 @@ export async function requeueScannerAiJob(
   responseId: number,
   jobType: 'analysis' | 'plan',
   runId: string,
-): Promise<void> {
-  await db.prepare(
+): Promise<boolean> {
+  const result = await db.prepare(
     `UPDATE "scanner_ai_job"
-     SET "status" = 'queued', "queued_at" = datetime('now')
-     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ?`,
+     SET "status" = 'queued', "queued_at" = datetime('now'), "started_at" = NULL,
+         "claimed_at" = datetime('now')
+     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" IN ('queued', 'running')`,
   ).bind(responseId, jobType, runId).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export interface ReclaimedScannerAiJob {
+  responseId: number;
+  jobType: 'analysis' | 'plan';
+  runId: string;
+}
+
+/**
+ * Requeues only expired leases without replacing their run ID. Keeping the
+ * original run ID makes late deliveries harmless and preserves committed-plan
+ * recovery without ever starting duplicate active provider work.
+ */
+export async function reclaimStaleScannerAiJobs(
+  db: D1Database,
+  leaseSeconds = SCANNER_AI_JOB_LEASE_SECONDS,
+  limit = 25,
+): Promise<ReclaimedScannerAiJob[]> {
+  const { results = [] } = await db.prepare(
+    `SELECT "response_id", "job_type", "run_id"
+     FROM "scanner_ai_job"
+     WHERE "status" = 'running'
+       AND COALESCE("started_at", "claimed_at") < datetime('now', ?)
+     ORDER BY COALESCE("started_at", "claimed_at") ASC
+     LIMIT ?`,
+  ).bind(`-${leaseSeconds} seconds`, limit).all<{
+    response_id: number;
+    job_type: 'analysis' | 'plan';
+    run_id: string;
+  }>();
+
+  const reclaimed: ReclaimedScannerAiJob[] = [];
+  for (const job of results) {
+    // Conditional compare-and-set prevents the reaper from stealing a lease
+    // renewed or completed after its candidate query.
+    const result = await db.prepare(
+      `UPDATE "scanner_ai_job"
+       SET "status" = 'queued', "queued_at" = datetime('now'), "started_at" = NULL,
+           "claimed_at" = datetime('now'), "error_message" = 'Recovered stale queue lease'
+       WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'running'
+         AND COALESCE("started_at", "claimed_at") < datetime('now', ?)`,
+    ).bind(job.response_id, job.job_type, job.run_id, `-${leaseSeconds} seconds`).run();
+    if ((result.meta.changes ?? 0) === 1) {
+      reclaimed.push({ responseId: job.response_id, jobType: job.job_type, runId: job.run_id });
+    }
+  }
+  return reclaimed;
 }
 
 export async function finishScannerAiJob(
@@ -108,12 +166,13 @@ export async function finishScannerAiJob(
   runId: string,
   status: 'done' | 'failed',
   errorMessage?: string,
-): Promise<void> {
-  await db.prepare(
+): Promise<boolean> {
+  const result = await db.prepare(
     `UPDATE "scanner_ai_job"
      SET "status" = ?, "completed_at" = datetime('now'), "error_message" = ?
-     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ?`,
+     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" IN ('queued', 'running')`,
   ).bind(status, errorMessage?.slice(0, 500) ?? null, responseId, jobType, runId).run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export async function isScannerAiJobRunning(

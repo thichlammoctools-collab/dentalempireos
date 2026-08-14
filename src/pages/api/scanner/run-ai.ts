@@ -45,7 +45,9 @@ export const POST: APIRoute = async (ctx) => {
   const ownsByEmail = response.email
     ? (await getUserByEmail(env.DB, response.email))?.id === session.user.id
     : false;
-  if (!owned && !ownsByEmail) {
+  // Keep legacy email-matched access for transient analysis reports, but plans
+  // create durable user-owned records and require scanner_history ownership.
+  if (!owned && (type === 'plan' || !ownsByEmail)) {
     return json({ error: 'Không có quyền với kết quả này' }, 403);
   }
 
@@ -77,7 +79,6 @@ export const POST: APIRoute = async (ctx) => {
       responseId,
       jobType: type,
       runId: job.runId,
-      userId: session.user.id,
     });
   } catch (error) {
     console.error('[run-ai] Queue dispatch failed:', error);

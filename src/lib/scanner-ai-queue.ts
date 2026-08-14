@@ -1,4 +1,5 @@
 import { runAiAnalysis, runPlanAnalysis, type ScannerAiRunResult } from './scanner-ai';
+import { getHistoryByResponseId } from './scanner-history-db';
 
 export type ScannerAiJobType = 'analysis' | 'plan';
 
@@ -6,7 +7,11 @@ export interface ScannerAiQueueMessage {
   responseId: number;
   jobType: ScannerAiJobType;
   runId: string;
-  userId: string;
+  /**
+   * Kept only to consume messages published before Phase 1B. The worker looks
+   * up ownership from scanner_history and never trusts this queue payload.
+   */
+  userId?: string;
 }
 
 export function getScannerAiQueue(
@@ -32,9 +37,17 @@ export async function processScannerAiQueueMessage(
       return { completed: true, retryable: false };
     }
 
+    // Queue payloads are untrusted and may be old/redelivered. Plans must have
+    // an authenticated history owner; do not fall back to a report email or a
+    // user ID supplied by the caller/queue message.
+    const history = await getHistoryByResponseId(env.DB, message.responseId);
+    if (message.jobType === 'plan' && !history) {
+      return { completed: true, retryable: false };
+    }
+    const ownerId = history?.user_id;
     const runResult = message.jobType === 'analysis'
-      ? await runAiAnalysis(env.DB, message.responseId, message.userId, message.runId)
-      : await runPlanAnalysis(env.DB, message.responseId, message.userId, message.runId);
+      ? await runAiAnalysis(env.DB, message.responseId, ownerId, message.runId)
+      : await runPlanAnalysis(env.DB, message.responseId, ownerId, message.runId);
     if (!runResult.completed) return runResult;
 
     return { completed: true, retryable: false };

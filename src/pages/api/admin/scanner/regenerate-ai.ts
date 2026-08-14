@@ -23,8 +23,6 @@ export const POST: APIRoute = async ({ url, locals }) => {
   if (!isAdmin || !locals.user) {
     return json({ error: 'unauthorized' }, 401);
   }
-  const userId = locals.user.id;
-
   const id = parseInt(url.searchParams.get('id') ?? '', 10);
   if (!id) return badRequest('id is required');
 
@@ -43,7 +41,6 @@ export const POST: APIRoute = async ({ url, locals }) => {
     responseId: id,
     jobType: 'analysis',
     runId: job.runId,
-    userId,
   });
 
   return json({ success: true, queued: true, job: { type: 'analysis', runId: job.runId } }, 202);

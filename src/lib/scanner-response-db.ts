@@ -315,18 +315,51 @@ export async function setScannerPdfKey(
 
 export interface AiContext {
   survey_id: string;
-  clinic: string | null;
-  owner: string | null;
   years_in_operation: number | null;
   staff_count: number | null;
   lang: string;
   scores: Record<string, number>;
+  /** All answer content is untrusted, redacted, and bounded before provider use. */
   responses: Record<string, unknown>;
 }
 
+const MAX_PROVIDER_ANSWER_LENGTH = 1_000;
+const MAX_PROVIDER_ANSWERS = 40;
+const EMAIL_PATTERN = /[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi;
+const PHONE_PATTERN = /(?:\+?\d[\s().-]*){8,}\d/g;
+
+/** Removes common direct contact identifiers before untrusted answer text reaches a provider. */
+export function redactScannerFreeText(value: string): string {
+  return value
+    .replace(EMAIL_PATTERN, '[redacted-email]')
+    .replace(PHONE_PATTERN, '[redacted-phone]')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_PROVIDER_ANSWER_LENGTH);
+}
+
 /**
- * Build a structured context object for the AI prompt.
- * Maps each question's answer to a human-readable field for the model.
+ * Returns raw textarea values for local output validation only. These values
+ * must never be included in prompts or persisted in an action plan artifact.
+ */
+export function getScannerSourceFreeText(
+  response: ScannerResponseRow,
+  questions: SurveyQuestionRow[],
+): string[] {
+  const responses = parseResponses(response.responses_json);
+  return questions
+    .filter((question) => question.type === 'textarea')
+    .map((question) => responses[question.question_id])
+    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
+    .map((value) => String(value).replace(/\s+/g, ' ').trim())
+    .filter((value) => value.length >= 3);
+}
+
+/**
+ * Builds provider-safe answer data for the user message only. Identity/contact
+ * columns are deliberately excluded, while all answer strings remain explicitly
+ * marked untrusted and cannot be interpolated into the system instruction.
  */
 export function buildAiContext(
   response: ScannerResponseRow,
@@ -334,37 +367,24 @@ export function buildAiContext(
 ): AiContext {
   const responses = parseResponses(response.responses_json);
   const scores = parseScores(response.scores_json);
-
-  // Convert answer values to readable strings for the AI:
-  // - textarea: keep as-is
-  // - select (1-5): include the numeric value (model reads scale_labels for context)
-  // - radio: keep the option string
   const enrichedResponses: Record<string, unknown> = {};
 
-  for (const q of questions) {
-    const v = responses[q.question_id];
-    if (v === undefined) continue;
+  for (const q of questions.slice(0, MAX_PROVIDER_ANSWERS)) {
+    const value = responses[q.question_id];
+    if (value === undefined) continue;
 
     if (q.type === 'select') {
-      // Decode the numeric value into a labeled object
       const labels = parseScaleLabels(q.scale_labels_vi);
       enrichedResponses[q.question_id] = {
-        value: v,
-        label_vi: labels[String(v)] ?? String(v),
-        question_vi: q.label_vi,
-        dimension: q.dimension,
-      };
-    } else if (q.type === 'radio') {
-      // Already a string (option text)
-      enrichedResponses[q.question_id] = {
-        value: v,
-        question_vi: q.label_vi,
+        value: typeof value === 'number' ? value : redactScannerFreeText(String(value)).slice(0, 32),
+        label_vi: redactScannerFreeText(labels[String(value)] ?? String(value)),
+        question_vi: redactScannerFreeText(q.label_vi),
         dimension: q.dimension,
       };
     } else {
       enrichedResponses[q.question_id] = {
-        value: v,
-        question_vi: q.label_vi,
+        value: redactScannerFreeText(String(value)),
+        question_vi: redactScannerFreeText(q.label_vi),
         dimension: q.dimension,
       };
     }
@@ -372,8 +392,6 @@ export function buildAiContext(
 
   return {
     survey_id: response.survey_id,
-    clinic: response.clinic_name,
-    owner: response.owner_name,
     years_in_operation: response.years_in_operation,
     staff_count: response.staff_count,
     lang: response.lang,
