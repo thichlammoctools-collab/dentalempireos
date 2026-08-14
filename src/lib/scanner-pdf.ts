@@ -163,6 +163,50 @@ function drawParagraph(
   ctx.y -= 4;
 }
 
+function drawMarkdownHeading(ctx: PdfContext, text: string, depth: number) {
+  if (depth <= 2) {
+    // H2: background tint navy + accent bar amber
+    ensureSpace(ctx, 36);
+    ctx.y -= 14;
+    const bgHeight = 22;
+    ctx.page.drawRectangle({
+      x: MARGIN_X, y: ctx.y - bgHeight, width: CONTENT_WIDTH, height: bgHeight,
+      color: NAVY, opacity: 0.06,
+    });
+    ctx.page.drawRectangle({
+      x: MARGIN_X, y: ctx.y - bgHeight, width: 4, height: bgHeight,
+      color: AMBER,
+    });
+    ctx.page.drawText(text, {
+      x: MARGIN_X + 14, y: ctx.y - 15, size: 12,
+      font: ctx.fontBold, color: NAVY,
+    });
+    ctx.y -= bgHeight + 4;
+  } else if (depth === 3) {
+    // H3: accent bar navy
+    ensureSpace(ctx, 28);
+    ctx.y -= 10;
+    ctx.page.drawRectangle({
+      x: MARGIN_X, y: ctx.y - 16, width: 3, height: 16,
+      color: NAVY,
+    });
+    ctx.page.drawText(text, {
+      x: MARGIN_X + 12, y: ctx.y - 12, size: 11,
+      font: ctx.fontBold, color: NAVY,
+    });
+    ctx.y -= 22;
+  } else {
+    // H4+: bold text only
+    ensureSpace(ctx, 20);
+    ctx.y -= 6;
+    ctx.page.drawText(text, {
+      x: MARGIN_X, y: ctx.y - 10, size: 10.5,
+      font: ctx.fontBold, color: NAVY,
+    });
+    ctx.y -= 16;
+  }
+}
+
 function drawBullet(ctx: PdfContext, text: string) {
   const lines = wrapText(text, ctx.font, 10, CONTENT_WIDTH - 15);
   let first = true;
@@ -659,6 +703,17 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     color: rgb(0.97, 0.98, 1), borderColor: LIGHT, borderWidth: 0.7,
   });
 
+  // Title background tint + accent bar
+  const titleBgHeight = titleLines.length * 13 + 6;
+  ctx.page.drawRectangle({
+    x: cardX + 1, y: topY - 14 - titleBgHeight + 4, width: cardWidth - 2, height: titleBgHeight,
+    color: NAVY, opacity: 0.04,
+  });
+  ctx.page.drawRectangle({
+    x: cardX + 1, y: topY - 14 - titleBgHeight + 4, width: 3, height: titleBgHeight,
+    color: AMBER,
+  });
+
   let y = topY - 17;
   titleLines.forEach((line) => {
     ctx.page.drawText(line, { x: cardX + 15, y, size: 10, font: ctx.fontBold, color: NAVY });
@@ -701,12 +756,8 @@ function renderMarkdownToPdf(ctx: PdfContext, markdown: string) {
 
   for (const tok of tokens) {
     if (tok.type === 'heading') {
-      ctx.y -= 6;
       const text = tok.text.replace(/[*_`#]/g, '');
-      const level = tok.depth ?? 1;
-      const size = level === 1 ? 13 : level === 2 ? 11.5 : 10.5;
-      drawParagraph(ctx, text, { bold: true, size, color: NAVY });
-      ctx.y -= 4;
+      drawMarkdownHeading(ctx, text, tok.depth ?? 1);
     } else if (tok.type === 'paragraph') {
       drawParagraph(ctx, stripMarkdown(tokenText(tok)));
     } else if (tok.type === 'list') {
