@@ -37,6 +37,27 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     await Promise.all(keys.map((key) => env.MEDIA.delete(key)));
 
     await env.DB.batch([
+      env.DB.prepare(
+        `DELETE FROM "scanner_action_plan_action_progress"
+         WHERE "action_id" IN (
+           SELECT action."id" FROM "scanner_action_plan_action" action
+           INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
+           WHERE plan."source_response_id" = ?
+         )`,
+      ).bind(response.id),
+      env.DB.prepare(
+        `DELETE FROM "scanner_action_plan_action"
+         WHERE "plan_id" IN (
+           SELECT "id" FROM "scanner_action_plan" WHERE "source_response_id" = ?
+         )`,
+      ).bind(response.id),
+      env.DB.prepare(
+        `DELETE FROM "scanner_action_plan_score_snapshot"
+         WHERE "plan_id" IN (
+           SELECT "id" FROM "scanner_action_plan" WHERE "source_response_id" = ?
+         ) OR "response_id" = ?`,
+      ).bind(response.id, response.id),
+      env.DB.prepare('DELETE FROM "scanner_action_plan" WHERE "source_response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_guest_report" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_history" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_credit_run" WHERE "response_id" = ?').bind(response.id),

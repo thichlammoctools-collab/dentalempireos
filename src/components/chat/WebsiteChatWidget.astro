@@ -8,7 +8,10 @@ interface Props {
 const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
 ---
 
-<div id="website-chat-root" class={pageType === 'book' ? 'website-chat-root--book' : undefined}>
+<div
+  id="website-chat-root"
+  class={pageType === 'book' ? 'website-chat-root--book' : pageType === 'blog' ? 'website-chat-root--blog' : undefined}
+>
   <!-- Trigger button -->
   <button
     id="website-chat-trigger"
@@ -127,6 +130,10 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
       border-color: #38bdf8;
       color: #e0f2fe;
       box-shadow: 0 5px 18px rgba(14, 165, 233, 0.4);
+    }
+    /* Blog pages keep the AI control above the floating table-of-contents button. */
+    .website-chat-root--blog #website-chat-trigger {
+      bottom: calc(4.5rem + 3.25rem + env(safe-area-inset-bottom, 0px));
     }
   }
   #website-chat-trigger:hover { transform: scale(1.06); border-color: #fbbf24; background: color-mix(in srgb, #fbbf24 10%, var(--reader-chrome-surface-high, #1e293b)); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.32); }
@@ -279,6 +286,11 @@ const { pageType = 'home', pageSlug = '', chapterId = '' } = Astro.props;
    :global(#website-chat-root .chat-msg-bubble em) { font-style: italic; }
    :global(#website-chat-root .chat-msg-bubble a) { color: #fb923c; }
    :global(#website-chat-root .chat-msg-bubble code) { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+</style>
+
+<style is:global>
+  /* The table-of-contents sheet should be the only active mobile overlay. */
+  body.blog-toc-open #website-chat-trigger { display: none !important; }
 </style>
 
 <script is:inline define:vars={{ pageType, pageSlug, chapterId }}>
