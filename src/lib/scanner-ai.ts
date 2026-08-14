@@ -25,6 +25,14 @@ import { sendScannerAiCompleteEmail } from './resend';
 import { logAiUsage } from './ai-usage-log';
 import { buildWebsiteContext, searchWebsite } from './rag-website-search';
 import { finishScannerAiJob, requestId, startQueuedScannerAiJob } from './ai-operations';
+import {
+  createOrGetScannerActionPlan,
+  getScannerActionPlanActions,
+  getScannerActionPlanForGenerationRun,
+  persistScannerActionPlanActionSet,
+  type ScannerActionPlanActionInput,
+  type ScannerActionPriority,
+} from './scanner-action-plan-db';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -200,10 +208,162 @@ function addBookContext(systemPrompt: string, bookContext: string, lang: 'vi' | 
   return `${systemPrompt}${instruction}`;
 }
 
-function withOperationalPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
+const ACTION_PRIORITIES = ['low', 'medium', 'high'] as const;
+const ACTION_CATEGORIES = ['operations', 'people', 'process', 'finance', 'marketing', 'patient_experience', 'compliance', 'technology', 'strategy'] as const;
+const MAX_PLAN_TITLE_LENGTH = 120;
+const MAX_PLAN_SUMMARY_LENGTH = 600;
+const MAX_ACTION_TITLE_LENGTH = 160;
+const MAX_ACTION_DESCRIPTION_LENGTH = 1_200;
+const MAX_ACTION_CATEGORY_LENGTH = 32;
+const MAX_TARGET_DAYS = 365;
+
+export interface StructuredScannerActionPlan {
+  title: string;
+  summary: string;
+  actions: Array<ScannerActionPlanActionInput & { category: string; priority: ScannerActionPriority; targetDays: number }>;
+}
+
+/** A non-provider error: schema violations are terminal and must not be retried. */
+export class InvalidScannerActionPlanOutputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidScannerActionPlanOutputError';
+  }
+}
+
+function hasHtml(value: string): boolean {
+  return /<\/?[a-z][^>]*>/i.test(value);
+}
+
+function readPlanText(value: unknown, field: string, maxLength: number): string {
+  if (typeof value !== 'string') throw new InvalidScannerActionPlanOutputError(`${field} must be a string.`);
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength || hasHtml(normalized)) {
+    throw new InvalidScannerActionPlanOutputError(`${field} is empty, too long, or contains HTML.`);
+  }
+  return normalized;
+}
+
+/**
+ * Parses only the strict JSON envelope requested from the provider. The output
+ * never becomes executable HTML and positions are derived locally, not trusted.
+ */
+function normalizeForPiiCheck(value: string): string {
+  return value.toLocaleLowerCase('vi').replace(/\s+/g, ' ').trim();
+}
+
+function assertNoPlanPii(plan: StructuredScannerActionPlan, sourcePii: string[]): void {
+  const content = [plan.title, plan.summary, ...plan.actions.flatMap((action) => [action.title, action.description ?? ''])]
+    .map(normalizeForPiiCheck)
+    .join('\n');
+  const sourceValues = sourcePii.map(normalizeForPiiCheck).filter((value) => value.length >= 3);
+  if (sourceValues.some((value) => content.includes(value))) {
+    throw new InvalidScannerActionPlanOutputError('AI plan output contains source personal data.');
+  }
+  if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(content) || /(?:\+?\d[\s().-]*){8,}\d/.test(content)) {
+    throw new InvalidScannerActionPlanOutputError('AI plan output contains contact information.');
+  }
+}
+
+export function parseStructuredScannerActionPlan(output: string, sourcePii: string[] = []): StructuredScannerActionPlan {
+  let value: unknown;
+  try {
+    value = JSON.parse(output);
+  } catch {
+    throw new InvalidScannerActionPlanOutputError('AI plan output is not valid JSON.');
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InvalidScannerActionPlanOutputError('AI plan output must be a JSON object.');
+  }
+
+  const envelope = value as Record<string, unknown>;
+  const allowedEnvelopeKeys = new Set(['title', 'summary', 'actions']);
+  if (Object.keys(envelope).some((key) => !allowedEnvelopeKeys.has(key))) {
+    throw new InvalidScannerActionPlanOutputError('AI plan output contains unsupported fields.');
+  }
+  if (!Array.isArray(envelope.actions) || envelope.actions.length < 4 || envelope.actions.length > 12) {
+    throw new InvalidScannerActionPlanOutputError('AI plan must contain 4 to 12 actions.');
+  }
+
+  const actions = envelope.actions.map((value, index) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new InvalidScannerActionPlanOutputError(`Action ${index + 1} must be an object.`);
+    }
+    const action = value as Record<string, unknown>;
+    const allowedActionKeys = new Set(['title', 'description', 'category', 'priority', 'target_days']);
+    if (Object.keys(action).some((key) => !allowedActionKeys.has(key))) {
+      throw new InvalidScannerActionPlanOutputError(`Action ${index + 1} contains unsupported fields.`);
+    }
+    const category = readPlanText(action.category, `Action ${index + 1} category`, MAX_ACTION_CATEGORY_LENGTH);
+    if (!(ACTION_CATEGORIES as readonly string[]).includes(category)) {
+      throw new InvalidScannerActionPlanOutputError(`Action ${index + 1} category is invalid.`);
+    }
+    if (typeof action.priority !== 'string' || !(ACTION_PRIORITIES as readonly string[]).includes(action.priority)) {
+      throw new InvalidScannerActionPlanOutputError(`Action ${index + 1} priority is invalid.`);
+    }
+    if (!Number.isInteger(action.target_days) || (action.target_days as number) < 1 || (action.target_days as number) > MAX_TARGET_DAYS) {
+      throw new InvalidScannerActionPlanOutputError(`Action ${index + 1} target_days is invalid.`);
+    }
+    return {
+      position: index,
+      title: readPlanText(action.title, `Action ${index + 1} title`, MAX_ACTION_TITLE_LENGTH),
+      description: readPlanText(action.description, `Action ${index + 1} description`, MAX_ACTION_DESCRIPTION_LENGTH),
+      category,
+      priority: action.priority as ScannerActionPriority,
+      targetDays: action.target_days as number,
+    };
+  });
+
+  const plan = {
+    title: readPlanText(envelope.title, 'Plan title', MAX_PLAN_TITLE_LENGTH),
+    summary: readPlanText(envelope.summary, 'Plan summary', MAX_PLAN_SUMMARY_LENGTH),
+    actions,
+  };
+  assertNoPlanPii(plan, sourcePii);
+  return plan;
+}
+
+function escapeMarkdown(value: string): string {
+  return value.replace(/([\\`*_{}\[\]<>])/g, '\\$1');
+}
+
+/** Derives the legacy Markdown artifact exclusively from already validated data. */
+export function renderStructuredScannerActionPlanMarkdown(
+  plan: StructuredScannerActionPlan,
+  lang: 'vi' | 'en',
+): string {
+  const labels = lang === 'vi'
+    ? { summary: 'Tóm tắt', category: 'Danh mục', priority: 'Ưu tiên', target: 'Mục tiêu hoàn thành' }
+    : { summary: 'Summary', category: 'Category', priority: 'Priority', target: 'Target completion' };
+  const priorityLabels: Record<ScannerActionPriority, string> = lang === 'vi'
+    ? { low: 'Thấp', medium: 'Trung bình', high: 'Cao' }
+    : { low: 'Low', medium: 'Medium', high: 'High' };
+  const targetDays = (days: number) => lang === 'vi' ? `${days} ngày` : `${days} days`;
+
+  return [
+    `# ${escapeMarkdown(plan.title)}`,
+    '',
+    `**${labels.summary}:** ${escapeMarkdown(plan.summary)}`,
+    '',
+    `## ${lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'}`,
+    '',
+    ...plan.actions.flatMap((action, index) => [
+      `### ${lang === 'vi' ? 'Hành động' : 'Action'} ${index + 1}: ${escapeMarkdown(action.title)}`,
+      '',
+      escapeMarkdown(action.description ?? ''),
+      '',
+      `- **${labels.category}:** ${escapeMarkdown(action.category ?? '')}`,
+      `- **${labels.priority}:** ${priorityLabels[action.priority ?? 'medium']}`,
+      `- **${labels.target}:** ${targetDays(action.targetDays ?? 0)}`,
+      '',
+    ]),
+  ].join('\n').trim();
+}
+
+function withStructuredPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
   const format = lang === 'vi'
-    ? `\n\n# ĐỊNH DẠNG BẮT BUỘC ĐỂ CÓ THỂ IN VÀ GIAO VIỆC\nTrả lời bằng Markdown, không dùng lời mở đầu hoặc kết luận chung chung.\n- Dùng ## cho từng tuần/giai đoạn.\n- Mỗi hành động bắt đầu bằng ### Hành động N: [tên ngắn, hướng hành động].\n- Ngay dưới tiêu đề hành động, viết chính xác ba dòng có nhãn in đậm:\n  - **Việc cần làm:** các bước cụ thể, có thể giao ngay.\n  - **Mục tiêu:** lý do hoặc kết quả vận hành cần đạt.\n  - **Hoàn thành khi:** tiêu chí kiểm chứng được, có con số/thời hạn nếu phù hợp.\n- Khi hữu ích, thêm **Người phụ trách gợi ý:** và **Thời hạn:**.\n- Mỗi hành động là một khối độc lập, ngắn gọn, để có thể copy/paste hoặc in trực tiếp cho nhân sự.`
-    : `\n\n# REQUIRED PRINT-READY FORMAT\nReply in Markdown only. Do not add a generic introduction or conclusion.\n- Use ## for each week/phase.\n- Start every action with ### Action N: [short action-oriented title].\n- Directly below each action title, write exactly these bold labels:\n  - **What to do:** concrete, assignable steps.\n  - **Objective:** the operational outcome.\n  - **Done when:** a verifiable completion criterion, with a number/deadline where useful.\n- Add **Suggested owner:** and **Due date:** when useful.\n- Keep each action an independent, concise block that can be copied or printed for the team.`;
+    ? `\n\n# ĐỊNH DẠNG JSON BẮT BUỘC\nTrả về duy nhất một JSON object hợp lệ, không bọc Markdown, không dùng code fence, không thêm lời giải thích. Schema chính xác:\n{"title":"...","summary":"...","actions":[{"title":"...","description":"...","category":"operations|people|process|finance|marketing|patient_experience|compliance|technology|strategy","priority":"low|medium|high","target_days":7}]}\nTạo từ 4 đến 12 actions theo thứ tự ưu tiên. title/summary/action title/description là plain text, không HTML. target_days là số nguyên 1-365. Không tạo position, ID, owner, thông tin liên hệ hoặc dữ liệu cá nhân.`
+    : `\n\n# REQUIRED JSON FORMAT\nReturn only one valid JSON object: no Markdown, no code fence, and no explanatory text. Exact schema:\n{"title":"...","summary":"...","actions":[{"title":"...","description":"...","category":"operations|people|process|finance|marketing|patient_experience|compliance|technology|strategy","priority":"low|medium|high","target_days":7}]}\nReturn 4 to 12 actions in priority order. title/summary/action title/description must be plain text with no HTML. target_days must be an integer from 1 to 365. Do not create positions, IDs, owners, contact details, or personal data.`;
   return `${prompt}${format}`;
 }
 
@@ -260,7 +420,7 @@ export async function buildPlanStream(
   const promptTemplate = getPlanPrompt(aiConfig, lang);
 
   const allQuestions = full.sections.flatMap((s) => s.questions);
-  const systemPrompt = withOperationalPlanFormat(
+  const systemPrompt = withStructuredPlanFormat(
     buildPrompt(promptTemplate, response, scoringRules, allQuestions),
     lang,
   );
@@ -300,13 +460,13 @@ async function doPlanWithFallback(
   aiConfig: AiConfig,
   scoringRules: ScoringRules | null,
   modelConfig: ModelConfig,
-): Promise<{ text: string; usedConfig: ModelConfig; fallbackUsed: boolean }> {
+): Promise<{ text: string; usedConfig: ModelConfig; fallbackUsed: boolean; attemptCount: number }> {
   if (!response) throw new Error('No response');
   const lang = response.lang === 'en' ? 'en' : 'vi';
   const promptTemplate = getPlanPrompt(aiConfig, lang);
 
   const allQuestions = full.sections.flatMap((section) => section.questions);
-  const systemPrompt = withOperationalPlanFormat(buildPrompt(promptTemplate, response, scoringRules, allQuestions), lang);
+  const systemPrompt = withStructuredPlanFormat(buildPrompt(promptTemplate, response, scoringRules, allQuestions), lang);
   const configs = await getAiGatewayConfigs(db, 'scanner', aiConfig.model_override ?? undefined);
   const normalized: ModelConfig[] = configs.map((config) => ({ ...config, max_tokens: modelConfig.max_tokens }));
   if (!normalized.length) normalized.push(modelConfig);
@@ -315,7 +475,12 @@ async function doPlanWithFallback(
     [{ role: 'user', content: JSON.stringify(buildAiContext(response, allQuestions), null, 2) }],
     systemPrompt,
   );
-  return { text: completion.content, usedConfig: completion.config, fallbackUsed: completion.fallbackUsed };
+  return {
+    text: completion.content,
+    usedConfig: completion.config,
+    fallbackUsed: completion.fallbackUsed,
+    attemptCount: completion.attemptCount,
+  };
 }
 
 // ─── Main entry points ─────────────────────────────────────────────────────────
@@ -405,14 +570,68 @@ export async function runPlanAnalysis(
   try {
     await updateAiPlanStatus(db, responseId, 'running');
 
+    // If a prior attempt committed the normalized set but crashed before the
+    // response artifact/job transition, finalize from the database without a
+    // second provider call or any reliance on new model output.
+    const committedPlan = await getScannerActionPlanForGenerationRun(db, jobRunId, userId ?? '');
+    if (committedPlan?.generation_state === 'ready') {
+      const committedActions = await getScannerActionPlanActions(db, committedPlan.id);
+      if (committedActions.length < 4) throw new Error('Ready Scanner action plan has no complete action set.');
+      const planMarkdown = renderStructuredScannerActionPlanMarkdown({
+        title: committedPlan.title ?? 'Action plan',
+        summary: committedPlan.summary ?? '',
+        actions: committedActions.map((action) => ({
+          position: action.position,
+          title: action.title,
+          description: action.description ?? '',
+          category: action.category ?? 'operations',
+          priority: action.priority,
+          targetDays: action.target_days ?? 1,
+        })),
+      }, response.lang === 'en' ? 'en' : 'vi');
+      await updateAiPlan(db, responseId, planMarkdown);
+      await updateAiPlanStatus(db, responseId, 'done');
+      await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'done');
+      await Promise.allSettled([
+        sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),
+        sendScannerNotification(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan notification failed:', err)),
+      ]);
+      return { completed: true, retryable: false };
+    }
+
     const planStartedAt = Date.now();
     const completion = await doPlanWithFallback(db, response, full, config, scoringRules, modelConfig);
-    const plan = completion.text;
+    const structuredPlan = parseStructuredScannerActionPlan(completion.text, [
+      response.owner_name ?? '',
+      response.clinic_name ?? '',
+      response.clinic_address ?? '',
+      response.clinic_phone ?? '',
+      response.email ?? '',
+    ]);
+    const planMarkdown = renderStructuredScannerActionPlanMarkdown(structuredPlan, response.lang === 'en' ? 'en' : 'vi');
 
-    await updateAiPlan(db, responseId, plan);
+    // Claim first and commit every normalized action atomically. A duplicate queue
+    // delivery for this run returns the committed set without creating duplicates.
+    const actionPlan = await createOrGetScannerActionPlan(db, {
+      userId: userId ?? '',
+      responseId,
+      generationRunId: jobRunId,
+    });
+    await persistScannerActionPlanActionSet(db, {
+      planId: actionPlan.id,
+      userId: userId ?? '',
+      generationRunId: jobRunId,
+      title: structuredPlan.title,
+      summary: structuredPlan.summary,
+      actions: structuredPlan.actions,
+    });
+
+    // Retain the legacy artifact only after normalized storage is committed, so
+    // PDFs and existing result screens see a deterministic, validated Markdown plan.
+    await updateAiPlan(db, responseId, planMarkdown);
     await updateAiPlanStatus(db, responseId, 'done');
     await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'done');
-    await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(plan.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
+    await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_plan', success: true, latency_ms: Date.now() - planStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(planMarkdown.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: completion.attemptCount }).catch((err) => console.warn('[scanner-ai] plan usage log failed:', err));
 
     await Promise.allSettled([
       sendScannerAiCompleteEmail(db, responseId, 'plan').catch((err) => console.error('[scanner-ai] plan email failed:', err)),
@@ -424,6 +643,10 @@ export async function runPlanAnalysis(
     await finishScannerAiJob(db, responseId, 'plan', jobRunId, 'failed', String(err));
     await logAiUsage(db, { provider_id: modelConfig.provider_id, model_id: modelConfig.model_id, feature: 'scanner_plan', success: false, error_message: String(err).slice(0, 500), request_id: request }).catch(() => undefined);
     console.error(`[scanner-ai] Plan: Failed for ${responseId}:`, err);
-    return { completed: false, retryable: !(err instanceof AiError) || err.statusCode === 408 || err.statusCode === 409 || err.statusCode === 429 || err.statusCode >= 500 };
+    return {
+      completed: false,
+      retryable: !(err instanceof InvalidScannerActionPlanOutputError)
+        && (!(err instanceof AiError) || err.statusCode === 408 || err.statusCode === 409 || err.statusCode === 429 || err.statusCode >= 500),
+    };
   }
 }

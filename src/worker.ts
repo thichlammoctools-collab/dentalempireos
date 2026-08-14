@@ -37,32 +37,21 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
     await Promise.all(keys.map((key) => env.MEDIA.delete(key)));
 
     await env.DB.batch([
+      // Improvement-loop plans retain normalized recommendations and score-only
+      // snapshots after raw Scanner answers expire. Detach every response link
+      // before deleting the source row; plans remain readable by their owner.
       env.DB.prepare(
-        `DELETE FROM "scanner_action_plan_action_progress"
-         WHERE "action_id" IN (
-           SELECT action."id" FROM "scanner_action_plan_action" action
-           INNER JOIN "scanner_action_plan" plan ON plan."id" = action."plan_id"
-           WHERE plan."source_response_id" = ?
-         )`,
+        `UPDATE "scanner_action_plan"
+         SET "source_response_id" = NULL,
+             "source_response_purged_at" = COALESCE("source_response_purged_at", ?)
+         WHERE "source_response_id" = ?`,
+      ).bind(now, response.id),
+      env.DB.prepare(
+        'UPDATE "scanner_action_plan_score_snapshot" SET "response_id" = NULL WHERE "response_id" = ?',
       ).bind(response.id),
-      env.DB.prepare(
-        `DELETE FROM "scanner_action_plan_action"
-         WHERE "plan_id" IN (
-           SELECT "id" FROM "scanner_action_plan" WHERE "source_response_id" = ?
-         )`,
-      ).bind(response.id),
-      env.DB.prepare(
-        `DELETE FROM "scanner_action_plan_score_snapshot"
-         WHERE "plan_id" IN (
-           SELECT "id" FROM "scanner_action_plan" WHERE "source_response_id" = ?
-         ) OR "response_id" = ?`,
-      ).bind(response.id, response.id),
-      env.DB.prepare('DELETE FROM "scanner_action_plan" WHERE "source_response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_guest_report" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_history" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_credit_run" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_report_image_credit_run" WHERE "response_id" = ?').bind(response.id),
-      env.DB.prepare('DELETE FROM "scanner_report_image_job" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_ai_job" WHERE "response_id" = ?').bind(response.id),
       env.DB.prepare('DELETE FROM "scanner_response" WHERE "id" = ?').bind(response.id),
     ]);
