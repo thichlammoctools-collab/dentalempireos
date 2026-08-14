@@ -214,18 +214,15 @@ export const POST: APIRoute = async (ctx) => {
     if (recoveredId !== null) {
       try {
         const existingRun = await getScannerCreditRunByIdempotencyKey(env.DB, session!.user.id, idempotencyKey);
-        if (existingRun?.status === 'failed') {
+        if (existingRun && existingRun.status !== 'completed') {
           // Fail closed before history can make the raw report accessible. The
-          // next block creates and settles the replacement reservation first.
+          // starter below first repairs a legacy reserved run whose reservation
+          // was already released, then restores and settles a replacement.
+          // An intact reserved run is simply finalized against its own response.
           getCapturedScannerCreditRunPrice(existingRun);
           creditRun = existingRun;
           recoveredResponseId = recoveredId;
         } else if (existingRun) {
-          if (existingRun.status !== 'completed') {
-            await completeScannerCreditRun(env.DB, {
-              userId: session!.user.id, runId: existingRun.id, responseId: recoveredId,
-            });
-          }
           await ensureAuthenticatedHistory(recoveredId);
         } else {
           await settleScannerFreeAttempt(env.DB, submission.submission.id);

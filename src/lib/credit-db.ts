@@ -837,8 +837,9 @@ export async function startScannerCreditRun(
   // A failure before response creation is retryable with the same request key.
   // Elect one replacement reservation atomically. Concurrent retries see the
   // retry token and reuse that same run/reservation rather than double-charging.
-  const retryToken = existing ? crypto.randomUUID() : null;
-  if (existing) {
+  let retryToken = existing?.retry_token ?? null;
+  if (existing && retryToken === null) {
+    retryToken = crypto.randomUUID();
     const claimed = await db.prepare(
       `UPDATE "scanner_credit_run" SET "retry_token" = ?, "updated_at" = ?
        WHERE "id" = ? AND "status" = 'failed' AND "retry_token" IS NULL`,
@@ -885,7 +886,7 @@ export async function startScannerCreditRun(
     if (reserved.created) await releaseReservation(db, {
       userId: input.userId, reservationId: reserved.reservation.id, reason: 'scanner_run_creation_failed',
     });
-    if (existing) {
+    if (existing && retryToken !== null) {
       await db.prepare(
         `UPDATE "scanner_credit_run" SET "retry_token" = NULL, "updated_at" = ?
          WHERE "id" = ? AND "status" = 'failed' AND "retry_token" = ?`,
@@ -954,6 +955,10 @@ export async function failScannerCreditRun(
   // immutable price data that a later same-key recovery must charge.
   getCapturedScannerCreditRunPrice(run);
   const account = await ensureCreditAccount(db, input.userId);
+  const reservation = await db.prepare(
+    'SELECT * FROM "credit_reservation" WHERE "id" = ? AND "account_id" = ?',
+  ).bind(run.reservation_id, account.id).first<CreditReservation>();
+  if (!reservation) throw new Error('Scanner Credit run reservation not found');
   const timestamp = now();
   const result = await db.batch([
     // Mark the run failed first in the transaction, then release its reservation.
@@ -961,30 +966,56 @@ export async function failScannerCreditRun(
     // attached to a still-reserved run.
     db.prepare(
       `UPDATE "scanner_credit_run" SET "status" = 'failed', "retry_token" = NULL, "updated_at" = ?
-       WHERE "id" = ? AND "user_id" = ? AND "status" = 'reserved'`,
-    ).bind(timestamp, run.id, input.userId),
+       WHERE "id" = ? AND "user_id" = ? AND "status" = 'reserved'
+         AND EXISTS (
+           SELECT 1 FROM "credit_reservation"
+           WHERE "id" = "scanner_credit_run"."reservation_id"
+             AND "status" = 'reserved' AND "reserved_credits" = ?
+         )
+         AND EXISTS (
+           SELECT 1 FROM "credit_account"
+           WHERE "id" = ? AND "reserved_credits" >= ?
+         )`,
+    ).bind(timestamp, run.id, input.userId, reservation.reserved_credits, account.id, reservation.reserved_credits),
     db.prepare(
       `UPDATE "credit_reservation"
        SET "status" = 'released', "released_at" = ?, "updated_at" = ?
        WHERE "id" = ? AND "status" = 'reserved' AND changes() = 1`,
-    ).bind(timestamp, timestamp, run.reservation_id),
+    ).bind(timestamp, timestamp, reservation.id),
     db.prepare(
       `UPDATE "credit_account"
        SET "reserved_credits" = "reserved_credits" - ?, "available_credits" = "available_credits" + ?, "updated_at" = ?
        WHERE "id" = ? AND "reserved_credits" >= ? AND changes() = 1`,
-    ).bind(run.credit_amount, run.credit_amount, timestamp, account.id, run.credit_amount),
+    ).bind(reservation.reserved_credits, reservation.reserved_credits, timestamp, account.id, reservation.reserved_credits),
     db.prepare(
       `INSERT INTO "credit_ledger_entry"
        ("id","account_id","kind","amount","source_type","source_id","idempotency_key","actor_user_id","reason","metadata_json","created_at")
        SELECT ?,?,'release',?,?,?,?,NULL,?, '{}',? WHERE changes() = 1`,
-    ).bind(id(), account.id, run.credit_amount, 'scanner', run.id,
-      `release:${run.reservation_id}`, input.reason, timestamp),
+    ).bind(id(), account.id, reservation.reserved_credits, reservation.feature_type, reservation.business_object_id,
+      `release:${reservation.id}`, input.reason, timestamp),
   ]);
   if ((result[0].meta.changes ?? 0) !== 1) {
     const current = await db.prepare(
-      'SELECT "status" FROM "scanner_credit_run" WHERE "id" = ? AND "user_id" = ?',
-    ).bind(run.id, input.userId).first<Pick<ScannerCreditRun, 'status'>>();
-    if (current?.status === 'reserved') {
+      `SELECT run."status" AS "run_status", reservation."status" AS "reservation_status"
+       FROM "scanner_credit_run" run
+       JOIN "credit_reservation" reservation ON reservation."id" = run."reservation_id"
+       WHERE run."id" = ? AND run."user_id" = ?`,
+    ).bind(run.id, input.userId).first<{ run_status: ScannerCreditRun['status']; reservation_status: CreditReservation['status'] }>();
+    if (current?.run_status === 'reserved' && current.reservation_status === 'released') {
+      // Repair the only historical split state created before this function used
+      // a batch. Current writes cannot produce it, and recovery is fail-closed
+      // if the immutable capture is absent or invalid.
+      const repaired = await db.prepare(
+        `UPDATE "scanner_credit_run" SET "status" = 'failed', "retry_token" = NULL, "updated_at" = ?
+         WHERE "id" = ? AND "user_id" = ? AND "status" = 'reserved'
+           AND EXISTS (
+             SELECT 1 FROM "credit_reservation"
+             WHERE "id" = "scanner_credit_run"."reservation_id" AND "status" = 'released'
+           )`,
+      ).bind(now(), run.id, input.userId).run();
+      if ((repaired.meta.changes ?? 0) === 1) return;
+    }
+    if (current?.run_status !== 'failed' || current.reservation_status !== 'released') {
       throw new Error('Unable to atomically fail Scanner Credit run');
     }
   }

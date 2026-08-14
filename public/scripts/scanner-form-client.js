@@ -29,7 +29,11 @@
   var answers = { lang: 'vi', survey_id: surveyData.id };
   var partEls = [];
   var isSubmitting = false;
+  // Persisted with the existing draft so a retry after a reload uses the same
+  // durable submission identity. The fingerprint intentionally excludes UI-only
+  // preferences such as save_profile and marketing consent.
   var requestIdempotencyKey = null;
+  var requestFingerprint = null;
   var hasTrackedStart = false;
 
   function track(eventName, props) {
@@ -98,7 +102,15 @@
   }
 
   function saveDraft() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: currentLang, step: currentStep, answers: answers })); } catch (e) {}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        lang: currentLang,
+        step: currentStep,
+        answers: answers,
+        idempotencyKey: requestIdempotencyKey,
+        requestFingerprint: requestFingerprint,
+      }));
+    } catch (e) {}
   }
 
   function loadDraft() {
@@ -110,12 +122,56 @@
       Object.keys(data.answers || {}).forEach(function (k) { answers[k] = data.answers[k]; });
       currentLang = (data.lang === 'en' ? 'en' : 'vi');
       currentStep = typeof data.step === 'number' ? data.step : -1;
+      requestIdempotencyKey = typeof data.idempotencyKey === 'string' && data.idempotencyKey ? data.idempotencyKey : null;
+      requestFingerprint = typeof data.requestFingerprint === 'string' && data.requestFingerprint ? data.requestFingerprint : null;
       return true;
     } catch (e) { return false; }
   }
 
   function clearDraft() {
+    requestIdempotencyKey = null;
+    requestFingerprint = null;
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+
+  function stableStringify(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+    return '{' + Object.keys(value).sort().map(function (key) {
+      return JSON.stringify(key) + ':' + stableStringify(value[key]);
+    }).join(',') + '}';
+  }
+
+  function submissionFingerprint(payload) {
+    var resultInputs = {};
+    Object.keys(answers).sort().forEach(function (key) {
+      if (key !== 'lang' && key !== 'survey_id') resultInputs[key] = answers[key];
+    });
+    return stableStringify({
+      surveyId: payload.survey_id,
+      lang: payload.lang,
+      ownerName: payload.owner_name || null,
+      clinicName: payload.clinic_name || null,
+      clinicAddress: payload.clinic_address || null,
+      clinicPhone: payload.clinic_phone || null,
+      email: payload.email || null,
+      yearsInOperation: payload.years_in_operation || null,
+      staffCount: payload.staff_count || null,
+      responses: resultInputs,
+      actionPlanId: payload.action_plan_id || null,
+    });
+  }
+
+  function newIdempotencyKey() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    var bytes = new Uint8Array(16);
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function (byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('');
+    }
+    throw new Error('Trình duyệt không hỗ trợ tạo khóa gửi an toàn. Vui lòng cập nhật trình duyệt và thử lại.');
   }
 
   function buildParts() {
@@ -418,11 +474,26 @@
     });
     console.log('[scanner] submit payload:', JSON.stringify(payload, null, 2));
 
-    requestIdempotencyKey = requestIdempotencyKey || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + '-' + Math.random());
     try {
+      // Guest reports retain their existing submission flow. Every authenticated
+      // logical submission gets a CSPRNG key before its first POST, and the key
+      // survives recoverable failures/reloads in the scanner draft.
+      if (!isGuestReport) {
+        var nextFingerprint = submissionFingerprint(payload);
+        if (requestFingerprint !== nextFingerprint || !requestIdempotencyKey) {
+          requestFingerprint = nextFingerprint;
+          requestIdempotencyKey = newIdempotencyKey();
+        }
+        // Persist before sending: a transport loss after the server commits can
+        // be retried safely, including after navigation or a browser restart.
+        saveDraft();
+        payload.idempotency_key = requestIdempotencyKey;
+      }
+      var headers = { 'Content-Type': 'application/json' };
+      if (requestIdempotencyKey) headers['Idempotency-Key'] = requestIdempotencyKey;
       var res = await fetch('/api/scanner/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestIdempotencyKey },
+        headers: headers,
         body: JSON.stringify(payload),
       });
       var data = await res.json().catch(function () {
