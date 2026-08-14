@@ -197,30 +197,30 @@ try {
           </div>
         </div>
       </div>
-      <div class="report-actions">
+      <div class="report-actions" aria-label={lang === 'vi' ? 'Thao tác báo cáo' : 'Report actions'}>
         {hasPlan && hasAnalysis && (
-          <a href={`/api/scanner/${id}/pdf?type=combined`} class="btn btn-primary">
-            <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+          <a href={`/api/scanner/${id}/pdf?type=combined`} class="btn btn-primary report-action-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
             <span>{lang === 'vi' ? 'Xuất báo cáo PDF' : 'Export PDF report'}</span>
           </a>
         )}
-        <button type="button" id="btn-share" class="btn btn-ghost">
-          <span class="material-symbols-outlined text-base">share</span>
-          <span>{lang === 'vi' ? 'Chia sẻ' : 'Share'}</span>
+        <button type="button" id="btn-share" class="btn btn-ghost report-action-utility" aria-label={lang === 'vi' ? 'Chia sẻ báo cáo' : 'Share report'} title={lang === 'vi' ? 'Chia sẻ báo cáo' : 'Share report'}>
+          <span class="material-symbols-outlined" aria-hidden="true">share</span>
+          <span class="report-action-label">{lang === 'vi' ? 'Chia sẻ' : 'Share'}</span>
         </button>
-        <a href={rescanHref} class="btn btn-ghost">
-          <span class="material-symbols-outlined text-base">refresh</span>
-          {editableActionPlan ? (lang === 'vi' ? 'Quét lại để so sánh' : 'Rescan for comparison') : (lang === 'vi' ? 'Làm khảo sát mới' : 'New survey')}
+        <a href={rescanHref} class="btn btn-ghost report-action-rescan">
+          <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+          <span>{editableActionPlan ? (lang === 'vi' ? 'Quét lại để so sánh' : 'Rescan for comparison') : (lang === 'vi' ? 'Làm khảo sát mới' : 'New survey')}</span>
         </a>
         {visibleActionPlan && (
-          <a href={`/account/action-plans/${visibleActionPlan.id}`} class="btn btn-ghost">
-            <span class="material-symbols-outlined text-base">assignment</span>
-            <span>{lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'}</span>
+          <a href={`/account/action-plans/${visibleActionPlan.id}`} class="btn btn-ghost report-action-utility" aria-label={lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'} title={lang === 'vi' ? 'Kế hoạch hành động' : 'Action plan'}>
+            <span class="material-symbols-outlined" aria-hidden="true">assignment</span>
+            <span class="report-action-label">{lang === 'vi' ? 'Kế hoạch' : 'Plan'}</span>
           </a>
         )}
-        <a href="/account/scanner-history" class="btn btn-ghost">
-          <span class="material-symbols-outlined text-base">history</span>
-          <span>{lang === 'vi' ? 'Lịch sử' : 'History'}</span>
+        <a href="/account/scanner-history" class="btn btn-ghost report-action-utility" aria-label={lang === 'vi' ? 'Lịch sử Scanner' : 'Scanner history'} title={lang === 'vi' ? 'Lịch sử Scanner' : 'Scanner history'}>
+          <span class="material-symbols-outlined" aria-hidden="true">history</span>
+          <span class="report-action-label">{lang === 'vi' ? 'Lịch sử' : 'History'}</span>
         </a>
       </div>
     </header>
@@ -682,7 +682,15 @@ try {
    .report-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.65rem; color: var(--color-on-surface-variant); font-size: 0.8rem; }
   .report-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
    .report-meta .material-symbols-outlined { font-size: 0.95rem; color: var(--color-on-surface-variant); }
-  .report-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+   .report-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+   .report-actions .btn { min-height: 2.9rem; justify-content: center; }
+   .report-actions .material-symbols-outlined { font-size: 1.2rem; line-height: 1; }
+   .report-action-primary { order: 1; }
+   .report-action-rescan { order: 2; color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-outline-variant)); background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
+   .report-action-utility { order: 3; min-width: 2.9rem; padding-inline: 0.7rem; }
+   .report-action-utility:hover { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-outline-variant)); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+   .report-actions .btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-primary) 45%, transparent); outline-offset: 2px; }
+
 
   .card {
      background: var(--color-surface);
@@ -1197,9 +1205,13 @@ try {
 
   @media (max-width: 640px) {
     .result-wrap { padding: 1rem 0.5rem 3rem; }
-    .report-hero { align-items: stretch; padding: 1.15rem; margin-bottom: 1.25rem; }
-    .report-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
-    .report-actions .btn { justify-content: center; padding-inline: 0.75rem; }
+     .report-hero { align-items: stretch; padding: 1.15rem; margin-bottom: 1.25rem; }
+     .report-actions { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; }
+     .report-actions .btn { padding-inline: 0.75rem; }
+     .report-action-primary, .report-action-rescan { grid-column: span 3; }
+     .report-action-utility { grid-column: span 2; }
+     .report-action-utility .report-action-label { display: none; }
+
     .report-context { align-items: flex-start; flex-wrap: wrap; }
     .report-context a { width: 100%; margin-left: 1.55rem; }
     .card { padding: 1.25rem; }
