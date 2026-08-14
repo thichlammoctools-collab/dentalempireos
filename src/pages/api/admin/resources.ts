@@ -33,8 +33,11 @@ function parseAssets(value: unknown): ResourceAssetInput[] | null {
   return assets;
 }
 
-// GET /api/admin/resources — list all lifecycle states with their current assets.
-export const GET: APIRoute = async () => json(await listResources(env.DB, { includeAssets: true }));
+// Archived resources are retained for grants and asset history, but hidden from the management grid.
+export const GET: APIRoute = async () => json(
+  (await listResources(env.DB, { includeAssets: true }))
+    .filter((resource) => resource.status !== 'archived'),
+);
 
 // POST accepts an explicit stable ID. Title-derived IDs caused accidental overwrites.
 export const POST: APIRoute = async ({ request, locals }) => {

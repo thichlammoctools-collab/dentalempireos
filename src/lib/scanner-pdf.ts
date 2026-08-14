@@ -643,7 +643,7 @@ function ctxLabel(lang: 'vi' | 'en', vi: string, en: string) {
   return lang === 'vi' ? vi : en;
 }
 
-type PlanFieldKind = 'category' | 'priority' | 'target' | 'detail';
+type PlanFieldKind = 'category' | 'priority' | 'target' | 'detail' | 'detail-label';
 
 function planField(text: string, lang: 'vi' | 'en'): { label: string; value: string; color: ReturnType<typeof rgb>; kind: PlanFieldKind } {
   const match = text.match(/^([^:：]+)\s*[:：]\s*(.*)$/s);
@@ -656,11 +656,14 @@ function planField(text: string, lang: 'vi' | 'en'): { label: string; value: str
   const isObjective = normalized.includes(lang === 'vi' ? 'mục tiêu' : 'objective');
   const isDone = normalized.includes(lang === 'vi' ? 'hoàn thành' : 'done when');
   const isOwner = normalized.includes(lang === 'vi' ? 'phụ trách' : 'owner') || normalized.includes(lang === 'vi' ? 'thời hạn' : 'due date');
+  const detailLabel = ctxLabel(lang, 'chi tiết', 'details');
   return {
     label: label || ctxLabel(lang, 'Chi tiết', 'Details'),
     value,
     color: isDone ? SUCCESS : isObjective ? NAVY : isOwner ? MUTED : AMBER,
-    kind: isCategory ? 'category' : isPriority ? 'priority' : isTarget ? 'target' : 'detail',
+    kind: !label && normalized === detailLabel
+      ? 'detail-label'
+      : isCategory ? 'category' : isPriority ? 'priority' : isTarget ? 'target' : 'detail',
   };
 }
 
@@ -686,16 +689,29 @@ function drawPlanWeek(ctx: PdfContext, title: string, weekIndex: number) {
 interface PlanTag {
   text: string;
   color: ReturnType<typeof rgb>;
+  background: ReturnType<typeof rgb>;
 }
 
 function planTag(field: ReturnType<typeof planField>, lang: 'vi' | 'en'): PlanTag | null {
-  if (field.kind === 'category') return { text: `${ctxLabel(lang, 'Danh mục', 'Category')}: ${field.value}`, color: MUTED };
+  if (field.kind === 'category') return {
+    text: `${ctxLabel(lang, 'Danh mục', 'Category')}: ${field.value}`,
+    color: MUTED,
+    background: rgb(0.93, 0.94, 0.96),
+  };
   if (field.kind === 'priority') {
     const high = /cao|high/i.test(field.value);
     const low = /thấp|low/i.test(field.value);
-    return { text: `${ctxLabel(lang, 'Ưu tiên', 'Priority')}: ${field.value}`, color: high ? DANGER : low ? MUTED : WARN };
+    return {
+      text: `${ctxLabel(lang, 'Ưu tiên', 'Priority')}: ${field.value}`,
+      color: high ? DANGER : low ? MUTED : WARN,
+      background: high ? rgb(1, 0.91, 0.92) : low ? rgb(0.93, 0.94, 0.96) : rgb(1, 0.95, 0.84),
+    };
   }
-  if (field.kind === 'target') return { text: `${ctxLabel(lang, 'Mục tiêu', 'Target')}: ${field.value}`, color: NAVY };
+  if (field.kind === 'target') return {
+    text: `${ctxLabel(lang, 'Mục tiêu', 'Target')}: ${field.value}`,
+    color: NAVY,
+    background: rgb(0.89, 0.94, 1),
+  };
   return null;
 }
 
@@ -725,9 +741,9 @@ function drawPlanTagRows(ctx: PdfContext, rows: PlanTag[][], x: number, y: numbe
       const width = ctx.fontBold.widthOfTextAtSize(tag.text, 7.5) + 14;
       const height = 17;
       const radius = height / 2;
-      ctx.page.drawRectangle({ x: tagX + radius, y: y - 16, width: width - height, height, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
-      ctx.page.drawCircle({ x: tagX + radius, y: y - 16 + radius, size: radius, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
-      ctx.page.drawCircle({ x: tagX + width - radius, y: y - 16 + radius, size: radius, color: tag.color, opacity: 0.14, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawRectangle({ x: tagX + radius, y: y - 16, width: width - height, height, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawCircle({ x: tagX + radius, y: y - 16 + radius, size: radius, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
+      ctx.page.drawCircle({ x: tagX + width - radius, y: y - 16 + radius, size: radius, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
       ctx.page.drawText(tag.text, { x: tagX + 7, y: y - 11, size: 7.5, font: ctx.fontBold, color: tag.color });
       tagX += width + 5;
     }
@@ -739,6 +755,12 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   const timelineX = MARGIN_X + 18;
   const cardX = MARGIN_X + 42;
   const cardWidth = CONTENT_WIDTH - 42;
+  const innerX = cardX + 15;
+  const innerWidth = cardWidth - 30;
+  const completionLabel = ctxLabel(ctx.lang, 'Hoàn tất', 'Complete');
+  const notesLabel = ctxLabel(ctx.lang, 'Ghi chú', 'Notes');
+  const checkboxSize = 10;
+  const notesHeight = 42;
   const fields = action.content.flatMap((text) => text.split('\n').filter(Boolean)).map((text) => planField(text, ctx.lang));
   const tags = fields.map((field) => planTag(field, ctx.lang)).filter((tag): tag is PlanTag => tag !== null);
   const tagRows = planTagRows(tags, ctx.fontBold, cardWidth - 30);
@@ -747,7 +769,12 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     lines: wrapText(field.value, ctx.font, 9.5, cardWidth - 30),
   }));
   const titleLines = wrapText(action.title, ctx.fontBold, 10, cardWidth - 18);
-  const cardHeight = 18 + titleLines.length * 13 + tagRows.length * 22 + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0) + 10;
+  const cardHeight = 18
+    + titleLines.length * 13
+    + tagRows.length * 22
+    + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0)
+    + checkboxSize + 14
+    + notesHeight + 19;
   const needed = cardHeight + 22;
   ensureSpace(ctx, needed);
 
@@ -781,23 +808,45 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
 
   let y = topY - 17;
   titleLines.forEach((line) => {
-    ctx.page.drawText(line, { x: cardX + 15, y, size: 10, font: ctx.fontBold, color: NAVY });
+    ctx.page.drawText(line, { x: innerX, y, size: 10, font: ctx.fontBold, color: NAVY });
     y -= 13;
   });
   y -= 3;
   if (tagRows.length) {
-    drawPlanTagRows(ctx, tagRows, cardX + 15, y);
+    drawPlanTagRows(ctx, tagRows, innerX, y);
     y -= tagRows.length * 22;
   }
   for (const field of fieldLines) {
-    ctx.page.drawText(field.label, { x: cardX + 15, y, size: 8.5, font: ctx.fontBold, color: field.color });
+    ctx.page.drawText(field.label, { x: innerX, y, size: 8.5, font: ctx.fontBold, color: field.color });
     y -= 13;
     field.lines.forEach((line) => {
-      ctx.page.drawText(line, { x: cardX + 15, y, size: 9.5, font: ctx.font, color: TEXT });
+      ctx.page.drawText(line, { x: innerX, y, size: 9.5, font: ctx.font, color: TEXT });
       y -= 13;
     });
     y -= 2;
   }
+  ctx.page.drawRectangle({
+    x: innerX, y: y - checkboxSize + 2, width: checkboxSize, height: checkboxSize,
+    borderColor: NAVY, borderWidth: 0.8,
+  });
+  ctx.page.drawText(completionLabel, {
+    x: innerX + checkboxSize + 6, y: y - 6.5, size: 8.5, font: ctx.fontBold, color: NAVY,
+  });
+  y -= checkboxSize + 14;
+  ctx.page.drawText(notesLabel, { x: innerX, y, size: 8, font: ctx.fontBold, color: MUTED });
+  y -= 5;
+  ctx.page.drawRectangle({
+    x: innerX, y: y - notesHeight, width: innerWidth, height: notesHeight,
+    borderColor: LIGHT, borderWidth: 0.7,
+  });
+  ctx.page.drawLine({
+    start: { x: innerX + 8, y: y - 14 }, end: { x: innerX + innerWidth - 8, y: y - 14 },
+    thickness: 0.35, color: LIGHT,
+  });
+  ctx.page.drawLine({
+    start: { x: innerX + 8, y: y - 27 }, end: { x: innerX + innerWidth - 8, y: y - 27 },
+    thickness: 0.35, color: LIGHT,
+  });
   ctx.y = cardBottom - 18;
 }
 

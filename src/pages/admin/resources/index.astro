@@ -258,7 +258,7 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
           </div>
 
           <!-- Upload success -->
-          <div id="upload-success" class="hidden">
+           <div id="upload-success" class="hidden">
             <div class="flex items-center gap-3 bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
               <div class="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-[20px] text-emerald-400">check_circle</span>
@@ -270,9 +270,14 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
               <button type="button" id="upload-remove-btn" class="text-on-surface-variant hover:text-error transition-colors">
                 <span class="material-symbols-outlined text-[18px]">delete</span>
               </button>
-            </div>
-          </div>
-        </div>
+             </div>
+           </div>
+
+           <div id="existing-assets" class="hidden space-y-2">
+             <p class="text-xs font-bold text-on-surface-variant">Tệp đính kèm hiện có</p>
+             <div id="existing-assets-list" class="space-y-2"></div>
+           </div>
+         </div>
 
         <div class="h-px bg-outline-variant/30"></div>
 
@@ -498,9 +503,11 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
   const fFileInput = el('f-file-input') as HTMLInputElement;
   const uploadZone = el('upload-zone')!;
   const uploadProgress = el('upload-progress')!;
-  const uploadSuccess = el('upload-success')!;
-  const urlTextInput = el('f-file_url_text') as HTMLInputElement;
-  const fileUrlHidden = el('f-file_url') as HTMLInputElement;
+   const uploadSuccess = el('upload-success')!;
+   const urlTextInput = el('f-file_url_text') as HTMLInputElement;
+   const fileUrlHidden = el('f-file_url') as HTMLInputElement;
+   const existingAssets = el('existing-assets')!;
+   const existingAssetsList = el('existing-assets-list')!;
 
   const fileIconMap = { pdf: 'picture_as_pdf', xlsx: 'table_chart', docx: 'article', mp4: 'movie', pptx: 'slideshow' };
 
@@ -573,7 +580,7 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     }
   }
 
-  function hideUploadUI() {
+   function hideUploadUI() {
     uploadZone?.classList.remove('hidden');
     uploadProgress?.classList.add('hidden');
     uploadSuccess?.classList.add('hidden');
@@ -581,7 +588,19 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     uploadedFileUrl = null;
     if (fileUrlHidden) fileUrlHidden.value = '';
     if (fFileInput) fFileInput.value = '';
-  }
+   }
+
+   function renderExistingAssets(assets: Resource['assets'] = []) {
+     const downloads = assets.filter((asset) => asset.asset_role === 'download');
+     existingAssetsList.innerHTML = downloads.map((asset) => `
+       <div class="flex items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-high p-3">
+         <span class="material-symbols-outlined text-[18px] text-primary">${asset.file_ext === 'xlsx' ? 'table_chart' : 'attach_file'}</span>
+         <span class="min-w-0 flex-1 truncate text-xs font-semibold text-on-surface">${escapeHtml(asset.original_filename)}</span>
+         <span class="rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-bold uppercase text-on-surface-variant">${escapeHtml(asset.file_ext)}</span>
+       </div>
+     `).join('');
+     existingAssets.classList.toggle('hidden', downloads.length === 0);
+   }
 
   el('upload-cancel-btn')?.addEventListener('click', () => { hideUploadUI(); });
   el('upload-remove-btn')?.addEventListener('click', () => { hideUploadUI(); });
@@ -638,8 +657,9 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     setVal('f-icon', 'description');
     setVal('f-file_url', '');
     setVal('f-sort_order', '0');
-    if (iconPreview) iconPreview.textContent = 'description';
-    hideUploadUI();
+     if (iconPreview) iconPreview.textContent = 'description';
+     hideUploadUI();
+     renderExistingAssets();
   }
 
   function openModal() {
@@ -696,6 +716,7 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     setVal('f-icon', r.icon);
     setVal('f-file_url', r.file_url);
     if (urlTextInput) urlTextInput.value = r.file_url;
+    renderExistingAssets(r.assets);
     setVal('f-sort_order', String(r.sort_order));
     // If existing resource has an R2 file_url (not external URL), show success state
     if (r.file_url && !r.file_url.startsWith('http')) {
