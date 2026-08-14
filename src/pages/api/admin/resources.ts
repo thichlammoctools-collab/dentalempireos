@@ -47,7 +47,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!isResourceCategory(body.category) || !isResourceAccessMode(body.access_mode) || !isResourceStatus(body.status)) return badRequest('category, access_mode hoặc status không hợp lệ');
   const assets = parseAssets(body.assets);
   if (assets === null) return badRequest('assets không hợp lệ');
-  if (body.status === 'published' && !new Set(assets.filter((asset) => asset.asset_role === 'download').map((asset) => asset.file_ext)).has('pdf')) return badRequest('Resource published phải có ít nhất một PDF download');
+  const downloadExtensions = new Set(assets.filter((asset) => asset.asset_role === 'download').map((asset) => asset.file_ext));
+  if (body.status === 'published' && (!downloadExtensions.has('pdf') || !downloadExtensions.has('xlsx'))) return badRequest('Resource published phải có PDF và XLSX download');
   await upsertResource(env.DB, { id, title, description, icon: cleanText(body.icon, 80) ?? 'description', category: body.category, access_mode: body.access_mode, status: body.status, tier: body.access_mode === 'credits' ? 'premium' : 'free', tag: typeof body.tag === 'string' ? body.tag.slice(0, 80).trim() : '', sort_order: typeof body.sort_order === 'number' && Number.isSafeInteger(body.sort_order) ? body.sort_order : 0, published_at: body.status === 'published' ? new Date().toISOString() : null, created_by_user_id: locals.user?.id ?? null, updated_by_user_id: locals.user?.id ?? null });
   for (const asset of assets) await replaceResourceAsset(env.DB, id, asset, locals.user?.id);
   return json({ id }, 201);

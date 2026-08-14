@@ -630,8 +630,9 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     setVal('f-id', '');
     setVal('f-title', '');
     setVal('f-description', '');
-    setVal('f-category', 'bieu_mau');
-    setVal('f-tier', 'free');
+     setVal('f-category', 'sops');
+     setVal('f-tier', 'free');
+     setVal('f-status', 'draft');
     setVal('f-file_ext', 'pdf');
     setVal('f-tag', '');
     setVal('f-icon', 'description');
@@ -688,8 +689,9 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
     setVal('f-title', r.title);
     setVal('f-description', r.description);
     setVal('f-category', r.category);
-    setVal('f-tier', r.tier);
-    setVal('f-file_ext', r.file_ext);
+     setVal('f-tier', r.access_mode);
+     setVal('f-status', r.status);
+     setVal('f-file_ext', r.file_ext);
     setVal('f-tag', r.tag);
     setVal('f-icon', r.icon);
     setVal('f-file_url', r.file_url);
@@ -721,17 +723,28 @@ import { RESOURCE_CATEGORIES } from '../../../lib/resource-types';
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const payload = {
-      title: val('f-title').trim(),
-      description: val('f-description').trim(),
-      category: val('f-category'),
-      tier: val('f-tier'),
-      file_ext: val('f-file_ext'),
-      tag: val('f-tag').trim(),
-      icon: val('f-icon').trim() || 'description',
-      file_url: val('f-file_url').trim() || (urlTextInput?.value.trim() || ''),
-      sort_order: parseInt(val('f-sort_order'), 10) || 0,
-    };
+     const storageKey = val('f-file_url').trim();
+     const extension = val('f-file_ext');
+     const asset = storageKey && !storageKey.startsWith('http') ? {
+       id: `${editingId ?? crypto.randomUUID()}-${extension}-${Date.now()}`,
+       storage_key: storageKey,
+       original_filename: storageKey.split('/').pop() || `download.${extension}`,
+       file_ext: extension,
+       mime_type: ({ pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', mp4: 'video/mp4', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' } as Record<string, string>)[extension],
+       byte_size: null,
+     } : null;
+     const payload = {
+       ...(editingId ? {} : { id: val('f-title').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }),
+       title: val('f-title').trim(),
+       description: val('f-description').trim(),
+       category: val('f-category'),
+       access_mode: val('f-tier'),
+       status: val('f-status'),
+       tag: val('f-tag').trim(),
+       icon: val('f-icon').trim() || 'description',
+       sort_order: parseInt(val('f-sort_order'), 10) || 0,
+       assets: asset ? [asset] : [],
+     };
 
     if (!payload.title) return;
 
