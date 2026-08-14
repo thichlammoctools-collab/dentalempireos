@@ -2,7 +2,7 @@
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { createAuth } from '../../../../lib/auth';
-import { getScannerActionPlanForUser } from '../../../../lib/scanner-action-plan-db';
+import { getLinkedScannerActionPlanForRescanResponse, getScannerActionPlanForUser } from '../../../../lib/scanner-action-plan-db';
 import { getScannerActionPlanComparison } from '../../../../lib/scanner-action-plan-comparison';
 
 export const prerender = false;
@@ -15,6 +15,10 @@ if (!planId || planId.length > 100) return new Response('Not found', { status: 4
 
 const plan = await getScannerActionPlanForUser(env.DB, planId, session.user.id);
 if (!plan || plan.retention_visibility === 'unavailable') return new Response('Not found', { status: 404 });
+const linkedPlan = plan.source_response_id === null
+  ? null
+  : await getLinkedScannerActionPlanForRescanResponse(env.DB, plan.source_response_id, session.user.id);
+if (linkedPlan && linkedPlan.id !== plan.id) return Astro.redirect(`/account/action-plans/${linkedPlan.id}/comparison`);
 const isReadOnly = plan.retention_visibility === 'legacy_source_bound';
 const selectedSnapshot = Astro.url.searchParams.get('rescan_snapshot_id')?.trim() || undefined;
 const comparison = await getScannerActionPlanComparison(env.DB, { planId, userId: session.user.id, rescanSnapshotId: selectedSnapshot });

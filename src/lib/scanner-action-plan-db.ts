@@ -705,12 +705,34 @@ export async function getReadyScannerActionPlanForResponse(
   ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
 }
 
+/**
+ * Resolves the original plan selected when a Scanner response was submitted as
+ * a rescan. This relationship is authoritative over a plan AI may otherwise
+ * generate from the new response itself.
+ */
+export async function getLinkedScannerActionPlanForRescanResponse(
+  db: D1Database,
+  responseId: number,
+  userId: string,
+): Promise<ScannerActionPlanRow | null> {
+  return await db.prepare(
+    `SELECT plan.* FROM "scanner_submission" submission
+     INNER JOIN "scanner_action_plan" plan ON plan."id" = submission."action_plan_id"
+     WHERE submission."response_id" = ? AND submission."user_id" = ?
+       AND ${readableScannerActionPlanClause}
+     LIMIT 1`,
+  ).bind(responseId, userId).first<ScannerActionPlanRow>() ?? null;
+}
+
 /** Resolves a non-purged source response to its owner plan without email fallback. */
 export async function getScannerActionPlanForResponseForUser(
   db: D1Database,
   responseId: number,
   userId: string,
 ): Promise<ScannerActionPlanRow | null> {
+  const linkedPlan = await getLinkedScannerActionPlanForRescanResponse(db, responseId, userId);
+  if (linkedPlan) return linkedPlan;
+
   return await db.prepare(
     `SELECT plan.* FROM "scanner_action_plan" plan
      WHERE plan."source_response_id" = ? AND plan."user_id" = ?

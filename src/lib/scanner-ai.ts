@@ -36,6 +36,7 @@ import {
 } from './scanner-response-operation-fence';
 import {
   createOrGetScannerActionPlan,
+  getLinkedScannerActionPlanForRescanResponse,
   getReadyScannerActionPlanForResponse,
   getScannerActionPlanActions,
   getScannerActionPlanForGenerationRun,
@@ -666,6 +667,7 @@ export async function runPlanAnalysis(
     // response artifact/job transition, finalize from the database without a
     // second provider call or any reliance on new model output.
     const committedPlan = await getScannerActionPlanForGenerationRun(db, jobRunId, ownerId)
+      ?? await getLinkedScannerActionPlanForRescanResponse(db, responseId, ownerId)
       ?? await getReadyScannerActionPlanForResponse(db, responseId, ownerId);
     if (committedPlan?.generation_state === 'ready') {
       const committedActions = await getScannerActionPlanActions(db, committedPlan.id);
