@@ -33,8 +33,13 @@ const sections = full.sections;
 const scoringRules = parseScoringRules(def.scoring_rules);
 const aiConfig = parseAiConfig(def.ai_config);
 
-let chapterRefsList = [];
-try { chapterRefsList = def.chapter_refs ? JSON.parse(def.chapter_refs) : []; } catch {}
+let chapterRefsList: string[] = [];
+try {
+  const parsed: unknown = def.chapter_refs ? JSON.parse(def.chapter_refs) : [];
+  chapterRefsList = Array.isArray(parsed)
+    ? parsed.filter((ref): ref is string => typeof ref === 'string')
+    : [];
+} catch {}
 
 const statusLabels = { draft: 'Bản nháp', active: 'Đang hoạt động', archived: 'Lưu trữ' };
 const typeLabels = { mini: 'Mini', full: 'Full', checklist: 'Checklist' };

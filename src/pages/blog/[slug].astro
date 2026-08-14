@@ -255,18 +255,19 @@ const breadcrumbSchema = {
   <div id="read-progress" class="fixed top-[72px] left-0 h-0.5 bg-primary/40 z-50 transition-all duration-100" style="width: 0"></div>
 
   <!-- Article Header -->
-  <section class="relative py-10 sm:py-16 overflow-hidden">
-    <!-- Subtle background gradient -->
-    <div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest via-surface to-surface"></div>
+  <section class="blog-article-hero relative overflow-hidden">
+    <div class="blog-article-hero__surface absolute inset-0"></div>
+    <div class="blog-article-hero__glow blog-article-hero__glow--left"></div>
+    <div class="blog-article-hero__glow blog-article-hero__glow--right"></div>
     {post.cover_url && (
-      <div class="absolute inset-0 opacity-5">
+      <div class="blog-article-hero__cover absolute inset-0" aria-hidden="true">
         <img src={post.cover_url} alt="" class="w-full h-full object-cover" />
       </div>
     )}
 
-    <div class="relative z-10 px-6 mx-auto max-w-[680px]">
+    <div class="blog-article-hero__content relative z-10 px-6 mx-auto max-w-[780px]">
       <!-- Breadcrumb -->
-      <nav class="flex items-center gap-1.5 text-xs text-on-surface-variant mb-8">
+      <nav class="flex items-center gap-1.5 text-xs font-medium text-on-surface-variant/80 mb-7">
         <a href="/" class="hover:text-primary transition-colors">Trang chủ</a>
         <span class="opacity-40">/</span>
         <a href="/blog" class="hover:text-primary transition-colors">Blog</a>
@@ -286,9 +287,9 @@ const breadcrumbSchema = {
 
       <!-- Category badge -->
       {post.category && (
-        <a href={`/blog?cat=${post.category.slug}`} class="inline-block mb-5">
+        <a href={`/blog?cat=${post.category.slug}`} class="inline-block mb-4">
           <span
-            class="px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-full"
+            class="px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] rounded-full"
             style={`background: ${post.category.color}18; color: ${post.category.color}; border: 1px solid ${post.category.color}30`}
           >
             {post.category.name}
@@ -297,34 +298,30 @@ const breadcrumbSchema = {
       )}
 
       <!-- Title -->
-      <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
+      <h1 class="blog-article-hero__title text-white mb-5">
         {post.title}
       </h1>
 
       <!-- Description -->
-      <p class="text-base sm:text-lg text-on-surface-variant mb-6 leading-relaxed">{post.description}</p>
+      <p class="blog-article-hero__description text-on-surface-variant mb-7 leading-relaxed">{post.description}</p>
 
       <!-- Meta -->
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+      <div class="blog-article-hero__meta flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-on-surface-variant">
+        <div class="flex items-center gap-2 pr-1">
+          <div class="w-8 h-8 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0">
             <span class="text-[11px] font-bold text-primary">{post.author_name.charAt(0)}</span>
           </div>
           <span class="font-semibold text-white">{post.author_name}</span>
         </div>
-        <span class="opacity-30">·</span>
-        <time datetime={post.published_at ?? ''}>{formatDate(post.published_at)}</time>
-        <span class="opacity-30">·</span>
-        <span>{post.read_time_minutes} phút đọc</span>
+        <span class="blog-article-hero__meta-item"><span class="material-symbols-outlined">calendar_today</span><time datetime={post.published_at ?? ''}>{formatDate(post.published_at)}</time></span>
+        <span class="blog-article-hero__meta-item"><span class="material-symbols-outlined">schedule</span>{post.read_time_minutes} phút đọc</span>
         {post.updated_at && post.published_at && new Date(post.updated_at) > new Date(post.published_at) && (
           <>
-            <span class="opacity-30">·</span>
-            <span class="text-primary/80 text-xs">Cập nhật {formatDate(post.updated_at)}</span>
+            <span class="blog-article-hero__meta-item text-primary/90"><span class="material-symbols-outlined">update</span>Cập nhật {formatDate(post.updated_at)}</span>
           </>
         )}
-        <span class="opacity-30">·</span>
-        <span class="flex items-center gap-1">
-          <span class="material-symbols-outlined text-[14px]">visibility</span>
+        <span class="blog-article-hero__meta-item">
+          <span class="material-symbols-outlined">visibility</span>
           {post.view_count.toLocaleString()} lượt xem
         </span>
       </div>
@@ -357,7 +354,7 @@ const breadcrumbSchema = {
             <div class="blocks-render flex flex-col gap-6" id="blocks-container" data-post-id={post.id}>
               {blocks.map((block: BlogBlock) => {
                 if (block.type === 'text') {
-                  const markdownHtml = addHeadingIds(marked(block.content));
+                  const markdownHtml = addHeadingIds(marked.parse(block.content, { async: false }));
                   return <div class="block-text" set:html={markdownHtml}></div>;
                 } else if (block.type === 'image') {
                   const parsed = (() => { try { return JSON.parse(block.content); } catch { return { url: block.content, alt: '' }; } })();
