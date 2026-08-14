@@ -47,6 +47,7 @@
     "@tiptap/starter-kit": "^3.27.1",
     "astro": "^7.2.0",
     "better-auth": "^1.6.26",
+    "exceljs": "^4.4.0",
     "isomorphic-dompurify": "^3.19.0",
     "kysely": "^0.29.4",
     "kysely-d1": "^0.4.0",
