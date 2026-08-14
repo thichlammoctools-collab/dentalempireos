@@ -53,12 +53,57 @@ function responseArtifactColumn(jobType: ScannerAiJobType): 'ai_analysis' | 'ai_
   return jobType === 'analysis' ? 'ai_analysis' : 'ai_plan';
 }
 
-function activeJobLeaseClause(status = 'running'): string {
+function activeJobLeaseClause(status = 'running', requireRetainedResponse = false): string {
+  const retentionClause = requireRetainedResponse
+    ? ` AND julianday("scanner_response"."expires_at") > julianday('now')
+        AND EXISTS (
+          SELECT 1 FROM "scanner_history" history
+          WHERE history."response_id" = "scanner_response"."id"
+        )`
+    : '';
   return `EXISTS (
     SELECT 1 FROM "scanner_ai_job" job
     WHERE job."response_id" = "scanner_response"."id"
       AND job."job_type" = ? AND job."run_id" = ? AND job."status" = '${status}'
-  )`;
+  )${retentionClause}`;
+}
+
+/**
+ * Returns the canonical history owner only while this exact running job still
+ * owns an unexpired raw response. This is the execution fence immediately
+ * before a provider call; queue payload identity is never authoritative.
+ */
+export async function getRetainedScannerAiJobOwner(
+  db: D1Database,
+  responseId: number,
+  jobType: ScannerAiJobType,
+  runId: string,
+): Promise<string | null> {
+  const row = await db.prepare(
+    `SELECT history."user_id"
+     FROM "scanner_ai_job" job
+     INNER JOIN "scanner_response" response ON response."id" = job."response_id"
+     INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+     WHERE job."response_id" = ? AND job."job_type" = ? AND job."run_id" = ?
+       AND job."status" = 'running' AND julianday(response."expires_at") > julianday('now')
+     LIMIT 1`,
+  ).bind(responseId, jobType, runId).first<{ user_id: string }>();
+  return row?.user_id ?? null;
+}
+
+/** Invalid/exhausted work cannot update another run or a replacement response state. */
+export async function failScannerAiJobForInvalidResponse(
+  db: D1Database,
+  responseId: number,
+  jobType: ScannerAiJobType,
+  runId: string,
+  errorMessage: string,
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE "scanner_ai_job" SET "status" = 'failed', "completed_at" = datetime('now'), "error_message" = ?
+     WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" IN ('queued', 'running')`,
+  ).bind(errorMessage.slice(0, 500), responseId, jobType, runId).run();
+  return (result.meta.changes ?? 0) === 1;
 }
 
 /** Creates a durable dispatch-pending job. Queue.send is deliberately outside this transaction. */
@@ -156,12 +201,18 @@ export async function startQueuedScannerAiJob(
     db.prepare(
       `UPDATE "scanner_ai_job"
        SET "status" = 'running', "started_at" = datetime('now'), "claimed_at" = datetime('now'),
-           "attempt_count" = "attempt_count" + 1, "error_message" = NULL
-       WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'queued'`,
+            "attempt_count" = "attempt_count" + 1, "error_message" = NULL
+       WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'queued'
+         AND EXISTS (
+           SELECT 1 FROM "scanner_response" response
+           INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+           WHERE response."id" = "scanner_ai_job"."response_id"
+             AND julianday(response."expires_at") > julianday('now')
+         )`,
     ).bind(responseId, jobType, runId),
     db.prepare(
       `UPDATE "scanner_response" SET "${column}" = 'running'
-       WHERE "id" = ? AND ${activeJobLeaseClause()}`,
+        WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}`,
     ).bind(responseId, jobType, runId),
   ]);
   return (results[0]?.meta.changes ?? 0) === 1 && (results[1]?.meta.changes ?? 0) === 1;
@@ -274,12 +325,18 @@ export async function completeScannerAiJobWithArtifact(
     db.prepare(
       `UPDATE "scanner_response"
        SET "${artifactColumn}" = ?, "${statusColumn}" = 'done'${timestampUpdate}
-       WHERE "id" = ? AND ${activeJobLeaseClause()}`,
+        WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}`,
     ).bind(artifact, responseId, jobType, runId),
     db.prepare(
       `UPDATE "scanner_ai_job"
-       SET "status" = 'done', "completed_at" = datetime('now'), "error_message" = NULL
-       WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'running'`,
+        SET "status" = 'done', "completed_at" = datetime('now'), "error_message" = NULL
+        WHERE "response_id" = ? AND "job_type" = ? AND "run_id" = ? AND "status" = 'running'
+          AND EXISTS (
+            SELECT 1 FROM "scanner_response" response
+            INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+            WHERE response."id" = "scanner_ai_job"."response_id"
+              AND julianday(response."expires_at") > julianday('now')
+          )`,
     ).bind(responseId, jobType, runId),
   ]);
   return (results[0]?.meta.changes ?? 0) === 1 && (results[1]?.meta.changes ?? 0) === 1;
@@ -297,7 +354,7 @@ export async function failScannerAiJobWithResponseStatus(
   const results = await db.batch([
     db.prepare(
       `UPDATE "scanner_response" SET "${column}" = 'failed'
-       WHERE "id" = ? AND ${activeJobLeaseClause()}`,
+        WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}`,
     ).bind(responseId, jobType, runId),
     db.prepare(
       `UPDATE "scanner_ai_job"

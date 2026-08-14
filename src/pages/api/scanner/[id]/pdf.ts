@@ -4,8 +4,12 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest, notFound } from '../../../../lib/api-helpers';
-import { setScannerPdfKey } from '../../../../lib/scanner-response-db';
 import { generateScannerPdf, type ScannerPdfType } from '../../../../lib/scanner-pdf';
+import {
+  claimRetainedScannerPdfLease,
+  persistScannerPdfKeyForLease,
+  releaseScannerResponseOperationLease,
+} from '../../../../lib/scanner-response-operation-fence';
 import { getRetainedScannerResponseForOwner } from '../../../../lib/scanner-history-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
@@ -44,7 +48,22 @@ export const GET: APIRoute = async ({ params, request }) => {
     if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
   }
 
-  // Generate PDF
+  // Claim before expensive generation. This is the retention/write fence and
+  // serializes concurrent requests for the same response artifact.
+  const lease = await claimRetainedScannerPdfLease(env.DB, id, session.user.id, type);
+  if (!lease) {
+    // A concurrent generator may have completed while we claimed. Re-read via
+    // the ownership/retention path rather than generating an untracked object.
+    const current = await getRetainedScannerResponseForOwner(env.DB, session.user.id, id);
+    const currentKey = current && (type === 'combined' ? current.pdf_combined_key : type === 'plan' ? current.pdf_plan_key : current.pdf_analysis_key);
+    if (currentKey?.endsWith(`/${type}-${pdfLayoutVersion}.pdf`)) {
+      const cached = await env.MEDIA.get(currentKey);
+      if (cached) return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${currentKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+    }
+    return current ? json({ error: 'PDF generation is already in progress.' }, 409) : notFound('Response not found');
+  }
+
+  let uploadedKey: string | null = null;
   try {
     const clinicProfile = await getClinicProfile(env.DB, session.user.id);
     let logo: Uint8Array | undefined;
@@ -71,7 +90,14 @@ export const GET: APIRoute = async ({ params, request }) => {
         : 'free';
     const key = `scanner-artifacts/${retentionPrefix}/${session.user.id}/${id}/${type}-${pdfLayoutVersion}.pdf`;
     await env.MEDIA.put(key, pdfBytes, { httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="${filename}"` } });
-    await setScannerPdfKey(env.DB, id, type, key);
+    uploadedKey = key;
+    if (!await persistScannerPdfKeyForLease(env.DB, id, session.user.id, type, key, lease)) {
+      // Expiry/purge or lease fencing won after R2 accepted the object. Never
+      // leave an artifact that cannot be referenced by a retained response.
+      await env.MEDIA.delete(key).catch((deleteError) => console.error('[scanner-pdf] compensating delete failed:', deleteError));
+      uploadedKey = null;
+      return notFound('Response not found');
+    }
     return new Response(pdfBytes as BodyInit, {
       status: 200,
       headers: {
@@ -82,9 +108,16 @@ export const GET: APIRoute = async ({ params, request }) => {
       },
     });
   } catch (err) {
+    if (uploadedKey) {
+      await env.MEDIA.delete(uploadedKey).catch((deleteError) => console.error('[scanner-pdf] compensating delete failed:', deleteError));
+    }
     return json(
       { error: err instanceof Error ? err.message : 'PDF generation failed' },
       500,
     );
+  } finally {
+    await releaseScannerResponseOperationLease(env.DB, id, lease).catch((releaseError) => {
+      console.error('[scanner-pdf] failed to release response operation lease:', releaseError);
+    });
   }
 };

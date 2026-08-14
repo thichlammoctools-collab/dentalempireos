@@ -151,7 +151,10 @@ function activePlanLeaseExists(lease: ScannerActionPlanActiveLease | undefined):
   if (!lease) return '1 = 1';
   return `EXISTS (
     SELECT 1 FROM "scanner_ai_job" job
+    INNER JOIN "scanner_response" response ON response."id" = job."response_id"
+    INNER JOIN "scanner_history" history ON history."response_id" = response."id"
     WHERE job."response_id" = ? AND job."job_type" = ? AND job."run_id" = ? AND job."status" = 'running'
+      AND julianday(response."expires_at") > julianday('now')
   )`;
 }
 

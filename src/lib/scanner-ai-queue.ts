@@ -1,5 +1,5 @@
 import { runAiAnalysis, runPlanAnalysis, type ScannerAiRunResult } from './scanner-ai';
-import { getHistoryByResponseId } from './scanner-history-db';
+import { failScannerAiJobForInvalidResponse } from './ai-operations';
 
 export type ScannerAiJobType = 'analysis' | 'plan';
 
@@ -32,19 +32,27 @@ export async function processScannerAiQueueMessage(
       `SELECT "status", "run_id" FROM "scanner_ai_job" WHERE "response_id" = ? AND "job_type" = ?`,
     ).bind(message.responseId, message.jobType).first<{ status: string; run_id: string }>();
     // At-least-once queue delivery is expected. A completed or superseded job
-    // must never issue a second provider request.
+    // must never issue a second provider request. If its queued row outlived
+    // the raw response, terminally invalidate only that exact queued run.
     if (!job || job.run_id !== message.runId || job.status !== 'queued') {
       return { completed: true, retryable: false };
     }
+    const retained = await env.DB.prepare(
+      `SELECT 1 FROM "scanner_response" response
+       INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+       WHERE response."id" = ? AND julianday(response."expires_at") > julianday('now')
+       LIMIT 1`,
+    ).bind(message.responseId).first();
+    if (!retained) {
+      await failScannerAiJobForInvalidResponse(env.DB, message.responseId, message.jobType, message.runId, 'Response is expired, missing, or has no canonical history owner');
+      return { completed: true, retryable: false };
+    }
 
-    // Queue payloads are untrusted and may be old/redelivered. The plan runner
-    // independently requires scanner_history ownership; this lookup is only
-    // used to attribute transient analysis work without trusting the payload.
-    const history = await getHistoryByResponseId(env.DB, message.responseId);
-    const ownerId = history?.user_id;
+    // Queue payload identity is untrusted. Runners resolve canonical ownership
+    // under the active retention fence immediately before provider work.
     const runResult = message.jobType === 'analysis'
-      ? await runAiAnalysis(env.DB, message.responseId, ownerId, message.runId)
-      : await runPlanAnalysis(env.DB, message.responseId, ownerId, message.runId);
+      ? await runAiAnalysis(env.DB, message.responseId, undefined, message.runId)
+      : await runPlanAnalysis(env.DB, message.responseId, undefined, message.runId);
     if (!runResult.completed) return runResult;
 
     return { completed: true, retryable: false };

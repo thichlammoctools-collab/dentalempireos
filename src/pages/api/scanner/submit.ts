@@ -94,7 +94,12 @@ export const POST: APIRoute = async (ctx) => {
   if (def.status !== 'active') return badRequest('Survey is not active');
 
   const requestedActionPlanId = actionPlanId(body.action_plan_id);
-  if (body.action_plan_id !== undefined && !requestedActionPlanId) return badRequest('invalid_action_plan_id');
+  // The browser sends null when the user is not rescanning an action plan.
+  // Treat null and an empty string as an omitted optional field.
+  const hasActionPlanId = body.action_plan_id !== undefined
+    && body.action_plan_id !== null
+    && body.action_plan_id !== '';
+  if (hasActionPlanId && !requestedActionPlanId) return badRequest('invalid_action_plan_id');
   const isGuestScanner = !session?.user && isGuestScannerSlug(def.slug);
   if (requestedActionPlanId && !session?.user) return json({ requiresAuth: true, message: 'Vui lòng đăng nhập để tiếp tục' }, 401);
   if (!session?.user && !isGuestScanner) {

@@ -18,12 +18,13 @@ import { AiError, chatCompletionStream, chatCompletionWithFallback } from './ai-
 import type { ModelConfig, ChatMessage } from './ai-client';
 import { sendScannerNotification } from './notification';
 import { sendScannerAiCompleteEmail } from './resend';
-import { getHistoryByResponseId } from './scanner-history-db';
 import { logAiUsage } from './ai-usage-log';
 import { buildWebsiteContext, searchWebsite } from './rag-website-search';
 import {
   completeScannerAiJobWithArtifact,
+  failScannerAiJobForInvalidResponse,
   failScannerAiJobWithResponseStatus,
+  getRetainedScannerAiJobOwner,
   requestId,
   startQueuedScannerAiJob,
 } from './ai-operations';
@@ -516,8 +517,13 @@ export async function runAiAnalysis(
   const request = requestId();
   const jobRunId = runId ?? crypto.randomUUID();
   if (!await startQueuedScannerAiJob(db, responseId, 'analysis', jobRunId)) return { completed: true, retryable: false };
+  const ownerId = await getRetainedScannerAiJobOwner(db, responseId, 'analysis', jobRunId);
+  if (!ownerId) {
+    await failScannerAiJobForInvalidResponse(db, responseId, 'analysis', jobRunId, 'Response is expired, missing, or has no canonical history owner');
+    return { completed: true, retryable: false };
+  }
   const response = await getScannerResponse(db, responseId);
-  if (!response) { await failScannerAiJobWithResponseStatus(db, responseId, 'analysis', jobRunId, 'Response not found'); console.error(`[scanner-ai] Response ${responseId} not found`); return { completed: true, retryable: false }; }
+  if (!response) { await failScannerAiJobForInvalidResponse(db, responseId, 'analysis', jobRunId, 'Response not found'); console.error(`[scanner-ai] Response ${responseId} not found`); return { completed: true, retryable: false }; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
   if (!full) { await failScannerAiJobWithResponseStatus(db, responseId, 'analysis', jobRunId, 'Survey definition not found'); console.error(`[scanner-ai] Definition ${response.survey_id} not found`); return { completed: true, retryable: false }; }
@@ -533,12 +539,20 @@ export async function runAiAnalysis(
   };
 
   try {
+    // Fence immediately before contacting the provider; retention/purge can win
+    // after queue claiming but before the expensive external operation begins.
+    if (!await getRetainedScannerAiJobOwner(db, responseId, 'analysis', jobRunId)) {
+      await failScannerAiJobForInvalidResponse(db, responseId, 'analysis', jobRunId, 'Response expired or ownership changed before provider call');
+      return { completed: true, retryable: false };
+    }
     const analysisStartedAt = Date.now();
     const completion = await doAnalyzeWithFallback(db, response, full, config, scoringRules, modelConfig);
     const analysis = completion.text;
 
     if (!await completeScannerAiJobWithArtifact(db, responseId, 'analysis', jobRunId, analysis)) {
-      // A reaper may have fenced this worker while the provider call was in flight.
+      // A reaper, ownership change, or retention expiry may have fenced this
+      // worker while the provider call was in flight. Only terminate this run.
+      await failScannerAiJobForInvalidResponse(db, responseId, 'analysis', jobRunId, 'Response lease is no longer retained/current at output persistence');
       return { completed: true, retryable: false };
     }
     await logAiUsage(db, { provider_id: completion.usedConfig.provider_id, model_id: completion.usedConfig.model_id, user_id: userId, feature: 'scanner_analysis', success: true, latency_ms: Date.now() - analysisStartedAt, input_tokens: Math.ceil(JSON.stringify(response).length / 4), output_tokens: Math.ceil(analysis.length / 4), fallback_used: completion.fallbackUsed, request_id: request, attempt_count: 3 }).catch((err) => console.warn('[scanner-ai] usage log failed:', err));
@@ -573,19 +587,18 @@ export async function runPlanAnalysis(
   const request = requestId();
   const jobRunId = runId ?? crypto.randomUUID();
   if (!await startQueuedScannerAiJob(db, responseId, 'plan', jobRunId)) return { completed: true, retryable: false };
-  const history = await getHistoryByResponseId(db, responseId);
   // Do not create durable plans for a response reachable only via a legacy
   // email/report path, and never accept a queue/client identity as ownership.
-  if (!history) {
-    await failScannerAiJobWithResponseStatus(db, responseId, 'plan', jobRunId, 'Scanner history owner not found');
+  const ownerId = await getRetainedScannerAiJobOwner(db, responseId, 'plan', jobRunId);
+  if (!ownerId) {
+    await failScannerAiJobForInvalidResponse(db, responseId, 'plan', jobRunId, 'Response is expired, missing, or has no canonical history owner');
     return { completed: true, retryable: false };
   }
-  const ownerId = history.user_id;
   if (userId && userId !== ownerId) {
     console.warn(`[scanner-ai] Ignoring non-authoritative plan owner for response ${responseId}.`);
   }
   const response = await getScannerResponse(db, responseId);
-  if (!response) { await failScannerAiJobWithResponseStatus(db, responseId, 'plan', jobRunId, 'Response not found'); console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return { completed: true, retryable: false }; }
+  if (!response) { await failScannerAiJobForInvalidResponse(db, responseId, 'plan', jobRunId, 'Response not found'); console.error(`[scanner-ai] Plan: Response ${responseId} not found`); return { completed: true, retryable: false }; }
 
   const full = await getSurveyDefinitionFull(db, response.survey_id);
   if (!full) { await failScannerAiJobWithResponseStatus(db, responseId, 'plan', jobRunId, 'Survey definition not found'); console.error(`[scanner-ai] Plan: Definition ${response.survey_id} not found`); return { completed: true, retryable: false }; }
@@ -622,6 +635,7 @@ export async function runPlanAnalysis(
         })),
       }, response.lang === 'en' ? 'en' : 'vi');
       if (!await completeScannerAiJobWithArtifact(db, responseId, 'plan', jobRunId, planMarkdown)) {
+        await failScannerAiJobForInvalidResponse(db, responseId, 'plan', jobRunId, 'Response lease is no longer retained/current at output persistence');
         return { completed: true, retryable: false };
       }
       await Promise.allSettled([
@@ -631,6 +645,13 @@ export async function runPlanAnalysis(
       return { completed: true, retryable: false };
     }
 
+    // Revalidate the same job lease, retention window, and canonical owner
+    // immediately before external generation; queued work must not resurrect a
+    // response which retention has made unavailable.
+    if (!await getRetainedScannerAiJobOwner(db, responseId, 'plan', jobRunId)) {
+      await failScannerAiJobForInvalidResponse(db, responseId, 'plan', jobRunId, 'Response expired or ownership changed before provider call');
+      return { completed: true, retryable: false };
+    }
     const planStartedAt = Date.now();
     const completion = await doPlanWithFallback(db, response, full, config, scoringRules, modelConfig);
     const structuredPlan = parseStructuredScannerActionPlan(

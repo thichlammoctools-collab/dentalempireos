@@ -17,6 +17,7 @@ import {
   linkScannerSubmissionSnapshot,
   listPendingScannerSubmissionSnapshots,
 } from './lib/scanner-submission-db';
+import { hasActiveScannerResponseOperationLease } from './lib/scanner-response-operation-fence';
 import {
   cleanupScannerActionPlanReminders,
   reclaimStaleScannerActionPlanReminderClaims,
@@ -83,6 +84,16 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
   }
 
   for (const response of results) {
+    // A PDF request that began before expiry owns this short write lease. Let it
+    // finish and fail its conditional persistence, then purge on the next run.
+    // This prevents a list/delete race with an R2 upload that appears afterward.
+    if (await hasActiveScannerResponseOperationLease(env.DB, response.id)) {
+      await recordScannerPurgeAttempt(env.DB, response.id, 'pending', 'response_operation_in_progress').catch((error) => {
+        console.error('[scanner-retention] unable to record operation lease deferral', { responseId: response.id, error });
+      });
+      continue;
+    }
+
     const keys = [
       response.pdf_combined_key,
       response.pdf_plan_key,
