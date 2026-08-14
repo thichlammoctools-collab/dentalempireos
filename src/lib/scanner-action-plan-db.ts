@@ -78,10 +78,18 @@ export interface ScannerActionPlanActionInput {
   targetDays?: number | null;
 }
 
+export interface ScannerActionPlanActiveLease {
+  responseId: number;
+  jobType: 'plan';
+  runId: string;
+}
+
 export interface CreateOrGetScannerActionPlanInput {
   userId: string;
   responseId: number;
   generationRunId: string;
+  /** Phase 1B writes require this currently-running scanner_ai_job lease. */
+  activeLease?: ScannerActionPlanActiveLease;
   title?: string | null;
   summary?: string | null;
 }
@@ -90,6 +98,8 @@ export interface PersistScannerActionPlanActionSetInput {
   planId: string;
   userId: string;
   generationRunId: string;
+  /** Phase 1B writes require this currently-running scanner_ai_job lease. */
+  activeLease?: ScannerActionPlanActiveLease;
   title?: string | null;
   summary?: string | null;
   actions: ScannerActionPlanActionInput[];
@@ -111,6 +121,18 @@ function isActionStatus(value: string): value is ScannerActionStatus {
   return value === 'not_started' || value === 'in_progress' || value === 'completed' || value === 'skipped';
 }
 
+function activePlanLeaseExists(lease: ScannerActionPlanActiveLease | undefined): string {
+  if (!lease) return '1 = 1';
+  return `EXISTS (
+    SELECT 1 FROM "scanner_ai_job" job
+    WHERE job."response_id" = ? AND job."job_type" = ? AND job."run_id" = ? AND job."status" = 'running'
+  )`;
+}
+
+function activePlanLeaseBindings(lease: ScannerActionPlanActiveLease | undefined): unknown[] {
+  return lease ? [lease.responseId, lease.jobType, lease.runId] : [];
+}
+
 async function getUnexpiredOwnedScannerResponse(
   db: D1Database,
   responseId: number,
@@ -120,8 +142,10 @@ async function getUnexpiredOwnedScannerResponse(
     `SELECT response."id", response."survey_id", response."created_at", response."expires_at", response."scores_json"
      FROM "scanner_response" response
      INNER JOIN "scanner_history" history
-       ON history."response_id" = response."id" AND history."survey_id" = response."survey_id"
-     WHERE response."id" = ? AND history."user_id" = ? AND response."expires_at" > ?`,
+        ON history."response_id" = response."id" AND history."survey_id" = response."survey_id"
+     WHERE response."id" = ? AND history."user_id" = ? AND response."expires_at" > ?
+     ORDER BY history."created_at" ASC, history."id" ASC
+     LIMIT 1`,
   ).bind(responseId, userId, timestamp()).first<ScannerResponseScoreRow>() ?? null;
 }
 
@@ -180,14 +204,16 @@ export async function createOrGetScannerActionPlan(
        SET "generation_run_id" = ?, "title" = ?, "summary" = ?, "updated_at" = ?
        WHERE "id" = ? AND "user_id" = ? AND "source_response_id" = ?
          AND "generation_run_id" = ?
-         AND "generation_state" = 'pending' AND "generation_provenance" = 'phase_1b_queue'
-         AND "status" = 'active'
-         AND NOT EXISTS (
-           SELECT 1 FROM "scanner_action_plan_action" action WHERE action."plan_id" = "scanner_action_plan"."id"
-         )`,
+          AND "generation_state" = 'pending' AND "generation_provenance" = 'phase_1b_queue'
+          AND "status" = 'active'
+          AND NOT EXISTS (
+            SELECT 1 FROM "scanner_action_plan_action" action WHERE action."plan_id" = "scanner_action_plan"."id"
+          )
+          AND ${activePlanLeaseExists(input.activeLease)}`,
     ).bind(
       input.generationRunId, input.title ?? null, input.summary ?? null, timestamp(),
       existingSourcePlan.id, input.userId, input.responseId, existingSourcePlan.generation_run_id,
+      ...activePlanLeaseBindings(input.activeLease),
     ).run();
     if ((reclaimed.meta.changes ?? 0) === 1) {
       return (await getScannerActionPlanForUser(db, existingSourcePlan.id, input.userId))!;
@@ -220,15 +246,17 @@ export async function createOrGetScannerActionPlan(
   const baseline = createBaselineSnapshot(plan, response);
 
   try {
-    await db.batch([
+    const results = await db.batch([
       db.prepare(
         `INSERT INTO "scanner_action_plan"
          ("id","user_id","survey_id","source_response_id","source_response_purged_at","generation_run_id","generation_state","generation_provenance","status","title","summary","created_at","updated_at")
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?
+         WHERE ${activePlanLeaseExists(input.activeLease)}`,
       ).bind(
         plan.id, plan.user_id, plan.survey_id, plan.source_response_id, plan.source_response_purged_at,
         plan.generation_run_id, plan.generation_state, plan.generation_provenance, plan.status,
         plan.title, plan.summary, plan.created_at, plan.updated_at,
+        ...activePlanLeaseBindings(input.activeLease),
       ),
       db.prepare(
         `INSERT INTO "scanner_action_plan_score_snapshot"
@@ -239,6 +267,9 @@ export async function createOrGetScannerActionPlan(
         baseline.score_total, baseline.scores_json, baseline.response_created_at, baseline.created_at,
       ),
     ]);
+    if ((results[0]?.meta.changes ?? 0) !== 1) {
+      throw new Error('Scanner AI job lease is no longer active for this plan generation.');
+    }
     return plan;
   } catch (error) {
     const racedPlan = await db.prepare(
@@ -344,22 +375,27 @@ export async function persistScannerActionPlanActionSet(
          SELECT ?,?,?,?,?,?,?,?,?,?,?,?
          WHERE EXISTS (
            SELECT 1 FROM "scanner_action_plan"
-           WHERE "id" = ? AND "user_id" = ? AND "generation_run_id" = ?
-             AND "generation_state" = 'pending' AND "status" = 'active'
-         )`,
-      ).bind(
-        action.id, action.plan_id, action.position, action.title, action.description,
-        action.category, action.priority, action.target_days, action.status, action.completed_at,
-        action.created_at, action.updated_at,
-        plan.id, input.userId, input.generationRunId,
-      )),
+            WHERE "id" = ? AND "user_id" = ? AND "generation_run_id" = ?
+              AND "generation_state" = 'pending' AND "status" = 'active'
+          ) AND ${activePlanLeaseExists(input.activeLease)}`,
+       ).bind(
+         action.id, action.plan_id, action.position, action.title, action.description,
+         action.category, action.priority, action.target_days, action.status, action.completed_at,
+         action.created_at, action.updated_at,
+         plan.id, input.userId, input.generationRunId,
+         ...activePlanLeaseBindings(input.activeLease),
+       )),
       db.prepare(
         `UPDATE "scanner_action_plan"
          SET "title" = COALESCE(?, "title"), "summary" = COALESCE(?, "summary"),
              "generation_state" = 'ready', "updated_at" = ?
-         WHERE "id" = ? AND "user_id" = ? AND "generation_run_id" = ?
-           AND "generation_state" = 'pending' AND "status" = 'active'`,
-      ).bind(input.title ?? null, input.summary ?? null, createdAt, plan.id, input.userId, input.generationRunId),
+          WHERE "id" = ? AND "user_id" = ? AND "generation_run_id" = ?
+            AND "generation_state" = 'pending' AND "status" = 'active'
+            AND ${activePlanLeaseExists(input.activeLease)}`,
+       ).bind(
+         input.title ?? null, input.summary ?? null, createdAt, plan.id, input.userId, input.generationRunId,
+         ...activePlanLeaseBindings(input.activeLease),
+       ),
     ]);
     if ((results[results.length - 1]?.meta.changes ?? 0) !== 1) {
       throw new Error('Scanner action plan is no longer active and pending for this generation run.');

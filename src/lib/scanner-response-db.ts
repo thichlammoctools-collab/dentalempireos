@@ -319,29 +319,18 @@ export interface AiContext {
   staff_count: number | null;
   lang: string;
   scores: Record<string, number>;
-  /** All answer content is untrusted, redacted, and bounded before provider use. */
+  /** Schema-controlled scalar and multiple-choice metadata only. */
   responses: Record<string, unknown>;
 }
 
-const MAX_PROVIDER_ANSWER_LENGTH = 1_000;
 const MAX_PROVIDER_ANSWERS = 40;
-const EMAIL_PATTERN = /[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi;
-const PHONE_PATTERN = /(?:\+?\d[\s().-]*){8,}\d/g;
-
-/** Removes common direct contact identifiers before untrusted answer text reaches a provider. */
-export function redactScannerFreeText(value: string): string {
-  return value
-    .replace(EMAIL_PATTERN, '[redacted-email]')
-    .replace(PHONE_PATTERN, '[redacted-phone]')
-    .replace(/[\u0000-\u001F\u007F]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, MAX_PROVIDER_ANSWER_LENGTH);
-}
+const MAX_LOCAL_SOURCE_FREE_TEXT_VALUES = 20;
+const MAX_LOCAL_SOURCE_FREE_TEXT_LENGTH = 1_000;
 
 /**
- * Returns raw textarea values for local output validation only. These values
- * must never be included in prompts or persisted in an action plan artifact.
+ * Returns a bounded raw textarea list for local output-echo detection only.
+ * Callers must never put these values in provider messages, prompts, or durable
+ * AI artifacts.
  */
 export function getScannerSourceFreeText(
   response: ScannerResponseRow,
@@ -352,14 +341,16 @@ export function getScannerSourceFreeText(
     .filter((question) => question.type === 'textarea')
     .map((question) => responses[question.question_id])
     .filter((value): value is string | number | boolean => value !== undefined && value !== null)
-    .map((value) => String(value).replace(/\s+/g, ' ').trim())
-    .filter((value) => value.length >= 3);
+    .map((value) => String(value).replace(/\s+/g, ' ').trim().slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_LENGTH))
+    .filter((value) => value.length >= 3)
+    .slice(0, MAX_LOCAL_SOURCE_FREE_TEXT_VALUES);
 }
 
 /**
- * Builds provider-safe answer data for the user message only. Identity/contact
- * columns are deliberately excluded, while all answer strings remain explicitly
- * marked untrusted and cannot be interpolated into the system instruction.
+ * Builds provider-safe answer data. Free-form textarea content and all
+ * owner/clinic/contact columns are deliberately excluded. Radio values are
+ * included only when they exactly match a configured option, so a stored
+ * arbitrary string can never become provider input.
  */
 export function buildAiContext(
   response: ScannerResponseRow,
@@ -371,20 +362,29 @@ export function buildAiContext(
 
   for (const q of questions.slice(0, MAX_PROVIDER_ANSWERS)) {
     const value = responses[q.question_id];
-    if (value === undefined) continue;
+    if (value === undefined || q.type === 'textarea') continue;
 
-    if (q.type === 'select') {
+    if (q.type === 'select' || q.type === 'yesno') {
+      const numericValue = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(numericValue)) continue;
       const labels = parseScaleLabels(q.scale_labels_vi);
       enrichedResponses[q.question_id] = {
-        value: typeof value === 'number' ? value : redactScannerFreeText(String(value)).slice(0, 32),
-        label_vi: redactScannerFreeText(labels[String(value)] ?? String(value)),
-        question_vi: redactScannerFreeText(q.label_vi),
+        value: numericValue,
+        label_vi: labels[String(numericValue)] ?? null,
+        question_vi: q.label_vi,
         dimension: q.dimension,
       };
-    } else {
+      continue;
+    }
+
+    if (q.type === 'radio' && typeof value === 'string') {
+      const options = parseOptions(q.options_vi);
+      const optionIndex = options.indexOf(value);
+      if (optionIndex < 0) continue;
       enrichedResponses[q.question_id] = {
-        value: redactScannerFreeText(String(value)),
-        question_vi: redactScannerFreeText(q.label_vi),
+        option_index: optionIndex,
+        option_vi: options[optionIndex],
+        question_vi: q.label_vi,
         dimension: q.dimension,
       };
     }

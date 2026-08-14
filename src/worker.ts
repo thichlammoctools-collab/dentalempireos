@@ -6,11 +6,13 @@ import {
   type ScannerAiQueueMessage,
 } from './lib/scanner-ai-queue';
 import {
-  finishScannerAiJob,
+  claimScannerAiJobDispatch,
+  confirmScannerAiJobDispatched,
+  failScannerAiJobWithResponseStatus,
+  getScannerAiJobsPendingDispatch,
   reclaimStaleScannerAiJobs,
   requeueScannerAiJob,
 } from './lib/ai-operations';
-import { updateAiAnalysisStatus, updateAiPlanStatus } from './lib/scanner-response-db';
 
 const SCANNER_RESPONSE_PURGE_BATCH_SIZE = 100;
 
@@ -75,14 +77,20 @@ async function purgeExpiredScannerResponses(env: Cloudflare.Env): Promise<void> 
 const MAX_QUEUE_ATTEMPTS = 3;
 const SCANNER_AI_QUEUE_CONCURRENCY = 3;
 
-async function setScannerAiResponseStatus(
+async function dispatchScannerAiJob(
   env: Cloudflare.Env,
   job: ScannerAiQueueMessage,
-  status: 'queued' | 'failed',
+  retryAfterSeconds = 0,
 ): Promise<void> {
-  await (job.jobType === 'analysis'
-    ? updateAiAnalysisStatus(env.DB, job.responseId, status)
-    : updateAiPlanStatus(env.DB, job.responseId, status));
+  if (!await claimScannerAiJobDispatch(env.DB, job.responseId, job.jobType, job.runId, retryAfterSeconds)) return;
+  try {
+    await getScannerAiQueue(env, job.jobType).send(job);
+    await confirmScannerAiJobDispatched(env.DB, job.responseId, job.jobType, job.runId);
+  } catch (error) {
+    // The conditional claim leaves dispatch_pending_at set. A later scheduled
+    // run retries only this producer-failed candidate, not ordinary queued work.
+    console.error('[scanner-ai-reaper] Queue dispatch failed:', error);
+  }
 }
 
 async function processQueueMessage(
@@ -96,39 +104,31 @@ async function processQueueMessage(
     // Only the active same-run lease can be requeued; a late redelivery must
     // never replace a newer run or start provider work concurrently.
     if (await requeueScannerAiJob(env.DB, message.body.responseId, message.body.jobType, message.body.runId)) {
-      await setScannerAiResponseStatus(env, message.body, 'queued');
       message.retry({ delaySeconds: retryDelaySeconds(message.attempts) });
     }
     return;
   }
 
-  // A stale duplicate may have been superseded while it was executing. Finish
-  // only an active same-run lease; never overwrite a newer run's UI state.
-  if (await finishScannerAiJob(
+  // A stale duplicate may have been superseded while it was executing. Fail
+  // only the matching active lease, atomically with the visible response status.
+  await failScannerAiJobWithResponseStatus(
     env.DB,
     message.body.responseId,
     message.body.jobType,
     message.body.runId,
-    'failed',
     'Queue retry limit reached',
-  )) {
-    await setScannerAiResponseStatus(env, message.body, 'failed');
-  }
+  );
 }
 
 async function reapStaleScannerAiJobs(env: Cloudflare.Env): Promise<void> {
+  // Reclaim fencing produces a fresh run ID before the replacement is queued.
   const reclaimed = await reclaimStaleScannerAiJobs(env.DB);
-  for (const job of reclaimed) {
-    await setScannerAiResponseStatus(env, job, 'queued');
-    try {
-      await getScannerAiQueue(env, job.jobType).send(job);
-    } catch (error) {
-      // The record is already queued and the next scheduled reaper will safely
-      // retry dispatching this same run. Do not terminally fail work solely
-      // because a transient Queue producer call failed.
-      console.error('[scanner-ai-reaper] Queue redispatch failed:', error);
-    }
-  }
+  for (const job of reclaimed) await dispatchScannerAiJob(env, job);
+
+  // Retry only jobs whose prior Queue.send did not confirm; routine queued jobs
+  // are Queue-owned and intentionally never polled or spammed by the scheduler.
+  const pendingDispatch = await getScannerAiJobsPendingDispatch(env.DB);
+  for (const job of pendingDispatch) await dispatchScannerAiJob(env, job, 60);
 }
 
 export default {

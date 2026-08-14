@@ -6,8 +6,12 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../../lib/api-helpers';
 import { isAiEnabled } from '../../../../lib/ai-settings-db';
-import { getScannerResponse, updateAiAnalysisStatus } from '../../../../lib/scanner-response-db';
-import { enqueueScannerAiJob } from '../../../../lib/ai-operations';
+import { getScannerResponse } from '../../../../lib/scanner-response-db';
+import {
+  claimScannerAiJobDispatch,
+  confirmScannerAiJobDispatched,
+  enqueueScannerAiJob,
+} from '../../../../lib/ai-operations';
 import { getScannerAiQueue } from '../../../../lib/scanner-ai-queue';
 
 export const prerender = false;
@@ -36,12 +40,14 @@ export const POST: APIRoute = async ({ url, locals }) => {
 
   const job = await enqueueScannerAiJob(env.DB, id, 'analysis');
   if (!job.queued) return json({ error: 'Bản soi chiếu đang được tạo.' }, 409);
-  await updateAiAnalysisStatus(env.DB, id, 'queued');
-  await getScannerAiQueue(env, 'analysis').send({
-    responseId: id,
-    jobType: 'analysis',
-    runId: job.runId,
-  });
+  if (await claimScannerAiJobDispatch(env.DB, id, 'analysis', job.runId)) {
+    try {
+      await getScannerAiQueue(env, 'analysis').send({ responseId: id, jobType: 'analysis', runId: job.runId });
+      await confirmScannerAiJobDispatched(env.DB, id, 'analysis', job.runId);
+    } catch (error) {
+      console.error('[regenerate-ai] Queue dispatch deferred to scheduled retry:', error);
+    }
+  }
 
   return json({ success: true, queued: true, job: { type: 'analysis', runId: job.runId } }, 202);
 };

@@ -11,7 +11,7 @@ async function getUserIdForResponse(
   responseId: number,
 ): Promise<string | null> {
   const row = await db
-    .prepare('SELECT user_id FROM scanner_history WHERE response_id = ? LIMIT 1')
+    .prepare('SELECT user_id FROM scanner_history WHERE response_id = ? ORDER BY created_at ASC, id ASC LIMIT 1')
     .bind(responseId)
     .first<{ user_id: string }>();
   return row?.user_id ?? null;

@@ -9,10 +9,16 @@ import { env } from 'cloudflare:workers';
 import { json, badRequest } from '../../../lib/api-helpers';
 import { isResponseOwnedByUser } from '../../../lib/scanner-history-db';
 import { createAuth } from '../../../lib/auth';
-import { getScannerResponse, updateAiAnalysisStatus, updateAiPlanStatus } from '../../../lib/scanner-response-db';
+import { getScannerResponse } from '../../../lib/scanner-response-db';
 import { canAccessScanner } from '../../../lib/entitlement-check';
 import { getUserByEmail } from '../../../lib/user-db';
-import { enqueueScannerAiJob, finishScannerAiJob, isScannerAiJobRunning, reserveAiQuota } from '../../../lib/ai-operations';
+import {
+  claimScannerAiJobDispatch,
+  confirmScannerAiJobDispatched,
+  enqueueScannerAiJob,
+  isScannerAiJobRunning,
+  reserveAiQuota,
+} from '../../../lib/ai-operations';
 import { getScannerAiQueue } from '../../../lib/scanner-ai-queue';
 
 export const prerender = false;
@@ -71,22 +77,16 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: 'Báo cáo AI này đang được tạo. Vui lòng chờ kết quả hiện tại.' }, 409);
   }
 
-  try {
-    await (type === 'analysis'
-      ? updateAiAnalysisStatus(env.DB, responseId, 'queued')
-      : updateAiPlanStatus(env.DB, responseId, 'queued'));
-    await getScannerAiQueue(env, type).send({
-      responseId,
-      jobType: type,
-      runId: job.runId,
-    });
-  } catch (error) {
-    console.error('[run-ai] Queue dispatch failed:', error);
-    await finishScannerAiJob(env.DB, responseId, type, job.runId, 'failed', 'Queue dispatch failed');
-    await (type === 'analysis'
-      ? updateAiAnalysisStatus(env.DB, responseId, 'failed')
-      : updateAiPlanStatus(env.DB, responseId, 'failed'));
-    return json({ error: 'Không thể xếp hàng tạo báo cáo AI. Vui lòng thử lại.' }, 503);
+  // Queue.send is not transactional with D1. The durable job remains visibly
+  // queued and dispatch-pending if this producer call fails; the scheduler will
+  // retry only that pending dispatch with the same run ID.
+  if (await claimScannerAiJobDispatch(env.DB, responseId, type, job.runId)) {
+    try {
+      await getScannerAiQueue(env, type).send({ responseId, jobType: type, runId: job.runId });
+      await confirmScannerAiJobDispatched(env.DB, responseId, type, job.runId);
+    } catch (error) {
+      console.error('[run-ai] Queue dispatch deferred to scheduled retry:', error);
+    }
   }
 
   return json({ queued: true, type, job: { type, runId: job.runId } }, 202);

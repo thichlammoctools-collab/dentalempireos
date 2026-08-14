@@ -33,6 +33,7 @@ export async function addToHistory(
     .prepare(
       `INSERT INTO "scanner_history" ("user_id","survey_id","response_id","score_total","score_label")
        VALUES (?,?,?,?,?)
+       ON CONFLICT("response_id") DO NOTHING
        RETURNING "id"`,
     )
     .bind(
@@ -75,7 +76,7 @@ export async function getHistoryByResponseId(
   responseId: number,
 ): Promise<ScannerHistoryRow | null> {
   return db
-    .prepare('SELECT * FROM "scanner_history" WHERE "response_id" = ?')
+    .prepare('SELECT * FROM "scanner_history" WHERE "response_id" = ? ORDER BY "created_at" ASC, "id" ASC LIMIT 1')
     .bind(responseId)
     .first<ScannerHistoryRow>() ?? null;
 }
