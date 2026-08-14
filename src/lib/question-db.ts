@@ -229,8 +229,9 @@ export async function getUnreadCount(db: D1Database, userId: string): Promise<nu
   return row?.count ?? 0;
 }
 
-export async function markNotificationRead(db: D1Database, id: string): Promise<void> {
-  await db.prepare(`UPDATE "notification" SET "read" = 1 WHERE "id" = ?`).bind(id).run();
+export async function markNotificationRead(db: D1Database, id: string, userId: string): Promise<void> {
+  // No affected-row result is exposed so foreign and nonexistent IDs remain a no-op.
+  await db.prepare(`UPDATE "notification" SET "read" = 1 WHERE "id" = ? AND "user_id" = ?`).bind(id, userId).run();
 }
 
 export async function markAllNotificationsRead(db: D1Database, userId: string): Promise<void> {

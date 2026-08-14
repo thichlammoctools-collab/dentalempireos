@@ -19,6 +19,7 @@ import {
 } from './lib/scanner-submission-db';
 import {
   cleanupScannerActionPlanReminders,
+  reclaimStaleScannerActionPlanReminderClaims,
   scheduleScannerActionPlanReminders,
 } from './lib/scanner-action-plan-reminders';
 
@@ -268,6 +269,18 @@ async function reapStaleScannerAiJobs(env: Cloudflare.Env): Promise<void> {
   for (const job of pendingDispatch) await dispatchScannerAiJob(env, job, 60);
 }
 
+async function maintainScannerActionPlanReminders(db: D1Database): Promise<void> {
+  // Run lifecycle cancellation before recovery, then run normal candidate scheduling
+  // after recovery. This prevents cleanup from racing a claimed-row finalization.
+  try {
+    await cleanupScannerActionPlanReminders(db);
+  } catch (error) {
+    console.error('[scanner-reminders] lifecycle cleanup failed', error);
+  }
+  await reclaimStaleScannerActionPlanReminderClaims(db);
+  await scheduleScannerActionPlanReminders(db);
+}
+
 export default {
   fetch: handle,
 
@@ -276,12 +289,7 @@ export default {
       purgeExpiredScannerResponses(env),
       retryPendingScannerSubmissionSnapshots(env),
       reapStaleScannerAiJobs(env),
-      // Each reminder candidate is claimed and finalized independently, so a
-      // single bad row cannot block the ten-minute scheduled run.
-      scheduleScannerActionPlanReminders(env.DB),
-      cleanupScannerActionPlanReminders(env.DB).catch((error) => {
-        console.error('[scanner-reminders] lifecycle cleanup failed', error);
-      }),
+      maintainScannerActionPlanReminders(env.DB),
     ]);
   },
 

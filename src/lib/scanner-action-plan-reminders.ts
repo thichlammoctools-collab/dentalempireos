@@ -5,7 +5,7 @@
 import type { ScannerActionPlanActionRow, ScannerActionPlanRow } from './scanner-action-plan-db';
 
 export const SCANNER_ACTION_PLAN_REMINDER_BATCH_SIZE = 25;
-const CLAIM_STALE_AFTER_MS = 30 * 60 * 1_000;
+export const SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS = 30 * 60 * 1_000;
 const PLAN_NOT_STARTED_AFTER_DAYS = 7;
 const ACTION_OVERDUE_AFTER_DAYS = 7;
 const RESCAN_AFTER_DAYS = 30;
@@ -62,6 +62,14 @@ export function isScannerActionPlanReminderEligible(
     && action.status !== 'skipped';
 }
 
+/** A stale claimed row is retried independently of its original reminder due window. */
+export function isScannerActionPlanReminderClaimStale(claimedAt: string | null, now: Date): boolean {
+  if (!claimedAt) return true;
+  const claimedAtMilliseconds = Date.parse(claimedAt);
+  return !Number.isFinite(claimedAtMilliseconds)
+    || claimedAtMilliseconds < now.getTime() - SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS;
+}
+
 /** The durable schedule key prevents retries, concurrent cron invocations, and deploy replays from duplicating delivery. */
 export function getScannerActionPlanReminderScheduleKey(candidate: ScannerActionPlanReminderCandidate): string {
   return `scanner-action-plan-reminder:v1:${candidate.kind}:${candidate.planId}:${candidate.actionId ?? 'plan'}`;
@@ -98,6 +106,12 @@ function reminderCopy(kind: ScannerActionPlanReminderKind): { type: string; titl
 
 function reminderId(): string {
   return crypto.randomUUID();
+}
+
+function isExpectedReminderLifecycleSuppression(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('scanner action plan reminder requires an eligible plan')
+    || message.includes('scanner action plan reminder action does not belong to plan');
 }
 
 async function listReminderCandidates(db: D1Database, now: string): Promise<ScannerActionPlanReminderCandidate[]> {
@@ -167,27 +181,13 @@ async function listReminderCandidates(db: D1Database, now: string): Promise<Scan
   ];
 }
 
-async function deliverReminder(db: D1Database, candidate: ScannerActionPlanReminderCandidate, now: string): Promise<void> {
+async function claimAndDeliverReminder(
+  db: D1Database,
+  candidate: ScannerActionPlanReminderCandidate,
+  now: string,
+  staleBefore: string,
+): Promise<boolean> {
   const scheduleKey = getScannerActionPlanReminderScheduleKey(candidate);
-  const deliveryId = reminderId();
-  const notificationId = reminderId();
-  const staleBefore = new Date(Date.parse(now) - CLAIM_STALE_AFTER_MS).toISOString();
-
-  // The unique schedule key is the idempotency boundary. This insert is also guarded
-  // by the migration trigger so an archive/retention race never creates new work.
-  try {
-    await db.prepare(
-      `INSERT OR IGNORE INTO "scanner_action_plan_reminder"
-       ("id","notification_id","schedule_key","plan_id","action_id","user_id","kind","state","claimed_at","delivered_at","created_at","updated_at")
-       VALUES (?,?,?,?,?,?,?,'pending',NULL,NULL,?,?)`,
-    ).bind(deliveryId, notificationId, scheduleKey, candidate.planId, candidate.actionId, candidate.userId, candidate.kind, now, now).run();
-  } catch (error) {
-    // The trigger may reject a plan that changed after candidate selection. It is an
-    // expected lifecycle race, not a scheduler-wide error.
-    console.info('[scanner-reminders] candidate suppressed before ledger insert', { planId: candidate.planId, kind: candidate.kind });
-    return;
-  }
-
   const claimed = await db.prepare(
     `UPDATE "scanner_action_plan_reminder"
      SET "state" = 'claimed', "claimed_at" = ?, "updated_at" = ?
@@ -204,9 +204,10 @@ async function deliverReminder(db: D1Database, candidate: ScannerActionPlanRemin
        AND (
          "action_id" IS NULL OR EXISTS (
            SELECT 1 FROM "scanner_action_plan_action" action
-           WHERE action."id" = "scanner_action_plan_reminder"."action_id"
-             AND action."plan_id" = "scanner_action_plan_reminder"."plan_id"
-             AND action."status" NOT IN ('completed', 'skipped')
+            WHERE action."id" = "scanner_action_plan_reminder"."action_id"
+              AND action."plan_id" = "scanner_action_plan_reminder"."plan_id"
+              AND action."status" NOT IN ('completed', 'skipped')
+              AND ("kind" NOT IN ('action_due', 'action_overdue') OR action."target_days" IS NOT NULL)
          )
        )
        AND (
@@ -231,7 +232,7 @@ async function deliverReminder(db: D1Database, candidate: ScannerActionPlanRemin
          )
        )`,
   ).bind(now, now, scheduleKey, staleBefore).run();
-  if ((claimed.meta.changes ?? 0) !== 1) return;
+  if ((claimed.meta.changes ?? 0) !== 1) return false;
 
   const copy = reminderCopy(candidate.kind);
   const link = `/account/action-plans/${candidate.planId}`;
@@ -252,8 +253,9 @@ async function deliverReminder(db: D1Database, candidate: ScannerActionPlanRemin
          )
           AND (reminder."action_id" IS NULL OR EXISTS (
             SELECT 1 FROM "scanner_action_plan_action" action
-            WHERE action."id" = reminder."action_id" AND action."plan_id" = reminder."plan_id"
-              AND action."status" NOT IN ('completed', 'skipped')
+             WHERE action."id" = reminder."action_id" AND action."plan_id" = reminder."plan_id"
+               AND action."status" NOT IN ('completed', 'skipped')
+               AND (reminder."kind" NOT IN ('action_due', 'action_overdue') OR action."target_days" IS NOT NULL)
           ))
           AND (reminder."kind" != 'plan_not_started' OR (
             EXISTS (
@@ -285,6 +287,102 @@ async function deliverReminder(db: D1Database, candidate: ScannerActionPlanRemin
     ).bind(now, now, scheduleKey),
   ]);
   if ((delivery[1]?.meta.changes ?? 0) !== 1) throw new Error('Scanner reminder ledger delivery finalization failed.');
+  return true;
+}
+
+async function deliverReminder(db: D1Database, candidate: ScannerActionPlanReminderCandidate, now: string): Promise<void> {
+  const scheduleKey = getScannerActionPlanReminderScheduleKey(candidate);
+  const deliveryId = reminderId();
+  const notificationId = reminderId();
+  const staleBefore = new Date(Date.parse(now) - SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS).toISOString();
+
+  // The unique schedule key is the idempotency boundary. This insert is also guarded
+  // by the migration trigger so an archive/retention race never creates new work.
+  try {
+    await db.prepare(
+      `INSERT OR IGNORE INTO "scanner_action_plan_reminder"
+       ("id","notification_id","schedule_key","plan_id","action_id","user_id","kind","state","claimed_at","delivered_at","created_at","updated_at")
+       VALUES (?,?,?,?,?,?,?,'pending',NULL,NULL,?,?)`,
+    ).bind(deliveryId, notificationId, scheduleKey, candidate.planId, candidate.actionId, candidate.userId, candidate.kind, now, now).run();
+  } catch (error) {
+    if (isExpectedReminderLifecycleSuppression(error)) {
+      // A lifecycle trigger can reject a candidate that changed after selection.
+      console.info('[scanner-reminders] candidate suppressed before ledger insert', { planId: candidate.planId, kind: candidate.kind });
+      return;
+    }
+    throw error;
+  }
+
+  await claimAndDeliverReminder(db, candidate, now, staleBefore);
+}
+
+async function listStaleClaimedReminders(db: D1Database, staleBefore: string): Promise<ScannerActionPlanReminderCandidate[]> {
+  const { results = [] } = await db.prepare(
+    `SELECT "plan_id", "action_id", "user_id", "kind"
+     FROM "scanner_action_plan_reminder"
+     WHERE "state" = 'claimed' AND ("claimed_at" IS NULL OR "claimed_at" < ?)
+     ORDER BY "claimed_at" ASC, "id" ASC
+     LIMIT ?`,
+  ).bind(staleBefore, SCANNER_ACTION_PLAN_REMINDER_BATCH_SIZE).all<{
+    plan_id: string;
+    action_id: string | null;
+    user_id: string;
+    kind: ScannerActionPlanReminderKind;
+  }>();
+  return results.map((row) => ({
+    planId: row.plan_id,
+    actionId: row.action_id,
+    userId: row.user_id,
+    kind: row.kind,
+  }));
+}
+
+async function cancelStaleClaimIfStillUnclaimed(
+  db: D1Database,
+  candidate: ScannerActionPlanReminderCandidate,
+  staleBefore: string,
+  now: string,
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE "scanner_action_plan_reminder"
+     SET "state" = 'canceled', "updated_at" = ?
+     WHERE "schedule_key" = ? AND "state" = 'claimed'
+       AND ("claimed_at" IS NULL OR "claimed_at" < ?)`,
+  ).bind(now, getScannerActionPlanReminderScheduleKey(candidate), staleBefore).run();
+  return (result.meta.changes ?? 0) === 1;
+}
+
+/** Reclaims aged claims without applying ordinary candidate due-window restrictions. */
+export async function reclaimStaleScannerActionPlanReminderClaims(db: D1Database): Promise<void> {
+  const now = new Date().toISOString();
+  const staleBefore = new Date(Date.parse(now) - SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS).toISOString();
+  let candidates: ScannerActionPlanReminderCandidate[];
+  try {
+    candidates = await listStaleClaimedReminders(db, staleBefore);
+  } catch (error) {
+    console.error('[scanner-reminders] stale-claim query failed', error);
+    return;
+  }
+
+  for (const candidate of candidates) {
+    try {
+      if (await claimAndDeliverReminder(db, candidate, now, staleBefore)) continue;
+      if (await cancelStaleClaimIfStillUnclaimed(db, candidate, staleBefore, now)) {
+        console.info('[scanner-reminders] stale claim canceled by lifecycle suppression', {
+          planId: candidate.planId,
+          actionId: candidate.actionId,
+          kind: candidate.kind,
+        });
+      }
+    } catch (error) {
+      console.error('[scanner-reminders] stale-claim recovery failed', {
+        planId: candidate.planId,
+        actionId: candidate.actionId,
+        kind: candidate.kind,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }
 
 /** Schedules a bounded, independently isolated batch of in-app reminders. */

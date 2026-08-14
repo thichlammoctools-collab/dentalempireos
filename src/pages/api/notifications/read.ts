@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (body?.id) {
     // Mark single notification
-    await markNotificationRead(env.DB, body.id);
+    await markNotificationRead(env.DB, body.id, user.id);
   } else {
     // Mark all as read
     await markAllNotificationsRead(env.DB, user.id);

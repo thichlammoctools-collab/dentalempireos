@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
   getScannerActionPlanReminderDueAt,
   getScannerActionPlanReminderScheduleKey,
+  isScannerActionPlanReminderClaimStale,
   isScannerActionPlanReminderEligible,
+  SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS,
 } from '../src/lib/scanner-action-plan-reminders.ts';
 
 const activePlan = {
@@ -40,6 +42,22 @@ test('suppresses reminder delivery for archived, unavailable, terminal, and unta
   assert.equal(isScannerActionPlanReminderEligible(activePlan, 'action_due', { ...dueAction, status: 'completed' }), false);
   assert.equal(isScannerActionPlanReminderEligible(activePlan, 'action_overdue', { ...dueAction, status: 'skipped' }), false);
   assert.equal(isScannerActionPlanReminderEligible(activePlan, 'action_due', { ...dueAction, target_days: null }), false);
+});
+
+test('reclaims aged action_due claims using current lifecycle eligibility, not their original due window', () => {
+  const now = new Date('2026-02-01T12:00:00.000Z');
+  const staleAt = new Date(now.getTime() - SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS - 1).toISOString();
+  const thresholdAt = new Date(now.getTime() - SCANNER_ACTION_PLAN_REMINDER_CLAIM_STALE_AFTER_MS).toISOString();
+
+  // The action_due schedule was Jan 15, but it remains valid work on Feb 1. Recovery
+  // must therefore retry it rather than reapply the original seven-day due window.
+  assert.equal(getScannerActionPlanReminderDueAt(activePlan, 'action_due', dueAction)?.toISOString(), '2026-01-15T00:00:00.000Z');
+  assert.equal(isScannerActionPlanReminderClaimStale(staleAt, now), true);
+  assert.equal(isScannerActionPlanReminderEligible(activePlan, 'action_due', dueAction), true);
+  assert.equal(isScannerActionPlanReminderClaimStale(thresholdAt, now), false);
+  assert.equal(isScannerActionPlanReminderClaimStale(null, now), true);
+  assert.equal(isScannerActionPlanReminderClaimStale('not-a-date', now), true);
+  assert.equal(isScannerActionPlanReminderEligible(activePlan, 'action_due', { ...dueAction, status: 'completed' }), false);
 });
 
 test('uses deterministic plan/action scoped schedule keys for durable dedupe', () => {
