@@ -11,7 +11,7 @@ const ids = [
   'post-quan-ly-vat-tu',
 ];
 const query = `SELECT id, content_md FROM blog_post WHERE id IN (${ids.map((id) => `'${id}'`).join(',')}) ORDER BY id;`;
-const output = execFileSync('npx', ['wrangler', 'd1', 'execute', 'DB', '--remote', '--command', query, '--json'], { encoding: 'utf8' });
+const output = execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['wrangler', 'd1', 'execute', 'DB', '--remote', '--command', query, '--json'], { encoding: 'utf8' });
 const parsed = JSON.parse(output);
 const rows = parsed[0]?.results ?? [];
 const escape = (value) => value.replaceAll("'", "''");

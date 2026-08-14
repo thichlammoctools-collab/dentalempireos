@@ -289,8 +289,8 @@ const markdownFallbackHtml = post.content_md ? marked.parse(post.content_md) : '
   (async () => {
     try {
       const res = await fetch(`/api/admin/blog/blocks?post_id=${postId}`);
-      const data = await res.json() as { blocks?: Array<{ content: string }> };
-      const existingRichBlock = data.blocks?.find(b => b.content && !b.content.startsWith('['));
+      const data = await res.json() as { blocks?: Array<{ type: string; content: string }> };
+      const existingRichBlock = data.blocks?.find((b) => b.type === 'rich' && b.content && !b.content.startsWith('['));
       const initialContent = existingRichBlock?.content || markdownFallbackHtml;
 
       const mod = await import('../../../scripts/richtext-editor');
