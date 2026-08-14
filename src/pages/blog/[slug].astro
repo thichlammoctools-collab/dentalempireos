@@ -546,7 +546,7 @@ const breadcrumbSchema = {
         <!-- Điểm nổi bật -->
         {tocItems.length > 2 && (
           <details class="group rounded-2xl border border-gray-300 dark:border-outline-variant bg-white dark:bg-surface-container-low overflow-hidden [&::-webkit-details-marker]:hidden" open>
-            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none list-none">
+            <summary class="flex items-center gap-3 px-5 py-5 cursor-pointer select-none list-none">
               <div class="w-8 h-8 rounded-lg bg-[#B45309] flex items-center justify-center shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/>
@@ -559,7 +559,7 @@ const breadcrumbSchema = {
               <span class="material-symbols-outlined text-[18px] text-gray-400 dark:text-on-surface-variant/40 transition-transform group-open:rotate-180">expand_more</span>
             </summary>
             <div class="border-t border-gray-100 dark:border-outline-variant"></div>
-            <ol class="toc-list ol-reset !px-5 py-4 space-y-2.5" style="counter-reset: toc-counter">
+            <ol class="toc-list ol-reset !px-5 py-5 space-y-2.5" style="counter-reset: toc-counter">
               {tocItems.map((item) => (
                 <li class={`toc-list-item ${item.level === 3 ? 'toc-list-h3' : ''}`}>
                   <a
