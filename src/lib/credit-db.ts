@@ -183,10 +183,22 @@ export async function listCreditLedger(
   const account = await ensureCreditAccount(db, userId);
   const { results } = await db.prepare(
     `SELECT ledger.*,
-            CASE WHEN ledger."source_type" = 'scanner' THEN survey."title_vi" ELSE NULL END AS "service_label"
+            CASE
+              WHEN ledger."source_type" = 'scanner' THEN survey."title_vi"
+              WHEN ledger."source_type" = 'resource' THEN resource."title"
+              ELSE NULL
+            END AS "service_label"
      FROM "credit_ledger_entry" ledger
      LEFT JOIN "scanner_credit_run" scanner_run ON scanner_run."id" = ledger."source_id"
      LEFT JOIN "survey_definition" survey ON survey."id" = scanner_run."survey_id"
+     LEFT JOIN "credit_consumption" consumption
+       ON consumption."feature_type" = ledger."source_type"
+      AND consumption."business_object_id" = ledger."source_id"
+      AND consumption."charge_type" = 'unlock'
+     LEFT JOIN "user_content_grant" content_grant ON content_grant."credit_consumption_id" = consumption."id"
+     LEFT JOIN "resource" resource
+       ON resource."id" = content_grant."content_id"
+      AND content_grant."content_type" = 'resource'
      WHERE ledger."account_id" = ?
        AND (
          ledger."kind" != 'reservation'

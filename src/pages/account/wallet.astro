@@ -96,7 +96,9 @@ function getLedgerDisplay(entry: { kind: string; amount: number; metadata_json: 
     if (credits !== null) {
       const service = entry.source_type === 'scanner'
         ? `Scanner trả phí${entry.service_label ? ` · ${entry.service_label}` : ''}`
-        : entry.source_type;
+        : entry.source_type === 'resource'
+          ? `Tài liệu đã tải${entry.service_label ? ` · ${entry.service_label}` : ''}`
+          : entry.source_type;
       return { amount: -credits, label: `Đã dùng ${credits} Credits`, detail: service };
     }
   } catch {
