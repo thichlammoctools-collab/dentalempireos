@@ -765,7 +765,9 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   const notesHeight = 42;
   const fields = action.content.flatMap((text) => text.split('\n').filter(Boolean)).map((text) => planField(text, ctx.lang));
   const tags = fields.map((field) => planTag(field, ctx.lang)).filter((tag): tag is PlanTag => tag !== null);
-  const tagRows = planTagRows(tags, ctx.fontBold, cardWidth - 30);
+  const completionWidth = checkboxSize + 6 + ctx.fontBold.widthOfTextAtSize(completionLabel, 8.5);
+  const metadataHeight = 22;
+  const tagRows = planTagRows(tags, ctx.fontBold, innerWidth - completionWidth - 10);
   const fieldLines = fields.filter((field) => field.kind === 'detail').map((field) => ({
     ...field,
     lines: wrapText(field.value, ctx.font, 9.5, cardWidth - 30),
@@ -773,10 +775,9 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   const titleLines = wrapText(action.title, ctx.fontBold, 10, cardWidth - 18);
   const cardHeight = 18
     + titleLines.length * 13
-    + tagRows.length * 22
+    + Math.max(tagRows.length * 22, metadataHeight)
     + (tagRows.length && fieldLines.length ? 4 : 0)
     + fieldLines.reduce((height, field) => height + 13 + field.lines.length * 13, 0)
-    + checkboxSize + 14
     + notesHeight + 16;
   const needed = cardHeight + 22;
   ensureSpace(ctx, needed);
@@ -799,13 +800,13 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   });
 
   // Title background tint + accent bar
-  const titleBgHeight = titleLines.length * 13 + 6;
+  const titleBgHeight = titleLines.length * 13 + 10;
   ctx.page.drawRectangle({
-    x: cardX + 1, y: topY - 14 - titleBgHeight + 4, width: cardWidth - 2, height: titleBgHeight,
+    x: cardX + 1, y: topY - 4 - titleBgHeight, width: cardWidth - 2, height: titleBgHeight,
     color: NAVY, opacity: 0.04,
   });
   ctx.page.drawRectangle({
-    x: cardX + 1, y: topY - 14 - titleBgHeight + 4, width: 3, height: titleBgHeight,
+    x: cardX + 1, y: topY - 4 - titleBgHeight, width: 3, height: titleBgHeight,
     color: AMBER,
   });
 
@@ -817,9 +818,17 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   y -= 2;
   if (tagRows.length) {
     drawPlanTagRows(ctx, tagRows, innerX, y);
-    y -= tagRows.length * 22;
-    if (fieldLines.length) y -= 4;
   }
+  const completionX = innerX + innerWidth - completionWidth;
+  ctx.page.drawRectangle({
+    x: completionX, y: y - 13.5, width: checkboxSize, height: checkboxSize,
+    borderColor: NAVY, borderWidth: 0.8,
+  });
+  ctx.page.drawText(completionLabel, {
+    x: completionX + checkboxSize + 6, y: y - 11, size: 8.5, font: ctx.fontBold, color: NAVY,
+  });
+  y -= Math.max(tagRows.length * 22, metadataHeight);
+  if (tagRows.length && fieldLines.length) y -= 4;
   for (const field of fieldLines) {
     ctx.page.drawText(field.label, { x: innerX, y, size: 8.5, font: ctx.fontBold, color: field.color });
     y -= 13;
@@ -828,14 +837,6 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
       y -= 13;
     });
   }
-  ctx.page.drawRectangle({
-    x: innerX, y: y - checkboxSize + 2, width: checkboxSize, height: checkboxSize,
-    borderColor: NAVY, borderWidth: 0.8,
-  });
-  ctx.page.drawText(completionLabel, {
-    x: innerX + checkboxSize + 6, y: y - 6.5, size: 8.5, font: ctx.fontBold, color: NAVY,
-  });
-  y -= checkboxSize + 14;
   ctx.page.drawText(notesLabel, { x: innerX, y, size: 8, font: ctx.fontBold, color: MUTED });
   y -= 5;
   ctx.page.drawRectangle({
