@@ -772,9 +772,9 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   const cardHeight = 18
     + titleLines.length * 13
     + tagRows.length * 22
-    + fieldLines.reduce((height, field) => height + 15 + field.lines.length * 13, 0)
+    + fieldLines.reduce((height, field) => height + 13 + field.lines.length * 13, 0)
     + checkboxSize + 14
-    + notesHeight + 19;
+    + notesHeight + 16;
   const needed = cardHeight + 22;
   ensureSpace(ctx, needed);
 
@@ -806,12 +806,12 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     color: AMBER,
   });
 
-  let y = topY - 17;
+  let y = topY - 14;
   titleLines.forEach((line) => {
     ctx.page.drawText(line, { x: innerX, y, size: 10, font: ctx.fontBold, color: NAVY });
     y -= 13;
   });
-  y -= 3;
+  y -= 2;
   if (tagRows.length) {
     drawPlanTagRows(ctx, tagRows, innerX, y);
     y -= tagRows.length * 22;
@@ -823,7 +823,6 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
       ctx.page.drawText(line, { x: innerX, y, size: 9.5, font: ctx.font, color: TEXT });
       y -= 13;
     });
-    y -= 2;
   }
   ctx.page.drawRectangle({
     x: innerX, y: y - checkboxSize + 2, width: checkboxSize, height: checkboxSize,
@@ -835,6 +834,10 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   y -= checkboxSize + 14;
   ctx.page.drawText(notesLabel, { x: innerX, y, size: 8, font: ctx.fontBold, color: MUTED });
   y -= 5;
+  ctx.page.drawRectangle({
+    x: innerX, y: y - notesHeight, width: innerWidth, height: notesHeight,
+    color: WHITE,
+  });
   ctx.page.drawRectangle({
     x: innerX, y: y - notesHeight, width: innerWidth, height: notesHeight,
     borderColor: LIGHT, borderWidth: 0.7,
