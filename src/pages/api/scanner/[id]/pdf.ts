@@ -41,7 +41,7 @@ export const GET: APIRoute = async ({ params, request }) => {
   }
 
   const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
-  const pdfLayoutVersion = type === 'analysis' ? 'v1' : 'v6';
+  const pdfLayoutVersion = type === 'analysis' ? 'v2' : 'v7';
   if (cachedKey && isScannerPdfArtifactKeyForLayout(cachedKey, type, pdfLayoutVersion)) {
     // R2 is not an authorization source. Revalidate immediately before serving
     // a cached artifact so an expiry/purge race cannot disclose the report.
