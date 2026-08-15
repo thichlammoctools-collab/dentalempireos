@@ -42,7 +42,7 @@ export async function upsertClinicProfile(
           "phone" = CASE WHEN ? THEN excluded."phone" ELSE "clinic_profile"."phone" END,
           "logo_url" = CASE WHEN ? THEN excluded."logo_url" ELSE "clinic_profile"."logo_url" END,
           "updated_at" = datetime('now')`,
-    )
+     )
     .bind(
       input.id,
       input.name ?? null,
@@ -57,4 +57,11 @@ export async function upsertClinicProfile(
         input.logo_url !== undefined ? 1 : 0,
       )
     .run();
+  // PDF artifacts embed clinic identity and must be regenerated after profile
+  // or contact data changes.
+  await db.prepare(
+    `UPDATE "scanner_response"
+     SET "pdf_combined_key" = NULL, "pdf_plan_key" = NULL, "pdf_analysis_key" = NULL
+     WHERE "id" IN (SELECT "response_id" FROM "scanner_history" WHERE "user_id" = ?)`,
+  ).bind(input.id).run();
 }

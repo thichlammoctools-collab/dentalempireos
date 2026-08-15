@@ -17,7 +17,6 @@ import {
 import { getRetainedScannerResponseForOwner } from '../../../../lib/scanner-history-db';
 import { createAuth } from '../../../../lib/auth';
 import { getClinicProfile } from '../../../../lib/clinic-profile-db';
-import { canAccessScanner } from '../../../../lib/entitlement-check';
 
 export const prerender = false;
 
@@ -41,10 +40,6 @@ export const GET: APIRoute = async ({ params, request }) => {
     return json({ error: 'Hoàn tất kế hoạch và bản soi chiếu AI để xuất báo cáo tổng hợp.' }, 409);
   }
 
-  if (!await canAccessScanner(env.DB, session.user.id, response.survey_id)) {
-     return json({ error: 'Scanner này yêu cầu nâng cấp dịch vụ.', upgradeUrl: '/dich-vu', upgrade_url: '/dich-vu' }, 402);
-  }
-
   const cachedKey = type === 'combined' ? response.pdf_combined_key : type === 'plan' ? response.pdf_plan_key : response.pdf_analysis_key;
   const pdfLayoutVersion = type === 'analysis' ? 'v1' : 'v6';
   if (cachedKey && isScannerPdfArtifactKeyForLayout(cachedKey, type, pdfLayoutVersion)) {
@@ -56,7 +51,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     if (currentKey === cachedKey) {
       const cached = await env.MEDIA.get(cachedKey);
       if (cached && await getRetainedScannerResponseForOwner(env.DB, session.user.id, id)) {
-        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${cachedKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="scanner-${response.survey_id}-${type}-${id}.pdf"`, 'Cache-Control': 'private, no-store' } });
       }
     }
   }
@@ -72,7 +67,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     if (currentKey && isScannerPdfArtifactKeyForLayout(currentKey, type, pdfLayoutVersion)) {
       const cached = await env.MEDIA.get(currentKey);
       if (cached && await getRetainedScannerResponseForOwner(env.DB, session.user.id, id)) {
-        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${currentKey.split('/').pop()}"`, 'Cache-Control': 'private, max-age=3600' } });
+        return new Response(cached.body, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="scanner-${response.survey_id}-${type}-${id}.pdf"`, 'Cache-Control': 'private, no-store' } });
       }
     }
     return current ? json({ error: 'PDF generation is already in progress.' }, 409) : notFound('Response not found');
@@ -148,7 +143,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': String(pdfBytes.length),
-        'Cache-Control': 'private, max-age=300',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (err) {
@@ -161,10 +156,8 @@ export const GET: APIRoute = async ({ params, request }) => {
       // Reconciliation promotes it to an indefinite tombstone after the lease.
       console.warn('[scanner-pdf] retaining unresolved write intent for reconciliation', { key: intentKey });
     }
-    return json(
-      { error: err instanceof Error ? err.message : 'PDF generation failed' },
-      500,
-    );
+    console.error('[scanner-pdf] generation failed:', err);
+    return json({ error: 'Không thể tạo PDF lúc này. Vui lòng thử lại sau.' }, 500);
   } finally {
     await releaseScannerResponseOperationLease(env.DB, id, lease).catch((releaseError) => {
       console.error('[scanner-pdf] failed to release response operation lease:', releaseError);

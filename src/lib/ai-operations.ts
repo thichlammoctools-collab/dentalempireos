@@ -334,6 +334,7 @@ export async function completeScannerAiJobWithArtifact(
 ): Promise<boolean> {
   const statusColumn = responseStatusColumn(jobType);
   const artifactColumn = responseArtifactColumn(jobType);
+  const pdfArtifactColumn = jobType === 'analysis' ? 'pdf_analysis_key' : 'pdf_plan_key';
   const timestampUpdate = jobType === 'analysis' ? ', "ai_analyzed_at" = datetime(\'now\')' : '';
   const responseLeaseClause = ` AND EXISTS (
     SELECT 1 FROM "scanner_response_operation_lease" operation_lease
@@ -351,7 +352,7 @@ export async function completeScannerAiJobWithArtifact(
   const results = await db.batch([
     db.prepare(
       `UPDATE "scanner_response"
-       SET "${artifactColumn}" = ?, "${statusColumn}" = 'done'${timestampUpdate}
+       SET "${artifactColumn}" = ?, "${statusColumn}" = 'done', "${pdfArtifactColumn}" = NULL, "pdf_combined_key" = NULL${timestampUpdate}
         WHERE "id" = ? AND ${activeJobLeaseClause('running', true)}${responseLeaseClause}`,
     ).bind(artifact, responseId, jobType, runId, lease.operationKey, lease.token, ownerId),
     db.prepare(

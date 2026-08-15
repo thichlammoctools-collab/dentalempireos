@@ -130,16 +130,17 @@ function drawFooter(ctx: PdfContext) {
 }
 
 function drawSectionTitle(ctx: PdfContext, title: string) {
-  ensureSpace(ctx, 40);
-  ctx.page.drawText(title, {
-    x: MARGIN_X, y: ctx.y - 18, size: 12,
+  const lines = wrapText(title, ctx.fontBold, 12, CONTENT_WIDTH);
+  ensureSpace(ctx, 28 + lines.length * 15);
+  lines.forEach((line, index) => ctx.page.drawText(line, {
+    x: MARGIN_X, y: ctx.y - 18 - index * 15, size: 12,
     font: ctx.fontBold, color: NAVY,
-  });
+  }));
   ctx.page.drawRectangle({
-    x: MARGIN_X, y: ctx.y - 22, width: CONTENT_WIDTH, height: 0.8,
+    x: MARGIN_X, y: ctx.y - 22 - (lines.length - 1) * 15, width: CONTENT_WIDTH, height: 0.8,
     color: AMBER,
   });
-  ctx.y -= 32;
+  ctx.y -= 32 + (lines.length - 1) * 15;
 }
 
 function drawParagraph(
@@ -164,11 +165,13 @@ function drawParagraph(
 }
 
 function drawMarkdownHeading(ctx: PdfContext, text: string, depth: number) {
+  const size = depth <= 2 ? 12 : depth === 3 ? 11 : 10.5;
+  const lines = wrapText(text, ctx.fontBold, size, CONTENT_WIDTH - (depth <= 2 ? 14 : 12));
   if (depth <= 2) {
     // H2: background tint navy + accent bar amber
-    ensureSpace(ctx, 36);
+    const bgHeight = Math.max(22, lines.length * 15 + 8);
+    ensureSpace(ctx, bgHeight + 18);
     ctx.y -= 14;
-    const bgHeight = 22;
     ctx.page.drawRectangle({
       x: MARGIN_X, y: ctx.y - bgHeight, width: CONTENT_WIDTH, height: bgHeight,
       color: NAVY, opacity: 0.06,
@@ -177,33 +180,34 @@ function drawMarkdownHeading(ctx: PdfContext, text: string, depth: number) {
       x: MARGIN_X, y: ctx.y - bgHeight, width: 4, height: bgHeight,
       color: AMBER,
     });
-    ctx.page.drawText(text, {
-      x: MARGIN_X + 14, y: ctx.y - 15, size: 12,
+    lines.forEach((line, index) => ctx.page.drawText(line, {
+      x: MARGIN_X + 14, y: ctx.y - 15 - index * 15, size,
       font: ctx.fontBold, color: NAVY,
-    });
+    }));
     ctx.y -= bgHeight + 4;
   } else if (depth === 3) {
     // H3: accent bar navy
-    ensureSpace(ctx, 28);
+    const height = Math.max(16, lines.length * 14);
+    ensureSpace(ctx, height + 12);
     ctx.y -= 10;
     ctx.page.drawRectangle({
-      x: MARGIN_X, y: ctx.y - 16, width: 3, height: 16,
+      x: MARGIN_X, y: ctx.y - height, width: 3, height,
       color: NAVY,
     });
-    ctx.page.drawText(text, {
-      x: MARGIN_X + 12, y: ctx.y - 12, size: 11,
+    lines.forEach((line, index) => ctx.page.drawText(line, {
+      x: MARGIN_X + 12, y: ctx.y - 12 - index * 14, size,
       font: ctx.fontBold, color: NAVY,
-    });
-    ctx.y -= 22;
+    }));
+    ctx.y -= height + 6;
   } else {
     // H4+: bold text only
-    ensureSpace(ctx, 20);
+    ensureSpace(ctx, lines.length * 14 + 8);
     ctx.y -= 6;
-    ctx.page.drawText(text, {
-      x: MARGIN_X, y: ctx.y - 10, size: 10.5,
+    lines.forEach((line, index) => ctx.page.drawText(line, {
+      x: MARGIN_X, y: ctx.y - 10 - index * 14, size,
       font: ctx.fontBold, color: NAVY,
-    });
-    ctx.y -= 16;
+    }));
+    ctx.y -= lines.length * 14 + 2;
   }
 }
 
@@ -229,24 +233,28 @@ function drawBullet(ctx: PdfContext, text: string) {
 
 function drawScoreBar(ctx: PdfContext, label: string, score: number, rules: ScoringRules) {
   const barH = 8;
-  const barW = CONTENT_WIDTH - 130;
-  const x = MARGIN_X + 120;
+  const scoreText = score > 100 ? String(score) : `${score}/100`;
+  const scoreWidth = ctx.fontBold.widthOfTextAtSize(scoreText, 9);
+  const labelWidth = Math.min(150, Math.max(90, CONTENT_WIDTH - scoreWidth - 40));
+  const barW = CONTENT_WIDTH - labelWidth - scoreWidth - 20;
+  const x = MARGIN_X + labelWidth + 10;
+  const labelLines = wrapText(label, ctx.font, 9, labelWidth);
 
-  ensureSpace(ctx, 30);
-  ctx.page.drawText(label, {
-    x: MARGIN_X, y: ctx.y - 10, size: 10,
+  ensureSpace(ctx, 20 + labelLines.length * 12);
+  labelLines.forEach((line, index) => ctx.page.drawText(line, {
+    x: MARGIN_X, y: ctx.y - 10 - index * 12, size: 9,
     font: ctx.font, color: TEXT,
-  });
-  ctx.page.drawText(String(score), {
-    x: MARGIN_X + 100, y: ctx.y - 10, size: 10,
+  }));
+  ctx.page.drawText(scoreText, {
+    x: PAGE_WIDTH - MARGIN_X - scoreWidth, y: ctx.y - 10, size: 9,
     font: ctx.fontBold, color: scoreColor(score, rules),
   });
-  ctx.y -= 14;
+  ctx.y -= Math.max(14, labelLines.length * 12 + 2);
 
   ctx.page.drawRectangle({
     x, y: ctx.y - barH, width: barW, height: barH, color: LIGHT,
   });
-  const w = Math.max(1, (barW * score) / 100);
+  const w = Math.max(1, (barW * Math.max(0, Math.min(score, 100))) / 100);
   ctx.page.drawRectangle({
     x, y: ctx.y - barH, width: w, height: barH, color: scoreColor(score, rules),
   });
@@ -392,14 +400,15 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
     const words = para.split(/\s+/);
     let current = '';
     for (const word of words) {
-      const test = current ? current + ' ' + word : word;
+      const safeWord = sanitizePdfText(word, font);
+      const test = current ? current + ' ' + safeWord : safeWord;
       try {
         const width = font.widthOfTextAtSize(test, size);
         if (width > maxWidth && current) {
           lines.push(current);
-          current = word;
+          current = splitLongWord(safeWord, font, size, maxWidth, lines);
         } else {
-          current = test;
+          current = width > maxWidth ? splitLongWord(safeWord, font, size, maxWidth, lines) : test;
         }
       } catch {
         current += ' ' + word;
@@ -664,23 +673,55 @@ function planField(text: string, lang: 'vi' | 'en'): { label: string; value: str
   };
 }
 
+function sanitizePdfText(value: string, font: PDFFont): string {
+  try {
+    font.encodeText(value);
+    return value;
+  } catch {
+    return Array.from(value).map((character) => {
+      try {
+        font.encodeText(character);
+        return character;
+      } catch {
+        return '?';
+      }
+    }).join('');
+  }
+}
+
+function splitLongWord(word: string, font: PDFFont, size: number, maxWidth: number, lines: string[]): string {
+  let chunk = '';
+  for (const character of Array.from(word)) {
+    const candidate = chunk + character;
+    if (chunk && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      lines.push(chunk);
+      chunk = character;
+    } else {
+      chunk = candidate;
+    }
+  }
+  return chunk;
+}
+
 function drawPlanWeek(ctx: PdfContext, title: string, weekIndex: number) {
-  ensureSpace(ctx, 54);
+  const titleLines = wrapText(title, ctx.fontBold, 11, CONTENT_WIDTH - 18);
+  const height = Math.max(38, titleLines.length * 13 + 20);
+  ensureSpace(ctx, height + 12);
   const label = ctx.lang === 'vi'
     ? `GIAI ĐOẠN ${weekIndex + 1}`
     : `PHASE ${weekIndex + 1}`;
   ctx.page.drawRectangle({
-    x: MARGIN_X, y: ctx.y - 38, width: CONTENT_WIDTH, height: 38,
+    x: MARGIN_X, y: ctx.y - height, width: CONTENT_WIDTH, height,
     color: NAVY, opacity: 0.08,
   });
-  ctx.page.drawRectangle({ x: MARGIN_X, y: ctx.y - 38, width: 4, height: 38, color: AMBER });
+  ctx.page.drawRectangle({ x: MARGIN_X, y: ctx.y - height, width: 4, height, color: AMBER });
   ctx.page.drawText(label, {
     x: MARGIN_X + 14, y: ctx.y - 14, size: 7.5, font: ctx.fontBold, color: AMBER,
   });
-  ctx.page.drawText(title, {
-    x: MARGIN_X + 14, y: ctx.y - 29, size: 11, font: ctx.fontBold, color: NAVY,
-  });
-  ctx.y -= 50;
+  titleLines.forEach((line, index) => ctx.page.drawText(line, {
+    x: MARGIN_X + 14, y: ctx.y - 29 - index * 13, size: 11, font: ctx.fontBold, color: NAVY,
+  }));
+  ctx.y -= height + 12;
 }
 
 interface PlanTag {
@@ -717,6 +758,7 @@ function planTagRows(tags: PlanTag[], font: PDFFont, maxWidth: number): PlanTag[
   let row: PlanTag[] = [];
   let usedWidth = 0;
   for (const tag of tags) {
+    tag.text = fitPdfText(tag.text, font, 7.5, maxWidth - 14);
     const tagWidth = font.widthOfTextAtSize(tag.text, 7.5) + 14;
     const gap = row.length ? 5 : 0;
     if (row.length && usedWidth + gap + tagWidth > maxWidth) {
@@ -729,6 +771,18 @@ function planTagRows(tags: PlanTag[], font: PDFFont, maxWidth: number): PlanTag[
   }
   if (row.length) rows.push(row);
   return rows;
+}
+
+function fitPdfText(value: string, font: PDFFont, size: number, maxWidth: number): string {
+  const text = sanitizePdfText(value, font);
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+  const suffix = '...';
+  let result = '';
+  for (const character of Array.from(text)) {
+    if (font.widthOfTextAtSize(result + character + suffix, size) > maxWidth) break;
+    result += character;
+  }
+  return `${result}${suffix}`;
 }
 
 function drawPlanTagRows(ctx: PdfContext, rows: PlanTag[][], x: number, y: number) {
@@ -779,6 +833,10 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     + (tagRows.length && fieldLines.length ? 4 : 0)
     + fieldLines.reduce((height, field) => height + 13 + field.lines.length * 13, 0)
     + notesHeight + 16;
+  if (cardHeight > PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM) {
+    drawPlanActionFlow(ctx, action, actionIndex, fields);
+    return;
+  }
   const needed = cardHeight + 22;
   ensureSpace(ctx, needed);
 
@@ -830,7 +888,7 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   y -= Math.max(tagRows.length * 22, metadataHeight);
   if (tagRows.length && fieldLines.length) y -= 4;
   for (const field of fieldLines) {
-    ctx.page.drawText(field.label, { x: innerX, y, size: 8.5, font: ctx.fontBold, color: field.color });
+    ctx.page.drawText(sanitizePdfText(field.label, ctx.fontBold), { x: innerX, y, size: 8.5, font: ctx.fontBold, color: field.color });
     y -= 13;
     field.lines.forEach((line) => {
       ctx.page.drawText(line, { x: innerX, y, size: 9.5, font: ctx.font, color: TEXT });
@@ -856,6 +914,27 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
     thickness: 0.35, color: LIGHT,
   });
   ctx.y = cardBottom - 18;
+}
+
+/** A legacy action can exceed an A4 page; render it as normal flowing text rather than clipping it. */
+function drawPlanActionFlow(
+  ctx: PdfContext,
+  action: PlanAction,
+  actionIndex: number,
+  fields: ReturnType<typeof planField>[],
+) {
+  drawMarkdownHeading(ctx, `${actionIndex + 1}. ${action.title}`, 3);
+  for (const field of fields) {
+    const tag = planTag(field, ctx.lang);
+    if (tag) {
+      drawParagraph(ctx, tag.text, { bold: true, size: 9, color: tag.color });
+      continue;
+    }
+    drawParagraph(ctx, field.label, { bold: true, size: 9, color: field.color });
+    drawParagraph(ctx, field.value, { size: 9.5 });
+  }
+  drawParagraph(ctx, ctxLabel(ctx.lang, 'Hoàn tất: [ ]', 'Complete: [ ]'), { bold: true, size: 9, color: NAVY });
+  drawParagraph(ctx, ctxLabel(ctx.lang, 'Ghi chú: ________________________________', 'Notes: ________________________________'), { size: 9, color: MUTED });
 }
 
 function renderPlanMarkdownToPdf(ctx: PdfContext, markdown: string) {
