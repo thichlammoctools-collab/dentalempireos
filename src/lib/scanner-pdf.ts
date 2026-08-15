@@ -643,7 +643,7 @@ function ctxLabel(lang: 'vi' | 'en', vi: string, en: string) {
   return lang === 'vi' ? vi : en;
 }
 
-type PlanFieldKind = 'category' | 'priority' | 'target' | 'detail' | 'detail-label';
+type PlanFieldKind = 'category' | 'priority' | 'target' | 'detail';
 
 function planField(text: string, lang: 'vi' | 'en'): { label: string; value: string; color: ReturnType<typeof rgb>; kind: PlanFieldKind } {
   const match = text.match(/^([^:：]+)\s*[:：]\s*(.*)$/s);
@@ -656,14 +656,11 @@ function planField(text: string, lang: 'vi' | 'en'): { label: string; value: str
   const isObjective = normalized.includes(lang === 'vi' ? 'mục tiêu' : 'objective');
   const isDone = normalized.includes(lang === 'vi' ? 'hoàn thành' : 'done when');
   const isOwner = normalized.includes(lang === 'vi' ? 'phụ trách' : 'owner') || normalized.includes(lang === 'vi' ? 'thời hạn' : 'due date');
-  const detailLabel = ctxLabel(lang, 'chi tiết', 'details');
   return {
     label: label || ctxLabel(lang, 'Chi tiết', 'Details'),
     value,
     color: isDone ? SUCCESS : isObjective ? NAVY : isOwner ? MUTED : AMBER,
-    kind: !label && normalized === detailLabel
-      ? 'detail-label'
-      : isCategory ? 'category' : isPriority ? 'priority' : isTarget ? 'target' : 'detail',
+    kind: isCategory ? 'category' : isPriority ? 'priority' : isTarget ? 'target' : 'detail',
   };
 }
 
@@ -740,10 +737,15 @@ function drawPlanTagRows(ctx: PdfContext, rows: PlanTag[][], x: number, y: numbe
     for (const tag of row) {
       const width = ctx.fontBold.widthOfTextAtSize(tag.text, 7.5) + 14;
       const height = 17;
-      const radius = height / 2;
-      ctx.page.drawRectangle({ x: tagX + radius, y: y - 16, width: width - height, height, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
-      ctx.page.drawCircle({ x: tagX + radius, y: y - 16 + radius, size: radius, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
-      ctx.page.drawCircle({ x: tagX + width - radius, y: y - 16 + radius, size: radius, color: tag.background, borderColor: tag.color, borderWidth: 0.45 });
+      const radius = 4;
+      const bottom = y - 16;
+      const right = tagX + width;
+      // A single closed path prevents the visible seams created by overlapping
+      // rectangle and circle strokes in PDF viewers.
+      ctx.page.drawSvgPath(
+        `M ${tagX + radius} ${bottom} H ${right - radius} Q ${right} ${bottom} ${right} ${bottom + radius} V ${bottom + height - radius} Q ${right} ${bottom + height} ${right - radius} ${bottom + height} H ${tagX + radius} Q ${tagX} ${bottom + height} ${tagX} ${bottom + height - radius} V ${bottom + radius} Q ${tagX} ${bottom} ${tagX + radius} ${bottom} Z`,
+        { color: tag.background, borderColor: tag.color, borderWidth: 0.45 },
+      );
       ctx.page.drawText(tag.text, { x: tagX + 7, y: y - 11, size: 7.5, font: ctx.fontBold, color: tag.color });
       tagX += width + 5;
     }
@@ -772,6 +774,7 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   const cardHeight = 18
     + titleLines.length * 13
     + tagRows.length * 22
+    + (tagRows.length && fieldLines.length ? 4 : 0)
     + fieldLines.reduce((height, field) => height + 13 + field.lines.length * 13, 0)
     + checkboxSize + 14
     + notesHeight + 16;
@@ -815,6 +818,7 @@ function drawPlanAction(ctx: PdfContext, action: PlanAction, actionIndex: number
   if (tagRows.length) {
     drawPlanTagRows(ctx, tagRows, innerX, y);
     y -= tagRows.length * 22;
+    if (fieldLines.length) y -= 4;
   }
   for (const field of fieldLines) {
     ctx.page.drawText(field.label, { x: innerX, y, size: 8.5, font: ctx.fontBold, color: field.color });
