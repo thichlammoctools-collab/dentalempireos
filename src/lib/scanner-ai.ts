@@ -7,7 +7,6 @@ import { parseAiConfig, parseScoringRules } from './survey-config-db';
 import {
   getScannerResponse,
   buildAiContext,
-  getScannerSourceFreeText,
   parseScores,
 } from './scanner-response-db';
 import { getSurveyDefinitionFull } from './survey-config-db';
@@ -256,9 +255,9 @@ function assertNoPlanPii(plan: StructuredScannerActionPlan, sourcePii: string[])
   const content = [plan.title, plan.summary, ...plan.actions.flatMap((action) => [action.title, action.description ?? ''])]
     .map(normalizeForPiiCheck)
     .join('\n');
-  // Include identifiable top-level fields and meaningful free-text answers.
-  // Persisted plans survive raw-response retention; none of these source strings
-  // may be copied into an otherwise normalized recommendation.
+  // Only compare identifiable top-level fields. Free-text answers are never sent
+  // to the provider, so treating their ordinary words as PII creates false
+  // positives (for example, matching "phòng khám" in a valid recommendation).
   const sourceValues = sourcePii.map(normalizeForPiiCheck).filter(Boolean);
   // Short standalone identifiers (for example initials or short clinic codes)
   // are unsafe to silently ignore, but matching them inside ordinary language
@@ -274,14 +273,13 @@ function assertNoPlanPii(plan: StructuredScannerActionPlan, sourcePii: string[])
   }
 }
 
-export function getScannerPlanSourcePii(response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>, freeText: string[]): string[] {
+export function getScannerPlanSourcePii(response: NonNullable<Awaited<ReturnType<typeof getScannerResponse>>>): string[] {
   return [
     response.owner_name ?? '',
     response.clinic_name ?? '',
     response.clinic_address ?? '',
     response.clinic_phone ?? '',
     response.email ?? '',
-    ...freeText,
   ];
 }
 
@@ -723,10 +721,7 @@ export async function runPlanAnalysis(
     }
     const structuredPlan = parseStructuredScannerActionPlan(
       completion.text,
-      getScannerPlanSourcePii(
-        response,
-        getScannerSourceFreeText(response, full.sections.flatMap((section) => section.questions)),
-      ),
+      getScannerPlanSourcePii(response),
     );
     const planMarkdown = renderStructuredScannerActionPlanMarkdown(structuredPlan, response.lang === 'en' ? 'en' : 'vi');
 
