@@ -467,7 +467,7 @@ try {
             </div>
           )}
           <div id="plan-error" class="text-center py-4 hidden">
-            <p class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
+            <p id="plan-error-message" class="text-sm text-red-400 mb-3">{lang === 'vi' ? 'Có lỗi xảy ra.' : 'An error occurred.'}</p>
             <button type="button" class="btn btn-ghost btn-retry" id="btn-retry-plan">
               {lang === 'vi' ? 'Thử lại' : 'Retry'}
             </button>
@@ -1301,8 +1301,10 @@ try {
     const cta = document.getElementById('plan-cta');
     const loading = document.getElementById('plan-loading');
     const error = document.getElementById('plan-error');
+    const errorMessage = document.getElementById('plan-error-message');
     const chip = document.getElementById('plan-status-chip');
     if (!cta || !loading || !error) return;
+    if (errorMessage) errorMessage.textContent = lang === 'vi' ? 'Có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.';
     cta.classList.add('hidden');
     loading.classList.add('hidden');
     error.classList.add('hidden');
@@ -1470,6 +1472,12 @@ try {
       }
 
       if (type === 'plan') {
+        const errorMessage = document.getElementById('plan-error-message');
+        if (errorMessage) {
+          errorMessage.textContent = lang === 'vi'
+            ? `Không thể tạo kế hoạch: ${errMsg}`
+            : `Unable to create the plan: ${errMsg}`;
+        }
         document.getElementById('plan-error')?.classList.remove('hidden');
       } else {
         document.getElementById('analysis-error')?.classList.remove('hidden');
