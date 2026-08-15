@@ -259,12 +259,13 @@ function assertNoPlanPii(plan: StructuredScannerActionPlan, sourcePii: string[])
   // to the provider, so treating their ordinary words as PII creates false
   // positives (for example, matching "phòng khám" in a valid recommendation).
   const sourceValues = sourcePii.map(normalizeForPiiCheck).filter(Boolean);
-  // Short standalone identifiers (for example initials or short clinic codes)
-  // are unsafe to silently ignore, but matching them inside ordinary language
-  // would be far too broad. Match short values only as complete tokens.
-  const echoesSourceValue = (value: string): boolean => value.length >= 3
-    ? content.includes(value)
-    : new RegExp(`(^|[^\\p{L}\\p{N}])${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?=$|[^\\p{L}\\p{N}])`, 'iu').test(content);
+  // Match source identifiers as complete phrases, not arbitrary substrings.
+  // This prevents generic names or codes from matching ordinary words while
+  // still catching an exact clinic name, address, or owner name.
+  const echoesSourceValue = (value: string): boolean => new RegExp(
+    `(^|[^\\p{L}\\p{N}])${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?=$|[^\\p{L}\\p{N}])`,
+    'iu',
+  ).test(content);
   if (sourceValues.some(echoesSourceValue)) {
     throw new InvalidScannerActionPlanOutputError('AI plan output contains source personal data.');
   }
