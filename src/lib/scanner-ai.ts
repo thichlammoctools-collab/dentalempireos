@@ -288,7 +288,18 @@ export function getScannerPlanSourcePii(response: NonNullable<Awaited<ReturnType
 export function parseStructuredScannerActionPlan(output: string, sourcePii: string[] = []): StructuredScannerActionPlan {
   let value: unknown;
   try {
-    value = JSON.parse(output);
+    const trimmed = output.trim();
+    const unfenced = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    try {
+      value = JSON.parse(unfenced);
+    } catch {
+      // Some providers prepend a short explanation despite the JSON-only rule.
+      // Extract only the outer JSON object; schema validation below remains strict.
+      const start = unfenced.indexOf('{');
+      const end = unfenced.lastIndexOf('}');
+      if (start < 0 || end <= start) throw new Error('No JSON object found');
+      value = JSON.parse(unfenced.slice(start, end + 1));
+    }
   } catch {
     throw new InvalidScannerActionPlanOutputError('AI plan output is not valid JSON.');
   }

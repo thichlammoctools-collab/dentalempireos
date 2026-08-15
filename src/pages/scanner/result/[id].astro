@@ -1269,18 +1269,22 @@ try {
           ai_plan?: string | null;
           ai_analysis_status?: string;
           ai_plan_status?: string;
+          ai_analysis_error?: string | null;
+          ai_plan_error?: string | null;
         };
-        const planDone = !['queued', 'running'].includes(data.ai_plan_status ?? 'pending');
-        const analysisDone = !['queued', 'running'].includes(data.ai_analysis_status ?? 'pending');
-        if (planDone && analysisDone) {
+        const planStatus = data.ai_plan_status ?? 'pending';
+        const analysisStatus = data.ai_analysis_status ?? 'pending';
+        const planDone = !['queued', 'running'].includes(planStatus);
+        const analysisDone = !['queued', 'running'].includes(analysisStatus);
+        if (planDone && analysisDone && planStatus !== 'failed' && analysisStatus !== 'failed') {
           clearInterval(pollInterval!);
           pollInterval = null;
           window.location.reload();
           return;
         }
         // Update UI per section
-        updatePlanUI(data.ai_plan_status ?? 'pending', !!data.ai_plan, !!data.ai_analysis);
-        updateAnalysisUI(data.ai_analysis_status ?? 'pending', !!data.ai_analysis);
+        updatePlanUI(planStatus, !!data.ai_plan, !!data.ai_analysis, data.ai_plan_error);
+        updateAnalysisUI(analysisStatus, !!data.ai_analysis, data.ai_analysis_error);
         // Stop polling when nothing running
         const running = ['queued', 'running'].includes(data.ai_plan_status ?? 'pending')
           || ['queued', 'running'].includes(data.ai_analysis_status ?? 'pending');
@@ -1297,14 +1301,16 @@ try {
     }, 2000);
   }
 
-  function updatePlanUI(status: string, hasContent: boolean, hasAnalysisContent: boolean) {
+  function updatePlanUI(status: string, hasContent: boolean, hasAnalysisContent: boolean, errorDetail?: string | null) {
     const cta = document.getElementById('plan-cta');
     const loading = document.getElementById('plan-loading');
     const error = document.getElementById('plan-error');
     const errorMessage = document.getElementById('plan-error-message');
     const chip = document.getElementById('plan-status-chip');
     if (!cta || !loading || !error) return;
-    if (errorMessage) errorMessage.textContent = lang === 'vi' ? 'Có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.';
+    if (errorMessage) errorMessage.textContent = status === 'failed' && errorDetail
+      ? `${lang === 'vi' ? 'Không thể tạo kế hoạch: ' : 'Unable to create the plan: '}${errorDetail}`
+      : lang === 'vi' ? 'Có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.';
     cta.classList.add('hidden');
     loading.classList.add('hidden');
     error.classList.add('hidden');
@@ -1336,7 +1342,7 @@ try {
     }
   }
 
-  function updateAnalysisUI(status: string, hasContent: boolean) {
+  function updateAnalysisUI(status: string, hasContent: boolean, errorDetail?: string | null) {
     const cta = document.getElementById('analysis-cta');
     const loading = document.getElementById('analysis-loading');
     const error = document.getElementById('analysis-error');
@@ -1344,6 +1350,10 @@ try {
     cta.classList.add('hidden');
     loading.classList.add('hidden');
     error.classList.add('hidden');
+    if (errorDetail) {
+      const message = error.querySelector('p');
+      if (message) message.textContent = `${lang === 'vi' ? 'Không thể tạo bản soi chiếu: ' : 'Unable to create the analysis: '}${errorDetail}`;
+    }
     if (hasContent) {
       window.location.reload();
     } else if (status === 'queued' || status === 'running') {

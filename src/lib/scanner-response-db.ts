@@ -67,6 +67,8 @@ export interface ScannerResponsePollingDto {
   ai_plan: string | null;
   ai_analysis_status: string;
   ai_plan_status: string;
+  ai_analysis_error: string | null;
+  ai_plan_error: string | null;
 }
 
 /**
@@ -80,9 +82,14 @@ export async function getOwnedScannerResponsePollingDto(
   userId: string,
 ): Promise<ScannerResponsePollingDto | null> {
   return await db.prepare(
-    `SELECT response."ai_analysis", response."ai_plan", response."ai_analysis_status", response."ai_plan_status"
+    `SELECT response."ai_analysis", response."ai_plan", response."ai_analysis_status", response."ai_plan_status",
+        analysis_job."error_message" AS "ai_analysis_error", plan_job."error_message" AS "ai_plan_error"
      FROM "scanner_response" response
      INNER JOIN "scanner_history" history ON history."response_id" = response."id"
+     LEFT JOIN "scanner_ai_job" analysis_job
+       ON analysis_job."response_id" = response."id" AND analysis_job."job_type" = 'analysis'
+     LEFT JOIN "scanner_ai_job" plan_job
+       ON plan_job."response_id" = response."id" AND plan_job."job_type" = 'plan'
      WHERE response."id" = ? AND history."user_id" = ? AND response."expires_at" > ?
      LIMIT 1`,
   ).bind(responseId, userId, new Date().toISOString()).first<ScannerResponsePollingDto>() ?? null;
