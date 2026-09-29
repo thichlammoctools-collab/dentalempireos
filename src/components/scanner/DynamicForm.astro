@@ -1016,8 +1016,42 @@ const defaultScaleEn: Record<string, string> = {
     .card { padding: 1.25rem; }
     .form-row { grid-template-columns: 1fr; }
     .form-title { font-size: 1.4rem; }
-    .scale-option { min-width: 80px; }
-    .scale-pill { padding: 0.5rem 0.3rem; }
-    .scale-text { font-size: 0.65rem; }
+    .scale-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .scale-option {
+      width: 100%;
+      min-width: 0;
+    }
+    .scale-pill {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      min-height: auto;
+      text-align: left;
+    }
+    .scale-num {
+      flex: 0 0 1.75rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.4rem;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 0;
+    }
+    .scale-text {
+      flex: 1;
+      font-size: 0.825rem;
+      line-height: 1.4;
+      text-align: left;
+    }
   }
 </style>

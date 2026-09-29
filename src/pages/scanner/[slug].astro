@@ -684,16 +684,57 @@ const defaultScaleEn: Record<string, string> = {
   @media (max-width: 640px) {
     .survey-wrap { padding: 0.75rem 0 6rem; }
     .card { padding: 1rem; }
-     .scale-group { gap: 0.3rem; }
-     .scale-pill { gap: 0.3rem; padding: 0.5rem 0.35rem; }
-     .scale-num { font-size: 0.8rem; }
-     .scale-text { font-size: 0.66rem; }
-     .nav-buttons { gap: 0.5rem; }
-     .nav-buttons .btn { flex: 1 1 0; min-width: 0; padding: 0.65rem 0.55rem; }
-     .sticky-nav-inner { gap: 0.4rem; }
-     .sticky-btn-back,
-     .sticky-btn-next { min-width: 0; padding: 0.65rem 0.5rem; font-size: 0.78rem; }
-     #sticky-step-label { font-size: 0.6rem; }
+    .scale-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .scale-option {
+      width: 100%;
+      min-width: 0;
+    }
+    .scale-option .scale-pill {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      min-height: auto;
+      text-align: left;
+    }
+    .scale-num {
+      flex: 0 0 1.75rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.4rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--color-outline-variant, rgba(255, 255, 255, 0.12));
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--color-on-surface-variant);
+      margin-bottom: 0;
+      transition: all 0.15s;
+    }
+    .scale-option input:checked + .scale-pill .scale-num {
+      background: #f59e0b;
+      border-color: #f59e0b;
+      color: #000;
+    }
+    .scale-text {
+      flex: 1;
+      font-size: 0.825rem;
+      line-height: 1.4;
+      text-align: left;
+    }
+    .nav-buttons { gap: 0.5rem; }
+    .nav-buttons .btn { flex: 1 1 0; min-width: 0; padding: 0.65rem 0.55rem; }
+    .sticky-nav-inner { gap: 0.4rem; }
+    .sticky-btn-back,
+    .sticky-btn-next { min-width: 0; padding: 0.65rem 0.5rem; font-size: 0.78rem; }
+    #sticky-step-label { font-size: 0.6rem; }
   }
 </style>
 

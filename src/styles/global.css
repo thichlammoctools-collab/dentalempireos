@@ -1789,12 +1789,46 @@ h4.section-heading {
   .survey-wrap .form-col-full {
     grid-column: span 1;
   }
+  .survey-wrap .scale-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .survey-wrap .scale-option {
+    width: 100%;
+  }
   .survey-wrap .scale-pill {
-    min-height: 70px;
-    padding: 0.4rem 0.15rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: auto;
+    padding: 0.65rem 0.85rem;
+    text-align: left;
+  }
+  .survey-wrap .scale-num {
+    flex: 0 0 1.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0;
+    transition: all 0.2s;
+  }
+  .survey-wrap .scale-option input:checked ~ .scale-pill .scale-num {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-on-primary);
   }
   .survey-wrap .scale-text {
-    font-size: 0.65rem;
+    flex: 1;
+    font-size: 0.825rem;
+    line-height: 1.4;
+    text-align: left;
   }
 }
 .search-highlight-active {
