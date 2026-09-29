@@ -17,6 +17,7 @@ const mobileHeaderLinks = [
 
 const currentPath = Astro.url.pathname;
 const currentHash = Astro.url.hash;
+const user = Astro.locals.user;
 ---
 
 <header class="fixed top-0 w-full z-50 bg-surface-container-lowest glass-nav border-b border-outline-variant h-20">
@@ -108,9 +109,9 @@ const currentHash = Astro.url.hash;
         <span id="desktop-theme-icon" class="material-symbols-outlined text-[20px]">light_mode</span>
       </button>
       <!-- Auth state: keep a stable slot while the session is loading. -->
-      <div id="auth-slot" class="min-w-[280px] invisible" aria-busy="true">
+      <div id="auth-slot" class:list={['min-w-[280px]', user ? '' : 'invisible']} aria-busy={user ? 'false' : 'true'}>
         <!-- Auth: logged-out state -->
-        <div id="auth-logged-out" class="hidden items-center justify-end gap-2">
+        <div id="auth-logged-out" class:list={['items-center justify-end gap-2', user ? 'hidden' : 'hidden']}>
           <a
             href="/login"
             class="px-4 py-2 label-md font-semibold text-on-surface-variant hover:text-primary transition-colors"
@@ -126,7 +127,7 @@ const currentHash = Astro.url.hash;
         </div>
 
         <!-- Auth: logged-in state -->
-        <div id="auth-logged-in" class="hidden items-center justify-end gap-3">
+        <div id="auth-logged-in" class:list={['items-center justify-end gap-3', user ? 'flex' : 'hidden']}>
           <a
             id="auth-wallet-link"
             href="/account/wallet"
@@ -139,10 +140,33 @@ const currentHash = Astro.url.hash;
           <a
             id="auth-profile-link"
             href="/account/profile"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container transition-all"
+            class="flex items-center gap-2 p-1 rounded-full text-on-surface-variant hover:text-primary transition-all group focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+            title={user ? (user.name ? `${user.name} (${user.email || ''})` : (user.email || 'Hồ sơ cá nhân')) : 'Hồ sơ cá nhân'}
+            aria-label={user ? (user.name || user.email || 'Hồ sơ cá nhân') : 'Hồ sơ cá nhân'}
           >
-            <span class="material-symbols-outlined text-base">account_circle</span>
-            <span id="auth-user-email" class="max-w-[180px] truncate"></span>
+            <div class="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-surface-container-high border border-outline-variant/40 group-hover:border-primary/50 transition-colors flex-shrink-0">
+              <img
+                id="auth-user-avatar"
+                src={user?.image || ''}
+                alt={user?.name || 'Avatar'}
+                class:list={[
+                  'w-full h-full object-cover rounded-full',
+                  user?.image ? '' : 'hidden',
+                ]}
+                loading="lazy"
+                onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
+              />
+              <span
+                id="auth-user-avatar-fallback"
+                class:list={[
+                  'material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary transition-colors',
+                  user?.image ? 'hidden' : '',
+                ]}
+              >
+                account_circle
+              </span>
+            </div>
+            <span id="auth-user-email" class="hidden"></span>
           </a>
           <button
             id="auth-logout"
@@ -161,6 +185,49 @@ const currentHash = Astro.url.hash;
   import { getSession, signOut } from '../../lib/auth-client';
   import { onThemeChange, toggleTheme, updateThemeToggle } from '../../scripts/theme';
 
+  function updateHeaderAvatar(user: { image?: string | null; name?: string | null; email?: string | null } | null) {
+    const avatarImg = document.getElementById('auth-user-avatar') as HTMLImageElement | null;
+    const avatarFallback = document.getElementById('auth-user-avatar-fallback');
+    const profileLink = document.getElementById('auth-profile-link');
+    const userEmailSpan = document.getElementById('auth-user-email');
+
+    if (!user) {
+      if (avatarImg) {
+        avatarImg.src = '';
+        avatarImg.classList.add('hidden');
+      }
+      avatarFallback?.classList.remove('hidden');
+      if (userEmailSpan) userEmailSpan.textContent = '';
+      return;
+    }
+
+    const titleText = user.name ? `${user.name} (${user.email || ''})` : (user.email || 'Hồ sơ cá nhân');
+    if (profileLink) {
+      profileLink.setAttribute('title', titleText);
+      profileLink.setAttribute('aria-label', titleText);
+    }
+    if (userEmailSpan) {
+      userEmailSpan.textContent = user.name || user.email || '';
+    }
+
+    if (user.image && avatarImg) {
+      avatarImg.src = user.image;
+      avatarImg.alt = user.name || 'Avatar';
+      avatarImg.classList.remove('hidden');
+      avatarFallback?.classList.add('hidden');
+      avatarImg.onerror = () => {
+        avatarImg.classList.add('hidden');
+        avatarFallback?.classList.remove('hidden');
+      };
+    } else {
+      if (avatarImg) {
+        avatarImg.src = '';
+        avatarImg.classList.add('hidden');
+      }
+      avatarFallback?.classList.remove('hidden');
+    }
+  }
+
   async function initAuthState() {
     const authSlot = document.getElementById('auth-slot');
 
@@ -176,8 +243,18 @@ const currentHash = Astro.url.hash;
         }
       };
 
-      if (loggedIn) {
+      const hide = (id: string, display: string) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.add('hidden');
+          el.classList.remove(display);
+        }
+      };
+
+      if (loggedIn && data?.user) {
+        hide('auth-logged-out', 'flex');
         show('auth-logged-in', 'flex');
+        updateHeaderAvatar(data.user);
         try {
           const walletResponse = await fetch('/api/credits/wallet');
           if (walletResponse.ok) {
@@ -190,7 +267,9 @@ const currentHash = Astro.url.hash;
           // The account area remains usable if a migration is not deployed yet.
         }
       } else {
+        hide('auth-logged-in', 'flex');
         show('auth-logged-out', 'flex');
+        updateHeaderAvatar(null);
       }
 
       document.getElementById('auth-logout')?.addEventListener('click', async () => {
@@ -199,13 +278,24 @@ const currentHash = Astro.url.hash;
       });
     } catch {
       const loggedOut = document.getElementById('auth-logged-out');
+      const loggedIn = document.getElementById('auth-logged-in');
+      loggedIn?.classList.add('hidden');
+      loggedIn?.classList.remove('flex');
       loggedOut?.classList.remove('hidden');
       loggedOut?.classList.add('flex');
+      updateHeaderAvatar(null);
     } finally {
       authSlot?.classList.remove('invisible');
       authSlot?.removeAttribute('aria-busy');
     }
   }
+
+  // Listen for user avatar updates across windows/components
+  window.addEventListener('user-avatar-updated', ((e: CustomEvent<{ image?: string; name?: string }>) => {
+    if (e.detail?.image !== undefined) {
+      updateHeaderAvatar({ image: e.detail.image, name: e.detail.name });
+    }
+  }) as EventListener);
 
   // Resolve auth immediately; the surrounding slot prevents layout shift.
   void initAuthState();

@@ -24,6 +24,7 @@ const getNavState = () => {
 };
 
 const activeNav = getNavState();
+const user = Astro.locals.user;
 ---
 
 <!-- ========== MENU DRAWER ========== -->
@@ -62,12 +63,24 @@ const activeNav = getNavState();
     <!-- Auth: Logged In -->
     <div id="menu-auth-logged-in" class="hidden px-4 pt-4 pb-2">
       <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container mb-2">
-        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-          <span class="material-symbols-outlined text-primary">person</span>
+        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
+          <img
+            id="menu-user-avatar"
+            src={user?.image || ''}
+            alt="Avatar"
+            class:list={['w-full h-full object-cover', user?.image ? '' : 'hidden']}
+            onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
+          />
+          <span
+            id="menu-user-avatar-fallback"
+            class:list={['material-symbols-outlined text-primary', user?.image ? 'hidden' : '']}
+          >
+            person
+          </span>
         </div>
         <div class="flex-1 min-w-0">
-          <p id="menu-user-name" class="text-sm font-medium text-on-surface truncate">Người dùng</p>
-          <p id="menu-user-email" class="text-xs text-on-surface-variant truncate"></p>
+          <p id="menu-user-name" class="text-sm font-medium text-on-surface truncate">{user?.name || 'Người dùng'}</p>
+          <p id="menu-user-email" class="text-xs text-on-surface-variant truncate">{user?.email || ''}</p>
         </div>
       </div>
       <a href="/account/profile" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container transition-colors">
@@ -202,7 +215,21 @@ const activeNav = getNavState();
         activeNav === 'profile' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant'
       ]}
     >
-      <span class="material-symbols-outlined text-2xl">account_circle</span>
+      <div class="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
+        <img
+          id="bottom-nav-avatar"
+          src={user?.image || ''}
+          alt="Hồ sơ"
+          class:list={['w-full h-full object-cover rounded-full', user?.image ? '' : 'hidden']}
+          onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
+        />
+        <span
+          id="bottom-nav-avatar-fallback"
+          class:list={['material-symbols-outlined text-2xl', user?.image ? 'hidden' : '']}
+        >
+          account_circle
+        </span>
+      </div>
       <span class="text-[10px] font-medium">Hồ sơ</span>
     </a>
   </div>
@@ -329,20 +356,58 @@ const activeNav = getNavState();
         var res = await fetch('/api/auth/get-session', { credentials: 'include' });
         var session: any = null;
         try { session = await res.json(); } catch {}
+        var bNavAvatar = document.getElementById('bottom-nav-avatar') as HTMLImageElement | null;
+        var bNavFallback = document.getElementById('bottom-nav-avatar-fallback');
+        var mAvatar = document.getElementById('menu-user-avatar') as HTMLImageElement | null;
+        var mFallback = document.getElementById('menu-user-avatar-fallback');
+
         if (session && session.user) {
           if (authLoggedIn) authLoggedIn.classList.remove('hidden');
           if (authLoggedOut) authLoggedOut.classList.add('hidden');
           if (userNameEl) userNameEl.textContent = session.user.name || 'Người dùng';
           if (userEmailEl) userEmailEl.textContent = session.user.email || '';
+
+          if (session.user.image) {
+            if (bNavAvatar) {
+              bNavAvatar.src = session.user.image;
+              bNavAvatar.classList.remove('hidden');
+              bNavFallback?.classList.add('hidden');
+              bNavAvatar.onerror = function() {
+                bNavAvatar?.classList.add('hidden');
+                bNavFallback?.classList.remove('hidden');
+              };
+            }
+            if (mAvatar) {
+              mAvatar.src = session.user.image;
+              mAvatar.classList.remove('hidden');
+              mFallback?.classList.add('hidden');
+              mAvatar.onerror = function() {
+                mAvatar?.classList.add('hidden');
+                mFallback?.classList.remove('hidden');
+              };
+            }
+          } else {
+            bNavAvatar?.classList.add('hidden');
+            bNavFallback?.classList.remove('hidden');
+            mAvatar?.classList.add('hidden');
+            mFallback?.classList.remove('hidden');
+          }
         } else {
           if (authLoggedIn) authLoggedIn.classList.add('hidden');
           if (authLoggedOut) authLoggedOut.classList.remove('hidden');
+          bNavAvatar?.classList.add('hidden');
+          bNavFallback?.classList.remove('hidden');
+          mAvatar?.classList.add('hidden');
+          mFallback?.classList.remove('hidden');
         }
       } catch (e) {
         if (authLoggedIn) authLoggedIn.classList.add('hidden');
         if (authLoggedOut) authLoggedOut.classList.remove('hidden');
       }
     }
+
+    // Initialize user state for bottom nav
+    loadUserState();
 
     function loadBookmarks() {
       if (!bookmarksSection || !bookmarksList) return;

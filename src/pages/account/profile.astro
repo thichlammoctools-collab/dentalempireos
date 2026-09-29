@@ -632,6 +632,7 @@ function statusInfo(status: string) {
         const { error } = await authClient.updateUser({ image: url });
         if (error) throw new Error(error.message || 'Failed to update user');
 
+        window.dispatchEvent(new CustomEvent('user-avatar-updated', { detail: { image: url } }));
         window.showToast('Cập nhật ảnh thành công', 'success');
       } catch (err: any) {
         if (originalImageSrc && avatarPreview.tagName === 'IMG') {

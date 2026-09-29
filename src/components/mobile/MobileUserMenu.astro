@@ -1,5 +1,6 @@
 ---
 // Mobile slide-out user menu
+const user = Astro.locals.user;
 ---
 
 <!-- User Menu Overlay -->
@@ -52,12 +53,24 @@
     <!-- Logged In State -->
     <div id="user-logged-in" class="hidden px-4 pt-4 pb-2">
       <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container mb-2">
-        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-          <span class="material-symbols-outlined text-primary">person</span>
+        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
+          <img
+            id="user-menu-avatar"
+            src={user?.image || ''}
+            alt="Avatar"
+            class:list={['w-full h-full object-cover', user?.image ? '' : 'hidden']}
+            onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
+          />
+          <span
+            id="user-menu-avatar-fallback"
+            class:list={['material-symbols-outlined text-primary', user?.image ? 'hidden' : '']}
+          >
+            person
+          </span>
         </div>
         <div class="flex-1 min-w-0">
-          <p id="user-name" class="text-sm font-medium text-on-surface truncate">Người dùng</p>
-          <p id="user-email" class="text-xs text-on-surface-variant truncate"></p>
+          <p id="user-name" class="text-sm font-medium text-on-surface truncate">{user?.name || 'Người dùng'}</p>
+          <p id="user-email" class="text-xs text-on-surface-variant truncate">{user?.email || ''}</p>
         </div>
       </div>
       <a
@@ -174,18 +187,40 @@
       var res = await fetch('/api/auth/get-session', { credentials: 'include' });
       var session: any = null;
       try { session = await res.json(); } catch {}
+      var menuAvatarImg = document.getElementById('user-menu-avatar') as HTMLImageElement | null;
+      var menuAvatarFallback = document.getElementById('user-menu-avatar-fallback');
+
       if (session && session.user) {
         if (loggedInSection) loggedInSection.classList.remove('hidden');
         if (loggedOutSection) loggedOutSection.classList.add('hidden');
         if (userNameEl) userNameEl.textContent = session.user.name || 'Người dùng';
         if (userEmailEl) userEmailEl.textContent = session.user.email || '';
+
+        if (session.user.image && menuAvatarImg) {
+          menuAvatarImg.src = session.user.image;
+          menuAvatarImg.classList.remove('hidden');
+          menuAvatarFallback?.classList.add('hidden');
+          menuAvatarImg.onerror = function() {
+            menuAvatarImg?.classList.add('hidden');
+            menuAvatarFallback?.classList.remove('hidden');
+          };
+        } else {
+          menuAvatarImg?.classList.add('hidden');
+          menuAvatarFallback?.classList.remove('hidden');
+        }
       } else {
         if (loggedInSection) loggedInSection.classList.add('hidden');
         if (loggedOutSection) loggedOutSection.classList.remove('hidden');
+        menuAvatarImg?.classList.add('hidden');
+        menuAvatarFallback?.classList.remove('hidden');
       }
     } catch (e) {
       if (loggedInSection) loggedInSection.classList.add('hidden');
       if (loggedOutSection) loggedOutSection.classList.remove('hidden');
+      var menuAvatarImgErr = document.getElementById('user-menu-avatar') as HTMLImageElement | null;
+      var menuAvatarFallbackErr = document.getElementById('user-menu-avatar-fallback');
+      menuAvatarImgErr?.classList.add('hidden');
+      menuAvatarFallbackErr?.classList.remove('hidden');
     }
   }
 
