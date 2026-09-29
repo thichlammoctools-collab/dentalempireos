@@ -47,7 +47,7 @@ declare namespace App {
     // reads them, and admitting them would widen this shape for no consumer.
     user: (import('better-auth').User & {
       is_active?: number;
-      role?: string;
+      role?: string | null;
       banned?: boolean | null;
     }) | null;
     session: import('better-auth').Session | null;
