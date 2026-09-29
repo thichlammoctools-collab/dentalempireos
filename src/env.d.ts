@@ -41,7 +41,15 @@ declare namespace Cloudflare {
 declare namespace App {
   interface Locals {
     cfContext: ExecutionContext;
-    user: (import('better-auth').User & { is_active?: number }) | null;
+    // `role` and `banned` come from the better-auth admin plugin columns and are
+    // how admin authorization is decided, so they must be visible here.
+    // banReason/banExpires stay off the locals contract: no request handler
+    // reads them, and admitting them would widen this shape for no consumer.
+    user: (import('better-auth').User & {
+      is_active?: number;
+      role?: string;
+      banned?: boolean | null;
+    }) | null;
     session: import('better-auth').Session | null;
   }
 }

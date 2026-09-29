@@ -4,7 +4,7 @@
 
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, badRequest } from '../../../../lib/api-helpers';
+import { json, badRequest, requireAdmin } from '../../../../lib/api-helpers';
 import { isAiEnabled } from '../../../../lib/ai-settings-db';
 import { getRetainedScannerResponseCanonicalOwner } from '../../../../lib/scanner-response-operation-fence';
 import {
@@ -17,16 +17,11 @@ import { getScannerAiQueue } from '../../../../lib/scanner-ai-queue';
 export const prerender = false;
 
 export const POST: APIRoute = async ({ url, locals }) => {
-  // Admin auth check (middleware already validates, but double-check here)
-  const isAdmin = locals.user && (env.ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((e: string) => e.trim().toLowerCase())
-    .filter(Boolean)
-    .includes(locals.user.email.toLowerCase());
-
-  if (!isAdmin || !locals.user) {
-    return json({ error: 'unauthorized' }, 401);
-  }
+  // Middleware already gated /api/admin/* and set locals.user with the promoted
+  // role. This used to re-derive admin status from ADMIN_EMAILS directly, which
+  // could disagree with the persisted role the admin plugin authorizes on.
+  const denied = requireAdmin(locals.user);
+  if (denied) return denied;
   const id = parseInt(url.searchParams.get('id') ?? '', 10);
   if (!id) return badRequest('id is required');
 

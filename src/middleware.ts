@@ -97,7 +97,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
       .bind(result.user.id)
       .first<{ is_active: number }>();
 
-    const user = { ...result.user, is_active: dbUser?.is_active ?? 0 };
+    // The better-auth session payload already includes the admin plugin's `role`
+    // and `banned` columns; locals only adds `is_active`, which better-auth does
+    // not select. Narrow explicitly so the spread's banExpires (a Date) does not
+    // leak into the locals contract, which only the fields handlers read declare.
+    const { banReason: _banReason, banExpires: _banExpires, ...sessionUser } = result.user;
+    const user: NonNullable<App.Locals['user']> = { ...sessionUser, is_active: dbUser?.is_active ?? 0 };
     // The new-wallet welcome grant is lazy but exactly-once. Only users created
     // after the Credits Economy migration are eligible; existing accounts are
     // intentionally not backfilled.

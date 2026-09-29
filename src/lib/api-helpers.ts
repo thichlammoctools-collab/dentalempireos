@@ -15,6 +15,25 @@ export function notFound(message = 'Không tìm thấy'): Response {
   return json({ error: message }, 404);
 }
 
+/**
+ * The single authorization source for admin API routes.
+ *
+ * Middleware already rejects every `/admin` and `/api/admin/` request that is not
+ * allowlisted, and it promotes an allowlisted account's persisted `role` to
+ * 'admin' before the gate runs. Routes therefore read `locals.user` instead of
+ * re-deriving admin status: an earlier version of these handlers compared the
+ * `role` column in one place and the ADMIN_EMAILS env in another, so the two
+ * could disagree about the same request.
+ */
+export function isAdminUser(user: App.Locals['user']): boolean {
+  return user?.role === 'admin';
+}
+
+/** Returns a 403 response when locals.user is not an admin. */
+export function requireAdmin(user: App.Locals['user']): Response | null {
+  return isAdminUser(user) ? null : json({ error: 'Admin only' }, 403);
+}
+
 // Turns a Vietnamese (or any) heading into a URL-safe anchor slug.
 export function slugify(input: string): string {
   return input
