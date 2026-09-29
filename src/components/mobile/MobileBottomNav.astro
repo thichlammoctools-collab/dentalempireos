@@ -63,20 +63,23 @@ const user = Astro.locals.user;
     <!-- Auth: Logged In -->
     <div id="menu-auth-logged-in" class="hidden px-4 pt-4 pb-2">
       <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container mb-2">
-        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
-          <img
-            id="menu-user-avatar"
-            src={user?.image || ''}
-            alt="Avatar"
-            class:list={['w-full h-full object-cover', user?.image ? '' : 'hidden']}
-            onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
-          />
+        <div class="relative w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
           <span
             id="menu-user-avatar-fallback"
-            class:list={['material-symbols-outlined text-primary', user?.image ? 'hidden' : '']}
+            class="material-symbols-outlined text-primary flex items-center justify-center w-full h-full"
+            style={user?.image ? 'display: none;' : 'display: flex;'}
           >
             person
           </span>
+          <img
+            id="menu-user-avatar"
+            src={user?.image || undefined}
+            alt="Avatar"
+            class="absolute inset-0 w-full h-full object-cover rounded-full pointer-events-none"
+            style={user?.image ? 'display: block;' : 'display: none;'}
+            loading="lazy"
+            onerror="this.style.display='none'; var fb=document.getElementById('menu-user-avatar-fallback'); if(fb) fb.style.display='flex';"
+          />
         </div>
         <div class="flex-1 min-w-0">
           <p id="menu-user-name" class="text-sm font-medium text-on-surface truncate">{user?.name || 'Người dùng'}</p>
@@ -215,20 +218,23 @@ const user = Astro.locals.user;
         activeNav === 'profile' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant'
       ]}
     >
-      <div class="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
-        <img
-          id="bottom-nav-avatar"
-          src={user?.image || ''}
-          alt="Hồ sơ"
-          class:list={['w-full h-full object-cover rounded-full', user?.image ? '' : 'hidden']}
-          onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
-        />
+      <div class="relative w-6 h-6 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
         <span
           id="bottom-nav-avatar-fallback"
-          class:list={['material-symbols-outlined text-2xl', user?.image ? 'hidden' : '']}
+          class="material-symbols-outlined text-2xl flex items-center justify-center w-full h-full"
+          style={user?.image ? 'display: none;' : 'display: flex;'}
         >
           account_circle
         </span>
+        <img
+          id="bottom-nav-avatar"
+          src={user?.image || undefined}
+          alt="Hồ sơ"
+          class="absolute inset-0 w-full h-full object-cover rounded-full pointer-events-none"
+          style={user?.image ? 'display: block;' : 'display: none;'}
+          loading="lazy"
+          onerror="this.style.display='none'; var fb=document.getElementById('bottom-nav-avatar-fallback'); if(fb) fb.style.display='flex';"
+        />
       </div>
       <span class="text-[10px] font-medium">Hồ sơ</span>
     </a>
@@ -370,35 +376,35 @@ const user = Astro.locals.user;
           if (session.user.image) {
             if (bNavAvatar) {
               bNavAvatar.src = session.user.image;
-              bNavAvatar.classList.remove('hidden');
-              bNavFallback?.classList.add('hidden');
+              bNavAvatar.style.display = 'block';
+              if (bNavFallback) bNavFallback.style.display = 'none';
               bNavAvatar.onerror = function() {
-                bNavAvatar?.classList.add('hidden');
-                bNavFallback?.classList.remove('hidden');
+                if (bNavAvatar) bNavAvatar.style.display = 'none';
+                if (bNavFallback) bNavFallback.style.display = 'flex';
               };
             }
             if (mAvatar) {
               mAvatar.src = session.user.image;
-              mAvatar.classList.remove('hidden');
-              mFallback?.classList.add('hidden');
+              mAvatar.style.display = 'block';
+              if (mFallback) mFallback.style.display = 'none';
               mAvatar.onerror = function() {
-                mAvatar?.classList.add('hidden');
-                mFallback?.classList.remove('hidden');
+                if (mAvatar) mAvatar.style.display = 'none';
+                if (mFallback) mFallback.style.display = 'flex';
               };
             }
           } else {
-            bNavAvatar?.classList.add('hidden');
-            bNavFallback?.classList.remove('hidden');
-            mAvatar?.classList.add('hidden');
-            mFallback?.classList.remove('hidden');
+            if (bNavAvatar) bNavAvatar.style.display = 'none';
+            if (bNavFallback) bNavFallback.style.display = 'flex';
+            if (mAvatar) mAvatar.style.display = 'none';
+            if (mFallback) mFallback.style.display = 'flex';
           }
         } else {
           if (authLoggedIn) authLoggedIn.classList.add('hidden');
           if (authLoggedOut) authLoggedOut.classList.remove('hidden');
-          bNavAvatar?.classList.add('hidden');
-          bNavFallback?.classList.remove('hidden');
-          mAvatar?.classList.add('hidden');
-          mFallback?.classList.remove('hidden');
+          if (bNavAvatar) bNavAvatar.style.display = 'none';
+          if (bNavFallback) bNavFallback.style.display = 'flex';
+          if (mAvatar) mAvatar.style.display = 'none';
+          if (mFallback) mFallback.style.display = 'flex';
         }
       } catch (e) {
         if (authLoggedIn) authLoggedIn.classList.add('hidden');

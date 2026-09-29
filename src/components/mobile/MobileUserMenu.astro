@@ -53,20 +53,23 @@ const user = Astro.locals.user;
     <!-- Logged In State -->
     <div id="user-logged-in" class="hidden px-4 pt-4 pb-2">
       <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container mb-2">
-        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
-          <img
-            id="user-menu-avatar"
-            src={user?.image || ''}
-            alt="Avatar"
-            class:list={['w-full h-full object-cover', user?.image ? '' : 'hidden']}
-            onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
-          />
+        <div class="relative w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0 border border-outline-variant/30">
           <span
             id="user-menu-avatar-fallback"
-            class:list={['material-symbols-outlined text-primary', user?.image ? 'hidden' : '']}
+            class="material-symbols-outlined text-primary flex items-center justify-center w-full h-full"
+            style={user?.image ? 'display: none;' : 'display: flex;'}
           >
             person
           </span>
+          <img
+            id="user-menu-avatar"
+            src={user?.image || undefined}
+            alt="Avatar"
+            class="absolute inset-0 w-full h-full object-cover rounded-full pointer-events-none"
+            style={user?.image ? 'display: block;' : 'display: none;'}
+            loading="lazy"
+            onerror="this.style.display='none'; var fb=document.getElementById('user-menu-avatar-fallback'); if(fb) fb.style.display='flex';"
+          />
         </div>
         <div class="flex-1 min-w-0">
           <p id="user-name" class="text-sm font-medium text-on-surface truncate">{user?.name || 'Người dùng'}</p>
@@ -198,29 +201,29 @@ const user = Astro.locals.user;
 
         if (session.user.image && menuAvatarImg) {
           menuAvatarImg.src = session.user.image;
-          menuAvatarImg.classList.remove('hidden');
-          menuAvatarFallback?.classList.add('hidden');
+          menuAvatarImg.style.display = 'block';
+          if (menuAvatarFallback) menuAvatarFallback.style.display = 'none';
           menuAvatarImg.onerror = function() {
-            menuAvatarImg?.classList.add('hidden');
-            menuAvatarFallback?.classList.remove('hidden');
+            if (menuAvatarImg) menuAvatarImg.style.display = 'none';
+            if (menuAvatarFallback) menuAvatarFallback.style.display = 'flex';
           };
         } else {
-          menuAvatarImg?.classList.add('hidden');
-          menuAvatarFallback?.classList.remove('hidden');
+          if (menuAvatarImg) menuAvatarImg.style.display = 'none';
+          if (menuAvatarFallback) menuAvatarFallback.style.display = 'flex';
         }
       } else {
         if (loggedInSection) loggedInSection.classList.add('hidden');
         if (loggedOutSection) loggedOutSection.classList.remove('hidden');
-        menuAvatarImg?.classList.add('hidden');
-        menuAvatarFallback?.classList.remove('hidden');
+        if (menuAvatarImg) menuAvatarImg.style.display = 'none';
+        if (menuAvatarFallback) menuAvatarFallback.style.display = 'flex';
       }
     } catch (e) {
       if (loggedInSection) loggedInSection.classList.add('hidden');
       if (loggedOutSection) loggedOutSection.classList.remove('hidden');
       var menuAvatarImgErr = document.getElementById('user-menu-avatar') as HTMLImageElement | null;
       var menuAvatarFallbackErr = document.getElementById('user-menu-avatar-fallback');
-      menuAvatarImgErr?.classList.add('hidden');
-      menuAvatarFallbackErr?.classList.remove('hidden');
+      if (menuAvatarImgErr) menuAvatarImgErr.style.display = 'none';
+      if (menuAvatarFallbackErr) menuAvatarFallbackErr.style.display = 'flex';
     }
   }
 

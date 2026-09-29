@@ -145,26 +145,22 @@ const user = Astro.locals.user;
             aria-label={user ? (user.name || user.email || 'Hồ sơ cá nhân') : 'Hồ sơ cá nhân'}
           >
             <div class="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-surface-container-high border border-outline-variant/40 group-hover:border-primary/50 transition-colors flex-shrink-0">
-              <img
-                id="auth-user-avatar"
-                src={user?.image || ''}
-                alt={user?.name || 'Avatar'}
-                class:list={[
-                  'w-full h-full object-cover rounded-full',
-                  user?.image ? '' : 'hidden',
-                ]}
-                loading="lazy"
-                onerror="this.classList.add('hidden'); const fb = this.nextElementSibling; if (fb) fb.classList.remove('hidden');"
-              />
               <span
                 id="auth-user-avatar-fallback"
-                class:list={[
-                  'material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary transition-colors',
-                  user?.image ? 'hidden' : '',
-                ]}
+                class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary transition-colors flex items-center justify-center w-full h-full"
+                style={user?.image ? 'display: none;' : 'display: flex;'}
               >
                 account_circle
               </span>
+              <img
+                id="auth-user-avatar"
+                src={user?.image || undefined}
+                alt={user?.name || 'Avatar'}
+                class="absolute inset-0 w-full h-full object-cover rounded-full pointer-events-none"
+                style={user?.image ? 'display: block;' : 'display: none;'}
+                loading="lazy"
+                onerror="this.style.display='none'; var fb=document.getElementById('auth-user-avatar-fallback'); if(fb) fb.style.display='flex';"
+              />
             </div>
             <span id="auth-user-email" class="hidden"></span>
           </a>
@@ -194,9 +190,11 @@ const user = Astro.locals.user;
     if (!user) {
       if (avatarImg) {
         avatarImg.src = '';
-        avatarImg.classList.add('hidden');
+        avatarImg.style.display = 'none';
       }
-      avatarFallback?.classList.remove('hidden');
+      if (avatarFallback) {
+        avatarFallback.style.display = 'flex';
+      }
       if (userEmailSpan) userEmailSpan.textContent = '';
       return;
     }
@@ -211,20 +209,26 @@ const user = Astro.locals.user;
     }
 
     if (user.image && avatarImg) {
+      avatarImg.onload = () => {
+        avatarImg.style.display = 'block';
+        if (avatarFallback) avatarFallback.style.display = 'none';
+      };
+      avatarImg.onerror = () => {
+        avatarImg.style.display = 'none';
+        if (avatarFallback) avatarFallback.style.display = 'flex';
+      };
       avatarImg.src = user.image;
       avatarImg.alt = user.name || 'Avatar';
-      avatarImg.classList.remove('hidden');
-      avatarFallback?.classList.add('hidden');
-      avatarImg.onerror = () => {
-        avatarImg.classList.add('hidden');
-        avatarFallback?.classList.remove('hidden');
-      };
+      avatarImg.style.display = 'block';
+      if (avatarFallback) avatarFallback.style.display = 'none';
     } else {
       if (avatarImg) {
         avatarImg.src = '';
-        avatarImg.classList.add('hidden');
+        avatarImg.style.display = 'none';
       }
-      avatarFallback?.classList.remove('hidden');
+      if (avatarFallback) {
+        avatarFallback.style.display = 'flex';
+      }
     }
   }
 
