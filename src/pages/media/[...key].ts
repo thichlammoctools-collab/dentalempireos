@@ -11,6 +11,42 @@ interface BookMediaAccess {
   chapter_id: string;
 }
 
+// Bounds for the optional on-the-fly transform. Chapter figures are stored as
+// full-resolution PNGs, which are typically 10x the bytes of the same image in
+// AVIF. Callers request a size with ?w= and this clamps it to a sane range so a
+// crafted query cannot request an unbounded transform.
+const MAX_IMAGE_WIDTH = 2400;
+const ALLOWED_IMAGE_FORMATS = new Set(['auto', 'avif', 'webp', 'json']);
+
+interface R2ImageTransform {
+  width: number;
+  fit: 'scale-down';
+  format: string;
+  quality?: number;
+}
+
+// `cf.image` on an R2 get is a supported runtime option but is absent from the
+// installed @cloudflare/workers-types R2GetOptions, so it is declared locally.
+type R2GetWithImageTransform = R2GetOptions & { cf: { image: R2ImageTransform } };
+
+function readImageTransform(url: URL): R2ImageTransform | undefined {
+  const widthParam = Number(url.searchParams.get('w'));
+  if (!Number.isFinite(widthParam) || widthParam <= 0) return undefined;
+
+  const formatParam = (url.searchParams.get('f') ?? 'auto').toLowerCase();
+  const qualityParam = Number(url.searchParams.get('q'));
+
+  return {
+    width: Math.min(Math.round(widthParam), MAX_IMAGE_WIDTH),
+    fit: 'scale-down',
+    // `auto` lets Cloudflare pick AVIF/WebP per the request's Accept header.
+    format: ALLOWED_IMAGE_FORMATS.has(formatParam) ? formatParam : 'auto',
+    ...(Number.isFinite(qualityParam) && qualityParam > 0
+      ? { quality: Math.min(Math.round(qualityParam), 90) }
+      : {}),
+  };
+}
+
 
 async function canAccessBookMedia(key: string, userId?: string): Promise<boolean | null> {
   const block = await env.DB
@@ -68,6 +104,8 @@ export const HEAD: APIRoute = async ({ params, locals }) => {
     return new Response(null, { status: locals.user ? 403 : 401 });
   }
 
+  // R2Bucket.head has no image-transform option, so metadata here always
+  // describes the stored original. Clients negotiate variants through GET.
   const head = await env.MEDIA.head(key);
   if (!head) {
     return new Response(null, { status: 404 });
@@ -80,7 +118,7 @@ export const HEAD: APIRoute = async ({ params, locals }) => {
   return new Response(null, { status: 200, headers });
 };
 
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, locals, url }) => {
   const key = params.key;
   if (!key) {
     return json({ error: 'Missing key' }, 400);
@@ -90,7 +128,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return json({ error: locals.user ? 'Bạn chưa có quyền truy cập tệp này' : 'Vui lòng đăng nhập để truy cập tệp này' }, locals.user ? 403 : 401);
   }
 
-  const object = await env.MEDIA.get(key);
+  const transform = readImageTransform(url);
+  const object = await env.MEDIA.get(key, transform ? { cf: { image: transform } } as R2GetWithImageTransform : undefined);
 
   if (!object) {
     return json({ error: 'File not found' }, 404);
@@ -103,11 +142,19 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const filename = key.split('/').pop() || 'download';
   if (ct.startsWith('image/')) {
     // Images must remain inline so book figures can render in the reader.
-    headers.set('Cache-Control', 'private, max-age=3600');
+    // A transformed variant is a distinct URL, so it can be cached harder than
+    // the original; the original stays short-lived because a new upload replaces
+    // the same R2 key.
+    headers.set('Cache-Control', transform ? 'private, max-age=86400' : 'private, max-age=3600');
+    headers.set('Vary', 'Accept');
     headers.set('Content-Disposition', 'inline');
   } else {
     headers.set('Cache-Control', 'private, no-store');
     headers.set('Content-Disposition', object.httpMetadata?.contentDisposition || `attachment; filename="${filename}"`);
+  }
+
+  if (transform && object.httpEtag) {
+    headers.set('ETag', object.httpEtag);
   }
 
   return new Response(object.body, { status: 200, headers });

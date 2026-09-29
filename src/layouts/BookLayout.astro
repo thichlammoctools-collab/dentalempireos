@@ -1267,6 +1267,13 @@ function toggleToc() {
         return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
       }
 
+      // Ask /media for a right-sized variant. The server still authorizes the
+      // request; R2 performs the resize and format negotiation.
+      function withImageWidth(url: string, width: number): string {
+        const target = Math.max(320, Math.min(Math.round(width), 2400));
+        return `${url}${url.includes('?') ? '&' : '?'}w=${target}&f=auto&q=85`;
+      }
+
       // ── File size cache ──
       const sizeCache = new Map<string, string>();
 
@@ -1459,12 +1466,17 @@ function toggleToc() {
               </div>
             </div>`;
           const img = document.getElementById('preview-img') as HTMLImageElement | null;
-          fetch(url).then(r => r.blob()).then(blob => {
-            if (img) img.src = URL.createObjectURL(blob);
-            previewBody?.querySelector('.preview-loading')?.remove();
-          }).catch(() => {
-            previewBody.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-8">Không thể tải ảnh</p>';
-          });
+          // Request a display-sized variant instead of pulling the full-resolution
+          // original into memory as a blob. The entitlement check still runs on
+          // the server, and the transform is applied by R2.
+          const previewSrc = withImageWidth(url, Math.min(window.innerWidth * (window.devicePixelRatio || 1) * 1.5, 2000));
+          if (img) {
+            img.src = previewSrc;
+            img.addEventListener('load', () => previewBody?.querySelector('.preview-loading')?.remove(), { once: true });
+            img.addEventListener('error', () => {
+              previewBody!.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-8">Không thể tải ảnh</p>';
+            }, { once: true });
+          }
         }
 
         previewModal.classList.remove('hidden');

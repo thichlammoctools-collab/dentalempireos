@@ -42,15 +42,26 @@ const canReadPost = post.access_tier === 'free'
   ? true
   : await canAccessBlogPost(db, Astro.locals.user?.id, post.id);
 
-let blocks: BlogBlock[] = [];
-if (canReadPost) {
-  try {
-    blocks = await getBlocksByPostId(db, post.id);
-  } catch {
-    // blog_block table may not exist yet — gracefully degrade
-    blocks = [];
-  }
-}
+// blocks, related, the linked chapter and the linked scanner have no dependency
+// on each other, so they resolve in one round trip instead of four serial ones.
+const [blockRows, relatedRows, linkedChapterRow, linkedScannerRow] = await Promise.all([
+  canReadPost
+    ? getBlocksByPostId(db, post.id).catch(() => [] as BlogBlock[])
+    : Promise.resolve([] as BlogBlock[]),
+  getRelatedPosts(db, post.id, post.category_id, 4).catch(() => [] as BlogPostWithMeta[]),
+  post.chapter_id
+    ? env.DB.prepare('SELECT id, title, chapter_no, slug FROM "chapter" WHERE id = ?').bind(post.chapter_id).first<{ id: string; title: string; chapter_no: number; slug: string }>().catch(() => null)
+    : Promise.resolve(null),
+  post.scanner_id
+    ? db.prepare('SELECT id, title_vi, description_vi FROM "survey_definition" WHERE id = ?').bind(post.scanner_id).first<{ id: string; title_vi: string; description_vi: string }>().catch(() => null)
+    : Promise.resolve(null),
+]);
+
+const blocks: BlogBlock[] = blockRows;
+const related: BlogPostWithMeta[] = relatedRows;
+const linkedChapter: { id: string; title: string; chapter_no: number; slug: string } | null = linkedChapterRow;
+// `column`/`table` may not exist in older deployments; the catch above degrades to null.
+const linkedScanner: { id: string; title_vi: string; description_vi: string } | null = linkedScannerRow;
 
 // Thêm id vào heading để TOC links hoạt động
 function addHeadingIds(html: string): string {
@@ -64,31 +75,6 @@ function addHeadingIds(html: string): string {
 
 // Increment view count (fire and forget)
 incrementViewCount(db, post.id).catch(() => {});
-
-let related: BlogPostWithMeta[] = [];
-try {
-  related = await getRelatedPosts(db, post.id, post.category_id, 4);
-} catch {
-  related = [];
-}
-
-// Fetch linked chapter and scanner
-let linkedChapter: { id: string; title: string; chapter_no: number; slug: string } | null = null;
-let linkedScanner: { id: string; title_vi: string; description_vi: string } | null = null;
-
-if (post.chapter_id) {
-  try {
-    const ch = await env.DB.prepare('SELECT id, title, chapter_no, slug FROM "chapter" WHERE id = ?').bind(post.chapter_id).first<{ id: string; title: string; chapter_no: number; slug: string }>();
-    if (ch) linkedChapter = ch;
-  } catch { /* column may not exist yet */ }
-}
-
-if (post.scanner_id) {
-  try {
-    const sc = await db.prepare('SELECT id, title_vi, description_vi FROM "survey_definition" WHERE id = ?').bind(post.scanner_id).first<{ id: string; title_vi: string; description_vi: string }>();
-    if (sc) linkedScanner = sc;
-  } catch { /* table may not exist yet */ }
-}
 
 const htmlContent = canReadPost ? marked(post.content_md) : '';
 

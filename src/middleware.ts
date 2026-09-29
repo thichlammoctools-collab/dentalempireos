@@ -20,6 +20,55 @@ function getAdminEmails() {
     .filter(Boolean);
 }
 
+// Keep Better Auth's persisted role in sync with the ADMIN_EMAILS allowlist,
+// which authorizes the user-management APIs via its admin plugin.
+//
+// This used to run an unconditional UPDATE on every request, adding a D1 write
+// to every anonymous page load. It is now scoped to the signed-in account: only
+// an allowlisted session triggers a write, so ordinary and anonymous traffic
+// never pays for it, and each admin's own request is what promotes them.
+async function ensureAdminRole(db: D1Database, userId: string, email: string): Promise<void> {
+  await db
+    .prepare('UPDATE "user" SET "role" = \'admin\' WHERE "id" = ? AND LOWER("email") = ? AND "role" != \'admin\'')
+    .bind(userId, email.toLowerCase())
+    .run();
+}
+
+// Document responses (this is `output: 'server'`, so HTML arrives without a file
+// extension and never matched the `/*.html` rule in public/_headers).
+//
+// An explicit `s-maxage` is deliberately NOT set. Cloudflare's Worker cache key
+// ignores `Vary: Cookie`, so an edge-shared HTML entry could be replayed to a
+// signed-in member and leak which chapters/resources they can read. Browser-level
+// revalidation plus the short `s-maxage`-free window keeps every response
+// per-session correct; pages that render identical markup for everyone can opt in
+// explicitly by setting their own header (see book/[...slug].astro).
+function applyDocumentCachePolicy(
+  response: Response,
+  user: { id: string } | null,
+  request: Request,
+): void {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return;
+  if (!response.ok) return;
+
+  const contentType = response.headers.get('Content-Type') ?? '';
+  if (!contentType.includes('text/html')) return;
+
+  // A page that already expressed its own policy owns it. /book/[...slug] sets
+  // `private, no-store` for premium chapters and must not be relaxed here.
+  if (response.headers.has('Cache-Control')) return;
+
+  if (user) {
+    // Authenticated HTML varies by account: access state, credits, and the
+    // header avatar all render into the markup.
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+    response.headers.set('Vary', 'Cookie');
+    return;
+  }
+
+  response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { locals, request, url } = context;
 
@@ -36,16 +85,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   locals.user = null;
   locals.session = null;
 
-  // Keep Better Auth's role in sync with the email allowlist used by this app.
-  // Its admin plugin authorizes user-management APIs from this persisted role.
   const adminEmails = getAdminEmails();
-  if (adminEmails.length > 0) {
-    const placeholders = adminEmails.map(() => '?').join(', ');
-    await env.DB
-      .prepare(`UPDATE "user" SET "role" = 'admin' WHERE LOWER("email") IN (${placeholders}) AND "role" != 'admin'`)
-      .bind(...adminEmails)
-      .run();
-  }
 
   const auth = getAuth();
   const result = await auth.api.getSession({ headers: request.headers });
@@ -77,6 +117,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
     locals.user = user;
     locals.session = result.session;
+
+    // Promote an allowlisted account to the admin role on its own request. The
+    // admin plugin authorizes user-management APIs from this persisted column,
+    // so it must be set before the admin gate below evaluates this request.
+    if (adminEmails.length > 0 && adminEmails.includes(user.email.toLowerCase())) {
+      try {
+        await ensureAdminRole(env.DB, user.id, user.email);
+        user.role = 'admin';
+      } catch (error) {
+        console.error('[middleware] admin role sync failed', error);
+      }
+    }
 
     // Chặn user bị banned khỏi mọi trang (trừ login)
     if (user.banned && !url.pathname.startsWith('/login')) {
@@ -152,5 +204,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   secured.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   secured.headers.set('X-Frame-Options', 'SAMEORIGIN');
   secured.headers.set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
+  applyDocumentCachePolicy(secured, locals.user, request);
   return secured;
 });

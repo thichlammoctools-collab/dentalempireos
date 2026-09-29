@@ -203,9 +203,10 @@ function renderSection(
         sectionSlug: s.slug, sectionTitle: s.title, previewable: true,
       });
       html += `<div id="attachment-${block.id}" class="attachment-anchor"></div><figure class="my-6">
-        <img src="${imageUrl}" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" decoding="async" onerror="this.closest('figure')?.classList.add('book-image-unavailable')" />
+        <img src="${imageUrl}?w=1200&amp;f=auto" srcset="${imageUrl}?w=640&amp;f=auto 640w, ${imageUrl}?w=960&amp;f=auto 960w, ${imageUrl}?w=1400&amp;f=auto 1400w, ${imageUrl}?w=2000&amp;f=auto 2000w" sizes="(max-width: 768px) 100vw, 720px" alt="${block.alt ?? ''}" class="rounded-xl w-full" loading="lazy" decoding="async" onerror="this.closest('figure')?.classList.add('book-image-unavailable')" />
         ${block.caption ? `<figcaption class="text-center text-sm text-on-surface-variant mt-2">${block.caption}</figcaption>` : ''}
       </figure>`;
+
     } else if (block.type === 'file' && block.r2_key) {
       const meta = getFileMeta(block.mime);
       const ext = (block.filename ?? '').split('.').pop()?.toUpperCase() ?? meta.badge;
