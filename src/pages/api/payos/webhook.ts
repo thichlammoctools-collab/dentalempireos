@@ -10,7 +10,7 @@ import {
   getPayosSettings,
   getPayosEnv,
 } from '../../../lib/payos-db';
-import { fulfillCreditOrder, getCreditOrder } from '../../../lib/credit-db';
+import { cancelCreditOrder, fulfillCreditOrder, getCreditOrder } from '../../../lib/credit-db';
 
 export const prerender = false;
 
@@ -100,10 +100,7 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response('Order no longer active', { status: 200 });
     }
     if (isSuccess) await fulfillCreditOrder(env.DB, creditOrder);
-    else await env.DB.prepare(
-      `UPDATE "credit_order" SET "status" = 'cancelled', "updated_at" = ?
-       WHERE "id" = ? AND "status" = 'pending'`,
-    ).bind(new Date().toISOString(), creditOrder.id).run();
+    else await cancelCreditOrder(env.DB, creditOrder.id);
     return new Response('OK', { status: 200 });
   }
 

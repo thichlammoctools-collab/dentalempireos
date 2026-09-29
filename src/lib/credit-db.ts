@@ -222,6 +222,139 @@ export async function getActiveCreditPackage(db: D1Database, packageId: string):
   ).bind(packageId).first<CreditPackage>();
 }
 
+// ─── Admin catalogue CRUD ──────────────────────────────────────────────────────
+// Owned here so the admin routes and admin pages never write SQL against these
+// tables directly. Rule versioning and the price-capture invariants that depend
+// on it stay in this module rather than being re-implemented per caller.
+
+export async function listCreditPricingRules(
+  db: D1Database,
+  featureTypes?: readonly string[],
+): Promise<CreditPricingRule[]> {
+  // Admin screens read one feature family at a time; filtering in SQL keeps the
+  // other rules out of the result set entirely.
+  if (featureTypes && featureTypes.length > 0) {
+    const placeholders = featureTypes.map(() => '?').join(', ');
+    const { results } = await db.prepare(
+      `SELECT * FROM "credit_pricing_rule"
+       WHERE "feature_type" IN (${placeholders})
+       ORDER BY "feature_type", "target_id", "rule_version" DESC`,
+    ).bind(...featureTypes).all<CreditPricingRule>();
+    return results;
+  }
+  const { results } = await db.prepare(
+    'SELECT * FROM "credit_pricing_rule" ORDER BY "feature_type", "target_id", "rule_version" DESC',
+  ).all<CreditPricingRule>();
+  return results;
+}
+
+export interface CreditPricingRuleValues {
+  featureType: string;
+  targetId: string;
+  model: string;
+  creditAmount: number | null;
+  tokensPerCredit: number | null;
+  minutesPerCredit: number | null;
+  maxTokens: number | null;
+  isActive: number;
+}
+
+/** Updates an existing rule in place, leaving its version and capture intact. */
+export async function updateCreditPricingRule(
+  db: D1Database,
+  id: string,
+  values: CreditPricingRuleValues,
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE "credit_pricing_rule"
+     SET "feature_type" = ?, "target_id" = ?, "model" = ?,
+         "credit_amount" = ?, "tokens_per_credit" = ?, "minutes_per_credit" = ?, "max_tokens" = ?,
+         "is_active" = ?, "updated_at" = ?
+     WHERE "id" = ?`,
+  ).bind(
+    values.featureType, values.targetId, values.model,
+    values.creditAmount, values.tokensPerCredit, values.minutesPerCredit, values.maxTokens,
+    values.isActive, now(), id,
+  ).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+/**
+ * Inserts a new rule version. Version numbers are allocated per
+ * (feature_type, target_id, model) so a specific target always outranks the '*'
+ * wildcard at equal version.
+ */
+export async function insertCreditPricingRule(
+  db: D1Database,
+  values: CreditPricingRuleValues,
+): Promise<{ id: string; ruleVersion: number }> {
+  const ruleId = id();
+  const timestamp = now();
+  const current = await db.prepare(
+    `SELECT COALESCE(MAX("rule_version"), 0) AS "version" FROM "credit_pricing_rule"
+     WHERE "feature_type" = ? AND "target_id" = ? AND "model" = ?`,
+  ).bind(values.featureType, values.targetId, values.model).first<{ version: number }>();
+  const ruleVersion = (current?.version ?? 0) + 1;
+  await db.prepare(
+    `INSERT INTO "credit_pricing_rule"
+     ("id","feature_type","target_id","model","rule_version","credit_amount","tokens_per_credit","minutes_per_credit","max_tokens","is_active","effective_from","effective_until","created_at","updated_at")
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?,?)`,
+  ).bind(
+    ruleId, values.featureType, values.targetId, values.model, ruleVersion,
+    values.creditAmount, values.tokensPerCredit, values.minutesPerCredit, values.maxTokens,
+    values.isActive, timestamp, timestamp, timestamp,
+  ).run();
+  return { id: ruleId, ruleVersion };
+}
+
+export async function deleteCreditPricingRule(db: D1Database, ruleId: string): Promise<boolean> {
+  const result = await db.prepare('DELETE FROM "credit_pricing_rule" WHERE "id" = ?').bind(ruleId).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function listCreditPackages(db: D1Database): Promise<CreditPackage[]> {
+  const { results } = await db.prepare(
+    'SELECT * FROM "credit_package" ORDER BY "sort_order" ASC, "created_at" ASC',
+  ).all<CreditPackage>();
+  return results;
+}
+
+export interface CreditPackageValues {
+  name: string;
+  price: number;
+  creditAmount: number;
+  bonusCredits: number;
+  isActive: number;
+  sortOrder: number;
+}
+
+/** Upsert by id so a package can be created or edited through one call. */
+export async function upsertCreditPackage(
+  db: D1Database,
+  packageId: string,
+  values: CreditPackageValues,
+): Promise<string> {
+  const timestamp = now();
+  await db.prepare(
+    `INSERT INTO "credit_package"
+     ("id","name","price","credit_amount","bonus_credits","is_active","sort_order","created_at","updated_at")
+     VALUES (?,?,?,?,?,?,?,?,?)
+     ON CONFLICT("id") DO UPDATE SET
+       "name" = excluded."name", "price" = excluded."price", "credit_amount" = excluded."credit_amount",
+       "bonus_credits" = excluded."bonus_credits", "is_active" = excluded."is_active",
+       "sort_order" = excluded."sort_order", "updated_at" = excluded."updated_at"`,
+  ).bind(
+    packageId, values.name, values.price, values.creditAmount, values.bonusCredits,
+    values.isActive, values.sortOrder, timestamp, timestamp,
+  ).run();
+  return packageId;
+}
+
+export async function deleteCreditPackage(db: D1Database, packageId: string): Promise<boolean> {
+  const result = await db.prepare('DELETE FROM "credit_package" WHERE "id" = ?').bind(packageId).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
 export async function getCreditOrder(db: D1Database, orderId: string): Promise<CreditOrder | null> {
   return db.prepare('SELECT * FROM "credit_order" WHERE "id" = ?').bind(orderId).first<CreditOrder>();
 }
@@ -330,14 +463,17 @@ export async function attachCreditOrderPaymentLink(
   if (result.meta.changes !== 1) throw new Error('Unable to attach payment link to Credit order');
 }
 
-export async function cancelCreditOrder(
-  db: D1Database,
-  orderId: string,
-): Promise<void> {
-  await db.prepare(
+/**
+ * Cancels a pending order. Returns false when the order was not in a pending
+ * state, so callers can distinguish "already terminal" from "cancelled now"
+ * instead of re-implementing the status guard.
+ */
+export async function cancelCreditOrder(db: D1Database, orderId: string): Promise<boolean> {
+  const result = await db.prepare(
     `UPDATE "credit_order" SET "status" = 'cancelled', "updated_at" = ?
      WHERE "id" = ? AND "status" = 'pending'`,
   ).bind(now(), orderId).run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export async function fulfillCreditOrder(

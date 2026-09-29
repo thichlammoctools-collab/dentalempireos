@@ -48,7 +48,7 @@ try {
   <section class="relative py-20 overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent"></div>
     <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[100px] pointer-events-none"></div>
-    <div class="relative max-w-6xl mx-auto px-6 text-center">
+    <div class="relative max-w-[1200px] mx-auto px-6 text-center">
       <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-semibold mb-6">
         <span class="material-symbols-outlined text-[16px]">play_circle</span>
         Video Courses
@@ -65,7 +65,7 @@ try {
 
   <!-- Access Gate -->
   {!isLoggedIn ? (
-    <section class="max-w-6xl mx-auto px-6 pb-20">
+    <section class="max-w-[1200px] mx-auto px-6 pb-20">
       <div class="glass-card rounded-2xl p-10 text-center max-w-lg mx-auto">
         <div class="w-20 h-20 rounded-full bg-surface-container mx-auto flex items-center justify-center mb-6">
           <span class="material-symbols-outlined text-4xl text-on-surface-variant">lock</span>
@@ -84,7 +84,7 @@ try {
       </div>
     </section>
   ) : !isActivated ? (
-    <section class="max-w-6xl mx-auto px-6 pb-20">
+    <section class="max-w-[1200px] mx-auto px-6 pb-20">
       <div class="glass-card rounded-2xl p-10 text-center max-w-lg mx-auto">
         <div class="w-20 h-20 rounded-full bg-surface-container mx-auto flex items-center justify-center mb-6">
           <span class="material-symbols-outlined text-4xl text-tertiary">hourglass_empty</span>
@@ -100,7 +100,7 @@ try {
       </div>
     </section>
   ) : (
-    <section class="max-w-6xl mx-auto px-6 pb-20">
+    <section class="max-w-[1200px] mx-auto px-6 pb-20">
       {courses.length === 0 ? (
         <div class="text-center py-20">
           <div class="w-24 h-24 rounded-full bg-surface-container mx-auto flex items-center justify-center mb-6">

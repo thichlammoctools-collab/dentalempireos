@@ -33,7 +33,7 @@ const firstVideo = videos[0];
 <BaseLayout title={`${course.title} | Dental Empire OS`}>
   <!-- Access gate -->
   {!isLoggedIn ? (
-    <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+    <div class="max-w-[1200px] mx-auto px-6 py-20 text-center">
       <div class="glass-card rounded-2xl p-10 max-w-lg mx-auto">
         <span class="material-symbols-outlined text-5xl text-on-surface-variant mb-4 block">lock</span>
         <h2 class="text-2xl font-bold text-white mb-3">Đăng nhập để xem</h2>
@@ -44,7 +44,7 @@ const firstVideo = videos[0];
       </div>
     </div>
   ) : !isActivated ? (
-    <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+    <div class="max-w-[1200px] mx-auto px-6 py-20 text-center">
       <div class="glass-card rounded-2xl p-10 max-w-lg mx-auto">
         <span class="material-symbols-outlined text-5xl text-tertiary mb-4 block">hourglass_empty</span>
         <h2 class="text-2xl font-bold text-white mb-3">Tài khoản chưa được kích hoạt</h2>
@@ -52,7 +52,7 @@ const firstVideo = videos[0];
       </div>
     </div>
   ) : !hasCourseAccess ? (
-    <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+    <div class="max-w-[1200px] mx-auto px-6 py-20 text-center">
       <div class="glass-card rounded-2xl p-10 max-w-lg mx-auto">
         <span class="material-symbols-outlined text-5xl text-amber-400 mb-4 block">workspace_premium</span>
         <h2 class="text-2xl font-bold text-white mb-3">Khóa học Premium</h2>
@@ -61,7 +61,7 @@ const firstVideo = videos[0];
       </div>
     </div>
   ) : (
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-16 pt-8">
+    <div class="max-w-[1200px] mx-auto px-4 sm:px-6 pb-16 pt-8">
       <!-- Breadcrumb -->
       <nav class="flex items-center gap-2 text-sm text-on-surface-variant mb-6">
         <a href="/courses" class="hover:text-primary transition-colors flex items-center gap-1">

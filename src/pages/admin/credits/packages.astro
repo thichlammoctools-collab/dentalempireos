@@ -1,14 +1,11 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { env } from 'cloudflare:workers';
+import { listCreditPackages } from '../../../lib/credit-db';
 
 export const prerender = false;
 
-const { results: packages } = await env.DB.prepare(
-  'SELECT * FROM "credit_package" ORDER BY "sort_order" ASC, "created_at" ASC'
-).all<{
-  id: string; name: string; price: number; credit_amount: number; bonus_credits: number; is_active: number; sort_order: number;
-}>();
+const packages = await listCreditPackages(env.DB);
 
 function formatPrice(vnd: number): string {
   return vnd.toLocaleString('vi-VN') + 'đ';

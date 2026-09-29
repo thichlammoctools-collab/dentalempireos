@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { badRequest, json } from '../../../lib/api-helpers';
+import { deleteCreditPackage, listCreditPackages, upsertCreditPackage } from '../../../lib/credit-db';
 
 export const prerender = false;
 
@@ -22,10 +23,7 @@ function parseInteger(value: unknown, _field: string, minimum = 0): number | nul
 }
 
 export const GET: APIRoute = async () => {
-  const { results } = await env.DB.prepare(
-    'SELECT * FROM "credit_package" ORDER BY "sort_order" ASC, "created_at" ASC',
-  ).all();
-  return json(results);
+  return json(await listCreditPackages(env.DB));
 };
 
 export const POST: APIRoute = async ({ request }) => {
@@ -43,16 +41,9 @@ export const POST: APIRoute = async ({ request }) => {
   if (creditAmount + bonusCredits < 1) return badRequest('Package must grant at least one Credit');
 
   const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : crypto.randomUUID();
-  const timestamp = new Date().toISOString();
-  await env.DB.prepare(
-    `INSERT INTO "credit_package"
-     ("id","name","price","credit_amount","bonus_credits","is_active","sort_order","created_at","updated_at")
-     VALUES (?,?,?,?,?,?,?,?,?)
-     ON CONFLICT("id") DO UPDATE SET
-       "name" = excluded."name", "price" = excluded."price", "credit_amount" = excluded."credit_amount",
-       "bonus_credits" = excluded."bonus_credits", "is_active" = excluded."is_active",
-       "sort_order" = excluded."sort_order", "updated_at" = excluded."updated_at"`,
-  ).bind(id, name, price, creditAmount, bonusCredits, isActive, sortOrder, timestamp, timestamp).run();
+  await upsertCreditPackage(env.DB, id, {
+    name, price, creditAmount, bonusCredits, isActive, sortOrder,
+  });
 
   return json({ id }, 201);
 };
@@ -62,9 +53,6 @@ export const DELETE: APIRoute = async ({ request }) => {
   const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : null;
   if (!id) return badRequest('id is required');
 
-  const existing = await env.DB.prepare('SELECT "id" FROM "credit_package" WHERE "id" = ?').bind(id).first();
-  if (!existing) return badRequest('Package not found');
-
-  await env.DB.prepare('DELETE FROM "credit_package" WHERE "id" = ?').bind(id).run();
+  if (!(await deleteCreditPackage(env.DB, id))) return badRequest('Package not found');
   return json({ success: true });
 };

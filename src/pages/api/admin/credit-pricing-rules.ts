@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { badRequest, json } from '../../../lib/api-helpers';
+import {
+  deleteCreditPricingRule,
+  insertCreditPricingRule,
+  listCreditPricingRules,
+  updateCreditPricingRule,
+} from '../../../lib/credit-db';
 
 export const prerender = false;
 
@@ -22,10 +28,7 @@ function optionalPositiveInteger(value: unknown): number | null | undefined {
 }
 
 export const GET: APIRoute = async () => {
-  const { results } = await env.DB.prepare(
-    'SELECT * FROM "credit_pricing_rule" ORDER BY "feature_type", "target_id", "rule_version" DESC',
-  ).all();
-  return json(results);
+  return json(await listCreditPricingRules(env.DB));
 };
 
 export const POST: APIRoute = async ({ request }) => {
@@ -64,39 +67,20 @@ export const POST: APIRoute = async ({ request }) => {
     return badRequest('At least one pricing value is required');
   }
 
-  const timestamp = new Date().toISOString();
   const existingId = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : null;
+  const values = {
+    featureType, targetId, model,
+    creditAmount, tokensPerCredit, minutesPerCredit, maxTokens,
+    isActive,
+  };
   if (existingId) {
-    const existing = await env.DB.prepare(
-      'SELECT "id" FROM "credit_pricing_rule" WHERE "id" = ?',
-    ).bind(existingId).first<{ id: string }>();
-    if (!existing) return badRequest('Rule not found');
-
-    await env.DB.prepare(
-      `UPDATE "credit_pricing_rule"
-       SET "feature_type" = ?, "target_id" = ?, "model" = ?,
-           "credit_amount" = ?, "tokens_per_credit" = ?, "minutes_per_credit" = ?, "max_tokens" = ?,
-           "is_active" = ?, "updated_at" = ?
-       WHERE "id" = ?`,
-    ).bind(
-      featureType, targetId, model, creditAmount, tokensPerCredit, minutesPerCredit, maxTokens,
-      isActive, timestamp, existingId,
-    ).run();
+    const updated = await updateCreditPricingRule(env.DB, existingId, values);
+    if (!updated) return badRequest('Rule not found');
     return json({ id: existingId, updated: true });
   }
 
-  const id = crypto.randomUUID();
-  const current = await env.DB.prepare(
-    `SELECT COALESCE(MAX("rule_version"), 0) AS "version" FROM "credit_pricing_rule"
-     WHERE "feature_type" = ? AND "target_id" = ? AND "model" = ?`,
-  ).bind(featureType, targetId, model).first<{ version: number }>();
-  const version = (current?.version ?? 0) + 1;
-  await env.DB.prepare(
-    `INSERT INTO "credit_pricing_rule"
-     ("id","feature_type","target_id","model","rule_version","credit_amount","tokens_per_credit","minutes_per_credit","max_tokens","is_active","effective_from","effective_until","created_at","updated_at")
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?,?)`,
-  ).bind(id, featureType, targetId, model, version, creditAmount, tokensPerCredit, minutesPerCredit, maxTokens, isActive, timestamp, timestamp, timestamp).run();
-  return json({ id, rule_version: version }, 201);
+  const created = await insertCreditPricingRule(env.DB, values);
+  return json({ id: created.id, rule_version: created.ruleVersion }, 201);
 };
 
 export const DELETE: APIRoute = async ({ request }) => {
@@ -104,9 +88,7 @@ export const DELETE: APIRoute = async ({ request }) => {
   const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : null;
   if (!id) return badRequest('id is required');
 
-  const existing = await env.DB.prepare('SELECT "id" FROM "credit_pricing_rule" WHERE "id" = ?').bind(id).first();
-  if (!existing) return badRequest('Rule not found');
-
-  await env.DB.prepare('DELETE FROM "credit_pricing_rule" WHERE "id" = ?').bind(id).run();
+  if (!(await deleteCreditPricingRule(env.DB, id))) return badRequest('Rule not found');
   return json({ success: true });
 };
+

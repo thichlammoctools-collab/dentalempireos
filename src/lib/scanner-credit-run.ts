@@ -24,26 +24,16 @@ import {
   type CreditConsumption,
   type CreditReservation,
 } from './credit-db';
+// The durable price capture and its fail-closed validation are pure and live in
+// scanner-credit-run-price.ts so they can be unit tested without a D1 binding.
+import {
+  getCapturedScannerCreditRunPrice,
+  isPositiveSafeInteger,
+  type ScannerCreditRun,
+  type ScannerCreditRunPrice,
+} from './scanner-credit-run-price';
 
-export interface ScannerCreditRun {
-  id: string;
-  user_id: string;
-  survey_id: string;
-  idempotency_key: string;
-  reservation_id: string;
-  response_id: number | null;
-  status: 'reserved' | 'completed' | 'failed';
-  retry_token: string | null;
-  credit_amount: number | null;
-  price_snapshot_json: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ScannerCreditRunPrice {
-  credits: number;
-  priceSnapshot: Record<string, unknown>;
-}
+export { getCapturedScannerCreditRunPrice, type ScannerCreditRun, type ScannerCreditRunPrice };
 
 function now(): string {
   return new Date().toISOString();
@@ -65,33 +55,6 @@ export async function getScannerCreditRunByIdempotencyKey(
   return db.prepare(
     'SELECT * FROM "scanner_credit_run" WHERE "user_id" = ? AND "idempotency_key" = ?',
   ).bind(userId, idempotencyKey).first<ScannerCreditRun>() ?? null;
-}
-
-function isPositiveSafeInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
-}
-
-/**
- * A retry must be priced from the immutable capture made with the original run.
- * Rows predating that capture cannot safely be recovered and must fail closed.
- */
-export function getCapturedScannerCreditRunPrice(run: ScannerCreditRun): ScannerCreditRunPrice {
-  if (!isPositiveSafeInteger(run.credit_amount) || !run.price_snapshot_json) {
-    throw new Error('Scanner Credit run lacks a durable price capture.');
-  }
-
-  let priceSnapshot: unknown;
-  try {
-    priceSnapshot = JSON.parse(run.price_snapshot_json);
-  } catch {
-    throw new Error('Scanner Credit run has an invalid durable price snapshot.');
-  }
-  if (!priceSnapshot || Array.isArray(priceSnapshot) || typeof priceSnapshot !== 'object'
-    || !isPositiveSafeInteger((priceSnapshot as Record<string, unknown>).credits)
-    || (priceSnapshot as Record<string, unknown>).credits !== run.credit_amount) {
-    throw new Error('Scanner Credit run has inconsistent durable price capture.');
-  }
-  return { credits: run.credit_amount, priceSnapshot: priceSnapshot as Record<string, unknown> };
 }
 
 export async function startScannerCreditRun(
