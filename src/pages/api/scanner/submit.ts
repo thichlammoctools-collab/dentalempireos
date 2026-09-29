@@ -24,13 +24,15 @@ import { upsertClinicProfile } from '../../../lib/clinic-profile-db';
 import { addToHistory, FREE_SCANNER_ATTEMPT_LIMIT } from '../../../lib/scanner-history-db';
 import {
   getActiveCreditPricingRule,
+  InsufficientCreditsError,
+} from '../../../lib/credit-db';
+import {
   getScannerCreditRunByIdempotencyKey,
   getCapturedScannerCreditRunPrice,
   startScannerCreditRun,
   completeScannerCreditRun,
   failScannerCreditRun,
-  InsufficientCreditsError,
-} from '../../../lib/credit-db';
+} from '../../../lib/scanner-credit-run';
 import { getScoreLevel } from '../../../lib/scoring-engine';
 import { readAttributionFromPayload, recordSiteEvent, sanitizeAnonymousId } from '../../../lib/site-analytics';
 import { checkGuestRequestRateLimit, createGuestReport, validateGuestLead } from '../../../lib/scanner-guest-report';

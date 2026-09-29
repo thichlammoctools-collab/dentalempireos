@@ -40,9 +40,26 @@ import {
   getScannerActionPlanActions,
   getScannerActionPlanForGenerationRun,
   persistScannerActionPlanActionSet,
-  type ScannerActionPlanActionInput,
-  type ScannerActionPriority,
 } from './scanner-action-plan-db';
+import {
+  getScannerPlanSourcePii,
+  InvalidScannerActionPlanOutputError,
+  parseStructuredScannerActionPlan,
+  renderStructuredScannerActionPlanMarkdown,
+} from './scanner-ai-output';
+
+// Plan output validation and Markdown rendering are pure and live in
+// scanner-ai-output.ts so they can be unit tested without a D1 binding. They are
+// re-exported here because callers already import them from this module.
+export {
+  assertNoPlanPii,
+  escapeScannerActionPlanMarkdown,
+  getScannerPlanSourcePii,
+  InvalidScannerActionPlanOutputError,
+  parseStructuredScannerActionPlan,
+  renderStructuredScannerActionPlanMarkdown,
+  type StructuredScannerActionPlan,
+} from './scanner-ai-output';
 
 export interface ScannerAiConfig {
   config: ModelConfig;
@@ -207,11 +224,13 @@ function addBookContext(systemPrompt: string, bookContext: string, lang: 'vi' | 
   return `${systemPrompt}${instruction}`;
 }
 
-const ACTION_PRIORITIES_UNUSED_PLACEHOLDER_REMOVED = null;
-
-// ─── Streaming exports ─────────────────────────────────────────────────────────
-
+/**
+ * Restricts the provider to the strict JSON envelope. The format is appended to
+ * the system prompt; the matching parser lives in scanner-ai-output.ts.
+ */
+function withStructuredPlanFormat(prompt: string, lang: 'vi' | 'en'): string {
   const format = lang === 'vi'
+
     ? `\n\n# ĐỊNH DẠNG JSON BẮT BUỘC\nTrả về duy nhất một JSON object hợp lệ, không bọc Markdown, không dùng code fence, không thêm lời giải thích. Schema chính xác:\n{"title":"...","summary":"...","actions":[{"title":"...","description":"...","category":"operations|people|process|finance|marketing|patient_experience|compliance|technology|strategy","priority":"low|medium|high","target_days":7}]}\nTạo từ 4 đến 12 actions theo thứ tự ưu tiên. title/summary/action title/description là plain text, không HTML. target_days là số nguyên 1-365. Không tạo position, ID, owner, thông tin liên hệ hoặc dữ liệu cá nhân.`
     : `\n\n# REQUIRED JSON FORMAT\nReturn only one valid JSON object: no Markdown, no code fence, and no explanatory text. Exact schema:\n{"title":"...","summary":"...","actions":[{"title":"...","description":"...","category":"operations|people|process|finance|marketing|patient_experience|compliance|technology|strategy","priority":"low|medium|high","target_days":7}]}\nReturn 4 to 12 actions in priority order. title/summary/action title/description must be plain text with no HTML. target_days must be an integer from 1 to 365. Do not create positions, IDs, owners, contact details, or personal data.`;
   return `${prompt}${format}`;
